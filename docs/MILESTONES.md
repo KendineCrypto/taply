@@ -1,6 +1,6 @@
 # Taply v0.4 14-day parallel implementation and release gates
 
-**Do not trade away correctness for breadth.** Nov 1–14 2026 main build; prior preparation should comply with hackathon rules. Each day close with branch commit, test evidence and 2-minute demo clip.
+**Do not trade away correctness for breadth.** Nov 1–14 2026 remains the main delivery schedule, but official `HACKATHON.md` Q-001 permits eligible code from **19 Oct 2026**; it does not impose a November 1 coding embargo. Backend/Protocol Phase 0 is authorized now. Each implementation slice closes with a local branch commit and actual test evidence; publication remains subject to lead approval.
 
 | Day | Claude-owned UI | Codex-owned chain/API | Lead acceptance |
 |---|---|---|---|

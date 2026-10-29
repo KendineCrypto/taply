@@ -1,5 +1,6 @@
 ﻿node_modules/
 .next/
+.pnpm-store/
 dist/
 build/
 target/
