@@ -4,3 +4,9 @@ packages:
 
 saveExact: true
 strictPeerDependencies: true
+engineStrict: true
+sharedWorkspaceLockfile: true
+# Keep pnpm 11 supply-chain protections explicit for clean/CI installations.
+strictDepBuilds: true
+minimumReleaseAge: 1440
+blockExoticSubdeps: true
