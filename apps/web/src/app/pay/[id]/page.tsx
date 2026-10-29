@@ -1,20 +1,17 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { Card, DetailRow, ScreenHeader } from '@/components/primitives/Surface';
+import { Card, DetailRow } from '@/components/primitives/Surface';
 import { ErrorState } from '@/components/feedback/ErrorState';
-import { RouteScaffold } from '@/components/shell/RouteScaffold';
+import { ComingSoon } from '@/components/shell/ComingSoon';
 import { useT } from '@/lib/i18n/provider';
 
 /**
  * The canonical, role-aware intent view (UX_FLOWS screens 07, 08, 12-17).
  *
- * One route renders every role (payer / recipient / creator / observer) and every
- * ChainState, so there is a single status code path and therefore a single place
- * a false "paid" could ever appear.
- *
- * Phase 0 reads no chain data. Rather than invent an intent, it shows the
- * identifier it was given and states what will be fetched.
+ * One route renders every role and every ChainState, so there is a single
+ * status code path. Until Codex's payment-intent read exists, it shows only the
+ * identifier it was given - never an invented intent.
  */
 export default function PayIntentPage() {
   const t = useT();
@@ -25,43 +22,20 @@ export default function PayIntentPage() {
   const looksWellFormed = /^[0-9a-f]{64}$/.test(id);
 
   return (
-    <>
-      <ScreenHeader title={t.screens.pay} />
-
+    <ComingSoon title={t.screens.pay} summary={t.routes.payIntent} flag="instantPay" icon="pay">
       {!looksWellFormed && (
         <div className="mb-4">
           <ErrorState code="REQUEST_NOT_FOUND" />
         </div>
       )}
-
       <Card>
         <dl>
-          <DetailRow label="Request ID">
+          <DetailRow label={t.routes.requestIdLabel}>
             <span className="chain-id">{id || t.common.notAvailable}</span>
           </DetailRow>
           <DetailRow label={t.common.network}>{t.app.networkBadge}</DetailRow>
         </dl>
       </Card>
-
-      <div className="mt-4">
-        <RouteScaffold
-          title={t.screens.pay}
-          flag="instantPay"
-          plannedBehaviour={[
-            'Fetch PaymentIntentResponse from Codex and render status via mapChainState only.',
-            'Recipient, exact amount, network, mode and cancel rights shown in full before any signature.',
-            'Terms are re-read and the termsHash re-compared immediately before the wallet opens.',
-            'Protected: LOCKED shows "not paid" to both sides, with a chain-anchored approximate countdown.',
-            'Cancel appears only for the payer while the chain window is open; release only once eligible.',
-            'An unknown outcome blocks any further payment until the chain is queried.',
-          ]}
-          dependsOn={[
-            'Codex GET /api/v1/payment-intents/:id returning ChainObservation + derived projection.',
-            'Chain time for countdown anchoring (observedBlock.timestampNs).',
-            'Browser wallet adapter (Claude, next increment).',
-          ]}
-        />
-      </div>
-    </>
+    </ComingSoon>
   );
 }

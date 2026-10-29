@@ -409,6 +409,189 @@ export const en: Dictionary = {
     blockedOutsideDemo: 'Mock data cannot be shown outside the demo area.',
   },
 
+  wallet: {
+    connect: 'Connect wallet',
+    connecting: 'Opening your wallet…',
+    restoring: 'Checking wallet connection',
+    disconnect: 'Disconnect',
+    connectedWith: 'Connected with {wallet}',
+    accountLabel: 'Account',
+    walletLabel: 'Wallet',
+    connectTitle: 'Connect a NEAR Testnet wallet',
+    connectBody: 'See your Testnet balance and get ready to request and pay.',
+    noKeysNote: 'Taply never sees or stores your keys. Every transfer is approved in your own wallet.',
+    reportedNotProven:
+      'Your wallet shared this account ID. Nothing has been signed, and connecting cannot move funds.',
+    disabled: {
+      title: 'Wallet connection is off',
+      body: 'Wallet connection is switched off in this build.',
+    },
+    likelyMainnet: {
+      title: 'This looks like a mainnet account',
+      body: 'Taply only works on NEAR Testnet. If this account does not exist on Testnet, switch your wallet to Testnet.',
+    },
+    copyAccount: 'Copy account ID',
+    accountCopied: 'Account ID copied',
+    copyFailed: 'Could not copy. Select the account ID and copy it manually.',
+    accountMenuLabel: 'Wallet account',
+    errors: {
+      cancelled: {
+        title: 'Connection cancelled',
+        body: 'The wallet was closed before connecting. Nothing changed.',
+      },
+      unavailable: {
+        title: 'No wallet available',
+        body: 'The wallet list could not be loaded, or no Testnet wallet is available. Check your connection and try again.',
+      },
+      no_account: {
+        title: 'No usable account',
+        body: 'The wallet did not share a valid NEAR account. Choose or create a Testnet account in your wallet.',
+      },
+      failed: {
+        title: 'Could not connect',
+        body: 'The wallet did not finish connecting. Nothing was signed. Try again.',
+      },
+    },
+  },
+
+  balance: {
+    title: 'Testnet balance',
+    refresh: 'Refresh balance',
+    refreshing: 'Refreshing',
+    verifiedAt: 'Final block #{height} · {time}',
+    staleAt: 'Last verified {time}. The latest read failed.',
+    storageNote: 'Total account balance. Part of it is reserved for storage and cannot be sent.',
+    lockedLabel: 'Locked (staked)',
+    notShown: 'Balance not shown',
+    loading: 'Reading balance from NEAR Testnet',
+    notFound: {
+      title: 'Account not found on Testnet',
+      body: 'This account does not exist on NEAR Testnet. It may be a mainnet account, or it has not been funded yet.',
+    },
+    networkMismatch: {
+      title: 'Wrong network',
+      body: 'The balance service did not answer as NEAR Testnet, so no balance is shown.',
+    },
+    unverified: {
+      title: 'Balance not verified',
+      body: 'The read could not be tied to a final Testnet block, so no number is shown.',
+    },
+    readFailed: {
+      title: 'Balance unavailable',
+      body: 'NEAR Testnet could not be reached. Your funds are unaffected. Try again.',
+    },
+    rateLimited: {
+      title: 'Too many requests',
+      body: 'The public Testnet service is busy. Wait a moment and refresh.',
+    },
+    configInvalid: {
+      title: 'Chain connection not configured',
+      body: 'This build has no valid NEAR Testnet connection, so balances cannot be read.',
+    },
+  },
+
+  home: {
+    quickActionsLabel: 'Quick actions',
+    send: 'Send',
+    receive: 'Receive',
+    request: 'Request',
+    soon: 'Soon',
+    recentActivity: 'Recent activity',
+    activityEmptyTitle: 'No activity to show yet',
+    activityEmptyBody:
+      'Taply activity appears here once its payment history service is live. Your full Testnet history is on the explorer.',
+    activityConnectBody: 'Connect a wallet to see your activity.',
+    viewOnExplorer: 'View account on explorer',
+  },
+
+  routes: {
+    payHub: {
+      description: 'Every payment is reviewed in full and approved in your own wallet.',
+      scanBody: 'Scan a sale or request QR code.',
+      requestBody: 'Ask someone to pay you.',
+      sendBody: 'Send directly to an account ID.',
+      swipeNote:
+        'A swipe only opens your wallet. It never moves funds by itself, and every swipe has a button and keyboard alternative.',
+    },
+    comingSoon: 'Coming soon',
+    afterVerification: 'Available after it is verified on NEAR Testnet',
+    send: 'Send Testnet NEAR to any account, with a full review before you approve in your wallet.',
+    receive: 'Share your account ID to receive Testnet NEAR.',
+    scan: 'Scan a merchant or request QR code. Amounts and recipients are always re-checked on chain.',
+    requestNew: 'Create a payment request with Instant or Protected mode and share it by link or QR.',
+    activity: 'Your Taply payments, with on-chain proof for each one.',
+    contacts: 'Save names for account IDs on this device. The full account ID is always shown before you pay.',
+    split: 'Split a bill into separate requests that add up exactly.',
+    recurring: 'Request templates that create a new request each time. Nothing is ever charged automatically.',
+    merchant: 'Every sale with its on-chain status. Locked funds are never shown as paid.',
+    merchantSetup: 'Link your merchant profile to your NEAR Testnet account by signing in your wallet.',
+    merchantRegister: 'Enter an amount and create a unique, signed request for each sale.',
+    checkout: 'This merchant page shows active sales. It cannot charge you by itself.',
+    session: 'Compare the same code on both screens, then review and pay.',
+    payIntent: 'Review the recipient, exact amount and terms before approving in your wallet.',
+    receipt: 'A receipt appears only after the payment is final and verified on chain.',
+    requestIdLabel: 'Request ID',
+    sessionIdLabel: 'Session ID',
+    stateLabel: 'State',
+    merchantAccountLabel: 'Merchant account',
+  },
+
+  receive: {
+    yourAccount: 'Your account ID',
+    testnetOnlyWarning: 'Only send NEAR Testnet funds to this account. Mainnet funds sent here are not visible in Taply.',
+    qrLater: 'A scannable QR code for this account is coming soon.',
+    connectFirst: 'Connect a wallet to see the account ID you can receive with.',
+  },
+
+  settings: {
+    walletSection: 'Wallet',
+    languageSection: 'Language',
+    networkSection: 'Network',
+    contractLabel: 'Taply contract',
+    contractNotDeployed: 'Not deployed yet',
+    rpcLabel: 'Testnet service',
+    diagnosticsLink: 'Open diagnostics',
+    diagnosticsBody: 'Technical details about this build, for reviewers.',
+    notConnected: 'No wallet connected',
+  },
+
+  system: {
+    reloadOnlyNote: 'This only reloads the screen. It does not resend anything.',
+    notFoundBody: 'That link does not lead anywhere. No payment was affected.',
+    goHome: 'Go to home',
+    backOnline: 'Back online',
+  },
+
+  diagnostics: {
+    title: 'Diagnostics',
+    description: 'Technical state of this build. Simulated data below never touches a chain.',
+    chainConfig: 'Chain configuration',
+    chainConfigInvalid: 'Invalid configuration. Chain reads are disabled.',
+    checkNetwork: 'Check Testnet connection',
+    checking: 'Checking',
+    networkOk: 'Testnet confirmed',
+    capabilities: 'Capabilities',
+    capabilitiesBody:
+      'Payment capabilities stay off until verified on NEAR Testnet. "Locked" means configuration alone cannot enable it.',
+    enabled: 'enabled',
+    locked: 'locked',
+    dependencies: 'Waiting on',
+    dependencyItems: [
+      'Deployed Testnet contract and ABI (Codex) - blocks requests, Instant and Protected Pay.',
+      'GET /api/v1/payment-intents/:id and /receipts/:id (Codex) - blocks payment and receipt views.',
+      'Account activity endpoint with per-item provenance (Codex) - blocks activity history.',
+      'Session service and SSE hints (Codex) - blocks Handshake.',
+      'NEP-413 challenge/verify endpoints (Codex) - blocks merchant setup.',
+      'QR code library approval (lockfile) - blocks receive and request QR codes.',
+    ],
+    statusMatrix: 'Payment status matrix',
+    statusMatrixBody: 'Every chain state, for the selected role and assurance, as the app would render it.',
+    callerRole: 'Caller role',
+    observationSource: 'Observation source',
+    assurance: 'Assurance',
+    mockPinned: 'A mock observation cannot claim verification, so assurance is pinned and every financial action is withheld.',
+  },
+
   screens: {
     home: 'Wallet',
     send: 'Send',

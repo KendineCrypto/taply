@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import './globals.css';
 import { AppShell } from '@/components/shell/AppShell';
 import { I18nProvider } from '@/lib/i18n/provider';
+import { WalletProvider } from '@/lib/wallet/provider';
 import { LOCALE_COOKIE, getDictionary, resolveLocale } from '@/lib/i18n';
 
 export const metadata: Metadata = {
@@ -29,6 +30,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Pinch-zoom stays available: disabling it is an accessibility regression.
   maximumScale: 5,
+  // Lets content use the full screen on notched devices; the shell pads with
+  // env(safe-area-inset-*) so nothing sits under the notch or home indicator.
+  viewportFit: 'cover',
   themeColor: '#0B120E',
 };
 
@@ -46,7 +50,9 @@ export default async function RootLayout({ children }: { readonly children: Reac
     <html lang={locale}>
       <body>
         <I18nProvider locale={locale}>
-          <AppShell>{children}</AppShell>
+          <WalletProvider>
+            <AppShell>{children}</AppShell>
+          </WalletProvider>
         </I18nProvider>
         {/* Static, honest statement of what this build is. */}
         <span className="sr-only">{dictionary.app.demoFundsNote}</span>

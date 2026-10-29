@@ -407,6 +407,189 @@ export const tr: Dictionary = {
     blockedOutsideDemo: 'Mock veri demo alanı dışında gösterilemez.',
   },
 
+  wallet: {
+    connect: 'Cüzdan bağla',
+    connecting: 'Cüzdanın açılıyor…',
+    restoring: 'Cüzdan bağlantısı kontrol ediliyor',
+    disconnect: 'Bağlantıyı kes',
+    connectedWith: '{wallet} ile bağlı',
+    accountLabel: 'Hesap',
+    walletLabel: 'Cüzdan',
+    connectTitle: 'NEAR Testnet cüzdanı bağla',
+    connectBody: 'Testnet bakiyeni gör; ödeme istemeye ve ödemeye hazır ol.',
+    noKeysNote: 'Taply anahtarlarını asla görmez ve saklamaz. Her transferi kendi cüzdanında onaylarsın.',
+    reportedNotProven:
+      'Bu hesap kimliğini cüzdanın paylaştı. Hiçbir şey imzalanmadı; bağlanmak fon hareket ettiremez.',
+    disabled: {
+      title: 'Cüzdan bağlantısı kapalı',
+      body: 'Bu sürümde cüzdan bağlantısı kapatılmış.',
+    },
+    likelyMainnet: {
+      title: 'Bu bir mainnet hesabına benziyor',
+      body: "Taply yalnızca NEAR Testnet'te çalışır. Bu hesap Testnet'te yoksa cüzdanını Testnet'e geçir.",
+    },
+    copyAccount: 'Hesap kimliğini kopyala',
+    accountCopied: 'Hesap kimliği kopyalandı',
+    copyFailed: 'Kopyalanamadı. Hesap kimliğini seçip elle kopyala.',
+    accountMenuLabel: 'Cüzdan hesabı',
+    errors: {
+      cancelled: {
+        title: 'Bağlantı iptal edildi',
+        body: 'Cüzdan bağlanmadan kapatıldı. Hiçbir şey değişmedi.',
+      },
+      unavailable: {
+        title: 'Kullanılabilir cüzdan yok',
+        body: 'Cüzdan listesi yüklenemedi ya da Testnet destekleyen bir cüzdan yok. Bağlantını kontrol edip tekrar dene.',
+      },
+      no_account: {
+        title: 'Kullanılabilir hesap yok',
+        body: 'Cüzdan geçerli bir NEAR hesabı paylaşmadı. Cüzdanında bir Testnet hesabı seç ya da oluştur.',
+      },
+      failed: {
+        title: 'Bağlanılamadı',
+        body: 'Cüzdan bağlantıyı tamamlamadı. Hiçbir şey imzalanmadı. Tekrar dene.',
+      },
+    },
+  },
+
+  balance: {
+    title: 'Testnet bakiyesi',
+    refresh: 'Bakiyeyi yenile',
+    refreshing: 'Yenileniyor',
+    verifiedAt: 'Kesinleşmiş blok #{height} · {time}',
+    staleAt: 'Son doğrulama {time}. Son okuma başarısız oldu.',
+    storageNote: 'Toplam hesap bakiyesi. Bir kısmı depolama için ayrılmıştır ve gönderilemez.',
+    lockedLabel: 'Kilitli (stake)',
+    notShown: 'Bakiye gösterilmiyor',
+    loading: "Bakiye NEAR Testnet'ten okunuyor",
+    notFound: {
+      title: "Hesap Testnet'te bulunamadı",
+      body: "Bu hesap NEAR Testnet'te yok. Bir mainnet hesabı olabilir ya da henüz fonlanmamış olabilir.",
+    },
+    networkMismatch: {
+      title: 'Yanlış ağ',
+      body: 'Bakiye servisi NEAR Testnet olarak yanıt vermedi; bu yüzden bakiye gösterilmiyor.',
+    },
+    unverified: {
+      title: 'Bakiye doğrulanmadı',
+      body: 'Okuma kesinleşmiş bir Testnet bloğuna bağlanamadı; bu yüzden tutar gösterilmiyor.',
+    },
+    readFailed: {
+      title: 'Bakiye alınamıyor',
+      body: "NEAR Testnet'e ulaşılamadı. Fonların etkilenmedi. Tekrar dene.",
+    },
+    rateLimited: {
+      title: 'Çok fazla istek',
+      body: 'Herkese açık Testnet servisi yoğun. Biraz bekleyip yenile.',
+    },
+    configInvalid: {
+      title: 'Zincir bağlantısı yapılandırılmamış',
+      body: 'Bu sürümde geçerli bir NEAR Testnet bağlantısı yok; bakiyeler okunamıyor.',
+    },
+  },
+
+  home: {
+    quickActionsLabel: 'Hızlı işlemler',
+    send: 'Gönder',
+    receive: 'Al',
+    request: 'İste',
+    soon: 'Yakında',
+    recentActivity: 'Son hareketler',
+    activityEmptyTitle: 'Henüz gösterilecek hareket yok',
+    activityEmptyBody:
+      "Ödeme geçmişi servisi devreye girdiğinde Taply hareketlerin burada görünür. Tüm Testnet geçmişin explorer'da.",
+    activityConnectBody: 'Hareketlerini görmek için bir cüzdan bağla.',
+    viewOnExplorer: "Hesabı explorer'da görüntüle",
+  },
+
+  routes: {
+    payHub: {
+      description: 'Her ödeme eksiksiz gözden geçirilir ve kendi cüzdanında onaylanır.',
+      scanBody: 'Bir satış ya da talep QR kodunu tara.',
+      requestBody: 'Birinden ödeme iste.',
+      sendBody: 'Doğrudan bir hesap kimliğine gönder.',
+      swipeNote:
+        'Kaydırma yalnızca cüzdanını açar. Kendi başına fon göndermez; her kaydırmanın bir düğme ve klavye karşılığı vardır.',
+    },
+    comingSoon: 'Yakında',
+    afterVerification: "NEAR Testnet'te doğrulandıktan sonra kullanılabilir",
+    send: 'Herhangi bir hesaba Testnet NEAR gönder; cüzdanında onaylamadan önce her şeyi gözden geçir.',
+    receive: 'Testnet NEAR almak için hesap kimliğini paylaş.',
+    scan: 'Satıcı ya da talep QR kodunu tara. Tutar ve alıcı her zaman zincirde yeniden kontrol edilir.',
+    requestNew: 'Anında veya Korumalı modda bir ödeme talebi oluştur; bağlantı ya da QR ile paylaş.',
+    activity: 'Taply ödemelerin, her biri için zincir üstü kanıtla.',
+    contacts: 'Hesap kimliklerine bu cihazda isim ver. Ödemeden önce tam hesap kimliği her zaman gösterilir.',
+    split: 'Bir hesabı, toplamı tam tutan ayrı taleplere böl.',
+    recurring: 'Her seferinde yeni bir talep oluşturan şablonlar. Hiçbir zaman otomatik tahsilat yapılmaz.',
+    merchant: 'Her satış zincir üstü durumuyla. Kilitli tutarlar asla ödenmiş gösterilmez.',
+    merchantSetup: 'Cüzdanında imzalayarak satıcı profilini NEAR Testnet hesabına bağla.',
+    merchantRegister: 'Bir tutar gir ve her satış için benzersiz, imzalı bir talep oluştur.',
+    checkout: 'Bu satıcı sayfası aktif satışları gösterir. Kendi başına senden tahsilat yapamaz.',
+    session: 'İki ekranda aynı kodu karşılaştır, sonra gözden geçirip öde.',
+    payIntent: 'Cüzdanında onaylamadan önce alıcıyı, tam tutarı ve koşulları gözden geçir.',
+    receipt: 'Makbuz yalnızca ödeme zincirde kesinleşip doğrulandıktan sonra görünür.',
+    requestIdLabel: 'Talep kimliği',
+    sessionIdLabel: 'Oturum kimliği',
+    stateLabel: 'Durum',
+    merchantAccountLabel: 'Satıcı hesabı',
+  },
+
+  receive: {
+    yourAccount: 'Hesap kimliğin',
+    testnetOnlyWarning: "Bu hesaba yalnızca NEAR Testnet fonu gönder. Buraya gönderilen mainnet fonları Taply'de görünmez.",
+    qrLater: 'Bu hesap için taranabilir QR kod yakında.',
+    connectFirst: 'Alım yapabileceğin hesap kimliğini görmek için bir cüzdan bağla.',
+  },
+
+  settings: {
+    walletSection: 'Cüzdan',
+    languageSection: 'Dil',
+    networkSection: 'Ağ',
+    contractLabel: 'Taply kontratı',
+    contractNotDeployed: 'Henüz yayınlanmadı',
+    rpcLabel: 'Testnet servisi',
+    diagnosticsLink: 'Tanılamayı aç',
+    diagnosticsBody: 'Bu sürümün teknik ayrıntıları, inceleyenler için.',
+    notConnected: 'Bağlı cüzdan yok',
+  },
+
+  system: {
+    reloadOnlyNote: 'Bu yalnızca ekranı yeniden yükler. Hiçbir şeyi yeniden göndermez.',
+    notFoundBody: 'Bu bağlantı bir yere çıkmıyor. Hiçbir ödeme etkilenmedi.',
+    goHome: 'Ana sayfaya dön',
+    backOnline: 'Yeniden çevrimiçi',
+  },
+
+  diagnostics: {
+    title: 'Tanılama',
+    description: 'Bu sürümün teknik durumu. Aşağıdaki simüle veriler hiçbir zincire dokunmaz.',
+    chainConfig: 'Zincir yapılandırması',
+    chainConfigInvalid: 'Geçersiz yapılandırma. Zincir okumaları devre dışı.',
+    checkNetwork: 'Testnet bağlantısını kontrol et',
+    checking: 'Kontrol ediliyor',
+    networkOk: 'Testnet doğrulandı',
+    capabilities: 'Yetenekler',
+    capabilitiesBody:
+      'Ödeme yetenekleri NEAR Testnet\'te doğrulanana kadar kapalı kalır. "Kilitli", yalnızca yapılandırmayla açılamayacağı anlamına gelir.',
+    enabled: 'açık',
+    locked: 'kilitli',
+    dependencies: 'Beklenenler',
+    dependencyItems: [
+      "Yayınlanmış Testnet kontratı ve ABI (Codex) - talepleri, Anında ve Korumalı Ödeme'yi engelliyor.",
+      'GET /api/v1/payment-intents/:id ve /receipts/:id (Codex) - ödeme ve makbuz ekranlarını engelliyor.',
+      'Kayıt başına kaynak bilgisi içeren hesap hareketleri uç noktası (Codex) - hareket geçmişini engelliyor.',
+      "Oturum servisi ve SSE ipuçları (Codex) - Handshake'i engelliyor.",
+      'NEP-413 challenge/verify uç noktaları (Codex) - satıcı kurulumunu engelliyor.',
+      'QR kod kütüphanesi onayı (lockfile) - alım ve talep QR kodlarını engelliyor.',
+    ],
+    statusMatrix: 'Ödeme durumu matrisi',
+    statusMatrixBody: 'Seçilen rol ve güvence için her zincir durumu, uygulamanın göstereceği biçimde.',
+    callerRole: 'Çağıran rolü',
+    observationSource: 'Gözlem kaynağı',
+    assurance: 'Güvence',
+    mockPinned: 'Sahte bir gözlem doğrulama iddia edemez; bu yüzden güvence sabitlenir ve hiçbir finansal işlem sunulmaz.',
+  },
+
   screens: {
     home: 'Cüzdan',
     send: 'Gönder',

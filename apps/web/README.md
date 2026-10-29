@@ -5,25 +5,40 @@ Mobile-first NEAR **Testnet** wallet and merchant payment PWA. Owned by Claude
 protocol; `@taply/shared` is its executable form and this app consumes it rather
 than restating it.
 
-## Status: Phase 0.5 (shell + shared protocol integration)
+## Status: Phase 2A (real Testnet wallet experience)
 
-**No payment works. No contract is deployed. Nothing here has been demonstrated
-on NEAR Testnet.** `docs/EVIDENCE.md` remains the only place a verified claim may
-be recorded, and this phase adds nothing to it.
+**No payment works. No contract is deployed.** Wallet connection and balance
+reads are real NEAR Testnet integrations; every payment action stays disabled.
+`docs/EVIDENCE.md` remains the only place a verified claim may be recorded.
 
 | Area | State |
 |---|---|
-| App shell, 20 routes, chrome, accessibility | built |
+| App shell, routes, chrome, safe areas, accessibility | built |
 | Brand assets + PWA icons/manifest | built |
-| EN/TR localisation, all 56 shared error codes | built |
-| `@taply/shared` integration (types, schemas, hashing) | built, tested against the frozen vectors |
-| Payment status mapping + fail-closed rules | built, 105 unit/integration tests |
-| Capability flags (all off) | built |
-| Mock status matrix at `/demo` | built |
-| Wallet connect / signing | **not started** |
-| HTTP transport to `/api/v1` | **not started** |
-| Instant Pay, Protected Pay, Handshake, checkout, receipts | **not started** |
+| EN/TR localisation of all product screens | built |
+| External NEAR Testnet wallet connect (`@hot-labs/near-connect`) | built; picker verified in Chrome, sign-in with a real wallet **not yet human-tested** |
+| Native NEAR balance via `@taply/near-client` (final-block RPC reads) | built; browser Testnet read verified |
+| Home: balance card, connection state, quick actions, activity | built (activity is an honest empty state + explorer link) |
+| Receive (account ID + copy) | built; QR code pending a dependency approval |
+| Payment status mapping + fail-closed rules | built, tested |
+| Diagnostics, capability table, status matrix | `/demo` only |
+| Send, Request, Instant/Protected Pay, Handshake, checkout, receipts | **disabled** until the contract/ABI and Codex reads exist |
 | Service worker, CSP | **deliberately deferred** (reasons in `src/lib/protocol/README.md`) |
+
+### Wallet and balance rules
+
+- Sign-in adds **no** access key. Taply never creates, stores or sees a private key.
+- A connected account is what the wallet *reported*. Nothing is signed, so it
+  is used for public reads only, never as authorisation.
+- A balance number is shown only for a `source: rpc`, `verified_final`,
+  non-stale read of the exact connected account (`src/lib/near/balance.ts`).
+  Errors, mock data, a mismatch or a missing account never render a number, and
+  never render zero. After an outage the last verified value stays visible,
+  marked stale with its check time.
+- `.near` names get a "looks like mainnet" warning, but are not rejected: the
+  `near` account exists on Testnet. The Testnet RPC read decides.
+- `Cross-Origin-Opener-Policy` is `same-origin-allow-popups` so wallet popups
+  can reply to the page that opened them.
 
 ## Commands
 
@@ -39,46 +54,17 @@ pnpm --filter @taply/web check            # verify:brand + typecheck + lint + te
 `@taply/shared` exposes only `dist/`, so it must be built before this app can
 typecheck, test or build against it.
 
-## Lockfile and workspace — action needed from Codex
+## Open dependencies
 
-`apps/web` is now a member of the root pnpm workspace and depends on
-`@taply/shared` via `workspace:*`. The root `pnpm-lock.yaml` and
-`pnpm-workspace.yaml` belong to Codex and were **left byte-identical** by this
-phase, so the lockfile does not yet contain an `apps/web` importer.
-
-Consequence: `pnpm install --frozen-lockfile` will fail until Codex regenerates
-the lockfile. A plain `pnpm install` succeeds and produces the needed entries.
-The required change is an added `apps/web:` importer plus its transitive
-packages — about +3,387 / −146 lines, no change to any existing
-`packages/shared` dependency version.
-
-Two root-level problems were avoided rather than pushed onto Codex:
-
-- **Native build script.** `eslint-config-next` pulls in
-  `eslint-import-resolver-typescript` → `unrs-resolver`, which has a native
-  postinstall. The workspace does not allow unapproved build scripts, and
-  `ERR_PNPM_IGNORED_BUILDS` made *every* pnpm command fail until
-  `pnpm-workspace.yaml` was edited. Resolved by composing
-  `@next/eslint-plugin-next` with `typescript-eslint` directly — same rules, no
-  native build, no root change.
-- **Supply-chain minimum release age.** `@types/node@26.6.6` was too new for the
-  workspace policy and pnpm wanted a `minimumReleaseAgeExclude` entry. Resolved
-  by pinning `@types/node@24.19.2`, which matches the project's Node 24 anyway.
-
-## Unresolved dependencies
-
-- **Lockfile regeneration** (above) — Codex.
-- **Root scripts** only run `--filter @taply/shared`. Adding `apps/web` to the
-  root `build`/`typecheck`/`test`/`check` scripts is a root-manifest change, so
-  it is Codex's or the lead's call.
-- **`eslint-plugin-jsx-a11y` and `eslint-plugin-react` are not installed.** Both
-  peer at `eslint@^9` only; the entire ESLint 9 line is end-of-life and the
-  workspace sets `strictPeerDependencies: true`. The a11y *lint rules* are
-  therefore absent for now — the a11y *behaviour* is still implemented and
-  asserted. They return when the plugins support ESLint 10.
-- **No transport contract exercised yet.** `PaymentIntentResponseSchema` is
-  imported and tested, but no endpoint is called, so no real API response shape
-  has been observed.
+- **Lockfile importer update** for `@hot-labs/near-connect` and
+  `@taply/near-client` — Codex/lead. See
+  [`docs/CHANGE_REQUEST_phase-2a.md`](docs/CHANGE_REQUEST_phase-2a.md). Until it
+  lands, `pnpm install --frozen-lockfile` fails; plain `pnpm install` works.
+- **QR code encoder** approval (Receive/Request QR).
+- **Codex reads**: payment intents, receipts, account activity, sessions,
+  NEP-413 auth. Listed live in `/demo` diagnostics.
+- `eslint-plugin-jsx-a11y` / `eslint-plugin-react` still peer at ESLint 9 only;
+  a11y behaviour is implemented and tested without those lint rules.
 
 ## Architecture
 
@@ -86,7 +72,9 @@ Two root-level problems were avoided rather than pushed onto Codex:
 src/app/            routes (App Router). One route per frozen path.
 src/components/
   brand/            approved mark geometry; never redrawn
-  shell/            AppShell, top bar, bottom nav, route scaffold
+  shell/            AppShell, top bar, bottom nav, icons, ComingSoon
+  wallet/           BalanceCard, AccountChip, connect button + error notice
+  home/             QuickActions, RecentActivity
   status/           StatusBadge, VerifiedPaidRibbon, VerificationChip, MockBadge
   primitives/       Amount, AccountId, Card, DetailRow
   feedback/         ErrorState (protocol codes), NoticeState (client-only), FeatureDisabled
@@ -95,7 +83,10 @@ src/lib/
   payments/         mapChainState — the only module that decides payment display
   format/           BigInt base-unit amounts; ns timestamps and clock anchoring
   i18n/             EN default + TR, typed dictionaries, no route prefix
-  flags/            capability flags, all off until Testnet-verified
+  flags/            capability flags; only read-only walletConnect is on
+  near/             chain config, the near-client instance, balance view model
+  wallet/           wallet adapter interface + NEAR Connect implementation
+  hooks/            online status, clipboard
   mock/             fixtures + the guard that confines them to /demo
 ```
 
@@ -150,7 +141,7 @@ stays empty until Codex deploys and reports a real one. Never put a secret in a
 ## Third-party code
 
 Next.js, React, Tailwind CSS, Zod, Vitest, sharp (build-time icon rasterization
-only), plus the workspace package `@taply/shared`. No wallet, chain or networking
-library is installed yet. Frontend code in this directory was written with Claude
+only), `@hot-labs/near-connect` 0.12.0 (MIT, wallet connection), plus the
+workspace packages `@taply/shared` and `@taply/near-client`. Frontend code in this directory was written with Claude
 Code; see the root README for the hackathon disclosure required by
 HACKATHON.md Q-005.

@@ -20,6 +20,10 @@ declare namespace NodeJS {
     /** Testnet payments contract account id. Empty until Codex deploys one. */
     readonly NEXT_PUBLIC_TAPLY_CONTRACT_ID?: string;
     readonly NEXT_PUBLIC_TAPLY_EXPLORER_BASE_URL?: string;
+    /** Public Testnet JSON-RPC endpoint (HTTPS, CORS-enabled, no credentials). */
+    readonly NEXT_PUBLIC_TAPLY_RPC_URL?: string;
+    /** Label recorded on every observation so provenance is visible. */
+    readonly NEXT_PUBLIC_TAPLY_RPC_PROVIDER_ID?: string;
 
     readonly NEXT_PUBLIC_TAPLY_FLAG_WALLET?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY?: string;

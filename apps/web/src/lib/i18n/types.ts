@@ -154,6 +154,141 @@ export interface Dictionary {
     readonly blockedOutsideDemo: string;
   };
 
+  /** Wallet connection. `{wallet}` / `{account}` are filled by `fill()`. */
+  readonly wallet: {
+    readonly connect: string;
+    readonly connecting: string;
+    readonly restoring: string;
+    readonly disconnect: string;
+    readonly connectedWith: string;
+    readonly accountLabel: string;
+    readonly walletLabel: string;
+    readonly connectTitle: string;
+    readonly connectBody: string;
+    readonly noKeysNote: string;
+    readonly reportedNotProven: string;
+    readonly disabled: ErrorCopy;
+    readonly likelyMainnet: ErrorCopy;
+    readonly copyAccount: string;
+    readonly accountCopied: string;
+    readonly copyFailed: string;
+    readonly accountMenuLabel: string;
+    readonly errors: Readonly<Record<'cancelled' | 'unavailable' | 'no_account' | 'failed', ErrorCopy>>;
+  };
+
+  /** Native balance card. `{height}` / `{time}` are filled by `fill()`. */
+  readonly balance: {
+    readonly title: string;
+    readonly refresh: string;
+    readonly refreshing: string;
+    readonly verifiedAt: string;
+    readonly staleAt: string;
+    readonly storageNote: string;
+    readonly lockedLabel: string;
+    readonly notShown: string;
+    readonly loading: string;
+    readonly notFound: ErrorCopy;
+    readonly networkMismatch: ErrorCopy;
+    readonly unverified: ErrorCopy;
+    readonly readFailed: ErrorCopy;
+    readonly rateLimited: ErrorCopy;
+    readonly configInvalid: ErrorCopy;
+  };
+
+  readonly home: {
+    readonly quickActionsLabel: string;
+    readonly send: string;
+    readonly receive: string;
+    readonly request: string;
+    readonly soon: string;
+    readonly recentActivity: string;
+    readonly activityEmptyTitle: string;
+    readonly activityEmptyBody: string;
+    readonly activityConnectBody: string;
+    readonly viewOnExplorer: string;
+  };
+
+  /** User-facing summaries of every route, so no screen hardcodes English. */
+  readonly routes: {
+    readonly payHub: {
+      readonly description: string;
+      readonly scanBody: string;
+      readonly requestBody: string;
+      readonly sendBody: string;
+      readonly swipeNote: string;
+    };
+    readonly comingSoon: string;
+    readonly afterVerification: string;
+    readonly send: string;
+    readonly receive: string;
+    readonly scan: string;
+    readonly requestNew: string;
+    readonly activity: string;
+    readonly contacts: string;
+    readonly split: string;
+    readonly recurring: string;
+    readonly merchant: string;
+    readonly merchantSetup: string;
+    readonly merchantRegister: string;
+    readonly checkout: string;
+    readonly session: string;
+    readonly payIntent: string;
+    readonly receipt: string;
+    readonly requestIdLabel: string;
+    readonly sessionIdLabel: string;
+    readonly stateLabel: string;
+    readonly merchantAccountLabel: string;
+  };
+
+  readonly receive: {
+    readonly yourAccount: string;
+    readonly testnetOnlyWarning: string;
+    readonly qrLater: string;
+    readonly connectFirst: string;
+  };
+
+  readonly settings: {
+    readonly walletSection: string;
+    readonly languageSection: string;
+    readonly networkSection: string;
+    readonly contractLabel: string;
+    readonly contractNotDeployed: string;
+    readonly rpcLabel: string;
+    readonly diagnosticsLink: string;
+    readonly diagnosticsBody: string;
+    readonly notConnected: string;
+  };
+
+  readonly system: {
+    readonly reloadOnlyNote: string;
+    readonly notFoundBody: string;
+    readonly goHome: string;
+    readonly backOnline: string;
+  };
+
+  /** /demo only: technical diagnostics for reviewers and judges. */
+  readonly diagnostics: {
+    readonly title: string;
+    readonly description: string;
+    readonly chainConfig: string;
+    readonly chainConfigInvalid: string;
+    readonly checkNetwork: string;
+    readonly checking: string;
+    readonly networkOk: string;
+    readonly capabilities: string;
+    readonly capabilitiesBody: string;
+    readonly enabled: string;
+    readonly locked: string;
+    readonly dependencies: string;
+    readonly dependencyItems: ReadonlyArray<string>;
+    readonly statusMatrix: string;
+    readonly statusMatrixBody: string;
+    readonly callerRole: string;
+    readonly observationSource: string;
+    readonly assurance: string;
+    readonly mockPinned: string;
+  };
+
   readonly screens: {
     readonly home: string;
     readonly send: string;

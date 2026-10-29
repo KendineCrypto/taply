@@ -118,6 +118,7 @@ export function FeatureDisabled({
     not_implemented: t.flags.comingLater,
     awaiting_testnet_proof: t.flags.requiresVerification,
     security_gate: t.flags.requiresVerification,
+    disabled_by_config: t.flags.disabledBody,
     enabled: '',
   };
 

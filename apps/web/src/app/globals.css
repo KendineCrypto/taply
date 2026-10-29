@@ -93,11 +93,33 @@ html {
   background-color: var(--surface-0);
 }
 
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  letter-spacing: -0.01em;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
 body {
   background-color: var(--surface-0);
   color: var(--text-primary);
   font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   /* Mobile-first: never allow the page body to scroll sideways. */
   overflow-x: hidden;
 }

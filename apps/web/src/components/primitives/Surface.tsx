@@ -32,11 +32,11 @@ export function ScreenHeader({
   readonly trailing?: ReactNode;
 }) {
   return (
-    <header className="mb-4 flex items-start justify-between gap-3">
+    <header className="mb-5 mt-1 flex items-start justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-[1.625rem] font-semibold leading-tight tracking-tight">{title}</h1>
         {description !== undefined && (
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
+          <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-secondary)]">{description}</p>
         )}
       </div>
       {trailing}

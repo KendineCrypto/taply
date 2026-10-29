@@ -1,22 +1,17 @@
 'use client';
 
-import { RouteScaffold } from '@/components/shell/RouteScaffold';
+import { ComingSoon } from '@/components/shell/ComingSoon';
 import { useT } from '@/lib/i18n/provider';
 
+/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
 export default function Page() {
   const t = useT();
   return (
-    <RouteScaffold
+    <ComingSoon
       title={t.screens.scan}
-      flag="walletConnect"
-      plannedBehaviour={[
-        'Camera QR scanner with a manual paste fallback and a keyboard path.',
-        'Validate the payload shape and canonical origin before navigating.',
-        'Resolve only an identifier; recipient and amount are always re-read from chain, never taken from the QR.',
-      ]}
-      dependsOn={[
-        'Codex GET /api/v1/payment-intents/:id for the chain re-read.',
-      ]}
+      summary={t.routes.scan}
+      flag="handshake"
+      icon="scan"
     />
   );
 }

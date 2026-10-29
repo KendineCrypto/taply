@@ -1,23 +1,17 @@
 'use client';
 
-import { RouteScaffold } from '@/components/shell/RouteScaffold';
+import { ComingSoon } from '@/components/shell/ComingSoon';
 import { useT } from '@/lib/i18n/provider';
 
+/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
 export default function Page() {
   const t = useT();
   return (
-    <RouteScaffold
+    <ComingSoon
       title={t.screens.merchant}
+      summary={t.routes.merchant}
       flag="merchantCheckout"
-      plannedBehaviour={[
-        'Per-intent status with explorer evidence; amber Locked, lime Final, muted Refunded.',
-        'Never a green Paid badge for escrow (freeze section 9).',
-        'Invoice number and session identifier per sale.',
-      ]}
-      dependsOn={[
-        'Codex merchant-scoped authenticated reads.',
-        'NEP-413 wallet-signature session.',
-      ]}
+      icon="pay"
     />
   );
 }

@@ -1,6 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { Button, Spinner } from '@/components/primitives/Button';
+import { FEATURE_FLAGS, FLAGS } from '@/lib/flags/features';
+import { CHAIN_CONFIG } from '@/lib/near/config';
+import { getNearClient } from '@/lib/near/client';
+import type { NearTestnetClient } from '@/lib/near/client';
 import { Amount, AccountId } from '@/components/primitives/Amount';
 import { Card, DetailRow, ScreenHeader } from '@/components/primitives/Surface';
 import { StatusBadge } from '@/components/status/StatusBadge';
@@ -44,19 +49,21 @@ export default function DemoPage() {
 
   return (
     <>
-      <ScreenHeader
-        title={t.screens.demo}
-        description="Simulated states for visual review. Nothing here touches a chain."
-        trailing={<MockBadge />}
-      />
+      <ScreenHeader title={t.diagnostics.title} description={t.diagnostics.description} />
 
-      <Card className="mb-4">
+      <Diagnostics />
+
+      <h2 className="mb-1 mt-8 text-base font-semibold">{t.diagnostics.statusMatrix}</h2>
+      <p className="mb-3 text-sm text-[var(--text-secondary)]">{t.diagnostics.statusMatrixBody}</p>
+
+      <Card className="mb-4 flex items-start justify-between gap-3">
         <p className="text-sm text-[var(--tone-danger-fg)]">{t.mock.demoOnly}</p>
+        <MockBadge />
       </Card>
 
       <Card className="mb-4">
         <Choice
-          legend="Caller role"
+          legend={t.diagnostics.callerRole}
           options={CALLER_ROLES}
           value={role}
           onChange={setRole}
@@ -64,7 +71,7 @@ export default function DemoPage() {
         />
 
         <Choice
-          legend="Observation source"
+          legend={t.diagnostics.observationSource}
           options={OBSERVATION_SOURCES}
           value={source}
           onChange={setSource}
@@ -72,7 +79,7 @@ export default function DemoPage() {
         />
 
         <Choice
-          legend="Assurance"
+          legend={t.diagnostics.assurance}
           options={ASSURANCES}
           value={effectiveAssurance}
           onChange={setAssurance}
@@ -82,8 +89,7 @@ export default function DemoPage() {
 
         {source === 'mock' && (
           <p className="mt-2 text-xs text-[var(--tone-caution-fg)]">
-            A mock observation cannot claim verification, so assurance is pinned to{' '}
-            {t.assurance.unverified.label} and every financial action is withheld.
+            {t.diagnostics.mockPinned} ({t.assurance.unverified.label})
           </p>
         )}
       </Card>
@@ -240,5 +246,119 @@ function StateRow({
         {presentation.ctas.length}
       </p>
     </Card>
+  );
+}
+
+/** Build and chain diagnostics. Technical by design; this route is for reviewers. */
+function Diagnostics() {
+  const t = useT();
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card as="section">
+        <h2 className="mb-1 text-sm font-semibold">{t.diagnostics.chainConfig}</h2>
+        {CHAIN_CONFIG.ok ? (
+          <>
+            <dl>
+              <DetailRow label="network">
+                <span className="chain-id">{CHAIN_CONFIG.client.network}</span>
+              </DetailRow>
+              <DetailRow label="rpcUrl">
+                <span className="chain-id">{CHAIN_CONFIG.client.rpcUrl}</span>
+              </DetailRow>
+              <DetailRow label="rpcProviderId">
+                <span className="chain-id">{CHAIN_CONFIG.client.rpcProviderId}</span>
+              </DetailRow>
+              <DetailRow label="contract">
+                <span className="chain-id">null</span>
+              </DetailRow>
+              <DetailRow label="explorer">
+                <span className="chain-id">{CHAIN_CONFIG.explorerBaseUrl}</span>
+              </DetailRow>
+            </dl>
+            <NetworkCheck client={getNearClient()} />
+          </>
+        ) : (
+          <p className="text-sm text-[var(--tone-danger-fg)]">
+            {t.diagnostics.chainConfigInvalid} <span className="font-mono text-xs">({CHAIN_CONFIG.reason})</span>
+          </p>
+        )}
+      </Card>
+
+      <Card as="section">
+        <h2 className="mb-1 text-sm font-semibold">{t.diagnostics.capabilities}</h2>
+        <p className="mb-3 text-xs text-[var(--text-muted)]">{t.diagnostics.capabilitiesBody}</p>
+        <ul className="flex flex-col">
+          {FEATURE_FLAGS.map((flag) => {
+            const state = FLAGS[flag];
+            return (
+              <li
+                key={flag}
+                className="flex items-center justify-between gap-2 border-b border-[var(--border-subtle)] py-2 text-sm last:border-b-0"
+              >
+                <span className="font-mono text-xs">{flag}</span>
+                <span className={state.enabled ? 'text-[var(--tone-success-fg)]' : 'text-[var(--tone-caution-fg)]'}>
+                  {state.enabled ? t.diagnostics.enabled : state.reason.replace(/_/g, ' ')}
+                  {state.hardDisabled ? ` · ${t.diagnostics.locked}` : ''}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+
+      <Card as="section">
+        <h2 className="mb-2 text-sm font-semibold">{t.diagnostics.dependencies}</h2>
+        <ul className="list-disc space-y-1.5 pl-5 text-sm text-[var(--text-secondary)]">
+          {t.diagnostics.dependencyItems.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </Card>
+    </div>
+  );
+}
+
+type NetworkCheckState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'checking' }
+  | { readonly kind: 'ok'; readonly height: string; readonly nodeVersion: string }
+  | { readonly kind: 'failed'; readonly code: string };
+
+/** Live Testnet identity check via @taply/near-client (status + final block). */
+function NetworkCheck({ client }: { readonly client: NearTestnetClient | null }) {
+  const t = useT();
+  const [state, setState] = useState<NetworkCheckState>({ kind: 'idle' });
+  if (client === null) return null;
+
+  const run = async () => {
+    setState({ kind: 'checking' });
+    const result = await client.checkNetwork();
+    if (result.error === null && result.observation.data !== null && result.observation.observedBlock !== null) {
+      setState({
+        kind: 'ok',
+        height: result.observation.observedBlock.height,
+        nodeVersion: result.observation.data.nodeVersion,
+      });
+    } else {
+      setState({ kind: 'failed', code: result.error?.code ?? 'UNKNOWN' });
+    }
+  };
+
+  return (
+    <div className="mt-3" aria-live="polite">
+      <Button variant="secondary" onClick={() => void run()} disabled={state.kind === 'checking'}>
+        {state.kind === 'checking' && <Spinner />}
+        {state.kind === 'checking' ? t.diagnostics.checking : t.diagnostics.checkNetwork}
+      </Button>
+      {state.kind === 'ok' && (
+        <p className="mt-2 font-mono text-xs text-[var(--tone-success-fg)]">
+          {t.diagnostics.networkOk} · final #{state.height} · nearcore {state.nodeVersion}
+        </p>
+      )}
+      {state.kind === 'failed' && (
+        <p className="mt-2 font-mono text-xs text-[var(--tone-danger-fg)]">{state.code}</p>
+      )}
+    </div>
   );
 }

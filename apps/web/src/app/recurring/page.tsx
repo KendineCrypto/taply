@@ -1,20 +1,17 @@
 'use client';
 
-import { RouteScaffold } from '@/components/shell/RouteScaffold';
+import { ComingSoon } from '@/components/shell/ComingSoon';
 import { useT } from '@/lib/i18n/provider';
 
+/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
 export default function Page() {
   const t = useT();
   return (
-    <RouteScaffold
+    <ComingSoon
       title={t.screens.recurring}
+      summary={t.routes.recurring}
       flag="recurring"
-      plannedBehaviour={[
-        'Templates create new unpaid requests. There is no autopay and no unattended debit, ever.',
-      ]}
-      dependsOn={[
-        'Deferred to P2 by freeze section 1.',
-      ]}
+      icon="refresh"
     />
   );
 }
