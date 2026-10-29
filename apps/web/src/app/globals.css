@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+
+/**
+ * Taply design tokens.
+ *
+ * Source of truth: brand/design-tokens.json + brand/taply.css. The five brand
+ * values below are copied from there and must not drift.
+ *
+ * Two additional status tokens are lead-approved (Protocol Freeze v1 section 9):
+ *   --color-gold  muted khaki/gold  -> LOCKED, pending and uncertain states
+ *   --color-clay  muted clay/red    -> destructive errors
+ * Neither is orange, which CLAUDE.md forbids outright.
+ *
+ * The app is deliberately dark-only: CLAUDE.md specifies a "dark haki/night-green
+ * premium product feel". There is no light theme to switch to.
+ */
+@theme {
+  /* --- Approved brand palette (brand/design-tokens.json) --- */
+  --color-night: #0b120e;
+  --color-forest: #111c15;
+  --color-olive: #203226;
+  --color-cream: #f4f3e8;
+  --color-lime: #c7fc75;
+
+  /* --- Lead-approved status extensions --- */
+  --color-gold: #c9ae62;
+  --color-clay: #c9736b;
+
+  --font-sans: Inter, 'Inter Display', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Brand values as plain custom properties, for inline SVG fills. */
+  --taply-night: #0b120e;
+  --taply-forest: #111c15;
+  --taply-olive: #203226;
+  --taply-cream: #f4f3e8;
+  --taply-lime: #c7fc75;
+  --taply-gold: #c9ae62;
+  --taply-clay: #c9736b;
+
+  /* Semantic surfaces */
+  --surface-0: var(--taply-night);
+  --surface-1: var(--taply-forest);
+  --surface-2: var(--taply-olive);
+
+  /* Text. Opacity steps keep a single hue, so contrast stays predictable. */
+  --text-primary: var(--taply-cream);
+  --text-secondary: rgb(244 243 232 / 0.72);
+  --text-muted: rgb(244 243 232 / 0.52);
+
+  --border-subtle: rgb(244 243 232 / 0.12);
+  --border-strong: rgb(244 243 232 / 0.24);
+
+  /**
+   * Status tones. Each pairs a foreground with a dim ground; both are checked
+   * for >= 4.5:1 against their own ground in src/app/__tests__ (contrast is
+   * also re-verified visually at 360/390/430px).
+   */
+  --tone-neutral-fg: var(--text-primary);
+  --tone-neutral-bg: rgb(244 243 232 / 0.06);
+
+  --tone-caution-fg: var(--taply-gold);
+  --tone-caution-bg: rgb(201 174 98 / 0.12);
+  --tone-caution-border: rgb(201 174 98 / 0.4);
+
+  --tone-success-fg: var(--taply-lime);
+  --tone-success-bg: rgb(199 252 117 / 0.12);
+  --tone-success-border: rgb(199 252 117 / 0.45);
+
+  --tone-danger-fg: var(--taply-clay);
+  --tone-danger-bg: rgb(201 115 107 / 0.12);
+  --tone-danger-border: rgb(201 115 107 / 0.4);
+
+  --tone-muted-fg: var(--text-muted);
+  --tone-muted-bg: rgb(244 243 232 / 0.04);
+
+  /* Minimum interactive target (UX_FLOWS.md: >= 44px). */
+  --tap-target: 44px;
+
+  --radius-card: 16px;
+  --radius-control: 12px;
+}
+
+* {
+  min-width: 0;
+}
+
+html {
+  background-color: var(--surface-0);
+}
+
+body {
+  background-color: var(--surface-0);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Mobile-first: never allow the page body to scroll sideways. */
+  overflow-x: hidden;
+}
+
+/**
+ * Visible focus everywhere. Keyboard parity is a hard requirement
+ * (UX_FLOWS.md accessibility), including as the alternative to swipe.
+ */
+:focus-visible {
+  outline: 2px solid var(--taply-lime);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Only remove the default ring where :focus-visible is actually handled. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/**
+ * Reduced motion is honoured globally rather than per-component, so a new
+ * animation cannot opt out by omission.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility tap-target {
+  min-height: var(--tap-target);
+  min-width: var(--tap-target);
+}
+
+/* Visually hidden but available to screen readers. */
+@utility sr-only-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+
+  &:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+}
+
+/* Wide content (tables, code, hashes) scrolls inside its own box. */
+@utility scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/** Account IDs and tx hashes: monospace, wrappable, never silently clipped. */
+@utility chain-id {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}

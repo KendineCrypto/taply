@@ -113,6 +113,14 @@ describe('verified-paid is unreachable except for FINAL_PAID + verified_final', 
       expect(result.tone).not.toBe('success');
     }
   });
+
+  it('never lets mock data claim funds reached the recipient, in any state', () => {
+    for (const [state, role, assurance] of EVERY_COMBINATION) {
+      const result = run(state, role, assurance, permissiveDerived(role), 'mock');
+      expect(result.money, `${state}/${role}/${assurance}`).not.toBe('to_recipient');
+      expect(result.verifiedRibbon, `${state}/${role}/${assurance}`).toBe(false);
+    }
+  });
 });
 
 describe('LOCKED is never paid', () => {

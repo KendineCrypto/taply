@@ -285,6 +285,12 @@ export function mapChainState({ state, observation, role, derived }: MapInput): 
   if (state === 'FINAL_PAID' && !assuranceIsConfident(observation.assurance)) {
     money = 'uncertain';
   }
+  // Mock data must never assert that funds reached anyone, even when the fixture
+  // claims FINAL_PAID + verified_final. `verifiedRibbon` is already false for a
+  // mock source; this keeps the money position consistent with that.
+  if (observation.source === 'mock' && money === 'to_recipient') {
+    money = 'uncertain';
+  }
 
   const needsFreshnessWarning =
     observation.stale ||

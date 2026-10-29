@@ -76,12 +76,21 @@ interface TaplyWordmarkProps {
  * <img> with a fixed aspect ratio so it can never be distorted.
  */
 export function TaplyWordmark({ width = 112, className }: TaplyWordmarkProps) {
+  /**
+   * Layout arithmetic, not money: the no-Math.round rule guards chain amounts,
+   * and this only derives a pixel height from the fixed 591:250 artboard so the
+   * element reserves space and cannot shift layout.
+   */
+  // eslint-disable-next-line no-restricted-syntax
   const height = Math.round((width * WORDMARK_VIEWBOX.height) / WORDMARK_VIEWBOX.width);
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- a static brand SVG
-    // must be byte-identical to the approved asset; the image optimizer would
-    // re-encode it.
+    /**
+     * A plain <img> on purpose: the approved wordmark must stay byte-identical,
+     * and next/image would route it through the optimizer. It is small, static
+     * and not an LCP candidate, so the advisory rule does not apply.
+     */
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={WORDMARK_ASSETS.transparent}
       alt="Taply"
