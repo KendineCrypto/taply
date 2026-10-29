@@ -1,6 +1,6 @@
 # taply. — NEAR Testnet Payments That Feel Human
 
-> **PRODUCT SPECIFICATION v0.4 (27 October 2026).** This repository kit is documentation, not a functioning blockchain deployment. Never mark planned capabilities as shipped.
+> **Taply v0.4 — Protocol Phase 0.** Shared schemas, canonical fixtures and local unit tests are implemented. There is no functioning blockchain deployment yet. [Protocol Freeze v1](docs/LEAD_PROTOCOL_FREEZE_v1.md) supersedes conflicting older specifications.
 
 **One sentence:** Taply is a NEAR Testnet wallet and merchant payment app with live **Handshake** sessions, **Instant Pay**, consent-based **Protected Pay**, and chain-verifiable receipts.
 
@@ -15,7 +15,7 @@
 
 ## Hackathon constraints
 - All value transfers and contracts: **NEAR Testnet only**. No cross-chain, bridges, mainnet or real funds.
-- Development window: **1–14 Nov 2026**, final 14 Nov 23:59 UTC. Public GitHub + X demo required (verify latest official rules: https://nearhackathon.com/).
+- Eligible code window: **19 Oct–14 Nov 2026**, per official [HACKATHON.md](HACKATHON.md) Q-001. Submission opens **1 Nov 00:00 UTC**, closes **14 Nov 23:59 UTC**. Public repository and human-published X demo required; pushing, publication and submission require explicit approval.
 - Primary fit: **Real-World Money**. Judge demo: two phones, merchant QR, link, wallet signature, honest on-chain status, actual release/cancel, verified receipts.
 - No promise of prizes, security audit, mainnet suitability, production money movement, or 100% perfect custody.
 
@@ -31,13 +31,38 @@
 9. `docs/DEMO_AND_JUDGING.md` (evaluation evidence and video)
 10. `CLAUDE.md` or `AGENTS.md` (agent-specific instructions)
 
-## Repo structure (target; generated source code not yet present)
+## Phase 0 reproduction
+
+Use Node **24.13.0** (`.node-version`) and pnpm **11.5.0** (`packageManager`).
+
+```sh
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm check
+```
+
+This typechecks and builds `@taply/shared`, then runs local protocol unit tests.
+It does not connect a wallet, contact NEAR RPC, deploy or move tokens. Exact
+dependency versions/integrities are in `pnpm-lock.yaml`. See
+[shared package guidance](packages/shared/README.md) and [fixture format](packages/shared/test-vectors/README.md).
+Zod, jsonc-parser, canonicalize and @noble/hashes are the runtime libraries;
+TypeScript and Node's test runner provide the build/check tooling. No template
+application or pre-existing contract implementation is used.
+
+The initial documentation/brand baseline is commit `db10264`; protocol Phase 0
+is developed on `feature/core`. The lead will publish the reviewed submission
+diff and choose a project license before release. Testnet-only projects are
+eligible; mandatory partner integrations are not required. For a local-only
+demo, organizers require a video, not screenshots alone (HACKATHON.md Q-012).
+The organizer's mainnet **prize payout account** field is unrelated to Taply's
+Testnet-only application; the human supplies it at submission time.
+
+## Repo structure (only shared protocol is implemented so far)
 ```text
 apps/web/                Claude — mobile-first web/PWA & consumer/merchant UX
 apps/api/                Codex — session server, read models, notifications, auth
 contracts/payments/      Codex — Rust near-sdk Testnet request & escrow contract
 packages/near-client/    Codex — typed RPC/adapters, wallet-neutral on-chain reads
-packages/shared/         LEAD — TypeScript schemas and canonical state enums
+packages/shared/         Codex initial scaffold; Lead coordination thereafter
 brand/                   Approved Taply logo assets and tokens, unchanged
 scripts/                 Lead-approved test/deployment/demo automation
  docs/                   Specifications, verified evidence and decisions
@@ -50,10 +75,11 @@ git worktree add -b feature/core ..\taply-codex main
 # Terminal A: cd ..\taply-claude; claude
 # Terminal B: cd ..\taply-codex; codex
 ```
-Only the project lead edits `packages/shared`, workspace manifests/lockfiles, project-wide config and shared docs unless coordinated. Each agent commits tested increments. Review/merge *daily*; after merge run contract, API, TypeScript and E2E tests. No agent invents deployment URLs, tx hashes or test outcomes.
+The lead explicitly authorized Codex's initial `packages/shared` and root workspace scaffold under Protocol Freeze v1. After integration, further shared changes require coordination. Each agent commits tested increments; the lead reviews merges. Run the checks that actually exist at each stage and add contract/API/E2E checks with their implementations. No agent invents deployment URLs, tx hashes or test outcomes.
 
 ## Current progress / judge truthfulness
 - [x] Product definition, brand assets, agent instructions.
+- [x] Phase 0 shared protocol schemas, exact canonical fixtures and local unit tests (not chain proof).
 - [ ] Actual Testnet contracts deployed (unknown until tested).
 - [ ] Real two-wallet payment (not yet demonstrated).
 - [ ] Verified receipt, protected escrow, Handshake end-to-end (not yet demonstrated).

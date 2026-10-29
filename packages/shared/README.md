@@ -39,3 +39,21 @@ scripts are required. No wallet/NEAR signing SDK is installed in Phase 0.
 
 All published artifacts and dependencies remain subject to their own licenses.
 The lead still needs to choose the project's license before public submission.
+
+## Phase 0 validation observed on Windows
+
+Node 24.13.0, npm 11.6.2, pnpm 11.5.0, TypeScript 7.0.2.
+
+- `pnpm install --frozen-lockfile --ignore-scripts --offline`: exit 0 using the
+  previously downloaded store; lockfile remained unchanged.
+- `pnpm check`: exit 0; public-type assertions and source typechecking passed;
+  build passed; **92 unit tests passed, 0 failed**.
+- Both lead-frozen hash/code fixtures match; tests also cover duplicate JSON,
+  integer/Unicode boundaries, funding-derived cutoff, mock/stale observations,
+  retry projections, receipt consistency, SSE fields and merchant substitution.
+
+Node's test subprocesses required sandbox execution approval in this managed
+Windows environment. These are local protocol checks, not Rust, sandbox, browser
+E2E, NEP-413 signature verification or live Testnet settlement tests. No endpoint
+or contract has been implemented by this phase; all Phase 0 capabilities remain
+disabled and deployment/gas/storage configuration remains null.
