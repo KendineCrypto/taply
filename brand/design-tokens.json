@@ -1,0 +1,18 @@
+{
+  "brand": "Taply",
+  "version": "2.0",
+  "colors": {
+    "night": "#0B120E",
+    "forest": "#111C15",
+    "olive": "#203226",
+    "cream": "#F4F3E8",
+    "lime": "#C7FC75"
+  },
+  "typography": {
+    "ui": "Inter, system-ui, sans-serif"
+  },
+  "logo": {
+    "master": "assets/icon-dark.svg",
+    "wordmark": "assets/wordmark-dark.svg"
+  }
+}
