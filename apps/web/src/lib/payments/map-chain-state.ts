@@ -1,11 +1,13 @@
+import { isVerifiedPaid, retryRoleMatchesKind } from '@/lib/protocol';
 import type {
   Assurance,
+  CallerRole,
   ChainObservation,
   ChainState,
-  DerivedProjection,
-  Role,
+  DerivedPaymentActions,
+  ObservationSource,
+  PaymentIntentResponse,
 } from '@/lib/protocol';
-import { isVerifiedPaid } from '@/lib/protocol';
 
 /**
  * THE single source of payment presentation.
@@ -17,8 +19,15 @@ import { isVerifiedPaid } from '@/lib/protocol';
  *   "NEVER turn LOCKED, any _IN_FLIGHT, or unknown status green/verified. Only
  *    FINAL_PAID + verified_final may get a Verified Paid ribbon."
  *
- * Every invariant here is enforced by ./__tests__/map-chain-state.test.ts across
- * the full cross-product of states, roles and assurances.
+ * Phase 0.5: every input type now comes from `@taply/shared`. `callerRole` lives
+ * inside `derived` (as it does on the wire), and funding expiry arrives as
+ * `fundingEligibility` rather than a local boolean - there is no second
+ * definition of either.
+ *
+ * `@taply/shared`'s `PaymentIntentResponseSchema` already refuses to let an
+ * uncertain, stale or mock observation enable a financial action. This module
+ * restates that rule rather than relying on it, so an object that reached the UI
+ * without validation still cannot produce a live control.
  */
 
 /** Semantic tones. `success` is reserved; see SUCCESS_TONE_RULE below. */
@@ -44,7 +53,7 @@ export type CtaKind =
   | 'cancel_unfunded'
   | 'cancel_protected'
   | 'release_protected'
-  | 'retry_same_branch'
+  | 'retry_same_operation'
   | 'view_receipt'
   | 'check_chain_status';
 
@@ -80,22 +89,21 @@ export interface StatusPresentation {
    * user which rights they still have. We fail closed and offer neither branch.
    */
   readonly projectionContradiction: boolean;
+  /**
+   * True when the API reported an unresolved incident (callback failure, unknown
+   * outcome, reconciliation required). Every financial action is withheld.
+   */
+  readonly incidentOpen: boolean;
 }
 
-/**
- * A projection that asserts both branches is self-inconsistent. Trusting either
- * side could show someone a cancel button the chain will reject, or a release
- * button that races a refund.
- */
-function hasProjectionContradiction(state: ChainState, derived: DerivedProjection): boolean {
-  if (state !== 'LOCKED') return false;
-  return derived.cancelWindowOpen === true && derived.releaseEligible === true;
-}
+type FundingEligibility = PaymentIntentResponse['fundingEligibility'];
+type Incident = PaymentIntentResponse['incident'];
 
-/**
- * States in which no payment-initiating or branch-selecting action may ever be
- * offered, because an outgoing transfer may still settle.
- */
+type ObservationFacts = Pick<
+  ChainObservation<unknown>,
+  'assurance' | 'source' | 'stale' | 'rpcAvailable'
+>;
+
 const IN_FLIGHT_STATES: ReadonlyArray<ChainState> = [
   'PAYOUT_IN_FLIGHT',
   'REFUND_IN_FLIGHT',
@@ -116,9 +124,23 @@ export function isRecoverableFailure(state: ChainState): boolean {
   return RECOVERABLE_FAILURE_STATES.includes(state);
 }
 
-/** Assurance values that must never carry a confident presentation. */
 function assuranceIsConfident(assurance: Assurance): boolean {
   return assurance === 'verified_final';
+}
+
+/**
+ * Mirrors the `fresh` predicate inside `PaymentIntentResponseSchema`: a
+ * financial control may only appear when the state was verified final, is not
+ * stale, live RPC is available, and no incident is open.
+ */
+function observationIsActionable(observation: ObservationFacts, incident: Incident): boolean {
+  return (
+    observation.assurance === 'verified_final' &&
+    !observation.stale &&
+    observation.rpcAvailable &&
+    observation.source !== 'mock' &&
+    incident === null
+  );
 }
 
 interface Base {
@@ -131,7 +153,7 @@ interface Base {
  * Tone/icon/money per state, independent of role and assurance.
  *
  * SUCCESS_TONE_RULE: `success` appears for exactly one state, FINAL_PAID, and is
- * downgraded to `caution` below unless assurance is verified_final.
+ * downgraded to `caution` below unless the observation earns a verified ribbon.
  */
 const BASE_BY_STATE: Readonly<Record<ChainState, Base>> = {
   OPEN: { tone: 'neutral', icon: 'clock', money: 'none' },
@@ -147,59 +169,102 @@ const BASE_BY_STATE: Readonly<Record<ChainState, Base>> = {
   CANCELLED_REFUNDED: { tone: 'muted', icon: 'undo', money: 'returned_to_payer' },
 };
 
-/** Payer and recipient read the same chain state differently. */
-function audienceFor(role: Role): 'payer' | 'recipient' {
-  return role === 'recipient' ? 'recipient' : 'payer';
+/**
+ * Payer and recipient read the same chain state differently.
+ *
+ * `payer_and_recipient` resolves to the recipient reading deliberately: the
+ * "LOCKED - NOT PAID" warning is the safety-critical half of that pair.
+ * `anonymous` and `observer` get the neutral payer-side wording.
+ */
+function audienceFor(role: CallerRole): 'payer' | 'recipient' {
+  return role === 'recipient' || role === 'payer_and_recipient' ? 'recipient' : 'payer';
 }
 
-function retryAuthorized(derived: DerivedProjection, role: Role): boolean {
-  const retry = derived.retry;
-  if (!retry || !retry.allowed) return false;
-  return retry.authorizedRoles.includes(role);
+/** Roles that may hold cancellation rights on a funded protected request. */
+function isPayerSide(role: CallerRole): boolean {
+  return role === 'payer' || role === 'payer_and_recipient';
+}
+
+/** Roles that may become the payer of a request that is still open. */
+function couldFund(role: CallerRole): boolean {
+  return role === 'anonymous' || role === 'observer' || role === 'payer';
+}
+
+/** Roles that own the request, i.e. the creator/recipient. */
+function isRequestOwner(role: CallerRole): boolean {
+  return role === 'recipient' || role === 'payer_and_recipient';
+}
+
+function hasProjectionContradiction(state: ChainState, derived: DerivedPaymentActions): boolean {
+  if (state !== 'LOCKED') return false;
+  return derived.cancelWindowOpen === true && derived.releaseEligible === true;
+}
+
+function retryPermitted(derived: DerivedPaymentActions): boolean {
+  const { retry, callerRole } = derived;
+  if (!retry.eligible || retry.kind === null) return false;
+  return retryRoleMatchesKind(callerRole, retry.kind);
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled ChainState: ${String(value)}`);
 }
 
 /**
  * CTA gating. Every branch is deny-by-default: an action appears only when the
- * derived projection explicitly permits it AND the role matches. The contract
- * re-checks authority regardless (freeze section 3).
+ * observation is actionable AND the derived projection explicitly permits it AND
+ * the role matches. The contract re-checks authority regardless (freeze
+ * section 3: "UI flags do not grant authority").
  */
 function ctasFor(
   state: ChainState,
-  role: Role,
-  derived: DerivedProjection,
+  derived: DerivedPaymentActions,
+  fundingEligibility: FundingEligibility,
+  actionable: boolean,
   blocked: boolean,
 ): ReadonlyArray<Cta> {
   if (blocked) return [];
 
+  const role = derived.callerRole;
+  const checkOnly: ReadonlyArray<Cta> = [{ kind: 'check_chain_status', emphasis: 'secondary' }];
+
   // Nothing may be initiated while an outgoing transfer might still settle.
-  if (isInFlight(state)) {
-    return [{ kind: 'check_chain_status', emphasis: 'secondary' }];
+  if (isInFlight(state)) return checkOnly;
+
+  // Terminal states are safe to read even from a stale or offline observation:
+  // a final receipt stays historically verified (freeze section 3).
+  if (state === 'FINAL_PAID' || state === 'CANCELLED_REFUNDED') {
+    return [{ kind: 'view_receipt', emphasis: 'secondary' }];
   }
 
-  if (isRecoverableFailure(state)) {
-    const ctas: Cta[] = [{ kind: 'check_chain_status', emphasis: 'secondary' }];
-    if (retryAuthorized(derived, role)) {
-      // Same branch, same destination, fresh operation nonce (freeze section 4).
-      ctas.unshift({ kind: 'retry_same_branch', emphasis: 'primary' });
-    }
-    return ctas;
-  }
+  if (state === 'CANCELLED_UNFUNDED') return [];
+
+  // Beyond this point every action moves money, so the observation must be
+  // actionable - verified final, fresh, live, non-mock, no open incident.
+  if (!actionable) return checkOnly;
 
   switch (state) {
+    case 'PAYOUT_FAILED_RECOVERABLE':
+    case 'REFUND_FAILED_RECOVERABLE':
+    case 'RELEASE_FAILED_RECOVERABLE': {
+      const ctas: Cta[] = [...checkOnly];
+      if (retryPermitted(derived)) {
+        // Same branch, same destination, matching recorded failure and a fresh
+        // operation nonce (freeze section 4).
+        ctas.unshift({ kind: 'retry_same_operation', emphasis: 'primary' });
+      }
+      return ctas;
+    }
+
     case 'OPEN': {
       const ctas: Cta[] = [];
-      if (derived.expired) {
-        // No pay CTA on an expired request, for anyone.
-        if (role === 'creator' || role === 'recipient') {
-          ctas.push({ kind: 'cancel_unfunded', emphasis: 'secondary' });
-        }
-        return ctas;
-      }
-      if (role === 'payer' || role === 'observer') {
+      const fundable = fundingEligibility === 'ELIGIBLE';
+
+      if (fundable && couldFund(role)) {
         ctas.push({ kind: 'review_and_pay', emphasis: 'primary' });
       }
-      if (role === 'creator' || role === 'recipient') {
-        ctas.push({ kind: 'share_request', emphasis: 'primary' });
+      if (isRequestOwner(role)) {
+        if (fundable) ctas.push({ kind: 'share_request', emphasis: 'primary' });
         ctas.push({ kind: 'cancel_unfunded', emphasis: 'secondary' });
       }
       return ctas;
@@ -208,12 +273,11 @@ function ctasFor(
     case 'LOCKED': {
       // Fail closed on a self-contradictory projection rather than guessing
       // which branch the chain will honour.
-      if (hasProjectionContradiction(state, derived)) {
-        return [{ kind: 'check_chain_status', emphasis: 'secondary' }];
-      }
+      if (hasProjectionContradiction(state, derived)) return checkOnly;
+
       const ctas: Cta[] = [];
-      // Only the payer, and only while the chain still has the window open.
-      if (role === 'payer' && derived.cancelWindowOpen === true) {
+      // Only the payer side, and only while the chain still has the window open.
+      if (isPayerSide(role) && derived.cancelWindowOpen === true) {
         ctas.push({ kind: 'cancel_protected', emphasis: 'secondary' });
       }
       // After the cutoff anyone may submit the release (freeze section 4).
@@ -223,51 +287,46 @@ function ctasFor(
       return ctas;
     }
 
-    case 'FINAL_PAID':
-    case 'CANCELLED_REFUNDED':
-      return [{ kind: 'view_receipt', emphasis: 'secondary' }];
-
-    case 'CANCELLED_UNFUNDED':
-      return [];
-
-    // Already handled above, but the switch stays exhaustive on purpose.
     case 'PAYOUT_IN_FLIGHT':
     case 'REFUND_IN_FLIGHT':
     case 'RELEASE_IN_FLIGHT':
-    case 'PAYOUT_FAILED_RECOVERABLE':
-    case 'REFUND_FAILED_RECOVERABLE':
-    case 'RELEASE_FAILED_RECOVERABLE':
-      return [{ kind: 'check_chain_status', emphasis: 'secondary' }];
+      // Returned earlier via isInFlight; retained so the switch stays exhaustive
+      // over every state still reachable here.
+      return checkOnly;
 
     default:
       return assertNever(state);
   }
 }
 
-function assertNever(value: never): never {
-  throw new Error(`Unhandled ChainState: ${String(value)}`);
-}
-
 export interface MapInput {
   readonly state: ChainState;
-  readonly observation: Pick<
-    ChainObservation<unknown>,
-    'assurance' | 'source' | 'stale' | 'rpcAvailable'
-  >;
-  readonly role: Role;
-  readonly derived: DerivedProjection;
+  readonly observation: ObservationFacts;
+  /** Carries `callerRole`; there is no separate role parameter any more. */
+  readonly derived: DerivedPaymentActions;
+  readonly fundingEligibility: FundingEligibility;
+  readonly incident: Incident;
 }
 
-export function mapChainState({ state, observation, role, derived }: MapInput): StatusPresentation {
+export function mapChainState({
+  state,
+  observation,
+  derived,
+  fundingEligibility,
+  incident,
+}: MapInput): StatusPresentation {
   const base = BASE_BY_STATE[state];
   const blocked = observation.assurance === 'mismatch';
+  const incidentOpen = incident !== null;
+  const actionable = observationIsActionable(observation, incident);
 
-  // A verified ribbon requires ALL of: the final paid state, verified_final
-  // assurance, and a non-mock source. Mock data can never look verified.
-  const verifiedRibbon =
-    isVerifiedPaid(state, observation.assurance) && observation.source !== 'mock';
+  const verifiedRibbon = isVerifiedPaid(
+    state,
+    observation.assurance,
+    observation.source as ObservationSource,
+  );
 
-  // Downgrade: FINAL_PAID that is not yet verified_final is NOT a success.
+  // Downgrade: FINAL_PAID that is not verified_final is NOT a success.
   let tone: StatusTone = base.tone;
   if (tone === 'success' && !verifiedRibbon) tone = 'caution';
   if (blocked) tone = 'danger';
@@ -279,27 +338,27 @@ export function mapChainState({ state, observation, role, derived }: MapInput): 
   // Money position degrades to uncertain when the claim is not confidently
   // observed, so copy and tests cannot assert settlement from a weak read.
   let money: MoneyPosition = base.money;
-  if (observation.assurance === 'unknown' || blocked) {
+  if (observation.assurance === 'unknown' || blocked || incidentOpen) {
     money = base.money === 'none' ? 'none' : 'uncertain';
   }
   if (state === 'FINAL_PAID' && !assuranceIsConfident(observation.assurance)) {
     money = 'uncertain';
   }
-  // Mock data must never assert that funds reached anyone, even when the fixture
-  // claims FINAL_PAID + verified_final. `verifiedRibbon` is already false for a
-  // mock source; this keeps the money position consistent with that.
+  // Mock data must never assert that funds reached anyone.
   if (observation.source === 'mock' && money === 'to_recipient') {
     money = 'uncertain';
   }
+
+  const projectionContradiction = hasProjectionContradiction(state, derived);
 
   const needsFreshnessWarning =
     observation.stale ||
     !observation.rpcAvailable ||
     observation.assurance === 'unverified' ||
     observation.assurance === 'pending_finality' ||
-    observation.assurance === 'unknown';
-
-  const projectionContradiction = hasProjectionContradiction(state, derived);
+    observation.assurance === 'unknown' ||
+    projectionContradiction ||
+    incidentOpen;
 
   return {
     state,
@@ -308,10 +367,11 @@ export function mapChainState({ state, observation, role, derived }: MapInput): 
     money,
     verifiedRibbon,
     copyKey: state,
-    audience: audienceFor(role),
-    ctas: ctasFor(state, role, derived, blocked),
-    needsFreshnessWarning: needsFreshnessWarning || projectionContradiction,
+    audience: audienceFor(derived.callerRole),
+    ctas: ctasFor(state, derived, fundingEligibility, actionable, blocked),
+    needsFreshnessWarning,
     blocked,
     projectionContradiction,
+    incidentOpen,
   };
 }

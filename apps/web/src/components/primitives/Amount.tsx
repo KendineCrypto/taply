@@ -2,7 +2,7 @@
 
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatBaseUnits } from '@/lib/format/amount';
-import type { Asset, DecimalString } from '@/lib/protocol';
+import type { DisplayAsset, U128 } from '@/lib/protocol';
 
 /**
  * The only way to put a chain amount on screen.
@@ -17,8 +17,8 @@ export function Amount({
   display = 'exact',
   className,
 }: {
-  readonly baseUnits: DecimalString;
-  readonly asset: Asset;
+  readonly baseUnits: U128;
+  readonly asset: DisplayAsset;
   readonly display?: 'exact' | 'compact';
   readonly className?: string;
 }) {

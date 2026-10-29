@@ -30,7 +30,7 @@ export default function PayIntentPage() {
 
       {!looksWellFormed && (
         <div className="mb-4">
-          <ErrorState code="INVALID_ACCOUNT" />
+          <ErrorState code="REQUEST_NOT_FOUND" />
         </div>
       )}
 

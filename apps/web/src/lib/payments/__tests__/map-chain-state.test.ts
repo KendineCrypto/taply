@@ -1,63 +1,91 @@
 import { describe, expect, it } from 'vitest';
-import { ASSURANCES, CHAIN_STATES, ROLES } from '@/lib/protocol';
-import type { Assurance, ChainState, DerivedProjection, Role } from '@/lib/protocol';
+import { ASSURANCES, CALLER_ROLES, CHAIN_STATES } from '@/lib/protocol';
+import type {
+  Assurance,
+  CallerRole,
+  ChainState,
+  DerivedPaymentActions,
+  ObservationSource,
+  PaymentIntentResponse,
+} from '@/lib/protocol';
 import { en } from '@/lib/i18n/dictionaries/en';
 import { tr } from '@/lib/i18n/dictionaries/tr';
 import { isInFlight, isRecoverableFailure, mapChainState } from '../map-chain-state';
-import type { StatusPresentation } from '../map-chain-state';
+import type { MapInput, StatusPresentation } from '../map-chain-state';
 
 /**
  * Safety tests for the only module permitted to decide payment presentation.
  *
- * These assert the freeze section 9 prohibitions across the FULL cross-product
- * of ChainState x Role x Assurance, plus the permissive-derived worst case
- * (every flag true), so a future edit that leaks a success treatment fails here.
+ * Phase 0.5: every enum now comes from `@taply/shared`, so these assertions run
+ * over the real protocol unions - including the five CallerRole members and the
+ * three observation sources. The freeze section 9 prohibitions are checked over
+ * the FULL cross-product, plus a maximally permissive derived projection, so a
+ * future edit that leaks a success treatment or a live control fails here.
  */
 
-type Permissive = DerivedProjection;
+type Incident = PaymentIntentResponse['incident'];
+type FundingEligibility = PaymentIntentResponse['fundingEligibility'];
 
-/** Deliberately maximally permissive: every gate open, every retry allowed. */
-function permissiveDerived(role: Role): Permissive {
+/** Deliberately maximally permissive: every gate open, retry claimed eligible. */
+function permissiveDerived(callerRole: CallerRole): DerivedPaymentActions {
   return {
-    expired: false,
+    callerRole,
     cancelWindowOpen: true,
     releaseEligible: true,
-    retry: { allowed: true, authorizedRoles: [...ROLES] },
-    callerRole: role,
+    retry: { eligible: true, operationNonce: '1', kind: 'PROTECTED_RELEASE' },
   };
 }
 
-function restrictiveDerived(role: Role): Permissive {
+function restrictiveDerived(callerRole: CallerRole): DerivedPaymentActions {
   return {
-    expired: false,
+    callerRole,
     cancelWindowOpen: false,
     releaseEligible: false,
-    retry: { allowed: false, authorizedRoles: [] },
-    callerRole: role,
+    retry: { eligible: false, operationNonce: null, kind: null },
   };
 }
 
-function observation(assurance: Assurance, source: 'chain' | 'index' | 'mock' = 'chain') {
-  return { assurance, source, stale: false, rpcAvailable: true } as const;
+/** The only observation shape that may enable a financial control. */
+function freshObservation(source: ObservationSource = 'rpc') {
+  return { assurance: 'verified_final' as Assurance, source, stale: false, rpcAvailable: true };
+}
+
+function observation(assurance: Assurance, source: ObservationSource = 'rpc') {
+  return { assurance, source, stale: false, rpcAvailable: true };
 }
 
 function run(
   state: ChainState,
-  role: Role,
+  role: CallerRole,
   assurance: Assurance,
-  derived: Permissive = permissiveDerived(role),
-  source: 'chain' | 'index' | 'mock' = 'chain',
+  derived: DerivedPaymentActions = permissiveDerived(role),
+  source: ObservationSource = 'rpc',
+  fundingEligibility: FundingEligibility = 'ELIGIBLE',
+  incident: Incident = null,
 ): StatusPresentation {
-  return mapChainState({ state, observation: observation(assurance, source), role, derived });
+  const input: MapInput = {
+    state,
+    observation: observation(assurance, source),
+    derived,
+    fundingEligibility,
+    incident,
+  };
+  return mapChainState(input);
 }
 
-const EVERY_COMBINATION: ReadonlyArray<[ChainState, Role, Assurance]> = CHAIN_STATES.flatMap((state) =>
-  ROLES.flatMap((role) => ASSURANCES.map((assurance) => [state, role, assurance] as [ChainState, Role, Assurance])),
+const EVERY_COMBINATION: ReadonlyArray<[ChainState, CallerRole, Assurance]> = CHAIN_STATES.flatMap(
+  (state) =>
+    CALLER_ROLES.flatMap((role) =>
+      ASSURANCES.map((assurance) => [state, role, assurance] as [ChainState, CallerRole, Assurance]),
+    ),
 );
 
-describe('mapChainState exhaustiveness', () => {
-  it('covers every ChainState x Role x Assurance without throwing', () => {
-    expect(EVERY_COMBINATION).toHaveLength(CHAIN_STATES.length * ROLES.length * ASSURANCES.length);
+describe('mapChainState exhaustiveness over shared enums', () => {
+  it('covers every ChainState x CallerRole x Assurance without throwing', () => {
+    expect(CHAIN_STATES).toHaveLength(11);
+    expect(CALLER_ROLES).toHaveLength(5);
+    expect(ASSURANCES).toHaveLength(5);
+    expect(EVERY_COMBINATION).toHaveLength(11 * 5 * 5);
     for (const [state, role, assurance] of EVERY_COMBINATION) {
       expect(() => run(state, role, assurance)).not.toThrow();
     }
@@ -89,7 +117,7 @@ describe('verified-paid is unreachable except for FINAL_PAID + verified_final', 
 
   it('downgrades FINAL_PAID to caution unless assurance is verified_final', () => {
     for (const assurance of ASSURANCES) {
-      for (const role of ROLES) {
+      for (const role of CALLER_ROLES) {
         const result = run('FINAL_PAID', role, assurance);
         if (assurance === 'verified_final') {
           expect(result.tone).toBe('success');
@@ -107,7 +135,7 @@ describe('verified-paid is unreachable except for FINAL_PAID + verified_final', 
   });
 
   it('never shows a verified ribbon for mock-sourced data, even when FINAL_PAID + verified_final', () => {
-    for (const role of ROLES) {
+    for (const role of CALLER_ROLES) {
       const result = run('FINAL_PAID', role, 'verified_final', permissiveDerived(role), 'mock');
       expect(result.verifiedRibbon).toBe(false);
       expect(result.tone).not.toBe('success');
@@ -121,13 +149,19 @@ describe('verified-paid is unreachable except for FINAL_PAID + verified_final', 
       expect(result.verifiedRibbon, `${state}/${role}/${assurance}`).toBe(false);
     }
   });
+
+  it('treats an index-sourced verified read as presentable', () => {
+    // `index` is a legitimate source; only `mock` is barred from verification.
+    const result = run('FINAL_PAID', 'payer', 'verified_final', permissiveDerived('payer'), 'index');
+    expect(result.verifiedRibbon).toBe(true);
+  });
 });
 
 describe('LOCKED is never paid', () => {
   it('is caution, escrowed, and carries no success signal for any role or assurance', () => {
-    for (const role of ROLES) {
+    for (const role of CALLER_ROLES) {
       for (const assurance of ASSURANCES) {
-        const result = run('LOCKED', role, assurance);
+        const result = run('LOCKED', role, assurance, restrictiveDerived(role));
         expect(result.verifiedRibbon).toBe(false);
         expect(result.tone).not.toBe('success');
         expect(result.money).not.toBe('to_recipient');
@@ -144,12 +178,16 @@ describe('LOCKED is never paid', () => {
     expect(tr.status.LOCKED.recipient).toContain('ÖDENMEDİ');
     expect(tr.status.LOCKED.payer).toContain('henüz ödenmedi');
   });
+
+  it('gives payer_and_recipient the recipient reading, where the warning lives', () => {
+    expect(run('LOCKED', 'payer_and_recipient', 'verified_final').audience).toBe('recipient');
+  });
 });
 
 describe('in-flight states never look settled and never offer a new payment', () => {
   it('stays caution with in_flight or uncertain money', () => {
     for (const state of CHAIN_STATES.filter(isInFlight)) {
-      for (const role of ROLES) {
+      for (const role of CALLER_ROLES) {
         for (const assurance of ASSURANCES) {
           const result = run(state, role, assurance);
           expect(result.verifiedRibbon).toBe(false);
@@ -162,7 +200,7 @@ describe('in-flight states never look settled and never offer a new payment', ()
 
   it('offers only a chain-status check, never pay/cancel/release/retry', () => {
     for (const state of CHAIN_STATES.filter(isInFlight)) {
-      for (const role of ROLES) {
+      for (const role of CALLER_ROLES) {
         const kinds = run(state, role, 'pending_finality').ctas.map((c) => c.kind);
         expect(kinds).toEqual(['check_chain_status']);
       }
@@ -172,7 +210,7 @@ describe('in-flight states never look settled and never offer a new payment', ()
 
 describe('refunded is refunded, not paid', () => {
   it('reports money returned to the payer and no success treatment', () => {
-    for (const role of ROLES) {
+    for (const role of CALLER_ROLES) {
       const result = run('CANCELLED_REFUNDED', role, 'verified_final');
       expect(result.verifiedRibbon).toBe(false);
       expect(result.tone).toBe('muted');
@@ -189,10 +227,10 @@ describe('refunded is refunded, not paid', () => {
   });
 });
 
-describe('unknown and mismatched observations are not trusted', () => {
+describe('unknown, mismatched and stale observations are not trusted', () => {
   it('treats mismatch as blocked, danger, and strips every action', () => {
     for (const state of CHAIN_STATES) {
-      for (const role of ROLES) {
+      for (const role of CALLER_ROLES) {
         const result = run(state, role, 'mismatch');
         expect(result.blocked).toBe(true);
         expect(result.tone).toBe('danger');
@@ -204,90 +242,168 @@ describe('unknown and mismatched observations are not trusted', () => {
 
   it('flags a freshness warning for every non-final assurance', () => {
     for (const assurance of ASSURANCES) {
-      const result = run('OPEN', 'payer', assurance);
       if (assurance === 'verified_final' || assurance === 'mismatch') continue;
-      expect(result.needsFreshnessWarning, assurance).toBe(true);
+      expect(run('OPEN', 'payer', assurance).needsFreshnessWarning, assurance).toBe(true);
     }
   });
 
-  it('flags a freshness warning when stale or RPC is unavailable', () => {
-    const stale = mapChainState({
-      state: 'FINAL_PAID',
-      observation: { assurance: 'verified_final', source: 'chain', stale: true, rpcAvailable: true },
-      role: 'payer',
-      derived: permissiveDerived('payer'),
-    });
-    expect(stale.needsFreshnessWarning).toBe(true);
+  it('keeps a stale or offline final receipt verified while flagging freshness', () => {
     // Freeze section 3: a final receipt stays historically verified when live
     // RPC is unavailable; freshness is reported separately.
-    expect(stale.verifiedRibbon).toBe(true);
+    for (const facts of [
+      { assurance: 'verified_final' as Assurance, source: 'rpc' as ObservationSource, stale: true, rpcAvailable: true },
+      { assurance: 'verified_final' as Assurance, source: 'rpc' as ObservationSource, stale: false, rpcAvailable: false },
+    ]) {
+      const result = mapChainState({
+        state: 'FINAL_PAID',
+        observation: facts,
+        derived: permissiveDerived('payer'),
+        fundingEligibility: 'NOT_OPEN',
+        incident: null,
+      });
+      expect(result.needsFreshnessWarning).toBe(true);
+      expect(result.verifiedRibbon).toBe(true);
+      // ...but a receipt link is all it may offer.
+      expect(result.ctas.map((c) => c.kind)).toEqual(['view_receipt']);
+    }
+  });
 
-    const offline = mapChainState({
-      state: 'FINAL_PAID',
-      observation: { assurance: 'verified_final', source: 'chain', stale: false, rpcAvailable: false },
-      role: 'payer',
-      derived: permissiveDerived('payer'),
+  it('withholds every financial action unless the observation is actionable', () => {
+    // Mirrors PaymentIntentResponseSchema: "Uncertain/mock/stale observations
+    // cannot enable financial actions."
+    const unactionable: ReadonlyArray<{ assurance: Assurance; source: ObservationSource; stale: boolean; rpcAvailable: boolean }> = [
+      { assurance: 'unverified', source: 'rpc', stale: false, rpcAvailable: true },
+      { assurance: 'pending_finality', source: 'rpc', stale: false, rpcAvailable: true },
+      { assurance: 'unknown', source: 'rpc', stale: false, rpcAvailable: true },
+      { assurance: 'verified_final', source: 'rpc', stale: true, rpcAvailable: true },
+      { assurance: 'verified_final', source: 'rpc', stale: false, rpcAvailable: false },
+      { assurance: 'unverified', source: 'mock', stale: false, rpcAvailable: true },
+    ];
+
+    const financial = ['review_and_pay', 'cancel_protected', 'release_protected', 'retry_same_operation', 'cancel_unfunded', 'share_request'];
+
+    for (const facts of unactionable) {
+      for (const state of CHAIN_STATES) {
+        for (const role of CALLER_ROLES) {
+          const kinds = mapChainState({
+            state,
+            observation: facts,
+            derived: permissiveDerived(role),
+            fundingEligibility: 'ELIGIBLE',
+            incident: null,
+          }).ctas.map((c) => c.kind);
+          for (const kind of kinds) {
+            expect(
+              financial.includes(kind),
+              `${state}/${role}/${facts.assurance}/${facts.source} offered ${kind}`,
+            ).toBe(false);
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('an open incident withholds every financial action', () => {
+  const incidents: ReadonlyArray<NonNullable<Incident>> = [
+    'CALLBACK_FAILED',
+    'OUTCOME_UNKNOWN',
+    'RECONCILIATION_REQUIRED',
+  ];
+
+  it('marks the presentation and refuses cancel/release/retry/pay', () => {
+    for (const incident of incidents) {
+      for (const state of CHAIN_STATES) {
+        for (const role of CALLER_ROLES) {
+          const result = mapChainState({
+            state,
+            observation: freshObservation(),
+            derived: permissiveDerived(role),
+            fundingEligibility: 'ELIGIBLE',
+            incident,
+          });
+          expect(result.incidentOpen, `${incident}/${state}`).toBe(true);
+          expect(result.needsFreshnessWarning).toBe(true);
+          const kinds = result.ctas.map((c) => c.kind);
+          expect(kinds).not.toContain('review_and_pay');
+          expect(kinds).not.toContain('cancel_protected');
+          expect(kinds).not.toContain('release_protected');
+          expect(kinds).not.toContain('retry_same_operation');
+        }
+      }
+    }
+  });
+
+  it('degrades the money position away from a settled claim', () => {
+    const result = mapChainState({
+      state: 'LOCKED',
+      observation: freshObservation(),
+      derived: restrictiveDerived('payer'),
+      fundingEligibility: 'NOT_OPEN',
+      incident: 'RECONCILIATION_REQUIRED',
     });
-    expect(offline.needsFreshnessWarning).toBe(true);
-    expect(offline.verifiedRibbon).toBe(true);
+    expect(result.money).toBe('uncertain');
   });
 });
 
 describe('CTA authorization is deny-by-default', () => {
-  it('offers cancel_protected only to the payer and only while the window is open', () => {
-    for (const role of ROLES) {
-      const open = run('LOCKED', role, 'verified_final', {
+  it('offers cancel_protected only to the payer side and only while the window is open', () => {
+    for (const role of CALLER_ROLES) {
+      const kinds = run('LOCKED', role, 'verified_final', {
         ...restrictiveDerived(role),
         cancelWindowOpen: true,
-      });
-      const kinds = open.ctas.map((c) => c.kind);
-      if (role === 'payer') expect(kinds).toContain('cancel_protected');
-      else expect(kinds).not.toContain('cancel_protected');
+      }).ctas.map((c) => c.kind);
+
+      if (role === 'payer' || role === 'payer_and_recipient') {
+        expect(kinds, role).toContain('cancel_protected');
+      } else {
+        expect(kinds, role).not.toContain('cancel_protected');
+      }
     }
   });
 
   it('never offers cancel_protected when cancelWindowOpen is false or null', () => {
     for (const windowOpen of [false, null] as const) {
-      const result = run('LOCKED', 'payer', 'verified_final', {
+      const kinds = run('LOCKED', 'payer', 'verified_final', {
         ...restrictiveDerived('payer'),
         cancelWindowOpen: windowOpen,
-      });
-      expect(result.ctas.map((c) => c.kind)).not.toContain('cancel_protected');
+      }).ctas.map((c) => c.kind);
+      expect(kinds).not.toContain('cancel_protected');
     }
   });
 
   it('never offers release_protected unless releaseEligible is exactly true', () => {
     for (const eligible of [false, null] as const) {
-      for (const role of ROLES) {
-        const result = run('LOCKED', role, 'verified_final', {
+      for (const role of CALLER_ROLES) {
+        const kinds = run('LOCKED', role, 'verified_final', {
           ...restrictiveDerived(role),
           releaseEligible: eligible,
-        });
-        expect(result.ctas.map((c) => c.kind)).not.toContain('release_protected');
+        }).ctas.map((c) => c.kind);
+        expect(kinds).not.toContain('release_protected');
       }
     }
   });
 
   it('offers release_protected to any role once the chain says it is eligible', () => {
-    for (const role of ROLES) {
-      const result = run('LOCKED', role, 'verified_final', {
+    // Freeze section 4: after the cutoff, release is permissionless.
+    for (const role of CALLER_ROLES) {
+      const kinds = run('LOCKED', role, 'verified_final', {
         ...restrictiveDerived(role),
         releaseEligible: true,
-      });
-      expect(result.ctas.map((c) => c.kind)).toContain('release_protected');
+      }).ctas.map((c) => c.kind);
+      expect(kinds, role).toContain('release_protected');
     }
   });
 
   it('never offers both cancel and release in the same presentation', () => {
-    for (const role of ROLES) {
+    for (const role of CALLER_ROLES) {
       for (const cancelWindowOpen of [true, false, null] as const) {
         for (const releaseEligible of [true, false, null] as const) {
           const kinds = run('LOCKED', role, 'verified_final', {
-            expired: false,
+            callerRole: role,
             cancelWindowOpen,
             releaseEligible,
-            retry: null,
-            callerRole: role,
+            retry: { eligible: false, operationNonce: null, kind: null },
           }).ctas.map((c) => c.kind);
           const both = kinds.includes('cancel_protected') && kinds.includes('release_protected');
           // The contract branch is atomic and irreversible; the UI must not
@@ -299,13 +415,12 @@ describe('CTA authorization is deny-by-default', () => {
   });
 
   it('fails closed on a contradictory projection claiming both branches', () => {
-    for (const role of ROLES) {
+    for (const role of CALLER_ROLES) {
       const result = run('LOCKED', role, 'verified_final', {
-        expired: false,
+        callerRole: role,
         cancelWindowOpen: true,
         releaseEligible: true,
-        retry: null,
-        callerRole: role,
+        retry: { eligible: false, operationNonce: null, kind: null },
       });
       expect(result.projectionContradiction).toBe(true);
       expect(result.needsFreshnessWarning).toBe(true);
@@ -314,73 +429,116 @@ describe('CTA authorization is deny-by-default', () => {
   });
 
   it('reports no contradiction for a consistent projection', () => {
-    for (const role of ROLES) {
-      const cancelOnly = run('LOCKED', role, 'verified_final', {
-        ...restrictiveDerived(role),
-        cancelWindowOpen: true,
-      });
-      expect(cancelOnly.projectionContradiction).toBe(false);
+    for (const role of CALLER_ROLES) {
+      expect(
+        run('LOCKED', role, 'verified_final', {
+          ...restrictiveDerived(role),
+          cancelWindowOpen: true,
+        }).projectionContradiction,
+      ).toBe(false);
 
-      const releaseOnly = run('LOCKED', role, 'verified_final', {
-        ...restrictiveDerived(role),
-        releaseEligible: true,
-      });
-      expect(releaseOnly.projectionContradiction).toBe(false);
+      expect(
+        run('LOCKED', role, 'verified_final', {
+          ...restrictiveDerived(role),
+          releaseEligible: true,
+        }).projectionContradiction,
+      ).toBe(false);
     }
   });
 
-  it('withholds retry unless retry.allowed and the role is authorized', () => {
+  it('withholds retry unless retry.eligible and the role matches the operation kind', () => {
     for (const state of CHAIN_STATES.filter(isRecoverableFailure)) {
       const denied = run(state, 'payer', 'verified_final', restrictiveDerived('payer'));
-      expect(denied.ctas.map((c) => c.kind)).not.toContain('retry_same_branch');
+      expect(denied.ctas.map((c) => c.kind)).not.toContain('retry_same_operation');
 
+      // A release retry belongs to the recipient, so the payer must not see it.
       const wrongRole = run(state, 'payer', 'verified_final', {
         ...restrictiveDerived('payer'),
-        retry: { allowed: true, authorizedRoles: ['recipient'] },
+        retry: { eligible: true, operationNonce: '1', kind: 'PROTECTED_RELEASE' },
       });
-      expect(wrongRole.ctas.map((c) => c.kind)).not.toContain('retry_same_branch');
+      expect(wrongRole.ctas.map((c) => c.kind)).not.toContain('retry_same_operation');
 
-      const allowed = run(state, 'recipient', 'verified_final', {
+      const rightRole = run(state, 'recipient', 'verified_final', {
         ...restrictiveDerived('recipient'),
-        retry: { allowed: true, authorizedRoles: ['recipient'] },
+        retry: { eligible: true, operationNonce: '1', kind: 'PROTECTED_RELEASE' },
       });
-      expect(allowed.ctas.map((c) => c.kind)).toContain('retry_same_branch');
+      expect(rightRole.ctas.map((c) => c.kind)).toContain('retry_same_operation');
+
+      // A refund retry belongs to the payer.
+      const refundByRecipient = run(state, 'recipient', 'verified_final', {
+        ...restrictiveDerived('recipient'),
+        retry: { eligible: true, operationNonce: '1', kind: 'PROTECTED_REFUND' },
+      });
+      expect(refundByRecipient.ctas.map((c) => c.kind)).not.toContain('retry_same_operation');
+
+      const refundByPayer = run(state, 'payer', 'verified_final', {
+        ...restrictiveDerived('payer'),
+        retry: { eligible: true, operationNonce: '1', kind: 'PROTECTED_REFUND' },
+      });
+      expect(refundByPayer.ctas.map((c) => c.kind)).toContain('retry_same_operation');
     }
   });
 
-  it('withholds the pay CTA on an expired request for every role', () => {
-    for (const role of ROLES) {
-      const result = run('OPEN', role, 'verified_final', {
-        ...permissiveDerived(role),
-        expired: true,
-      });
-      expect(result.ctas.map((c) => c.kind)).not.toContain('review_and_pay');
+  it('never offers retry when the operation kind is missing', () => {
+    for (const state of CHAIN_STATES.filter(isRecoverableFailure)) {
+      const kinds = run(state, 'payer_and_recipient', 'verified_final', {
+        ...restrictiveDerived('payer_and_recipient'),
+        retry: { eligible: true, operationNonce: '1', kind: null },
+      }).ctas.map((c) => c.kind);
+      expect(kinds).not.toContain('retry_same_operation');
     }
   });
 
-  it('offers the pay CTA on an unexpired OPEN request to the payer', () => {
-    const result = run('OPEN', 'payer', 'verified_final');
-    expect(result.ctas.map((c) => c.kind)).toContain('review_and_pay');
+  it('withholds the pay CTA unless funding is ELIGIBLE', () => {
+    for (const eligibility of ['EXPIRED', 'NOT_OPEN', 'UNSUPPORTED', 'UNKNOWN'] as const) {
+      for (const role of CALLER_ROLES) {
+        const kinds = run(
+          'OPEN',
+          role,
+          'verified_final',
+          permissiveDerived(role),
+          'rpc',
+          eligibility,
+        ).ctas.map((c) => c.kind);
+        expect(kinds, `${role}/${eligibility}`).not.toContain('review_and_pay');
+      }
+    }
+  });
+
+  it('offers the pay CTA on a fundable OPEN request to a prospective payer', () => {
+    for (const role of ['anonymous', 'observer', 'payer'] as const) {
+      const kinds = run('OPEN', role, 'verified_final').ctas.map((c) => c.kind);
+      expect(kinds, role).toContain('review_and_pay');
+    }
+  });
+
+  it('never offers the pay CTA to the request owner', () => {
+    for (const role of ['recipient', 'payer_and_recipient'] as const) {
+      const kinds = run('OPEN', role, 'verified_final').ctas.map((c) => c.kind);
+      expect(kinds, role).not.toContain('review_and_pay');
+      expect(kinds, role).toContain('cancel_unfunded');
+    }
   });
 
   it('never offers a payment-initiating CTA in any terminal state', () => {
     for (const state of ['FINAL_PAID', 'CANCELLED_REFUNDED', 'CANCELLED_UNFUNDED'] as const) {
-      for (const role of ROLES) {
+      for (const role of CALLER_ROLES) {
         const kinds = run(state, role, 'verified_final').ctas.map((c) => c.kind);
         expect(kinds).not.toContain('review_and_pay');
         expect(kinds).not.toContain('cancel_protected');
         expect(kinds).not.toContain('release_protected');
-        expect(kinds).not.toContain('retry_same_branch');
+        expect(kinds).not.toContain('retry_same_operation');
       }
     }
   });
 });
 
 describe('role-aware audience selection', () => {
-  it('reads as recipient only for the recipient role', () => {
+  it('reads as recipient for recipient and payer_and_recipient only', () => {
     expect(run('LOCKED', 'recipient', 'verified_final').audience).toBe('recipient');
-    for (const role of ['payer', 'creator', 'observer'] as const) {
-      expect(run('LOCKED', role, 'verified_final').audience).toBe('payer');
+    expect(run('LOCKED', 'payer_and_recipient', 'verified_final').audience).toBe('recipient');
+    for (const role of ['payer', 'observer', 'anonymous'] as const) {
+      expect(run('LOCKED', role, 'verified_final').audience, role).toBe('payer');
     }
   });
 });

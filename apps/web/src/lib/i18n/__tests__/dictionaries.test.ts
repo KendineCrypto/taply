@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASSURANCES, CHAIN_STATES, LOCAL_WALLET_PHASES, SESSION_STATES, TAPLY_ERROR_CODES } from '@/lib/protocol';
+import { ASSURANCES, CHAIN_STATES, ERROR_CODES, LOCAL_PHASES, SESSION_STATES } from '@/lib/protocol';
 import type { ChainState } from '@/lib/protocol';
 import { DICTIONARIES, LOCALES, resolveLocale } from '../index';
 import type { Dictionary } from '../types';
@@ -48,10 +48,10 @@ describe('dictionary completeness', () => {
     for (const locale of LOCALES) {
       const dict: Dictionary = DICTIONARIES[locale];
       expect(Object.keys(dict.status).sort()).toEqual([...CHAIN_STATES].sort());
-      expect(Object.keys(dict.localPhase).sort()).toEqual([...LOCAL_WALLET_PHASES].sort());
+      expect(Object.keys(dict.localPhase).sort()).toEqual([...LOCAL_PHASES].sort());
       expect(Object.keys(dict.sessionState).sort()).toEqual([...SESSION_STATES].sort());
       expect(Object.keys(dict.assurance).sort()).toEqual([...ASSURANCES].sort());
-      expect(Object.keys(dict.errors).sort()).toEqual([...TAPLY_ERROR_CODES].sort());
+      expect(Object.keys(dict.errors).sort()).toEqual([...ERROR_CODES].sort());
     }
   });
 });

@@ -1,10 +1,4 @@
-import type {
-  Assurance,
-  ChainState,
-  LocalWalletPhase,
-  SessionState,
-  TaplyErrorCode,
-} from '@/lib/protocol';
+import type { Assurance, ChainState, ErrorCode, LocalPhase, SessionState } from '@/lib/protocol';
 
 export const LOCALES = ['en', 'tr'] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -43,8 +37,12 @@ export interface ErrorCopy {
 
 /**
  * Every locale must implement this interface in full, so a missing or renamed
- * key is a TYPE ERROR rather than a runtime fallback to English. Records keyed
- * by protocol enums make the mapping exhaustive by construction.
+ * key is a TYPE ERROR rather than a runtime fallback to English.
+ *
+ * Phase 0.5: `status`, `localPhase`, `sessionState`, `assurance` and `errors` are
+ * Records keyed by `@taply/shared` unions. If Codex adds a ChainState or an
+ * ErrorCode, both dictionaries stop compiling until they are translated. That is
+ * the intended failure mode.
  */
 export interface Dictionary {
   readonly locale: Locale;
@@ -93,10 +91,26 @@ export interface Dictionary {
   };
 
   readonly status: Readonly<Record<ChainState, StatusCopy>>;
-  readonly localPhase: Readonly<Record<LocalWalletPhase, PhaseCopy>>;
+  readonly localPhase: Readonly<Record<LocalPhase, PhaseCopy>>;
   readonly sessionState: Readonly<Record<SessionState, PhaseCopy>>;
   readonly assurance: Readonly<Record<Assurance, PhaseCopy>>;
-  readonly errors: Readonly<Record<TaplyErrorCode, ErrorCopy>>;
+
+  /** Keyed by the shared `ErrorCode` union — all 56 members, both locales. */
+  readonly errors: Readonly<Record<ErrorCode, ErrorCopy>>;
+
+  /**
+   * Frontend-only conditions that are NOT protocol errors: browser state, a
+   * disabled capability, or an unexpected client failure. Keeping them out of
+   * `errors` stops the UI from inventing API error codes that do not exist.
+   */
+  readonly notices: {
+    readonly offline: ErrorCopy;
+    readonly unexpected: ErrorCopy;
+    readonly socialLoginUnavailable: ErrorCopy;
+    readonly chainTimeUnavailable: ErrorCopy;
+    readonly incidentOpen: ErrorCopy;
+    readonly projectionContradiction: ErrorCopy;
+  };
 
   readonly protectedPay: {
     /**

@@ -1,5 +1,6 @@
 import type { Locale } from '@/lib/i18n';
-import type { DecimalString } from '@/lib/protocol';
+import { MAX_CANCEL_DURATION_NS, MIN_CANCEL_DURATION_NS } from '@/lib/protocol';
+import type { U64 } from '@/lib/protocol';
 
 /**
  * Nanosecond chain timestamps are canonical decimal strings (freeze section 3).
@@ -10,22 +11,23 @@ import type { DecimalString } from '@/lib/protocol';
 
 const NS_PER_MS = 1_000_000n;
 
-export function nsToDate(ns: DecimalString): Date {
+export function nsToDate(ns: U64): Date {
   const millis = BigInt(ns) / NS_PER_MS;
   return new Date(globalThis.Number(millis));
 }
 
-/** Freeze section 4 bounds for the Protected cancel window: 60-3600 seconds. */
-export const CANCEL_DURATION_MIN_NS = 60_000_000_000n;
-export const CANCEL_DURATION_MAX_NS = 3_600_000_000_000n;
-export const CANCEL_DURATION_DEFAULT_NS = CANCEL_DURATION_MIN_NS;
-
-export function isAllowedCancelDurationNs(ns: DecimalString): boolean {
+/**
+ * Protected cancel-window bounds come from `@taply/shared`
+ * (MIN/MAX_CANCEL_DURATION_NS, DEFAULT_CANCEL_DURATION_NS). They are not
+ * redeclared here - the 60-3600 second rule has one definition, in the shared
+ * package, and the contract enforces it regardless of what this UI believes.
+ */
+export function isAllowedCancelDurationNs(ns: U64): boolean {
   const value = BigInt(ns);
-  return value >= CANCEL_DURATION_MIN_NS && value <= CANCEL_DURATION_MAX_NS;
+  return value >= MIN_CANCEL_DURATION_NS && value <= MAX_CANCEL_DURATION_NS;
 }
 
-export function cancelDurationSeconds(ns: DecimalString): bigint {
+export function cancelDurationSeconds(ns: U64): bigint {
   return BigInt(ns) / 1_000_000_000n;
 }
 
@@ -34,7 +36,7 @@ export function cancelDurationSeconds(ns: DecimalString): bigint {
  * formatting uses the browser zone; UTC is always shown alongside it so the two
  * parties can compare the same instant.
  */
-export function formatCutoff(ns: DecimalString, locale: Locale): { utc: string; local: string } {
+export function formatCutoff(ns: U64, locale: Locale): { utc: string; local: string } {
   const date = nsToDate(ns);
   const utc = new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
@@ -54,7 +56,7 @@ export function formatCutoff(ns: DecimalString, locale: Locale): { utc: string; 
  * the UI claim cancel rights the chain will not honour.
  */
 export interface ClockAnchor {
-  readonly chainTimeNs: DecimalString;
+  readonly chainTimeNs: U64;
   /** performance.now() reading captured at the same moment. */
   readonly monotonicMs: number;
 }
@@ -72,7 +74,7 @@ export interface CountdownEstimate {
 }
 
 export function estimateRemaining(
-  cancelUntilNs: DecimalString,
+  cancelUntilNs: U64,
   anchor: ClockAnchor,
   nowMonotonicMs: number,
 ): CountdownEstimate {

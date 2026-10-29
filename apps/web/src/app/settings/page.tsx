@@ -63,10 +63,10 @@ export default function SettingsPage() {
         <FeatureDisabled
           flag="socialLogin"
           state={FLAGS.socialLogin}
-          title={t.errors.SOCIAL_LOGIN_NOT_TESTNET_CAPABLE.title}
+          title={t.notices.socialLoginUnavailable.title}
         />
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          {t.errors.SOCIAL_LOGIN_NOT_TESTNET_CAPABLE.body}
+          {t.notices.socialLoginUnavailable.body}
         </p>
       </div>
     </>

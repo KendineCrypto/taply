@@ -6,8 +6,8 @@ import { Card, DetailRow, ScreenHeader } from '@/components/primitives/Surface';
 import { StatusBadge } from '@/components/status/StatusBadge';
 import { MockBadge, VerificationChip } from '@/components/status/VerificationChip';
 import { useT } from '@/lib/i18n/provider';
-import { ASSURANCES, ROLES } from '@/lib/protocol';
-import type { Assurance, Role } from '@/lib/protocol';
+import { ASSURANCES, CALLER_ROLES, OBSERVATION_SOURCES } from '@/lib/protocol';
+import type { Assurance, CallerRole, ChainState, ObservationSource } from '@/lib/protocol';
 import { mapChainState } from '@/lib/payments/map-chain-state';
 import {
   MOCK_AMOUNT_BASE_UNITS,
@@ -17,21 +17,30 @@ import {
   MOCK_STATE_MATRIX,
   mockDerived,
   mockDerivedReleaseEligible,
+  mockFundingEligibility,
   mockObservation,
 } from '@/lib/mock/fixtures';
 
 /**
- * Status matrix — the only route where mock data may render.
+ * Status matrix - the only route where mock data may render.
  *
- * Its purpose is review: every ChainState, for every role, at every assurance
- * level, side by side. If a future change ever made LOCKED or an in-flight state
- * look settled, it would be visible here immediately — and the unit tests in
- * src/lib/payments/__tests__ would already have failed.
+ * Its purpose is review: every ChainState, for every caller role, at every
+ * assurance level and observation source, side by side. If a change ever made
+ * LOCKED or an in-flight state look settled it would be visible immediately -
+ * and the unit tests in src/lib/payments/__tests__ would already have failed.
+ *
+ * The source selector matters: with `mock`, `@taply/shared` pins assurance to
+ * `unverified` and forbids any financial affordance, so the CTA column
+ * legitimately empties out. Selecting `rpc` shows what a real verified read
+ * would present.
  */
 export default function DemoPage() {
   const t = useT();
-  const [role, setRole] = useState<Role>('payer');
+  const [role, setRole] = useState<CallerRole>('payer');
   const [assurance, setAssurance] = useState<Assurance>('verified_final');
+  const [source, setSource] = useState<ObservationSource>('mock');
+
+  const effectiveAssurance: Assurance = source === 'mock' ? 'unverified' : assurance;
 
   return (
     <>
@@ -46,47 +55,37 @@ export default function DemoPage() {
       </Card>
 
       <Card className="mb-4">
-        <fieldset>
-          <legend className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Viewer role</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ROLES.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setRole(option)}
-                aria-pressed={role === option}
-                className={`tap-target rounded-[var(--radius-control)] border px-3 text-sm ${
-                  role === option
-                    ? 'border-[var(--taply-lime)] text-[var(--taply-lime)]'
-                    : 'border-[var(--border-strong)] text-[var(--text-secondary)]'
-                }`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <Choice
+          legend="Caller role"
+          options={CALLER_ROLES}
+          value={role}
+          onChange={setRole}
+          render={(option) => option}
+        />
 
-        <fieldset className="mt-4">
-          <legend className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Assurance</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ASSURANCES.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setAssurance(option)}
-                aria-pressed={assurance === option}
-                className={`tap-target rounded-[var(--radius-control)] border px-3 text-sm ${
-                  assurance === option
-                    ? 'border-[var(--taply-lime)] text-[var(--taply-lime)]'
-                    : 'border-[var(--border-strong)] text-[var(--text-secondary)]'
-                }`}
-              >
-                {t.assurance[option].label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <Choice
+          legend="Observation source"
+          options={OBSERVATION_SOURCES}
+          value={source}
+          onChange={setSource}
+          render={(option) => option}
+        />
+
+        <Choice
+          legend="Assurance"
+          options={ASSURANCES}
+          value={effectiveAssurance}
+          onChange={setAssurance}
+          render={(option) => t.assurance[option].label}
+          disabled={source === 'mock'}
+        />
+
+        {source === 'mock' && (
+          <p className="mt-2 text-xs text-[var(--tone-caution-fg)]">
+            A mock observation cannot claim verification, so assurance is pinned to{' '}
+            {t.assurance.unverified.label} and every financial action is withheld.
+          </p>
+        )}
       </Card>
 
       <Card className="mb-4">
@@ -105,14 +104,21 @@ export default function DemoPage() {
 
       <ul className="flex flex-col gap-3">
         {MOCK_STATE_MATRIX.map((state) => (
-          <StateRow key={state} state={state} role={role} assurance={assurance} />
+          <StateRow
+            key={state}
+            state={state}
+            role={role}
+            assurance={effectiveAssurance}
+            source={source}
+          />
         ))}
         {/* LOCKED after the cutoff: release eligible, cancel closed. */}
         <StateRow
           key="LOCKED-after-cutoff"
           state="LOCKED"
           role={role}
-          assurance={assurance}
+          assurance={effectiveAssurance}
+          source={source}
           variantLabel="LOCKED (after cutoff)"
           releaseEligible
         />
@@ -121,30 +127,78 @@ export default function DemoPage() {
   );
 }
 
+function Choice<T extends string>({
+  legend,
+  options,
+  value,
+  onChange,
+  render,
+  disabled = false,
+}: {
+  readonly legend: string;
+  readonly options: ReadonlyArray<T>;
+  readonly value: T;
+  readonly onChange: (next: T) => void;
+  readonly render: (option: T) => string;
+  readonly disabled?: boolean;
+}) {
+  return (
+    <fieldset className="mt-4 first:mt-0" disabled={disabled}>
+      <legend className="text-xs uppercase tracking-wide text-[var(--text-muted)]">{legend}</legend>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            aria-pressed={value === option}
+            className={`tap-target rounded-[var(--radius-control)] border px-3 text-sm disabled:opacity-40 ${
+              value === option
+                ? 'border-[var(--taply-lime)] text-[var(--taply-lime)]'
+                : 'border-[var(--border-strong)] text-[var(--text-secondary)]'
+            }`}
+          >
+            {render(option)}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function StateRow({
   state,
   role,
   assurance,
+  source,
   variantLabel,
   releaseEligible = false,
 }: {
-  readonly state: (typeof MOCK_STATE_MATRIX)[number];
-  readonly role: Role;
+  readonly state: ChainState;
+  readonly role: CallerRole;
   readonly assurance: Assurance;
+  readonly source: ObservationSource;
   readonly variantLabel?: string;
   readonly releaseEligible?: boolean;
 }) {
   const t = useT();
-  const observation = mockObservation(assurance);
+  const observation = mockObservation(assurance, source);
   const derived = releaseEligible ? mockDerivedReleaseEligible(role) : mockDerived(state, role);
-  const presentation = mapChainState({ state, observation, role, derived });
+  const input = {
+    state,
+    observation,
+    derived,
+    fundingEligibility: mockFundingEligibility(state),
+    incident: null,
+  } as const;
+  const presentation = mapChainState(input);
   const copy = t.status[state];
 
   return (
     <Card as="li">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-mono text-xs text-[var(--text-muted)]">{variantLabel ?? state}</span>
-        <StatusBadge state={state} observation={observation} role={role} derived={derived} />
+        <StatusBadge {...input} />
       </div>
 
       <p className="mt-2 text-sm text-[var(--text-secondary)]">
@@ -168,7 +222,7 @@ function StateRow({
           {presentation.ctas.map((cta) => (
             <span
               key={cta.kind}
-              className={`tap-target inline-flex items-center rounded-[var(--radius-control)] border px-3 text-sm ${
+              className={`inline-flex items-center rounded-[var(--radius-control)] border px-3 py-2 text-sm ${
                 cta.emphasis === 'primary'
                   ? 'border-[var(--taply-lime)] text-[var(--taply-lime)]'
                   : 'border-[var(--border-strong)] text-[var(--text-secondary)]'
@@ -180,9 +234,10 @@ function StateRow({
         </div>
       )}
 
-      {/* Proof that the ribbon is unreachable from mock data. */}
+      {/* Printed so the fail-closed rules are checkable by eye, not just by test. */}
       <p className="mt-2 font-mono text-[10px] text-[var(--text-muted)]">
-        verifiedRibbon: {String(presentation.verifiedRibbon)} · tone: {presentation.tone}
+        verifiedRibbon: {String(presentation.verifiedRibbon)} · tone: {presentation.tone} · ctas:{' '}
+        {presentation.ctas.length}
       </p>
     </Card>
   );

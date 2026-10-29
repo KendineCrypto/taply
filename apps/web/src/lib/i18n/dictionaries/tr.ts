@@ -5,6 +5,9 @@ import type { Dictionary } from '../types';
  *
  * Strings marked NORMATIVE are quoted verbatim from docs/UX_FLOWS.md
  * "Real-time copy rules" and must not be paraphrased away.
+ *
+ * `errors` is keyed by the `@taply/shared` ErrorCode union, so a code added by
+ * Codex stops this file compiling until it is translated.
  */
 export const tr: Dictionary = {
   locale: 'tr',
@@ -158,7 +161,10 @@ export const tr: Dictionary = {
     DRAFT: { label: 'Hazırlanıyor', description: 'Oturum hazırlanıyor.' },
     OPEN: { label: 'Eşleşme bekleniyor', description: 'Diğer cihazın katılması bekleniyor.' },
     PAIRED: { label: 'Eşleşti', description: 'İki cihaz da oturumda.' },
-    REVIEWED: { label: 'Koşullar incelendi', description: 'Koşullar incelendi. Bu bir ödeme yetkisi değildir.' },
+    REVIEWED: {
+      label: 'Koşullar incelendi',
+      description: 'Koşullar incelendi. Bu bir ödeme yetkisi değildir.',
+    },
     EXPIRED: {
       label: 'Oturum sona erdi',
       // NORMATIVE
@@ -179,79 +185,182 @@ export const tr: Dictionary = {
   },
 
   errors: {
+    INVALID_ARGUMENT: {
+      title: 'Geçersiz istek',
+      body: 'İstekte geçersiz bir şey var. Hiçbir şey gönderilmedi.',
+    },
+    INVALID_ACCOUNT: { title: 'Geçersiz hesap', body: 'Bu NEAR hesap kimliği geçerli değil.' },
+    INVALID_AMOUNT: { title: 'Geçersiz tutar', body: 'Taban birimde tam ve pozitif bir tutar gir.' },
+    INVALID_DURATION: {
+      title: 'Geçersiz iptal süresi',
+      body: 'İptal süresi 60 saniye ile 1 saat arasında olmalı.',
+    },
+    INVALID_EXPIRY: {
+      title: 'Geçersiz son tarih',
+      body: 'Fonlama son tarihi gelecekte ve 24 saat içinde olmalı.',
+    },
     WRONG_NETWORK: {
       title: 'Yanlış ağ',
       body: "Taply yalnızca NEAR Testnet üzerinde çalışır. Cüzdanını Testnet'e al ve tekrar dene.",
     },
-    INVALID_ACCOUNT: { title: 'Geçersiz hesap', body: 'Bu NEAR hesap kimliği geçerli değil.' },
-    INVALID_ASSET: { title: 'Desteklenmeyen varlık', body: 'Bu sürümde yalnızca native Testnet NEAR destekleniyor.' },
-    INVALID_AMOUNT: { title: 'Geçersiz tutar', body: 'Taban birimde tam ve pozitif bir tutar gir.' },
-    INSUFFICIENT_BALANCE: { title: 'Bakiye yetersiz', body: 'Bu hesapta yeterli Testnet NEAR yok.' },
-    INSUFFICIENT_GAS: { title: 'Gas yetersiz', body: 'İşlem ücretleri için biraz daha Testnet NEAR ekle.' },
-    AUTH_REQUIRED: { title: 'Giriş gerekli', body: 'Devam etmek için kimlik doğrula.' },
-    WALLET_NOT_READY: { title: 'Cüzdan hazır değil', body: 'Devam etmek için bir NEAR Testnet cüzdanı bağla.' },
-    SOCIAL_LOGIN_NOT_TESTNET_CAPABLE: {
-      title: 'Testnet için kullanılamıyor',
-      // NORMATIVE
-      body: 'Bu giriş yöntemi Testnet cüzdanı için henüz kullanılamıyor. Desteklenen cüzdanla devam et.',
+    UNSUPPORTED_ASSET: {
+      title: 'Desteklenmeyen varlık',
+      body: 'Bu sürümde yalnızca native Testnet NEAR destekleniyor.',
     },
-    USER_REJECTED: { title: 'İmza reddedildi', body: 'İmzayı reddettin. Hiçbir şey gönderilmedi.' },
+    UNSUPPORTED_MODE: { title: 'Desteklenmeyen mod', body: 'Bu ödeme modu bu sürümde etkin değil.' },
+    INVALID_DEPOSIT: {
+      title: 'Yatırılan tutar uyuşmuyor',
+      body: 'Eklenen tutar istenen tutarla tam olarak aynı olmalı. Hiçbir şey kabul edilmedi.',
+    },
+    INSUFFICIENT_PREPAID_GAS: {
+      title: 'Yeterli gas eklenmedi',
+      body: 'İşlem, güvenle tamamlanmak için yeterli gas ayırmadı.',
+    },
+
+    AUTH_REQUIRED: { title: 'Giriş gerekli', body: 'Devam etmek için cüzdanınla kimlik doğrula.' },
+    AUTH_EXPIRED: { title: 'Giriş süresi doldu', body: 'Girişin sona erdi. Yeniden kimlik doğrula.' },
+    AUTH_SIGNATURE_INVALID: { title: 'İmza geçersiz', body: 'Bu cüzdan imzası doğrulanamadı.' },
+    AUTH_CHALLENGE_EXPIRED: { title: 'Doğrulama süresi doldu', body: 'Giriş doğrulaması sona erdi. Yeniden başla.' },
+    AUTH_CHALLENGE_USED: {
+      title: 'Doğrulama zaten kullanıldı',
+      body: 'Bu giriş doğrulaması daha önce kullanıldı. Yenisini başlat.',
+    },
+    NOT_AUTHORIZED: { title: 'Yetkisiz', body: 'Hesabın bu işlemi yapmaya yetkili değil.' },
+    PAYER_MISMATCH: {
+      title: 'Farklı ödeyen gerekli',
+      body: 'Bu talep başka bir hesaba kısıtlı. Bu hesaptan ödeme yapma.',
+    },
+    MERCHANT_BINDING_INVALID: {
+      title: 'Satıcı hesabı uyuşmuyor',
+      body: 'Alıcı hesap satıcı profiliyle uyuşmuyor. Ödeme yapma.',
+    },
+    UNSUPPORTED_CALLER: { title: 'Desteklenmeyen çağrı', body: 'Bu işlem bu bağlamdan yapılamaz.' },
+    CSRF_REJECTED: {
+      title: 'İstek engellendi',
+      body: 'Bu istek bu uygulamadan gelmedi. Hiçbir işlem yapılmadı.',
+    },
+
+    REQUEST_NOT_FOUND: { title: 'Talep bulunamadı', body: 'Bu kimlik için bir ödeme talebi yok.' },
+    SESSION_NOT_FOUND: { title: 'Oturum bulunamadı', body: 'Böyle bir canlı oturum yok.' },
+    MERCHANT_NOT_FOUND: { title: 'Satıcı bulunamadı', body: 'Bu hesap için satıcı profili yok.' },
+    IDEMPOTENCY_CONFLICT: {
+      title: 'Zaten işleniyor',
+      body: 'Aynı istek halen işleniyor. İkinci bir tane oluşturulmayacak.',
+    },
+    REQUEST_ID_CONFLICT: {
+      title: 'Talep zaten var',
+      body: 'Bu kimliği başka bir talep kullanıyor. Yeni bir talep oluşturulmalı.',
+    },
+    TERMS_MISMATCH: {
+      title: 'Koşullar değişti',
+      body: 'Sen incelerken ödeme koşulları değişti. Onay vermeden önce yeni koşulları incele.',
+    },
     REQUEST_EXPIRED: { title: 'Talep süresi doldu', body: 'Bu talep artık fonlanamaz. Yeni bir talep iste.' },
+    REQUEST_NOT_OPEN: { title: 'Talep açık değil', body: 'Bu talep artık fonlama kabul etmiyor.' },
     REQUEST_ALREADY_FUNDED: { title: 'Zaten fonlandı', body: 'Bu talep bir kez fonlandı.' },
     REQUEST_ALREADY_SETTLED: { title: 'Zaten sonuçlandı', body: 'Bu talep zaten nihai bir duruma ulaştı.' },
-    WINDOW_STILL_OPEN: { title: 'Aktarım için erken', body: 'İptal süresi zincirde henüz kapanmadı.' },
+
     CANCEL_WINDOW_CLOSED: {
       title: 'İptal süresi kapandı',
       body: 'Bu çağrı işlemeden önce zincir iptal süresini kapattı. İptal artık mümkün değil.',
     },
-    REFUND_IN_FLIGHT: { title: 'İade sürüyor', body: 'Zincirde zaten bir iade işleniyor.' },
-    PAYOUT_IN_FLIGHT: { title: 'Ödeme sürüyor', body: 'Zincirde zaten bir aktarım işleniyor.' },
-    REFUND_FAILED: { title: 'İade başarısız', body: 'İade tamamlanmadı. Para durumu zincirde korunuyor.' },
-    PAYOUT_FAILED: { title: 'Aktarım başarısız', body: 'Aktarım tamamlanmadı. Para durumu zincirde korunuyor.' },
-    UNVERIFIED_MERCHANT: {
-      title: 'Satıcı doğrulanmadı',
-      body: 'Bu satıcı alıcı hesabın kontrolünü kanıtlamadı. Güvenmiyorsan ödeme yapma.',
+    WINDOW_STILL_OPEN: { title: 'Aktarım için erken', body: 'İptal süresi zincirde henüz kapanmadı.' },
+    OPERATION_IN_FLIGHT: {
+      title: 'Aktarım sürüyor',
+      body: 'Zincirde zaten bir aktarım işleniyor. Sonucu bekle.',
     },
+    OPERATION_NONCE_MISMATCH: {
+      title: 'Güncel değil',
+      body: 'Bu görünüm zincirin gerisinde. Tekrar denemeden önce yenile.',
+    },
+    OPERATION_NOT_RETRYABLE: {
+      title: 'Yeniden denenemez',
+      body: 'Bu işlemin yeniden denenecek kayıtlı bir hatası yok veya yetkili taraf değilsin.',
+    },
+    RECEIPT_NOT_FINAL: {
+      title: 'Makbuz nihai değil',
+      body: 'Ödeme nihai duruma ulaşmadığı için henüz doğrulanmış bir makbuz yok.',
+    },
+
+    SESSION_MISMATCH: {
+      title: 'Koşullar uyuşmuyor',
+      body: 'İki cihaz aynı koşulları göstermiyor. Ödeme yapma. Yeni bir oturum başlat.',
+    },
+    SESSION_ALREADY_BOUND: {
+      title: 'Oturum zaten kullanımda',
+      body: 'Bu oturum başka bir talebe bağlı.',
+    },
+    SESSION_ALREADY_JOINED: { title: 'Oturuma zaten katılındı', body: 'Bu oturuma biri çoktan katıldı.' },
     SESSION_EXPIRED: {
       title: 'Oturum sona erdi',
       // NORMATIVE
       body: 'Canlı oturum sona erdi; yeni oturum oluştur.',
     },
-    SESSION_MISMATCH: {
-      title: 'Koşullar uyuşmuyor',
-      body: 'İki cihaz aynı koşulları göstermiyor. Ödeme yapma. Yeni bir oturum başlat.',
+    JOIN_TOKEN_EXPIRED: { title: 'Bağlantı süresi doldu', body: 'Bu katılım bağlantısı sona erdi. Yenisini iste.' },
+    JOIN_TOKEN_USED: { title: 'Bağlantı kullanıldı', body: 'Bu katılım bağlantısı daha önce kullanıldı.' },
+    STORAGE_QUOTE_CHANGED: {
+      title: 'Maliyetler değişti',
+      body: 'Başladığından beri depolama maliyeti değişti. İmzalamadan önce yeni tutarları incele.',
     },
-    NETWORK_UNAVAILABLE: { title: 'Bağlantı yok', body: 'Bağlantını kontrol et. Hiçbir ödeme etkilenmedi.' },
+
+    RATE_LIMITED: { title: 'Çok fazla istek', body: 'Biraz bekle ve tekrar dene.' },
+    RPC_UNAVAILABLE: {
+      title: 'Zincire ulaşılamıyor',
+      body: 'Şu anda ağa ulaşılamıyor. Hiçbir ödeme etkilenmedi.',
+    },
+    INDEX_UNAVAILABLE: { title: 'Geçmiş yüklenemiyor', body: 'Son hareketler şu anda yüklenemiyor.' },
+    VERIFICATION_UNAVAILABLE: {
+      title: 'Şu anda doğrulanamıyor',
+      body: 'Zincir durumu onaylanamıyor; bu nedenle hiçbir şey doğrulanmış olarak gösterilmiyor.',
+    },
+    CONTRACT_UNAVAILABLE: { title: 'Kontrata ulaşılamıyor', body: 'Ödeme kontratına ulaşılamıyor.' },
+    TRANSFER_LIQUIDITY_UNAVAILABLE: {
+      title: 'Aktarım yapılamıyor',
+      body: 'Kontrat şu anda aktarımı tamamlayamıyor. Para durumu korunuyor.',
+    },
+
+    WALLET_NOT_READY: { title: 'Cüzdan hazır değil', body: 'Devam etmek için bir NEAR Testnet cüzdanı bağla.' },
+    USER_REJECTED: { title: 'İmza reddedildi', body: 'İmzayı reddettin. Hiçbir şey gönderilmedi.' },
+    INSUFFICIENT_BALANCE: { title: 'Bakiye yetersiz', body: 'Bu hesapta yeterli Testnet NEAR yok.' },
+    INSUFFICIENT_GAS: { title: 'Gas yetersiz', body: 'İşlem ücretleri için biraz daha Testnet NEAR ekle.' },
+
     RPC_TIMEOUT_UNKNOWN_STATUS: {
       title: 'Sonuç belirsiz',
       // NORMATIVE
       body: 'Sonuç belirsiz. Tekrar ödeme yapmadan önce zincir durumunu kontrol ediyoruz.',
     },
-    RATE_LIMITED: { title: 'Çok fazla istek', body: 'Biraz bekle ve tekrar dene.' },
-    RECEIPT_NOT_FINAL: {
-      title: 'Makbuz nihai değil',
-      body: 'Ödeme nihai duruma ulaşmadığı için henüz doğrulanmış bir makbuz yok.',
+    CALLBACK_FAILED: {
+      title: 'Sonuç çözülmedi',
+      body: 'Aktarım başladı ama sonucu henüz kaydedilmedi. Bu durum çözülürken tekrar ödeme yapma.',
     },
-    TERMS_CHANGED: {
-      title: 'Koşullar değişti',
-      body: 'Sen incelerken ödeme koşulları değişti. Onay vermeden önce yeni koşulları incele.',
+    RECONCILIATION_REQUIRED: {
+      title: 'Mutabakat gerekiyor',
+      body: 'Bu ödeme zincirde çözülmesi gereken belirsiz bir durumda. Tekrar ödeme yapma.',
     },
-    MERCHANT_NOT_FOUND: { title: 'Satıcı bulunamadı', body: 'Bu hesap için satıcı profili yok.' },
-    MERCHANT_ACCOUNT_MISMATCH: {
-      title: 'Satıcı hesabı uyuşmuyor',
-      body: 'Alıcı hesap satıcı profiliyle uyuşmuyor. Ödeme yapma.',
-    },
-    RETRY_NOT_AUTHORIZED: {
-      title: 'Yeniden deneme yetkisi yok',
-      body: 'Bu işlemi yalnızca yetkili taraf yeniden deneyebilir.',
-    },
-    CLOCK_UNAVAILABLE: {
-      title: 'Zincir saati okunamıyor',
-      body: 'Zincir saatini okuyamıyoruz; gösterilecek geri sayım güvenilir olmaz.',
-    },
-    UNKNOWN_ERROR: {
+  },
+
+  notices: {
+    offline: { title: 'Bağlantı yok', body: 'Bağlantını kontrol et. Hiçbir ödeme etkilenmedi.' },
+    unexpected: {
       title: 'Bir sorun oluştu',
-      body: 'Bunu tamamlayamadık. Bu uygulama hiçbir ödeme durumunu değiştirmedi.',
+      body: 'Bu tamamlanamadı. Bu uygulama hiçbir ödeme durumunu değiştirmedi.',
+    },
+    socialLoginUnavailable: {
+      title: 'Testnet için kullanılamıyor',
+      // NORMATIVE
+      body: 'Bu giriş yöntemi Testnet cüzdanı için henüz kullanılamıyor. Desteklenen cüzdanla devam et.',
+    },
+    chainTimeUnavailable: {
+      title: 'Zincir saati okunamıyor',
+      body: 'Zincir saati okunamıyor; gösterilecek geri sayım güvenilir olmaz.',
+    },
+    incidentOpen: {
+      title: 'Zincirde çözülmemiş durum',
+      body: 'Bu ödemenin sonucu belirsiz. Mutabakat sağlanana kadar işlemler engellendi. Tekrar ödeme yapma.',
+    },
+    projectionContradiction: {
+      title: 'Çelişkili haklar bildirildi',
+      body: 'Hem iptal hem aktarım uygun olarak bildirildi; ikisi birlikte doğru olamaz. Hiçbir işlem sunulmuyor.',
     },
   },
 

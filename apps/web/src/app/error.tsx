@@ -16,7 +16,7 @@ export default function RouteError({ reset }: { readonly error: Error; readonly 
     <>
       <ScreenHeader title={t.screens.errorBoundary} />
       <Card>
-        <p className="text-sm text-[var(--text-secondary)]">{t.errors.UNKNOWN_ERROR.body}</p>
+        <p className="text-sm text-[var(--text-secondary)]">{t.notices.unexpected.body}</p>
         <button
           type="button"
           onClick={reset}

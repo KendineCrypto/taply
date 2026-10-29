@@ -1,5 +1,6 @@
 import type { Locale } from '@/lib/i18n';
-import type { DecimalString } from '@/lib/protocol';
+import { U128_MAX } from '@/lib/protocol';
+import type { U128 } from '@/lib/protocol';
 
 /**
  * Base-unit amount formatting.
@@ -20,15 +21,13 @@ export class InvalidAmountError extends Error {
 
 const BASE_UNITS_PATTERN = /^(0|[1-9][0-9]*)$/;
 
-/** u128 maximum, used to reject values the chain could never represent. */
-const U128_MAX = (1n << 128n) - 1n;
-
+// u128 maximum comes from @taply/shared; never redefined here.
 export function isBaseUnitString(value: string): boolean {
   if (!BASE_UNITS_PATTERN.test(value)) return false;
   return BigInt(value) <= U128_MAX;
 }
 
-export function parseBaseUnits(value: DecimalString): bigint {
+export function parseBaseUnits(value: U128): bigint {
   if (!isBaseUnitString(value)) throw new InvalidAmountError(value);
   return BigInt(value);
 }
@@ -64,7 +63,7 @@ export interface FormattedAmount {
   readonly display: string;
   readonly truncated: boolean;
   /** Unformatted canonical base-unit string, for copy-to-clipboard and aria. */
-  readonly baseUnits: DecimalString;
+  readonly baseUnits: U128;
 }
 
 export interface FormatOptions {
@@ -78,7 +77,7 @@ export interface FormatOptions {
  * never rounded up for display.
  */
 export function formatBaseUnits(
-  baseUnits: DecimalString,
+  baseUnits: U128,
   decimals: number,
   options: FormatOptions = {},
 ): FormattedAmount {
@@ -114,7 +113,7 @@ export function formatBaseUnits(
  * Converts a human decimal input (what someone types) into base units, exactly.
  * Rejects anything it cannot represent without loss, rather than rounding.
  */
-export function toBaseUnits(input: string, decimals: number): DecimalString {
+export function toBaseUnits(input: string, decimals: number): U128 {
   const trimmed = input.trim().replace(/\s+/g, '');
   if (!/^(0|[1-9][0-9]*)?([.,][0-9]*)?$/.test(trimmed) || trimmed === '' || trimmed === '.' || trimmed === ',') {
     throw new InvalidAmountError(input);

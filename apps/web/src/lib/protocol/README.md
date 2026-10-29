@@ -1,50 +1,90 @@
-# `src/lib/protocol` — TEMPORARY local mirror of `@taply/shared`
+# `src/lib/protocol` — the frontend's only protocol import surface
 
-**This is the single isolated adapter permitted by Protocol Freeze v1 §2.**
+**Phase 0.5: the temporary mirror is gone.** Every payment state, transport
+model, schema and hashing function now comes from `@taply/shared` (Codex-owned,
+`packages/shared`). There is one definition of `ChainState`, `CallerRole`,
+`ErrorCode` and the hash domains in this repository, and it is not in this
+directory.
 
-> "Until then, Claude may scaffold `apps/web` as a *self-contained app* without
-> editing root files; shared types must remain in one clearly isolated temporary
-> adapter for later replacement."
+## Files
 
-Everything here is hand-typed from `docs/LEAD_PROTOCOL_FREEZE_v1.md` (commit
-`f985412`). Codex owns the authoritative schemas in `packages/shared`.
+| File | Contents |
+|---|---|
+| `index.ts` | Re-exports from `@taply/shared`, plus the frontend-only helpers below. **Import from `@/lib/protocol`, never from `@taply/shared` directly** — one seam makes a future protocol change a single-file edit. |
+| `presentation.ts` | The only frontend-local additions. Each is justified in-file under one of three categories (a) iterable list for a union the shared package exposes no array for, (b) presentation metadata the protocol has no opinion on, (c) a defence-in-depth predicate restating a shared schema rule. |
+| `__tests__/shared-compat.test.ts` | The compatibility contract: frozen fixture digests, session-binding mutations, enum mirroring, and the unsafe states the shared schemas must reject. |
 
-## Replacement procedure (at integration)
+Deleted in this phase: `chain-state.ts`, `types.ts`, `errors.ts` — all were
+duplicates of the real package.
 
-1. Codex's Phase 0 commit lands on `main`; `main` merges into `feature/frontend`.
-2. Re-point every export in `index.ts` at `@taply/shared`.
-3. Delete the local type/enum files; keep only re-exports until imports are migrated.
-4. Delete `apps/web/pnpm-workspace.yaml` + `apps/web/pnpm-lock.yaml` so `apps/web`
-   joins the Codex-owned root workspace.
-5. Run `pnpm check`. Any drift between this mirror and `@taply/shared` surfaces
-   as a type error — that is the intended failure mode.
+## What `presentation.ts` adds, and why
 
-**No file outside this directory may declare a protocol type.** Import from
-`@/lib/protocol` only.
+- `ASSURANCES`, `OBSERVATION_SOURCES` — `assurance` and `source` are declared
+  inline inside `createChainObservationSchema`, so there is no `.options` array
+  to borrow. Both lists are built from a `Record<Union, true>` keyed by the
+  shared type, so omitting or inventing a member fails to compile.
+- `CALLER_ROLES`, `PAY_MODES` — taken straight from the shared Zod enums'
+  `.options`, so they cannot drift at all.
+- `LOCAL_PHASES` / `LocalPhase` — the shared `LocalWalletState` has the three
+  phases the protocol cares about; the UI needs `IDLE`, `REVIEWING` and
+  `SUBMITTED` too. It is a strict superset and, by construction, has no member
+  that can express a settlement outcome.
+- `NEAR_NATIVE` / `DisplayAsset` — decimal precision is a formatting concern; the
+  wire model only carries `assetId: 'near:native'`.
+- `isVerifiedPaid`, `retryRoleMatchesKind`, `isUnknownOutcome`,
+  `isAutoRetryableRead`, `toErrorCode` — fail-closed predicates. Each restates a
+  rule the shared schema already enforces so that an object which reached the UI
+  **without** validation still cannot light up a control. `shared-compat.test.ts`
+  checks each one against the schema it mirrors.
 
-## Known assumptions (NOT yet confirmed by Codex)
+## Corrections the real package forced
 
-These are gaps in the freeze that I had to type to compile. Each must be checked
-against `packages/shared` and corrected, not kept:
+These were wrong in the pre-integration mirror and are now fixed:
 
-| Assumption | Why it was needed | Risk if wrong |
-|---|---|---|
-| `ChainObservation.source` = `'chain' \| 'index' \| 'mock'` | Freeze §3 lists the field but not its values; taken from the older `docs/API.md` `Verification.source` | Mock detection (`DemoBoundary`) keys off `'mock'` |
-| `observedBlock` is nullable | An unverified/`rpcAvailable:false` read cannot cite a block | Non-null assumption would crash offline views |
-| `IntentTerms` field set | Freeze §7 defers the exact object to "Codex's second protocol proposal", which this worktree does not contain | `termsHash` cannot be independently derived until supplied |
-| `DerivedProjection` shape | Freeze §3 names the fields (`cancelWindowOpen`, `releaseEligible`, authenticated `retry` eligibility, caller role) but not their types | CTA gating would need rework |
-| `ApiError.retryAction` values | Only `WAIT_AND_RECONCILE` is named in §8 | Error mapping falls back to a safe no-retry default |
+| Mirror (wrong) | `@taply/shared` (authoritative) |
+|---|---|
+| `source: 'chain' \| 'index' \| 'mock'` | `'rpc' \| 'index' \| 'mock'` |
+| `Role: payer \| recipient \| creator \| observer` | `CallerRole: anonymous \| payer \| recipient \| payer_and_recipient \| observer` (no `creator` — the creator **is** the recipient) |
+| `derived.expired: boolean` | `fundingEligibility: ELIGIBLE \| EXPIRED \| NOT_OPEN \| UNSUPPORTED \| UNKNOWN`, a sibling of `derived` |
+| `retry: { allowed, authorizedRoles }` | `retry: { eligible, operationNonce, kind }` |
+| `protectedDurationNs` | `cancelDurationNs`, inside `IntentTerms` |
+| 32 invented error codes | 56 real `ERROR_CODES` |
+| `ChainObservation.data` non-null | `data: T \| null` |
+| *(absent)* | `incident: CALLBACK_FAILED \| OUTCOME_UNKNOWN \| RECONCILIATION_REQUIRED \| null` |
 
-## Deferred with reasons
+## Resolved: the session-commitment question
+
+Against Protocol Freeze v1 §7 I flagged that
+`sessionCommitment = SHA256("taply.session.v1\n" + termsHash)` looked terms-only,
+which would make the 6-character comparison code identical across sessions
+carrying identical terms.
+
+**The real schema answers it.** `sessionBinding { id, nonce, expiresAtNs }` is a
+field of `IntentTerms`, so it is inside `termsHash`, so it is inside the
+commitment. `shared-compat.test.ts` proves a change to the session nonce, the
+session id or the session expiry each produces a different commitment and a
+different comparison code, while leaving the deterministic `requestId`
+unchanged. No protocol change is needed.
+
+## Rules that still hold
+
+- Hashing is **never** reimplemented here. Freeze §7 forbids deriving a second
+  algorithm; the frontend calls `calculateTermsHash`, `calculateRequestId`,
+  `calculateSessionCommitment` and `comparisonCode` from the shared package and
+  is tested against the committed vectors.
+- Strict JSON goes through `parseStrictJson` **before** any `JSON.parse`, because
+  ordinary parsing has already discarded duplicate keys.
+- UI flags never grant authority. The contract re-checks every action.
+
+## Still deferred, with reasons
 
 - **Service worker / offline caching.** Freeze §8 permits caching the static
   shell and assets only, with `no-store` on every payment read. A SW shipped
-  before real payment reads exist is the exact mechanism that could serve a
-  stale "Paid" screen. Deferred until there is a read layer to test it against.
+  before real payment reads exist is the exact mechanism that could serve a stale
+  "Paid" screen. Deferred until there is a read layer to test it against.
 - **Content-Security-Policy.** Needs a nonce-based setup against Next's inline
   bootstrap; done wrong it silently disables the app. Deferred to the phase that
-  adds the wallet adapter, where it is actually load-bearing.
-- **`termsHash` / `sessionCommitment` derivation.** Must consume Codex's
-  `packages/shared/test-vectors` fixtures A and B verbatim (freeze §7). Deriving
-  it independently here would be "reverse engineering a different algorithm",
-  which §7 forbids.
+  adds the wallet adapter, where it is load-bearing.
+- **Transport layer.** No `fetch` client exists yet, so no endpoint under
+  `/api/v1` is called. `PaymentIntentResponseSchema` is imported and tested but
+  not yet wired to a request.
