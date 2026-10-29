@@ -5,9 +5,9 @@
   "packageManager": "pnpm@11.5.0",
   "engines": { "node": ">=24.13.0 <25", "pnpm": "11.5.0" },
   "scripts": {
-    "build": "pnpm --filter @taply/shared build",
-    "typecheck": "pnpm --filter @taply/shared typecheck",
-    "test": "pnpm --filter @taply/shared test",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm build && pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
     "check": "pnpm typecheck && pnpm test"
   }
 }

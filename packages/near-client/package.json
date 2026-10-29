@@ -1,0 +1,24 @@
+{
+  "name": "@taply/near-client",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./testing": { "types": "./dist/testing.d.ts", "import": "./dist/testing.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test-types.json --noEmit",
+    "test": "pnpm build && node --test test/*.test.mjs",
+    "test:integration": "pnpm build && node --test integration/*.test.mjs"
+  },
+  "dependencies": {
+    "@taply/shared": "workspace:*",
+    "jsonc-parser": "3.3.1",
+    "lossless-json": "4.3.3",
+    "zod": "4.6.7"
+  },
+  "devDependencies": { "typescript": "7.0.2" }
+}
