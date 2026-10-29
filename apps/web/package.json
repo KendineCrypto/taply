@@ -1,0 +1,45 @@
+{
+  "name": "@taply/web",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Taply v0.4 mobile-first NEAR Testnet wallet and merchant payment PWA (frontend only).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify:brand": "node scripts/verify-brand-assets.mjs",
+    "gen:icons": "node scripts/generate-pwa-icons.mjs",
+    "check": "pnpm run verify:brand && pnpm run typecheck && pnpm run lint && pnpm run test"
+  },
+  "dependencies": {
+    "@taply/shared": "workspace:*",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@next/eslint-plugin-next": "16.4.3",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "jsdom": "30.1.3",
+    "sharp": "0.35.5",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.0.5"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

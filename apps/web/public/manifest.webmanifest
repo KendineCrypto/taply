@@ -1,0 +1,19 @@
+{
+  "name": "Taply — NEAR Testnet payments",
+  "short_name": "Taply",
+  "description": "Mobile-first NEAR Testnet wallet and merchant payment app. Test funds only.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B120E",
+  "theme_color": "#0B120E",
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
