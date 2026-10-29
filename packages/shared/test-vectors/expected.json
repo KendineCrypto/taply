@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "taply.fixtures.v1",
+  "evidence": "CALCULATED_FIXTURES_NOT_CHAIN_PROOF",
+  "requestId": "766c48128e0c09fa5e6f74c315a5ea78618d921bd56aff2b3f2c63347ec436e1",
+  "a": {
+    "termsHash": "8764cab7aa187e82f0422bd29f21644af950c99cbb0b034f3bc7eed48c439d57",
+    "sessionCommitment": "ed17bd558b616672e9ce22b52f4635ca29b0dc989d6b16ea04b8727d9bcbde4d",
+    "comparisonCode": "XMBVTN"
+  },
+  "b": {
+    "termsHash": "ca3d4f507314b3e61595894cce31f1a1eb15d97a9c7ca238ac3e238ec1afa067",
+    "sessionCommitment": "32094fae39982a7cf3296e5a99d8b8539e158b328e2026e783db972c4ea2aba3",
+    "comparisonCode": "684MZB"
+  },
+  "time": {
+    "fundedAtNs": "1793520000000000000",
+    "cancelDurationNs": "60000000000",
+    "cancelUntilNs": "1793520060000000000"
+  }
+}

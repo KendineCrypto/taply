@@ -1,11 +1,17 @@
 # Taply v0.4 architecture — contract boundaries
 
 ## Components
+
+**Protocol authority:** `docs/LEAD_PROTOCOL_FREEZE_v1.md` supersedes conflicting
+older decisions below. Phase 0 implements the root pnpm workspace and
+`packages/shared` only. Its initial scaffold is explicitly Codex-owned; subsequent
+shared changes require coordination after lead integration. `docs/API.md` and
+shared schemas define the v1 wire protocol. No service or contract is deployed.
 - `apps/web` (Claude): mobile-first Next.js PWA, wallet/adaptor browser, request/checkout pages, merchant register, paired session UX, explicit signing, verified receipts.
 - `apps/api` (Codex): canonical session handshake (WebSocket/SSE), rate-limited join/leave, merchant profile auth, request index and chain watcher, relayer experiment, recurrence templates, optional social login orchestration. **No server side customer keys**.
 - `contracts/payments` (Codex): Rust NEAR Testnet request registry, native NEAR settlement, Protected escrow and promise/callback payout/refund, optional NEP-141 adapter.
 - `packages/near-client` (Codex): RPC reading, finality/provenance verification, transaction preparation and link to explorer. Separate signing adapter in browser.
-- `packages/shared` (Lead): canonical TS contract models, state enums, canonical hashing and validation schemas; keep in sync with Rust fixtures.
+- `packages/shared` (Codex initial scaffold; Lead-coordinated thereafter): canonical TS/Zod models, separate chain/session/wallet enums, RFC 8785 hashing and Rust-compatible fixture data. No signing or network authority.
 
 ## Trust boundaries
 1. Web displays; doesn't decide settlement. User must review and sign exact chain transaction.
@@ -24,7 +30,7 @@ Hardcode the *logical environment* to `near-testnet` via validated configuration
 `ADR-002`: per-intent id uses collision-resistant on-chain counter or hash+nonce, with canonical serialized fields. If counter is used, map frontend id to tx outcomes.
 `ADR-003`: storage funding, cleanup, refund rules, fees, gas reserves, ext promise callback versioning, retries and liability conservation.
 `ADR-004`: token standard and allowance; NEP-141 requires receiver registration and 1 yoctoNEAR on ft_transfer_call. Testnet stablecoin names must not imply real USD.
-`ADR-005`: Protected Pay cancel cutoff interpretation and merchant consent attestation; impossible to retroactively extend cutoff or change protected conditions.
+`ADR-005` (resolved semantics by freeze): recipient signs immutable `cancelDurationNs` (60–3600 seconds, default 60); successful funding records `fundedAtNs` and checked `cancelUntilNs = fundedAtNs + duration`. Payer signs the matching duration, consent version and terms hash. Before funding show duration; after funding show chain cutoff. Refund/release branch selection is irreversible. General callback-failure reconciliation remains unresolved and deployment-gated.
 `ADR-006`: No special on-chain Handshake authority unless session commitment is included in signed request. A shared short code is visual comparison only.
 `ADR-007`: social wallet/relayer provider; only enable if Testnet availability, account provenance and recovery can be end-to-end validated.
 

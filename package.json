@@ -1,0 +1,13 @@
+{
+  "name": "taply",
+  "version": "0.4.0",
+  "private": true,
+  "packageManager": "pnpm@11.5.0",
+  "engines": { "node": ">=24.13.0 <25", "pnpm": "11.5.0" },
+  "scripts": {
+    "build": "pnpm --filter @taply/shared build",
+    "typecheck": "pnpm --filter @taply/shared typecheck",
+    "test": "pnpm --filter @taply/shared test",
+    "check": "pnpm typecheck && pnpm test"
+  }
+}
