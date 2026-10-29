@@ -31,7 +31,7 @@ export class NearClientError extends Error {
 }
 export function parseConfig(input: NearTestnetConfig): Config {
   const parsed = ConfigSchema.safeParse(input);
-  if (!parsed.success) throw new NearClientError("INVALID_CONFIG");
+  if (!parsed.success) throw new NearClientError("INVALID_CONFIG", false);
   return parsed.data;
 }
 export function publicError(error: NearClientError, providerId: string): RpcReadError {
@@ -69,6 +69,8 @@ export function createRpc(config: Config, fetcher: Fetch) {
       }
       if (!response.body) throw new NearClientError("RPC_MALFORMED_RESPONSE");
       const reader = response.body.getReader();
+      const cancelReader = () => { void reader.cancel().catch(() => undefined); };
+      controller.signal.addEventListener("abort", cancelReader, { once: true });
       const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
       let bytes = 0;
       let text = "";
@@ -85,7 +87,10 @@ export function createRpc(config: Config, fetcher: Fetch) {
         void reader.cancel().catch(() => undefined);
         if (error instanceof NearClientError) throw error;
         throw new NearClientError("RPC_MALFORMED_RESPONSE");
-      } finally { reader.releaseLock(); }
+      } finally {
+        controller.signal.removeEventListener("abort", cancelReader);
+        reader.releaseLock();
+      }
       let envelope: z.infer<typeof EnvelopeSchema>;
       try { envelope = EnvelopeSchema.parse(parseRpcJson(text)); }
       catch { throw new NearClientError("RPC_MALFORMED_RESPONSE"); }
@@ -105,7 +110,8 @@ export function createRpc(config: Config, fetcher: Fetch) {
         if (!isLosslessNumber(code) || !/^-?\d+$/.test(code.toString())) throw new NearClientError("RPC_MALFORMED_RESPONSE");
         const numericCode = code.toString();
         if (numericCode === "-32601") throw new NearClientError("RPC_METHOD_UNAVAILABLE");
-        throw new NearClientError(codes[cause?.name ?? name ?? ""] ?? "RPC_ERROR");
+        const errorName = cause?.name ?? name ?? "";
+        throw new NearClientError(Object.hasOwn(codes, errorName) ? codes[errorName]! : "RPC_ERROR");
       }
       return envelope.result;
     };

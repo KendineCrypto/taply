@@ -47,8 +47,10 @@ test('timeout aborts and remains unknown; no retry loop', async () => {
 });
 
 test('timeout includes a stalled response body', async () => {
-  const { client } = mock({ status: () => new Response(new ReadableStream({ start() {} })) }, { timeoutMs: 100 });
+  let cancelled = false;
+  const { client } = mock({ status: () => new Response(new ReadableStream({ start() {}, cancel() { cancelled = true; } })) }, { timeoutMs: 100 });
   assert.equal((await client.checkNetwork()).error.code, 'RPC_TIMEOUT');
+  assert.equal(cancelled, true);
 });
 
 for (const [status, code] of [[429, 'RPC_RATE_LIMITED'], [503, 'RPC_HTTP_ERROR'], [401, 'RPC_HTTP_ERROR']]) test(`HTTP ${status}`, async () => {
@@ -59,7 +61,7 @@ for (const [status, code] of [[429, 'RPC_RATE_LIMITED'], [503, 'RPC_HTTP_ERROR']
   assert.equal(calls.length, 1);
 });
 
-for (const [name, code] of [['TIMEOUT_ERROR', 'RPC_TIMEOUT'], ['DOES_NOT_TRACK_SHARD', 'SHARD_UNAVAILABLE'], ['SOMETHING_NEW', 'RPC_ERROR']]) test(`structured RPC error ${name}`, async () => {
+for (const [name, code] of [['TIMEOUT_ERROR', 'RPC_TIMEOUT'], ['DOES_NOT_TRACK_SHARD', 'SHARD_UNAVAILABLE'], ['SOMETHING_NEW', 'RPC_ERROR'], ['__proto__', 'RPC_ERROR'], ['toString', 'RPC_ERROR'], ['constructor', 'RPC_ERROR']]) test(`structured RPC error ${name}`, async () => {
   const { client } = mock({ status: () => rpcError(name) });
   assert.equal((await client.checkNetwork()).error.code, code);
 });
