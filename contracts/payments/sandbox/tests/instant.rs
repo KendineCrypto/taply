@@ -528,7 +528,10 @@ async fn retry_pays_exactly_once_and_cannot_be_replayed() -> Result<()> {
     create(&c, &merchant, &t).await?;
     merchant.delete_account(root.id()).await?.into_result()?;
     assert!(!pay(&c, &payer, &t).await?.receipt_failures().is_empty());
-    assert_eq!(request(&c, &t).await?["status"], "PAYOUT_FAILED_RECOVERABLE");
+    assert_eq!(
+        request(&c, &t).await?["status"],
+        "PAYOUT_FAILED_RECOVERABLE"
+    );
     let restored = root
         .create_subaccount("once")
         .initial_balance(NearToken::from_near(10))
@@ -546,7 +549,11 @@ async fn retry_pays_exactly_once_and_cannot_be_replayed() -> Result<()> {
     };
     let ok = retry("1").await?;
     for o in ok.receipt_outcomes() {
-        println!("MEASURE retry receipt gas={} executor={}", o.gas_burnt.as_gas(), o.executor_id);
+        println!(
+            "MEASURE retry receipt gas={} executor={}",
+            o.gas_burnt.as_gas(),
+            o.executor_id
+        );
     }
     assert!(ok.is_success());
     for nonce in ["1", "2", "3"] {
@@ -554,7 +561,10 @@ async fn retry_pays_exactly_once_and_cannot_be_replayed() -> Result<()> {
     }
     let gained = restored.view_account().await?.balance.as_yoctonear() - start;
     // Exactly one principal arrived; the recipient paid only gas and 1 yocto per call.
-    assert!(gained <= PRINCIPAL && gained > PRINCIPAL - PRINCIPAL / 100, "gained {gained}");
+    assert!(
+        gained <= PRINCIPAL && gained > PRINCIPAL - PRINCIPAL / 100,
+        "gained {gained}"
+    );
     let state = request(&c, &t).await?;
     assert_eq!(state["status"], "FINAL_PAID");
     assert_eq!(state["latestOperation"]["nonce"], "2");
