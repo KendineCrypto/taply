@@ -15,6 +15,13 @@
 
 export type ErrorCorrection = 'L' | 'M' | 'Q' | 'H';
 
+/** Bounds-checked read: a table or matrix miss is a bug, so fail loudly instead of assuming. */
+function at<T>(values: ReadonlyArray<T>, index: number): T {
+  const value = values[index];
+  if (value === undefined) throw new RangeError(`index ${index} out of range`);
+  return value;
+}
+
 const ECC_FORMAT_BITS: Readonly<Record<ErrorCorrection, number>> = { L: 1, M: 0, Q: 3, H: 2 };
 const ECC_INDEX: Readonly<Record<ErrorCorrection, number>> = { L: 0, M: 1, Q: 2, H: 3 };
 
@@ -45,7 +52,7 @@ function numRawDataModules(version: number): number {
 
 function numDataCodewords(version: number, ecc: ErrorCorrection): number {
   const e = ECC_INDEX[ecc];
-  return Math.floor(numRawDataModules(version) / 8) - ECC_CODEWORDS_PER_BLOCK[e]![version]! * NUM_ERROR_CORRECTION_BLOCKS[e]![version]!;
+  return Math.floor(numRawDataModules(version) / 8) - at(at(ECC_CODEWORDS_PER_BLOCK, e), version) * at(at(NUM_ERROR_CORRECTION_BLOCKS, e), version);
 }
 
 // --- Reed-Solomon over GF(2^8), primitive polynomial x^8+x^4+x^3+x^2+1 (0x11D) ---
@@ -65,8 +72,8 @@ function rsDivisor(degree: number): number[] {
   let root = 1;
   for (let i = 0; i < degree; i++) {
     for (let j = 0; j < result.length; j++) {
-      result[j] = gfMultiply(result[j]!, root);
-      if (j + 1 < result.length) result[j] = result[j]! ^ result[j + 1]!;
+      result[j] = gfMultiply(at(result, j), root);
+      if (j + 1 < result.length) result[j] = at(result, j) ^ at(result, j + 1);
     }
     root = gfMultiply(root, 0x02);
   }
@@ -76,10 +83,11 @@ function rsDivisor(degree: number): number[] {
 function rsRemainder(data: ReadonlyArray<number>, divisor: ReadonlyArray<number>): number[] {
   const result: number[] = divisor.map(() => 0);
   for (const b of data) {
-    const factor = b ^ result.shift()!;
+    const factor = b ^ at(result, 0);
+    result.shift();
     result.push(0);
     divisor.forEach((coef, i) => {
-      result[i] = result[i]! ^ gfMultiply(coef, factor);
+      result[i] = at(result, i) ^ gfMultiply(coef, factor);
     });
   }
   return result;
@@ -87,8 +95,8 @@ function rsRemainder(data: ReadonlyArray<number>, divisor: ReadonlyArray<number>
 
 function addEccAndInterleave(data: ReadonlyArray<number>, version: number, ecc: ErrorCorrection): number[] {
   const e = ECC_INDEX[ecc];
-  const numBlocks = NUM_ERROR_CORRECTION_BLOCKS[e]![version]!;
-  const blockEccLen = ECC_CODEWORDS_PER_BLOCK[e]![version]!;
+  const numBlocks = at(at(NUM_ERROR_CORRECTION_BLOCKS, e), version);
+  const blockEccLen = at(at(ECC_CODEWORDS_PER_BLOCK, e), version);
   const rawCodewords = Math.floor(numRawDataModules(version) / 8);
   const numShortBlocks = numBlocks - (rawCodewords % numBlocks);
   const shortBlockLen = Math.floor(rawCodewords / numBlocks);
@@ -104,10 +112,10 @@ function addEccAndInterleave(data: ReadonlyArray<number>, version: number, ecc: 
   }
 
   const result: number[] = [];
-  for (let i = 0; i < blocks[0]!.length; i++) {
+  for (let i = 0; i < at(blocks, 0).length; i++) {
     blocks.forEach((block, j) => {
       // Skip the padding byte in short blocks.
-      if (i !== shortBlockLen - blockEccLen || j >= numShortBlocks) result.push(block[i]!);
+      if (i !== shortBlockLen - blockEccLen || j >= numShortBlocks) result.push(at(block, i));
     });
   }
   return result;
@@ -123,8 +131,17 @@ class Grid {
     this.isFunction = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
   }
   set(x: number, y: number, dark: boolean): void {
-    this.modules[y]![x] = dark;
-    this.isFunction[y]![x] = true;
+    at(this.modules, y)[x] = dark;
+    at(this.isFunction, y)[x] = true;
+  }
+  dark(x: number, y: number): boolean {
+    return at(at(this.modules, y), x);
+  }
+  fixed(x: number, y: number): boolean {
+    return at(at(this.isFunction, y), x);
+  }
+  flip(x: number, y: number): void {
+    at(this.modules, y)[x] = !this.dark(x, y);
   }
 }
 
@@ -200,7 +217,7 @@ function drawFunctionPatterns(grid: Grid, version: number, ecc: ErrorCorrection)
     for (let j = 0; j < n; j++) {
       // Skip the three corners occupied by finder patterns.
       if (!((i === 0 && j === 0) || (i === 0 && j === n - 1) || (i === n - 1 && j === 0))) {
-        drawAlignment(grid, align[i]!, align[j]!);
+        drawAlignment(grid, at(align, i), at(align, j));
       }
     }
   }
@@ -218,8 +235,8 @@ function drawCodewords(grid: Grid, codewords: ReadonlyArray<number>): void {
         const x = right - j;
         const upward = ((right + 1) & 2) === 0;
         const y = upward ? size - 1 - vert : vert;
-        if (!grid.isFunction[y]![x] && i < codewords.length * 8) {
-          grid.modules[y]![x] = ((codewords[i >>> 3]! >>> (7 - (i & 7))) & 1) !== 0;
+        if (!grid.fixed(x, y) && i < codewords.length * 8) {
+          at(grid.modules, y)[x] = ((at(codewords, i >>> 3) >>> (7 - (i & 7))) & 1) !== 0;
           i++;
         }
       }
@@ -244,7 +261,7 @@ function maskApplies(mask: number, x: number, y: number): boolean {
 function applyMask(grid: Grid, mask: number): void {
   for (let y = 0; y < grid.size; y++) {
     for (let x = 0; x < grid.size; x++) {
-      if (!grid.isFunction[y]![x] && maskApplies(mask, x, y)) grid.modules[y]![x] = !grid.modules[y]![x];
+      if (!grid.fixed(x, y) && maskApplies(mask, x, y)) grid.flip(x, y);
     }
   }
 }
@@ -256,12 +273,11 @@ const N3 = 40;
 const N4 = 10;
 
 function finderPenaltyCountPatterns(history: ReadonlyArray<number>): number {
-  const n = history[1]!;
+  const n = at(history, 1);
   const core = n > 0 && history[2] === n && history[3] === n * 3 && history[4] === n && history[5] === n;
-  return (
-    (core && history[0]! >= n * 4 && history[6]! >= n ? 1 : 0) +
-    (core && history[6]! >= n * 4 && history[0]! >= n ? 1 : 0)
-  );
+  const first = at(history, 0);
+  const last = at(history, 6);
+  return (core && first >= n * 4 && last >= n ? 1 : 0) + (core && last >= n * 4 && first >= n ? 1 : 0);
 }
 
 function finderPenaltyAddHistory(currentRunLength: number, history: number[], size: number): void {
@@ -282,7 +298,6 @@ function finderPenaltyTerminate(currentRunColor: boolean, currentRunLength: numb
 
 function penaltyScore(grid: Grid): number {
   const size = grid.size;
-  const m = grid.modules;
   let result = 0;
 
   for (let pass = 0; pass < 2; pass++) {
@@ -291,7 +306,7 @@ function penaltyScore(grid: Grid): number {
       let runLength = 0;
       const history = [0, 0, 0, 0, 0, 0, 0];
       for (let b = 0; b < size; b++) {
-        const dark = pass === 0 ? m[a]![b]! : m[b]![a]!;
+        const dark = pass === 0 ? grid.dark(b, a) : grid.dark(a, b);
         if (dark === runColor) {
           runLength++;
           if (runLength === 5) result += N1;
@@ -309,13 +324,13 @@ function penaltyScore(grid: Grid): number {
 
   for (let y = 0; y < size - 1; y++) {
     for (let x = 0; x < size - 1; x++) {
-      const color = m[y]![x];
-      if (color === m[y]![x + 1] && color === m[y + 1]![x] && color === m[y + 1]![x + 1]) result += N2;
+      const color = grid.dark(x, y);
+      if (color === grid.dark(x + 1, y) && color === grid.dark(x, y + 1) && color === grid.dark(x + 1, y + 1)) result += N2;
     }
   }
 
   let dark = 0;
-  for (const row of m) for (const cell of row) if (cell) dark++;
+  for (const row of grid.modules) for (const cell of row) if (cell) dark++;
   const total = size * size;
   const k = Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1;
   result += k * N4;
@@ -371,5 +386,6 @@ export function encodeQr(text: string, ecc: ErrorCorrection = 'M'): QrMatrix {
     if (best === null || score < best.score) best = { grid, mask, score };
   }
 
-  return { version, size, mask: best!.mask, modules: best!.grid.modules };
+  if (best === null) throw new Error('no mask evaluated');
+  return { version, size, mask: best.mask, modules: best.grid.modules };
 }

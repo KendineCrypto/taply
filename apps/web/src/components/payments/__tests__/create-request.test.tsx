@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateRequest } from '../CreateRequest';
-import { installChain, memoryStorage, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
+import { installChain, memoryStorage, must, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
 import { JOURNAL_STORAGE_KEY } from '@/lib/payments/journal';
 import { IntentTermsSchema, calculateRequestId, calculateTermsHash } from '@/lib/protocol';
 import type { IntentTerms } from '@/lib/protocol';
@@ -45,7 +45,7 @@ describe('create request', () => {
     expect(screen.getByText('1500000000000000000000000')).toBeTruthy(); // exact yocto
     expect(screen.getByText('Storage bond')).toBeTruthy();
 
-    const quoted = chain.calls.find((c) => c.methodName === 'quote_create_request')!.args as { terms: IntentTerms };
+    const quoted = must(chain.calls.find((c) => c.methodName === 'quote_create_request'), 'a quote call').args as { terms: IntentTerms };
     const terms = IntentTermsSchema.parse(quoted.terms);
     expect(terms).toMatchObject({
       schemaVersion: 'taply.intent.v1',
@@ -82,7 +82,7 @@ describe('create request', () => {
       },
     ]);
     // Journaled with the full terms (same nonce can be resumed), then status page.
-    const entry = JSON.parse(storage.data.get(JOURNAL_STORAGE_KEY)!).entries[0];
+    const entry = JSON.parse(must(storage.data.get(JOURNAL_STORAGE_KEY), 'a journal')).entries[0];
     expect(entry).toMatchObject({ method: 'create_request', requestId: terms.id, termsHash: calculateTermsHash(terms), phase: 'SUBMITTED' });
     expect(entry.terms).toEqual(terms);
     expect(push).toHaveBeenCalledWith(`/pay/${terms.id}`);
@@ -107,7 +107,7 @@ describe('create request', () => {
     await act(async () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Create in wallet' }));
     });
-    const original = (first.signed[0]!.call.args as { terms: IntentTerms }).terms;
+    const original = (must(first.signed[0], 'a first signature').call.args as { terms: IntentTerms }).terms;
     cleanup();
 
     // Same chain time: the attempt is too recent to conclude anything.
@@ -130,7 +130,7 @@ describe('create request', () => {
     await act(async () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Create in wallet' }));
     });
-    expect((third.signed[0]!.call.args as { terms: IntentTerms }).terms).toEqual(original);
+    expect((must(third.signed[0], 'a resumed signature').call.args as { terms: IntentTerms }).terms).toEqual(original);
   });
 
   it('asks a disconnected visitor to connect, and never signs with the gate off', async () => {

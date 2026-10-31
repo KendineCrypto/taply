@@ -131,8 +131,8 @@ export class SubmissionJournal {
   ): JournalEntry {
     const entries = this.entries();
     const index = entries.findIndex((e) => keyOf(e) === keyOf(target));
-    if (index < 0) throw new Error('journal entry missing');
-    const current = entries[index]!;
+    const current = entries[index];
+    if (current === undefined) throw new Error('journal entry missing');
     const next = JournalEntrySchema.parse({
       ...current,
       phase: change.phase,
@@ -152,8 +152,9 @@ export class SubmissionJournal {
     const resolvedOldestFirst = kept
       .filter((e) => e.phase === 'RESOLVED')
       .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
-    while (kept.length > 200 && resolvedOldestFirst.length > 0) {
-      kept.splice(kept.indexOf(resolvedOldestFirst.shift()!), 1);
+    for (const oldest of resolvedOldestFirst) {
+      if (kept.length <= 200) break;
+      kept.splice(kept.indexOf(oldest), 1);
     }
     if (kept.length > 200) throw new JournalFullError();
     this.storage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify({ version: 1, entries: kept }));
