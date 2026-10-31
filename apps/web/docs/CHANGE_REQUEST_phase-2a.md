@@ -1,6 +1,11 @@
 # Change request for Codex / lead — Phase 2A (frontend)
 
-Raised by: Claude (`feature/frontend`). Status: **open, needs Codex/lead action**.
+Raised by: Claude (`feature/frontend`). Status: **resolved**.
+
+- Section 1 (lockfile): applied in `d2d5109` (frozen install now passes for the
+  whole workspace; CI enforces it).
+- Section 2 (QR encoder): resolved without a dependency; `src/lib/qr/encode.ts`
+  (Phase 2C), verified against two independent implementations.
 
 ## 1. Lockfile importer update (root `pnpm-lock.yaml`)
 
