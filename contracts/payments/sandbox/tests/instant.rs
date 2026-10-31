@@ -443,6 +443,129 @@ async fn competing_funders_and_other_held_obligations_conserve_principal() -> Re
 }
 
 #[tokio::test]
+async fn self_signed_callback_without_promise_result_is_rejected() -> Result<()> {
+    // The contract's own full-access key passes `#[private]` (predecessor ==
+    // current account). Only the exactly-one-promise-result guard stops it.
+    let (w, c, merchant, payer) = setup(true).await?;
+    let t = terms(&w, &c, &merchant, 10).await?;
+    create(&c, &merchant, &t).await?;
+    assert!(pay(&c, &payer, &t).await?.is_failure());
+    let stuck = request(&c, &t).await?;
+    assert_eq!(stuck["status"], "PAYOUT_IN_FLIGHT");
+    let forged = c
+        .call("on_native_transfer_complete")
+        .args_json(json!({"id":t["id"],"operationNonce":"1","kind":"INSTANT_PAYOUT"}))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(forged.is_failure());
+    assert!(format!("{forged:?}").contains("UNKNOWN_PROMISE_RESULT"));
+    assert_eq!(request(&c, &t).await?, stuck);
+    let a = accounting(&c).await?;
+    assert_eq!(a["inFlightPrincipalYocto"], PRINCIPAL.to_string());
+    assert_eq!(a["confirmedPaidYocto"], "0");
+    Ok(())
+}
+
+#[tokio::test]
+async fn expired_or_unpermitted_funding_is_refunded_and_cancel_still_works() -> Result<()> {
+    let (w, c, merchant, payer) = setup(false).await?;
+    let other = w.dev_create_account().await?;
+    // Restricted payer.
+    let mut restricted = terms(&w, &c, &merchant, 11).await?;
+    restricted["permittedPayerAccountId"] = json!(payer.id());
+    create(&c, &merchant, &restricted).await?;
+    let before = other.view_account().await?.balance.as_yoctonear();
+    let wrong = pay(&c, &other, &restricted).await?;
+    assert!(wrong.is_failure());
+    assert!(format!("{wrong:?}").contains("WRONG_PAYER"));
+    assert!(before - other.view_account().await?.balance.as_yoctonear() < PRINCIPAL / 100);
+    assert_eq!(request(&c, &restricted).await?["status"], "OPEN");
+    assert!(pay(&c, &payer, &restricted).await?.is_success());
+    assert_eq!(request(&c, &restricted).await?["status"], "FINAL_PAID");
+
+    // Short funding window, then advance real chain time past it.
+    let mut short = terms(&w, &c, &merchant, 12).await?;
+    let now = w.view_block().await?.timestamp();
+    let expiry = now + 20_000_000_000;
+    short["fundingExpiresAtNs"] = json!(expiry.to_string());
+    create(&c, &merchant, &short).await?;
+    while w.view_block().await?.timestamp() <= expiry {
+        w.fast_forward(50).await?;
+    }
+    let before = payer.view_account().await?.balance.as_yoctonear();
+    let late = pay(&c, &payer, &short).await?;
+    assert!(late.is_failure());
+    assert!(format!("{late:?}").contains("FUNDING_EXPIRED"));
+    assert!(before - payer.view_account().await?.balance.as_yoctonear() < PRINCIPAL / 100);
+    assert_eq!(request(&c, &short).await?["status"], "OPEN");
+    merchant
+        .call(c.id(), "cancel_unfunded")
+        .args_json(pay_args(&short))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(15))
+        .transact()
+        .await?
+        .into_result()?;
+    assert_eq!(request(&c, &short).await?["status"], "CANCELLED_UNFUNDED");
+    let a = accounting(&c).await?;
+    assert_eq!(a["receivedPrincipalYocto"], PRINCIPAL.to_string());
+    assert_eq!(a["confirmedPaidYocto"], PRINCIPAL.to_string());
+    Ok(())
+}
+
+#[tokio::test]
+async fn retry_pays_exactly_once_and_cannot_be_replayed() -> Result<()> {
+    let (w, c, _, payer) = setup(false).await?;
+    let root = w.root_account()?;
+    let merchant = root
+        .create_subaccount("once")
+        .initial_balance(NearToken::from_near(10))
+        .transact()
+        .await?
+        .into_result()?;
+    let t = terms(&w, &c, &merchant, 13).await?;
+    create(&c, &merchant, &t).await?;
+    merchant.delete_account(root.id()).await?.into_result()?;
+    assert!(!pay(&c, &payer, &t).await?.receipt_failures().is_empty());
+    assert_eq!(request(&c, &t).await?["status"], "PAYOUT_FAILED_RECOVERABLE");
+    let restored = root
+        .create_subaccount("once")
+        .initial_balance(NearToken::from_near(10))
+        .transact()
+        .await?
+        .into_result()?;
+    let start = restored.view_account().await?.balance.as_yoctonear();
+    let retry = |nonce: &'static str| {
+        restored
+            .call(c.id(), "retry_native_transfer")
+            .args_json(json!({"id":t["id"],"expectedOperationNonce":nonce}))
+            .deposit(NearToken::from_yoctonear(1))
+            .gas(GAS)
+            .transact()
+    };
+    let ok = retry("1").await?;
+    for o in ok.receipt_outcomes() {
+        println!("MEASURE retry receipt gas={} executor={}", o.gas_burnt.as_gas(), o.executor_id);
+    }
+    assert!(ok.is_success());
+    for nonce in ["1", "2", "3"] {
+        assert!(retry(nonce).await?.is_failure(), "replayed retry {nonce}");
+    }
+    let gained = restored.view_account().await?.balance.as_yoctonear() - start;
+    // Exactly one principal arrived; the recipient paid only gas and 1 yocto per call.
+    assert!(gained <= PRINCIPAL && gained > PRINCIPAL - PRINCIPAL / 100, "gained {gained}");
+    let state = request(&c, &t).await?;
+    assert_eq!(state["status"], "FINAL_PAID");
+    assert_eq!(state["latestOperation"]["nonce"], "2");
+    let a = accounting(&c).await?;
+    assert_eq!(a["confirmedPaidYocto"], PRINCIPAL.to_string());
+    assert_eq!(a["failedHeldPrincipalYocto"], "0");
+    assert_eq!(a["inFlightPrincipalYocto"], "0");
+    Ok(())
+}
+
+#[tokio::test]
 async fn failed_transfer_and_failed_callback_also_stays_unresolved() -> Result<()> {
     let (w, c, _, payer) = setup(true).await?;
     let root = w.root_account()?;
