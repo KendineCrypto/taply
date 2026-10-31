@@ -1,0 +1,151 @@
+# Taply Instant Pay contract validation on a local NEAR sandbox node.
+# No Testnet/Mainnet access, no deployment, no wallet keys, no repository secrets.
+# The sandbox node creates disposable local-only keys inside the runner.
+name: instant-pay-sandbox
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/frontend, main]
+    paths:
+      - contracts/payments/**
+      - .github/workflows/instant-pay-sandbox.yml
+  pull_request:
+    paths:
+      - contracts/payments/**
+      - .github/workflows/instant-pay-sandbox.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: instant-pay-sandbox-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: "2"
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  validate:
+    name: fmt, unit tests, clippy, WASM, one sandbox test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: contracts/payments
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Disk and memory (start)
+        run: |
+          df -h / "$GITHUB_WORKSPACE"
+          free -m
+          nproc
+
+      - name: System packages
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends pkg-config libssl-dev
+
+      - name: Install pinned Rust 1.95.0 (from rust-toolchain.toml)
+        timeout-minutes: 5
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal \
+            --component rustfmt,clippy --target wasm32-unknown-unknown
+          rustup show active-toolchain
+          rustc -vV
+          cargo -V
+
+      - name: Cargo cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            contracts/payments/target
+            contracts/payments/sandbox/target
+          key: payments-${{ runner.os }}-rust1.95.0-${{ hashFiles('contracts/payments/Cargo.lock', 'contracts/payments/sandbox/Cargo.lock') }}
+          restore-keys: payments-${{ runner.os }}-rust1.95.0-
+
+      - name: Format check (contract + sandbox)
+        timeout-minutes: 5
+        run: |
+          mkdir -p artifacts
+          cargo fmt --all --check
+          cargo fmt --manifest-path sandbox/Cargo.toml --all --check
+
+      - name: Unit tests (expects 15)
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          cargo test --locked --lib -- --test-threads=1 --color never 2>&1 | tee artifacts/unit-tests.log
+          grep -q "test result: ok. 15 passed; 0 failed" artifacts/unit-tests.log \
+            || { echo "::error::Expected exactly 15 passing unit tests"; exit 1; }
+
+      - name: Clippy (contract)
+        timeout-minutes: 15
+        run: |
+          set -o pipefail
+          cargo clippy --locked --all-targets -- -D warnings 2>&1 | tee artifacts/clippy.log
+
+      - name: Build WASM (production + callback-fault, existing script)
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          bash scripts/build.sh 2>&1 | tee artifacts/build.log
+          ls -la artifacts/*.wasm
+          node scripts/check-exports.mjs
+
+      - name: Clippy (sandbox runner)
+        timeout-minutes: 20
+        working-directory: contracts/payments/sandbox
+        run: |
+          set -o pipefail
+          cargo clippy --locked --all-targets -- -D warnings 2>&1 | tee ../artifacts/clippy-sandbox.log
+
+      - name: Disk (after builds)
+        if: always()
+        run: |
+          df -h /
+          du -sh target sandbox/target ~/.cargo/registry 2>/dev/null || true
+
+      - name: Sandbox integration test (ONE test, production WASM)
+        timeout-minutes: 20
+        working-directory: contracts/payments/sandbox
+        run: |
+          set -o pipefail
+          cargo test --locked --test instant -- \
+            --exact actual_transfer_callback_receipts_and_conservation \
+            --test-threads=1 --nocapture --color never 2>&1 | tee ../artifacts/sandbox-one-test.log
+          grep -q "test result: ok. 1 passed; 0 failed" ../artifacts/sandbox-one-test.log \
+            || { echo "::error::Expected exactly one passing sandbox test"; exit 1; }
+
+      - name: Disk and memory (end)
+        if: always()
+        run: |
+          df -h /
+          free -m
+
+      # Logs, WASM hashes and sandbox read records only. No keys, no WASM binaries.
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: instant-pay-validation-logs
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            contracts/payments/artifacts/*.log
+            contracts/payments/artifacts/wasm.sha256
+            contracts/payments/artifacts/requests/*.json
