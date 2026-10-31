@@ -412,6 +412,7 @@ export interface Dictionary {
       readonly payerLabel: string;
       readonly operationLabel: string;
       readonly attemptResolved: string;
+      readonly operationStatus: Readonly<Record<'IN_FLIGHT' | 'FAILED' | 'SUCCEEDED', string>>;
     };
     readonly receipt: {
       readonly factsTitle: string;

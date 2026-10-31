@@ -119,8 +119,14 @@ export function reconcile(entry: JournalEntry, view: PaymentView, startedAtNs: b
 
   switch (entry.method) {
     case 'pay_instant_native':
-    case 'cancel_unfunded':
       // Funded or cancelled by anyone: this request can no longer be funded twice.
+      if (request.status !== 'OPEN') return 'resolved';
+      // Still OPEN at a final block at/after expiry: no funding can ever succeed,
+      // so the attempt provably had no effect (the contract refunds a late deposit).
+      if (observedAtNs >= BigInt(request.terms.fundingExpiresAtNs)) return 'resolved';
+      return waitedLongEnough ? 'may_reattempt' : 'pending';
+    case 'cancel_unfunded':
+      // An expired OPEN request can still be cancelled, so only a state change explains this.
       if (request.status !== 'OPEN') return 'resolved';
       return waitedLongEnough ? 'may_reattempt' : 'pending';
     case 'retry_native_transfer': {

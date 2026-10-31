@@ -806,6 +806,7 @@ export const en: Dictionary = {
       payerLabel: 'Paid by',
       operationLabel: 'Transfer attempt',
       attemptResolved: 'Explained by the chain',
+      operationStatus: { IN_FLIGHT: 'in progress', FAILED: 'failed, recorded', SUCCEEDED: 'succeeded per contract' },
     },
     receipt: {
       factsTitle: 'Contract terminal facts',

@@ -41,6 +41,12 @@ export const FIXTURES = {
   inFlight: inFlight as ContractRequest,
 };
 
+/** Test-only presence check: fails the test with a message instead of asserting with `!`. */
+export function must<T>(value: T | null | undefined, what: string): T {
+  if (value === null || value === undefined) throw new Error(`expected ${what}`);
+  return value;
+}
+
 /** 32 zero bytes in base58: a syntactically valid code hash for the pin. */
 export const CODE_HASH = '11111111111111111111111111111111';
 export const OTHER_CODE_HASH = '11111111111111111111111111111112';

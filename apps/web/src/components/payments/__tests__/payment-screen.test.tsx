@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PaymentScreen } from '../PaymentScreen';
 import { ReceiptScreen } from '../ReceiptScreen';
-import { FIXTURES, OTHER_CODE_HASH, configFor, installChain, memoryStorage, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
+import { FIXTURES, OTHER_CODE_HASH, must, configFor, installChain, memoryStorage, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
 import { JOURNAL_STORAGE_KEY } from '@/lib/payments/journal';
 import type { ContractRequest } from '@/lib/protocol';
 
@@ -14,7 +14,7 @@ import type { ContractRequest } from '@/lib/protocol';
  */
 
 const { openRestricted, paidRestricted, open, cancelled, failed, paidAfterRetry, inFlight } = FIXTURES;
-const PAYER = openRestricted.terms.permittedPayerAccountId!;
+const PAYER = must(openRestricted.terms.permittedPayerAccountId, 'a payer restriction');
 const RECIPIENT = openRestricted.recipientAccountId;
 
 afterEach(() => {
@@ -35,7 +35,7 @@ describe('payer review and wallet approval', () => {
     const storage = memoryStorage();
     renderWithChain(<PaymentScreen id={openRestricted.terms.id} />, { setup: readySetup(chain, true), adapter, storage });
 
-    const review = (await screen.findByRole('heading', { name: 'Review payment' })).closest('section')!;
+    const review = must((await screen.findByRole('heading', { name: 'Review payment' })).closest('section'), 'the review section');
     expect(within(review).getByText(RECIPIENT)).toBeTruthy();
     expect(screen.getAllByText('1').length).toBeGreaterThan(0); // 1 NEAR, exact
     expect(screen.getByText('1000000000000000000000000')).toBeTruthy(); // exact yoctoNEAR
@@ -63,7 +63,7 @@ describe('payer review and wallet approval', () => {
       },
     ]);
     // Journaled before the wallet opened, with the hash the wallet returned.
-    const journal = JSON.parse(storage.data.get(JOURNAL_STORAGE_KEY)!);
+    const journal = JSON.parse(must(storage.data.get(JOURNAL_STORAGE_KEY), 'a journal'));
     expect(journal.entries[0]).toMatchObject({ method: 'pay_instant_native', requestId: openRestricted.terms.id, phase: expect.stringMatching(/SUBMITTED|RESOLVED/) });
 
     // Paid per contract - never the Verified Paid ribbon (no receipt verifier yet).
@@ -180,6 +180,10 @@ describe('recipient view', () => {
     const { adapter, signed } = recordingWallet(failed.payerAccountId);
     renderWithChain(<PaymentScreen id={failed.terms.id} />, { setup: readySetup(chain, true), adapter });
     expect(await screen.findByText(/Only the recipient can retry it/)).toBeTruthy();
+    // Funded: the funding deadline no longer applies; operation status is localised, not a raw enum.
+    expect(screen.queryByText('Payable until (chain time)')).toBeNull();
+    expect(screen.getByText('#1 · failed, recorded')).toBeTruthy();
+    expect(screen.queryByText(/FAILED/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Retry transfer in wallet' })).toBeNull();
     expect(signed).toHaveLength(0);
   });

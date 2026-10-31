@@ -68,7 +68,9 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
 
   const { request } = facts;
   const paid = request.status === 'FINAL_PAID';
-  const hashes = journal?.isReadable() ? journal.forRequest(id).filter((e) => e.transactionHash !== null) : [];
+  const hashes = journal?.isReadable()
+    ? journal.forRequest(id).flatMap((e) => (e.transactionHash === null ? [] : [{ method: e.method, hash: e.transactionHash }]))
+    : [];
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,7 +95,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
         {request.latestOperation !== null && (
           <DetailRow label={t.payment.status.operationLabel}>
             <span className="chain-id">
-              #{request.latestOperation.nonce} · {request.latestOperation.status}
+              #{request.latestOperation.nonce} · {t.payment.status.operationStatus[request.latestOperation.status]}
             </span>
           </DetailRow>
         )}
@@ -105,8 +107,8 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
         </DetailRow>
       </RequestTerms>
       {paid && <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>}
-      {hashes.map((entry) => (
-        <TransactionLink key={entry.method} explorerBaseUrl={setup.explorerBaseUrl} hash={entry.transactionHash!} />
+      {hashes.map(({ method, hash }) => (
+        <TransactionLink key={method} explorerBaseUrl={setup.explorerBaseUrl} hash={hash} />
       ))}
       <Provenance block={observation.observedBlock} checkedAt={observation.checkedAt} />
       <BackToPayment id={id} />

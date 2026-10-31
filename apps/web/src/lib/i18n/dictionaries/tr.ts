@@ -804,6 +804,7 @@ export const tr: Dictionary = {
       payerLabel: 'Ödeyen',
       operationLabel: 'Aktarım denemesi',
       attemptResolved: 'Zincir tarafından açıklandı',
+      operationStatus: { IN_FLIGHT: 'işleniyor', FAILED: 'başarısız, kaydedildi', SUCCEEDED: 'kontrata göre başarılı' },
     },
     receipt: {
       factsTitle: 'Kontratın kesin kayıtları',

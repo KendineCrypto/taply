@@ -335,7 +335,7 @@ function RequestView({
         {op !== null && (
           <DetailRow label={t.payment.status.operationLabel}>
             <span className="chain-id">
-              #{op.nonce} · {op.status}
+              #{op.nonce} · {t.payment.status.operationStatus[op.status]}
             </span>
           </DetailRow>
         )}

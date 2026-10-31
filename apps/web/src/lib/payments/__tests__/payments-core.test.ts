@@ -172,7 +172,8 @@ describe('journal and submission', () => {
     const entry = { ...base, phase: 'OUTCOME_UNKNOWN' as const, transactionHash: null, startedAt: '2026-10-31T21:00:00.000Z', updatedAt: '2026-10-31T21:00:00.000Z' };
     const startedNs = BigInt(Date.parse(entry.startedAt)) * 1_000_000n;
     const at = (seconds: bigint) => (startedNs + seconds * 1_000_000_000n).toString();
-    const openView = (ns: string) => buildPaymentView({ read: read(open, ns), expectedContractId: open.terms.contractId, accountId: 'payer.testnet' });
+    // 24 h funding window, so it is still fundable at these chain times.
+    const openView = (ns: string) => buildPaymentView({ read: read(openRestricted, ns), expectedContractId: openRestricted.terms.contractId, accountId: 'payer.testnet' });
     // OPEN shortly after: unexplained. OPEN 2+ minutes later: a person may deliberately re-review.
     expect(reconcile(entry, openView(at(10n)), startedNs)).toBe('pending');
     expect(reconcile(entry, openView(at(130n)), startedNs)).toBe('may_reattempt');
@@ -181,6 +182,11 @@ describe('journal and submission', () => {
     expect(reconcile({ ...entry, requestId: paidRestricted.terms.id }, funded, startedNs)).toBe('resolved');
     const gone = buildPaymentView({ read: read(cancelled, at(10n)), expectedContractId: cancelled.terms.contractId, accountId: null });
     expect(reconcile(entry, gone, startedNs)).toBe('resolved');
+    // OPEN at a final block at/after expiry: a payment can no longer land, so it is explained.
+    const expiredOpen = buildPaymentView({ read: read(open, open.terms.fundingExpiresAtNs), expectedContractId: open.terms.contractId, accountId: null });
+    expect(reconcile(entry, expiredOpen, BigInt(open.terms.fundingExpiresAtNs))).toBe('resolved');
+    // ...but an unexplained cancel of that expired request is not (it can still be cancelled).
+    expect(reconcile({ ...entry, method: 'cancel_unfunded' }, expiredOpen, BigInt(open.terms.fundingExpiresAtNs))).toBe('pending');
     // A failed read explains nothing.
     expect(reconcile(entry, { kind: 'unavailable', error: 'RPC_TIMEOUT' }, startedNs)).toBe('pending');
     // Retry: a newer operation nonce means the retry was used or superseded.

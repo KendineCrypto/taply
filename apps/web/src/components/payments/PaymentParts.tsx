@@ -124,11 +124,24 @@ export function ChainTime({ ns }: { readonly ns: string }) {
  */
 export function RequestTerms({ request, children }: { readonly request: ContractRequest; readonly children?: ReactNode }) {
   // The shared schema guarantees recipientAccountId === terms.creatorAccountId.
-  return <RequestTermsPreview terms={request.terms}>{children}</RequestTermsPreview>;
+  // The funding deadline only matters while the request can still be funded.
+  return (
+    <RequestTermsPreview terms={request.terms} showExpiry={request.status === 'OPEN'}>
+      {children}
+    </RequestTermsPreview>
+  );
 }
 
 /** Same rows for terms that are not on chain yet (creation review). */
-export function RequestTermsPreview({ terms, children }: { readonly terms: IntentTerms; readonly children?: ReactNode }) {
+export function RequestTermsPreview({
+  terms,
+  showExpiry = true,
+  children,
+}: {
+  readonly terms: IntentTerms;
+  readonly showExpiry?: boolean;
+  readonly children?: ReactNode;
+}) {
   const t = useT();
   return (
     <Card>
@@ -155,9 +168,11 @@ export function RequestTermsPreview({ terms, children }: { readonly terms: Inten
         </DetailRow>
         <DetailRow label={t.common.mode}>{t.mode.instant}</DetailRow>
         <DetailRow label={t.common.network}>{t.app.networkBadge}</DetailRow>
-        <DetailRow label={t.payment.review.expires}>
-          <ChainTime ns={terms.fundingExpiresAtNs} />
-        </DetailRow>
+        {showExpiry && (
+          <DetailRow label={t.payment.review.expires}>
+            <ChainTime ns={terms.fundingExpiresAtNs} />
+          </DetailRow>
+        )}
         <DetailRow label={t.payment.review.contract}>
           <AccountId accountId={terms.contractId} />
         </DetailRow>
