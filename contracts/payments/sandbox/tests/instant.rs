@@ -1,6 +1,12 @@
 use anyhow::Result;
 use near_jsonrpc_client::{JsonRpcClient, methods};
-use near_primitives::{hash::CryptoHash, views::TxExecutionStatus};
+use near_primitives::{
+    hash::CryptoHash,
+    views::{
+        ActionView, FinalExecutionOutcomeViewEnum, FinalExecutionOutcomeWithReceiptView,
+        ReceiptEnumView, TxExecutionStatus,
+    },
+};
 use near_workspaces::{
     Account, Contract, Worker,
     network::Sandbox,
@@ -69,13 +75,13 @@ async fn settle(
     w: &Worker<Sandbox>,
     signer: &Account,
     tx: near_workspaces::CryptoHash,
-) -> Result<()> {
+) -> Result<methods::tx_status::RpcTransactionResponse> {
     let client = JsonRpcClient::connect(w.rpc_addr());
     let mut last = String::new();
     for _ in 0..20 {
         let status = client
-            .call(methods::tx::RpcTransactionStatusRequest {
-                transaction_info: methods::tx::TransactionInfo::TransactionId {
+            .call(methods::tx_status::RpcTransactionStatusRequest {
+                transaction_info: methods::tx_status::TransactionInfo::TransactionId {
                     tx_hash: CryptoHash(tx.0),
                     sender_account_id: signer.id().clone(),
                 },
@@ -83,7 +89,7 @@ async fn settle(
             })
             .await;
         match status {
-            Ok(r) if matches!(r.final_execution_status, TxExecutionStatus::Final) => return Ok(()),
+            Ok(r) if matches!(r.final_execution_status, TxExecutionStatus::Final) => return Ok(r),
             Ok(r) => last = format!("{:?}", r.final_execution_status),
             Err(e) => last = format!("{e:?}"),
         }
@@ -99,7 +105,50 @@ async fn settle_result(
     signer: &Account,
     r: &near_workspaces::result::ExecutionFinalResult,
 ) -> Result<()> {
-    settle(w, signer, r.outcome().transaction_hash).await
+    settle(w, signer, r.outcome().transaction_hash).await?;
+    Ok(())
+}
+/// FINAL outcome of a transaction together with every receipt it produced (`tx_status`).
+async fn finalized(
+    w: &Worker<Sandbox>,
+    signer: &Account,
+    r: &near_workspaces::result::ExecutionFinalResult,
+) -> Result<FinalExecutionOutcomeWithReceiptView> {
+    match settle(w, signer, r.outcome().transaction_hash)
+        .await?
+        .final_execution_outcome
+    {
+        Some(FinalExecutionOutcomeViewEnum::FinalExecutionOutcomeWithReceipt(v)) => Ok(v),
+        other => anyhow::bail!("tx_status returned no receipts: {other:?}"),
+    }
+}
+/// Tokens the signer paid for gas: burnt by the transaction conversion and by every receipt
+/// it spawned. Unused prepaid gas comes back to the signer in refund receipts, which burn 0.
+fn burnt(v: &FinalExecutionOutcomeWithReceiptView) -> u128 {
+    std::iter::once(&v.final_outcome.transaction_outcome)
+        .chain(&v.final_outcome.receipts_outcome)
+        .map(|o| o.outcome.tokens_burnt.as_yoctonear())
+        .sum()
+}
+/// Transfer deposits that `v`'s receipts deliver to `to` from anyone except `system`
+/// (the runtime account that sends gas and deposit refunds).
+fn transfers_to(v: &FinalExecutionOutcomeWithReceiptView, to: &Account) -> Vec<(String, u128)> {
+    v.receipts
+        .iter()
+        .filter(|r| r.receiver_id == *to.id() && r.predecessor_id.as_str() != "system")
+        .flat_map(|r| match &r.receipt {
+            ReceiptEnumView::Action { actions, .. } => actions
+                .iter()
+                .filter_map(|a| match a {
+                    ActionView::Transfer { deposit } => {
+                        Some((r.predecessor_id.to_string(), deposit.as_yoctonear()))
+                    }
+                    _ => None,
+                })
+                .collect(),
+            _ => vec![],
+        })
+        .collect()
 }
 async fn create(w: &Worker<Sandbox>, c: &Contract, merchant: &Account, t: &Value) -> Result<Value> {
     let q: Value = c
@@ -603,16 +652,33 @@ async fn retry_pays_exactly_once_and_cannot_be_replayed() -> Result<()> {
         .transact()
         .await?
         .into_result()?;
-    let start = restored.view_account().await?.balance.as_yoctonear();
-    let retry = |nonce: &'static str| {
-        restored
+    let balance =
+        async || -> Result<u128> { Ok(restored.view_account().await?.balance.as_yoctonear()) };
+    let start = balance().await?;
+    // Each retry is settled to FINAL before and after, so a balance delta contains exactly one
+    // transaction: its finalized receipts are the whole explanation of the delta, with no
+    // tolerance. The recipient pays `burnt` gas and 1 yocto authorization deposit per call;
+    // rejected calls refund that deposit (and unused gas) through `system` refund receipts.
+    let retry = async |nonce: &'static str| -> Result<_> {
+        let before = balance().await?;
+        let r = restored
             .call(c.id(), "retry_native_transfer")
             .args_json(json!({"id":t["id"],"expectedOperationNonce":nonce}))
             .deposit(NearToken::from_yoctonear(1))
             .gas(GAS)
             .transact()
+            .await?;
+        let v = finalized(&w, &restored, &r).await?;
+        let delta = balance().await? as i128 - before as i128;
+        let gas = burnt(&v);
+        let incoming = transfers_to(&v, &restored);
+        println!(
+            "MEASURE retry nonce={nonce} success={} delta={delta} burnt={gas} incoming={incoming:?}",
+            r.is_success()
+        );
+        Ok((r, delta, gas, incoming))
     };
-    let ok = retry("1").await?;
+    let (ok, delta, gas, incoming) = retry("1").await?;
     for o in ok.receipt_outcomes() {
         println!(
             "MEASURE retry receipt gas={} executor={}",
@@ -621,15 +687,29 @@ async fn retry_pays_exactly_once_and_cannot_be_replayed() -> Result<()> {
         );
     }
     assert!(ok.is_success());
-    for nonce in ["1", "2", "3"] {
-        assert!(retry(nonce).await?.is_failure(), "replayed retry {nonce}");
-    }
-    let gained = restored.view_account().await?.balance.as_yoctonear() - start;
-    // Exactly one principal arrived; the recipient paid only gas and 1 yocto per call.
-    assert!(
-        gained <= PRINCIPAL && gained > PRINCIPAL - PRINCIPAL / 100,
-        "gained {gained}"
+    assert!(ok.receipt_failures().is_empty());
+    // The finalized receipts carry exactly one principal transfer, from the contract.
+    assert_eq!(incoming, vec![(c.id().to_string(), PRINCIPAL)]);
+    // Exact: principal in, minus the kept 1 yocto authorization deposit, minus gas burnt.
+    assert_eq!(
+        delta,
+        PRINCIPAL as i128 - 1 - gas as i128,
+        "success retry accounting"
     );
+    let mut total = delta;
+    for nonce in ["1", "2", "3"] {
+        let (r, delta, gas, incoming) = retry(nonce).await?;
+        assert!(r.is_failure(), "replayed retry {nonce}");
+        assert!(
+            incoming.is_empty(),
+            "replayed retry {nonce} delivered {incoming:?}"
+        );
+        // Exact: a rejected retry costs only its gas; the 1 yocto deposit is refunded.
+        assert_eq!(delta, -(gas as i128), "replayed retry {nonce} accounting");
+        total += delta;
+    }
+    // No balance movement outside the four measured transactions.
+    assert_eq!(balance().await? as i128 - start as i128, total);
     let state = request(&c, &t).await?;
     assert_eq!(state["status"], "FINAL_PAID");
     assert_eq!(state["latestOperation"]["nonce"], "2");
