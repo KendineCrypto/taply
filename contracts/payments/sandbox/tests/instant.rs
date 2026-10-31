@@ -94,6 +94,13 @@ async fn settle(
         CryptoHash(tx.0)
     )
 }
+async fn settle_result(
+    w: &Worker<Sandbox>,
+    signer: &Account,
+    r: &near_workspaces::result::ExecutionFinalResult,
+) -> Result<()> {
+    settle(w, signer, r.outcome().transaction_hash).await
+}
 async fn create(w: &Worker<Sandbox>, c: &Contract, merchant: &Account, t: &Value) -> Result<Value> {
     let q: Value = c
         .view("quote_create_request")
@@ -345,6 +352,7 @@ async fn rejected_deposits_are_refunded_and_invalid_wire_fails_closed() -> Resul
             .transact()
             .await?;
         assert!(r.is_failure());
+        settle_result(&w, &payer, &r).await?;
         // Deposit is refunded. Only gas is spent (bounded well below principal).
         let spent = before - payer.view_account().await?.balance.as_yoctonear();
         assert!(spent < PRINCIPAL / 100, "deposit not refunded: {spent}");
@@ -502,7 +510,11 @@ async fn self_signed_callback_without_promise_result_is_rejected() -> Result<()>
         .transact()
         .await?;
     assert!(forged.is_failure());
-    assert!(format!("{forged:?}").contains("UNKNOWN_PROMISE_RESULT"));
+    let text = format!("{forged:?}");
+    assert!(
+        text.contains("UNKNOWN_PROMISE_RESULT"),
+        "expected UNKNOWN_PROMISE_RESULT in: {text}"
+    );
     assert_eq!(request(&c, &t).await?, stuck);
     let a = accounting(&c).await?;
     assert_eq!(a["inFlightPrincipalYocto"], PRINCIPAL.to_string());
@@ -521,7 +533,12 @@ async fn expired_or_unpermitted_funding_is_refunded_and_cancel_still_works() -> 
     let before = other.view_account().await?.balance.as_yoctonear();
     let wrong = pay(&c, &other, &restricted).await?;
     assert!(wrong.is_failure());
-    assert!(format!("{wrong:?}").contains("WRONG_PAYER"));
+    let text = format!("{wrong:?}");
+    assert!(
+        text.contains("WRONG_PAYER"),
+        "expected WRONG_PAYER in: {text}"
+    );
+    settle_result(&w, &other, &wrong).await?;
     assert!(before - other.view_account().await?.balance.as_yoctonear() < PRINCIPAL / 100);
     assert_eq!(request(&c, &restricted).await?["status"], "OPEN");
     assert!(pay(&c, &payer, &restricted).await?.is_success());
@@ -539,7 +556,12 @@ async fn expired_or_unpermitted_funding_is_refunded_and_cancel_still_works() -> 
     let before = payer.view_account().await?.balance.as_yoctonear();
     let late = pay(&c, &payer, &short).await?;
     assert!(late.is_failure());
-    assert!(format!("{late:?}").contains("FUNDING_EXPIRED"));
+    let text = format!("{late:?}");
+    assert!(
+        text.contains("FUNDING_EXPIRED"),
+        "expected FUNDING_EXPIRED in: {text}"
+    );
+    settle_result(&w, &payer, &late).await?;
     assert!(before - payer.view_account().await?.balance.as_yoctonear() < PRINCIPAL / 100);
     assert_eq!(request(&c, &short).await?["status"], "OPEN");
     merchant
