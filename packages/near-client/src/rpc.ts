@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { isLosslessNumber } from "lossless-json";
 import { AccountIdSchema } from "@taply/shared";
-import { HashSchema, parseRpcJson } from "./validation.js";
+import { HashSchema, losslessStringify, parseRpcJson } from "./validation.js";
+import { extractContractErrorCode, type ContractErrorCode } from "./contract-errors.js";
 import type { NearTestnetConfig, RpcErrorCode, RpcReadError } from "./types.js";
 
 // Official public Testnet genesis. Endpoint identity is checked on every public read.
@@ -22,6 +23,8 @@ export type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 export class NearClientError extends Error {
   readonly code: RpcErrorCode;
   readonly rpcAvailable: boolean;
+  /** Set only for CONTRACT_VIEW_REJECTED when the panic carried a known ABI code. */
+  contractCode: ContractErrorCode | null = null;
   constructor(code: RpcErrorCode, rpcAvailable = true) {
     super(`nearClient.errors.${code}`);
     this.name = "NearClientError";
@@ -37,8 +40,9 @@ export function parseConfig(input: NearTestnetConfig): Config {
 export function publicError(error: NearClientError, providerId: string): RpcReadError {
   const wait = ["RPC_TIMEOUT", "TRANSACTION_UNKNOWN", "EVIDENCE_INCOMPLETE"].includes(error.code);
   const retry = ["RPC_UNAVAILABLE", "RPC_RATE_LIMITED", "RPC_HTTP_ERROR", "RPC_ERROR", "SHARD_UNAVAILABLE", "NODE_SYNCING"].includes(error.code);
-  return { code: error.code, messageKey: `nearClient.errors.${error.code}`, providerId,
+  const base: RpcReadError = { code: error.code, messageKey: `nearClient.errors.${error.code}`, providerId,
     retry: wait ? "WAIT_AND_RECONCILE" : retry ? "READ_ONLY" : "NONE" };
+  return error.contractCode === null ? base : { ...base, contractCode: error.contractCode };
 }
 type Method = "status" | "block" | "query" | "tx_status" | "EXPERIMENTAL_tx_status";
 const EnvelopeSchema = z.object({ jsonrpc: z.literal("2.0"), id: z.string(), result: z.unknown().optional(), error: z.unknown().optional() });
@@ -105,13 +109,16 @@ export function createRpc(config: Config, fetcher: Fetch) {
         const codes: Record<string, RpcErrorCode> = {
           UNKNOWN_ACCOUNT: "ACCOUNT_NOT_FOUND", UNKNOWN_TRANSACTION: "TRANSACTION_UNKNOWN",
           TIMEOUT_ERROR: "RPC_TIMEOUT", DOES_NOT_TRACK_SHARD: "SHARD_UNAVAILABLE",
-          NO_SYNCED_BLOCKS: "NODE_SYNCING",
+          NO_SYNCED_BLOCKS: "NODE_SYNCING", CONTRACT_EXECUTION_ERROR: "CONTRACT_VIEW_REJECTED",
         };
         if (!isLosslessNumber(code) || !/^-?\d+$/.test(code.toString())) throw new NearClientError("RPC_MALFORMED_RESPONSE");
         const numericCode = code.toString();
         if (numericCode === "-32601") throw new NearClientError("RPC_METHOD_UNAVAILABLE");
         const errorName = cause?.name ?? name ?? "";
-        throw new NearClientError(Object.hasOwn(codes, errorName) ? codes[errorName]! : "RPC_ERROR");
+        const mapped = new NearClientError(Object.hasOwn(codes, errorName) ? codes[errorName]! : "RPC_ERROR");
+        // A view panic: keep only a known ABI code token, never the provider's prose.
+        if (mapped.code === "CONTRACT_VIEW_REJECTED") mapped.contractCode = extractContractErrorCode(losslessStringify(envelope.error));
+        throw mapped;
       }
       return envelope.result;
     };

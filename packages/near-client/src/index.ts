@@ -6,3 +6,12 @@ export function createNearTestnetClient(config: NearTestnetConfig): NearTestnetC
 }
 export { NearClientError, TESTNET_GENESIS_HASH } from "./rpc.js";
 export type * from "./types.js";
+export {
+  ABI_MINIMUM_GAS, CONTRACT_ERROR_CODES, ContractConfigSchema, CreateQuoteSchema, TerminalFactsSchema,
+  contractConfigProblems, extractContractErrorCode, prepareCancelUnfunded, prepareCreateRequest,
+  preparePayInstantNative, prepareRetryNativeTransfer,
+} from "./contract.js";
+export type {
+  ContractConfig, ContractConfigProblem, ContractErrorCode, CreateQuote, PaymentRequestRead,
+  PreparedContractCall, TerminalFacts, TerminalFactsRead,
+} from "./contract.js";

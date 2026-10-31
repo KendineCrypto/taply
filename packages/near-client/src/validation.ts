@@ -30,6 +30,21 @@ export const AccountSchema = z.object({
   amount: U128Schema, locked: U128Schema, storage_usage: RpcU64Schema, code_hash: HashSchema,
   block_hash: HashSchema, block_height: RpcU64Schema,
 });
+const RpcByteSchema = z.unknown().transform((value, ctx) => {
+  const text = isLosslessNumber(value) ? value.toString() : "";
+  if (!/^(0|[1-9][0-9]{0,2})$/.test(text) || Number(text) > 255) {
+    ctx.addIssue({ code: "custom", message: "Expected a byte" });
+    return z.NEVER;
+  }
+  return Number(text);
+});
+/** `query` call_function result: raw return bytes, anchored to one block. */
+export const CallResultSchema = z.strictObject({
+  result: z.array(RpcByteSchema).max(65_536),
+  logs: z.array(z.string()).max(256),
+  block_hash: HashSchema,
+  block_height: RpcU64Schema,
+});
 export const TransactionRefSchema = z.strictObject({ transactionHash: HashSchema, signerAccountId: AccountIdSchema });
 export const ReceiptRefSchema = TransactionRefSchema.extend({ receiptId: HashSchema });
 

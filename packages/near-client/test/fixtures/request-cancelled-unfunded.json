@@ -1,0 +1,30 @@
+{
+  "cancelUntilNs": null,
+  "createdAtNs": "1793476886473137817",
+  "fundedAtNs": null,
+  "latestOperation": null,
+  "payerAccountId": null,
+  "recipientAccountId": "dev-20261031200123-85674555103609.test.near",
+  "revision": "2",
+  "sessionCommitment": null,
+  "settlementBranch": null,
+  "status": "CANCELLED_UNFUNDED",
+  "terms": {
+    "amountBaseUnits": "1000000000000000000000000",
+    "assetId": "near:native",
+    "cancelDurationNs": null,
+    "contractId": "dev-20261031200122-93055067749673.test.near",
+    "creationNonce": "000000000000000000000000000000000000000000000000000000000000000c",
+    "creatorAccountId": "dev-20261031200123-85674555103609.test.near",
+    "fundingExpiresAtNs": "1793476906102821508",
+    "id": "0e75e62ce8c7c5a970065c31d1d0ce4109d01bbeeff36eface7daf24f2341f1a",
+    "memo": "",
+    "merchantAccountId": null,
+    "mode": "instant",
+    "network": "near-testnet",
+    "permittedPayerAccountId": null,
+    "schemaVersion": "taply.intent.v1",
+    "sessionBinding": null
+  },
+  "termsHash": "89165ee3855b6c33bd737f6ca2639294aac32d1fb7e9a963918d4a609d7b59fa"
+}

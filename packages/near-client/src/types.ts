@@ -1,4 +1,6 @@
-import type { BlockRef, ChainObservation } from "@taply/shared";
+import type { BlockRef, ChainObservation, IntentTerms } from "@taply/shared";
+import type { ContractConfig, CreateQuote, PaymentRequestRead, TerminalFactsRead } from "./contract.js";
+import type { ContractErrorCode } from "./contract-errors.js";
 
 export interface NearTestnetConfig {
   network: "near-testnet";
@@ -16,6 +18,7 @@ export const RPC_ERROR_CODES = [
   "RPC_METHOD_UNAVAILABLE", "RPC_ERROR", "NETWORK_MISMATCH", "NODE_SYNCING",
   "ACCOUNT_NOT_FOUND", "TRANSACTION_UNKNOWN", "RECEIPT_NOT_FOUND", "SHARD_UNAVAILABLE",
   "CONTRACT_NOT_CONFIGURED", "CONTRACT_CODE_MISMATCH", "EVIDENCE_MISMATCH", "EVIDENCE_INCOMPLETE",
+  "CONTRACT_VIEW_REJECTED",
 ] as const;
 export type RpcErrorCode = typeof RPC_ERROR_CODES[number];
 export interface RpcReadError {
@@ -23,6 +26,8 @@ export interface RpcReadError {
   messageKey: `nearClient.errors.${RpcErrorCode}`;
   retry: "NONE" | "READ_ONLY" | "WAIT_AND_RECONCILE";
   providerId: string;
+  /** Present only for CONTRACT_VIEW_REJECTED with a recognised ABI panic code. */
+  contractCode?: ContractErrorCode;
 }
 export interface ReadResult<T> {
   observation: ChainObservation<T>;
@@ -94,4 +99,9 @@ export interface NearTestnetClient {
   checkContract(): Promise<ReadResult<AccountSnapshot>>;
   observeTransaction(ref: TransactionRef): Promise<ReadResult<TransactionObservation>>;
   observeReceipt(ref: ReceiptRef): Promise<ReadResult<ReceiptObservation>>;
+  /** Contract views. Each is anchored to one finalized block where the code hash matched. */
+  readContractConfig(): Promise<ReadResult<ContractConfig>>;
+  quoteCreateRequest(terms: IntentTerms): Promise<ReadResult<CreateQuote>>;
+  readPaymentRequest(id: string): Promise<ReadResult<PaymentRequestRead>>;
+  readTerminalFacts(id: string): Promise<ReadResult<TerminalFactsRead>>;
 }

@@ -1,8 +1,45 @@
-# @taply/near-client — Phase 1A
+# @taply/near-client — Phase 1A + Phase 2C contract reads
 
-Wallet-neutral, read-only NEAR Testnet infrastructure. No signer, wallet selector,
-key storage, transaction construction, broadcast, deployment or payment actions.
-Uses native Fetch and a small JSON-RPC allowlist, without a signing SDK.
+Wallet-neutral NEAR Testnet infrastructure. No signer, wallet selector, key
+storage, broadcast, deployment or payment actions. Uses native Fetch and a small
+JSON-RPC allowlist, without a signing SDK. Phase 2C adds typed reads of the Taply
+payments contract and pure descriptions of its four Instant Pay calls; a browser
+wallet (in `apps/web`) is what shows those to a person and signs them.
+
+## Phase 2C: payments contract (ABI v0.4.0)
+
+| Method | Data | Notes |
+| --- | --- | --- |
+| `readContractConfig()` | `ContractConfig` | `contractId` must equal the configured account |
+| `quoteCreateRequest(terms)` | `CreateQuote` | Must bind the same `requestId` and recomputed terms hash |
+| `readPaymentRequest(id)` | `{ id, request: ContractRequest \| null }` | Shared `ContractRequestSchema`; null means "no such id at that final block" |
+| `readTerminalFacts(id)` | `{ id, facts: TerminalFacts \| null }` | `CONTRACT_FACTS_NOT_FINALITY_PROOF`; never a `VerifiedReceipt` |
+
+Every view reads `block(finality: final)`, then the contract's `code_hash` **at
+that block hash**, and runs `call_function` only if it equals the configured
+`expectedCodeHash`. The returned bytes go through the shared strict JSON parser
+(duplicate keys rejected) and an exact schema; the answer's block must match.
+`contract: null` makes every contract read fail with `CONTRACT_NOT_CONFIGURED`
+without network traffic. A view panic returns `CONTRACT_VIEW_REJECTED`, with
+`contractCode` only when the text contains one of the ABI's known codes; the
+provider's message is never exposed.
+
+`contractConfigProblems(config, expectedContractId)` lists reasons a frontend must
+not offer Instant Pay: wrong contract, test fault build, Instant disabled, any
+unreviewed capability (Protected, Handshake, merchant profiles, NEP-141, sponsored
+gas), unknown quote version or gas below the ABI floors. An empty list is
+necessary, not sufficient: deployment approval is a human decision.
+
+`prepareCreateRequest`, `preparePayInstantNative`, `prepareRetryNativeTransfer`
+and `prepareCancelUnfunded` return a `PreparedContractCall` (`receiverId`,
+`methodName`, `args`, `gas`, `depositYocto`) or throw `INVALID_ARGUMENT`. They
+restate contract rules so a wallet is never asked to sign a call the contract
+would reject: creator-only creation with the exact quoted bond; exact principal
+for payment, only while `OPEN` and unexpired at the observed block, honouring a
+payer restriction; recipient-only retry of a **recorded** `FAILED` operation with
+its exact nonce; creator-only cancellation of `OPEN`. The contract re-checks all
+of it. Tests use real `get_request` outputs from the sandbox suite
+(`test/fixtures/`).
 
 ## Configuration and account reads
 

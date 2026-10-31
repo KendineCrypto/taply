@@ -15,3 +15,11 @@ client.signTransaction();
 client.rpc('broadcast_tx_commit');
 // @ts-expect-error No mainnet support.
 createNearTestnetClient({ network: 'near-mainnet', rpcUrl: 'https://rpc.mainnet.near.org', rpcProviderId: 'mainnet', contract: null });
+// @ts-expect-error Contract views are a closed list; there is no arbitrary method escape hatch.
+client.callView('withdraw', {});
+const prepared: import('@taply/near-client').PreparedContractCall = { receiverId: 'p.testnet', methodName: 'cancel_unfunded', args: {}, gas: '1', depositYocto: '1' };
+// @ts-expect-error A prepared call is only a description; it has no signing or sending method.
+prepared.signAndSend();
+// @ts-expect-error Only the four reviewed Instant Pay methods can be prepared.
+const forbidden: import('@taply/near-client').PreparedContractCall['methodName'] = 'fund_protected_native';
+void forbidden;

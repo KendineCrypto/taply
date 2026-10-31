@@ -1,6 +1,10 @@
 import { z } from "zod";
-import { AccountIdSchema, type BlockRef, type ChainObservation } from "@taply/shared";
-import { AccountSchema, BlockSchema, HashSchema, ReceiptRefSchema, TransactionRefSchema } from "./validation.js";
+import {
+  AccountIdSchema, ContractRequestSchema, HashHexSchema, IntentTermsSchema, calculateTermsHash, parseStrictJson,
+  type BlockRef, type ChainObservation, type IntentTerms,
+} from "@taply/shared";
+import { AccountSchema, BlockSchema, CallResultSchema, HashSchema, ReceiptRefSchema, TransactionRefSchema } from "./validation.js";
+import { ContractConfigSchema, CreateQuoteSchema, TerminalFactsSchema } from "./contract.js";
 import { readTransaction } from "./transactions.js";
 import { createRpc, NearClientError, parseConfig, publicError, TESTNET_GENESIS_HASH, type Fetch } from "./rpc.js";
 import type { AccountSnapshot, NearTestnetClient, NearTestnetConfig, NetworkSnapshot, ReadResult, ReceiptRef, TransactionRef } from "./types.js";
@@ -53,6 +57,34 @@ export function buildClient(input: NearTestnetConfig, fetcher: Fetch, mock: bool
     return { block, data: { accountId, amountYoctoNear: value.amount, lockedYoctoNear: value.locked,
       storageUsageBytes: value.storage_usage, codeHash: value.code_hash } };
   };
+  /**
+   * One contract view at one finalized block: the contract's code hash is read at
+   * that same block and must equal the configured approved hash, so a returned
+   * value can never come from replaced or unexpected code.
+   */
+  const view = async <T>(method: string, args: Record<string, unknown>, validator: z.ZodType<T>): Promise<ObservationValue<T>> => {
+    if (config.contract === null) throw new NearClientError("CONTRACT_NOT_CONFIGURED", false);
+    const contractId = config.contract.accountId;
+    await network();
+    const block = await finalBlock();
+    const anchored = (value: { block_hash: string; block_height: string }) => {
+      if (value.block_hash !== block.hash || value.block_height !== block.height) throw new NearClientError("EVIDENCE_MISMATCH");
+    };
+    const code = schema(AccountSchema, await rpc("query", { request_type: "view_account", account_id: contractId, block_id: block.hash }));
+    anchored(code);
+    if (code.code_hash !== config.contract.expectedCodeHash) throw new NearClientError("CONTRACT_CODE_MISMATCH");
+    const argsBytes = new TextEncoder().encode(JSON.stringify(args));
+    const call = schema(CallResultSchema, await rpc("query", {
+      request_type: "call_function", account_id: contractId, method_name: method,
+      args_base64: btoa(String.fromCharCode(...argsBytes)), block_id: block.hash,
+    }));
+    anchored(call);
+    let decoded: unknown;
+    try { decoded = parseStrictJson(Uint8Array.from(call.result)); }
+    catch { throw new NearClientError("RPC_MALFORMED_RESPONSE"); }
+    return { block, data: schema(validator, decoded) };
+  };
+  const contractId = () => config.contract?.accountId ?? "";
   const transaction = async (ref: TransactionRef) => {
     const parsed = TransactionRefSchema.safeParse(ref);
     if (!parsed.success) throw new NearClientError("INVALID_ARGUMENT", false);
@@ -72,6 +104,35 @@ export function buildClient(input: NearTestnetConfig, fetcher: Fetch, mock: bool
       const result = await account(config.contract.accountId);
       if (result.data.codeHash !== config.contract.expectedCodeHash) throw new NearClientError("CONTRACT_CODE_MISMATCH");
       return result;
+    }),
+    readContractConfig: () => run(async () => {
+      const result = await view("get_config", {}, ContractConfigSchema);
+      if (result.data.contractId !== contractId()) throw new NearClientError("EVIDENCE_MISMATCH");
+      return result;
+    }),
+    quoteCreateRequest: (terms: IntentTerms) => run(async () => {
+      const parsed = IntentTermsSchema.safeParse(terms);
+      if (!parsed.success) throw new NearClientError("INVALID_ARGUMENT", false);
+      if (config.contract !== null && parsed.data.contractId !== contractId()) throw new NearClientError("INVALID_ARGUMENT", false);
+      const result = await view("quote_create_request", { terms: parsed.data }, CreateQuoteSchema);
+      // The quote must bind these exact terms; otherwise it is someone else's answer.
+      if (result.data.requestId !== parsed.data.id || result.data.termsHash !== calculateTermsHash(parsed.data))
+        throw new NearClientError("EVIDENCE_MISMATCH");
+      return result;
+    }),
+    readPaymentRequest: (id: string) => run(async () => {
+      if (!HashHexSchema.safeParse(id).success) throw new NearClientError("INVALID_ARGUMENT", false);
+      const { block, data: request } = await view("get_request", { id }, ContractRequestSchema.nullable());
+      if (request !== null && (request.terms.id !== id || request.terms.contractId !== contractId()))
+        throw new NearClientError("EVIDENCE_MISMATCH");
+      return { block, data: { id, request } };
+    }),
+    readTerminalFacts: (id: string) => run(async () => {
+      if (!HashHexSchema.safeParse(id).success) throw new NearClientError("INVALID_ARGUMENT", false);
+      const { block, data: facts } = await view("get_receipt", { id }, TerminalFactsSchema.nullable());
+      if (facts !== null && (facts.request.terms.id !== id || facts.request.terms.contractId !== contractId()))
+        throw new NearClientError("EVIDENCE_MISMATCH");
+      return { block, data: { id, facts } };
     }),
     observeTransaction: (ref: TransactionRef) => run(() => transaction(ref)),
     observeReceipt: (ref: ReceiptRef) => run(async () => {
