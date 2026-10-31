@@ -10,6 +10,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@hot-labs/near-connect':
+        specifier: 0.12.0
+        version: 0.12.0
+      '@taply/near-client':
+        specifier: workspace:*
+        version: link:../../packages/near-client
       '@taply/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -288,6 +294,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@hot-labs/near-connect@0.12.0':
+    resolution: {integrity: sha512-aBb1UPGr43tHPsj/uk3fEwCn83Y7+cO6Ct8B6G/dm9EkTwXh9/xntXyWhQ6fA1eSt2WtYqSczOCENXlrBAXZqg==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2164,6 +2173,8 @@ snapshots:
   '@exodus/bytes@1.16.0(@noble/hashes@2.4.0)':
     optionalDependencies:
       '@noble/hashes': 2.4.0
+
+  '@hot-labs/near-connect@0.12.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

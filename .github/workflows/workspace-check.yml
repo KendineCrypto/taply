@@ -1,0 +1,62 @@
+# Taply TypeScript workspace gate: frozen lockfile install + root `pnpm check`
+# (brand assets, build, typecheck, lint, tests for shared, near-client and web).
+# No deployment, no wallet keys, no repository secrets, no network calls to NEAR.
+name: workspace-check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/frontend, main]
+    paths:
+      - apps/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .node-version
+      - .github/workflows/workspace-check.yml
+  pull_request:
+    paths:
+      - apps/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .node-version
+      - .github/workflows/workspace-check.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspace-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: frozen install + pnpm check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 24.22.2 (from .node-version)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - name: Install pnpm 11.5.0
+        run: |
+          npm install -g pnpm@11.5.0
+          node -v; pnpm -v
+
+      - name: Install (frozen lockfile, whole workspace)
+        timeout-minutes: 10
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm check
+        timeout-minutes: 15
+        run: pnpm check
