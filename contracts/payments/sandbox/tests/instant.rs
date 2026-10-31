@@ -1,4 +1,6 @@
 use anyhow::Result;
+use near_jsonrpc_client::{JsonRpcClient, methods};
+use near_primitives::{hash::CryptoHash, views::TxExecutionStatus};
 use near_workspaces::{
     Account, Contract, Worker,
     network::Sandbox,
@@ -59,7 +61,40 @@ async fn setup(fault: bool) -> Result<(Worker<Sandbox>, Contract, Account, Accou
     let payer = w.dev_create_account().await?;
     Ok((w, c, merchant, payer))
 }
-async fn create(c: &Contract, merchant: &Account, t: &Value) -> Result<Value> {
+/// `transact()` returns at EXECUTED_OPTIMISTIC, which by definition excludes gas-refund
+/// receipts. The signer's refund can therefore land after a test snapshots its balance
+/// (observed: +0.0306 NEAR on the recipient during the pay window). Wait for FINAL, which
+/// includes refund receipts, so later balance deltas contain only the measured transaction.
+async fn settle(
+    w: &Worker<Sandbox>,
+    signer: &Account,
+    tx: near_workspaces::CryptoHash,
+) -> Result<()> {
+    let client = JsonRpcClient::connect(w.rpc_addr());
+    let mut last = String::new();
+    for _ in 0..20 {
+        let status = client
+            .call(methods::tx::RpcTransactionStatusRequest {
+                transaction_info: methods::tx::TransactionInfo::TransactionId {
+                    tx_hash: CryptoHash(tx.0),
+                    sender_account_id: signer.id().clone(),
+                },
+                wait_until: TxExecutionStatus::Final,
+            })
+            .await;
+        match status {
+            Ok(r) if matches!(r.final_execution_status, TxExecutionStatus::Final) => return Ok(()),
+            Ok(r) => last = format!("{:?}", r.final_execution_status),
+            Err(e) => last = format!("{e:?}"),
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+    anyhow::bail!(
+        "transaction {} never reached FINAL: {last}",
+        CryptoHash(tx.0)
+    )
+}
+async fn create(w: &Worker<Sandbox>, c: &Contract, merchant: &Account, t: &Value) -> Result<Value> {
     let q: Value = c
         .view("quote_create_request")
         .args_json(json!({"terms":t}))
@@ -78,7 +113,15 @@ async fn create(c: &Contract, merchant: &Account, t: &Value) -> Result<Value> {
         "MEASURE create gas={} quote={q}",
         r.total_gas_burnt.as_gas()
     );
-    r.into_result()?;
+    let tx = r.into_result()?.outcome().transaction_hash;
+    let optimistic = merchant.view_account().await?.balance.as_yoctonear();
+    settle(w, merchant, tx).await?;
+    let settled = merchant.view_account().await?.balance.as_yoctonear();
+    // Diagnostic only: signer gas refund that arrived after transact() returned.
+    println!(
+        "MEASURE create late_refund_to_signer={}",
+        settled as i128 - optimistic as i128
+    );
     Ok(q)
 }
 async fn request(c: &Contract, t: &Value) -> Result<Value> {
@@ -136,7 +179,7 @@ async fn pay(
 async fn actual_transfer_callback_receipts_and_conservation() -> Result<()> {
     let (w, c, merchant, payer) = setup(false).await?;
     let t = terms(&w, &c, &merchant, 1).await?;
-    let q = create(&c, &merchant, &t).await?;
+    let q = create(&w, &c, &merchant, &t).await?;
     let before = merchant.view_account().await?.balance.as_yoctonear();
     let a0 = accounting(&c).await?;
     let r = pay(&c, &payer, &t).await?;
@@ -194,7 +237,7 @@ async fn transfer_failure_refund_then_recipient_retry_succeeds() -> Result<()> {
         .await?
         .into_result()?;
     let t = terms(&w, &c, &merchant, 2).await?;
-    create(&c, &merchant, &t).await?;
+    create(&w, &c, &merchant, &t).await?;
     merchant.delete_account(root.id()).await?.into_result()?;
     let outcome = pay(&c, &payer, &t).await?;
     println!(
@@ -253,7 +296,7 @@ async fn transfer_failure_refund_then_recipient_retry_succeeds() -> Result<()> {
 async fn actual_successful_transfer_with_panicking_callback_never_retries() -> Result<()> {
     let (w, c, merchant, payer) = setup(true).await?;
     let t = terms(&w, &c, &merchant, 3).await?;
-    create(&c, &merchant, &t).await?;
+    create(&w, &c, &merchant, &t).await?;
     let before = merchant.view_account().await?.balance.as_yoctonear();
     let result = pay(&c, &payer, &t).await?;
     assert!(result.is_failure());
@@ -290,7 +333,7 @@ async fn actual_successful_transfer_with_panicking_callback_never_retries() -> R
 async fn rejected_deposits_are_refunded_and_invalid_wire_fails_closed() -> Result<()> {
     let (w, c, merchant, payer) = setup(false).await?;
     let t = terms(&w, &c, &merchant, 4).await?;
-    create(&c, &merchant, &t).await?;
+    create(&w, &c, &merchant, &t).await?;
     let initial = request(&c, &t).await?;
     for amount in [0, PRINCIPAL - 1, PRINCIPAL + 1] {
         let before = payer.view_account().await?.balance.as_yoctonear();
@@ -402,7 +445,7 @@ async fn competing_funders_and_other_held_obligations_conserve_principal() -> Re
         .await?
         .into_result()?;
     let failed = terms(&w, &c, &gone, 6).await?;
-    create(&c, &gone, &failed).await?;
+    create(&w, &c, &gone, &failed).await?;
     gone.delete_account(root.id()).await?.into_result()?;
     assert!(
         !pay(&c, &payer, &failed)
@@ -417,8 +460,8 @@ async fn competing_funders_and_other_held_obligations_conserve_principal() -> Re
     let t = terms(&w, &c, &merchant, 7).await?;
     let mut t2 = terms(&w, &c, &merchant, 8).await?;
     t2["memo"] = json!("é".repeat(128));
-    create(&c, &merchant, &t).await?;
-    create(&c, &merchant, &t2).await?;
+    create(&w, &c, &merchant, &t).await?;
+    create(&w, &c, &merchant, &t2).await?;
     let before = merchant.view_account().await?.balance.as_yoctonear();
     let (a, b) = tokio::join!(pay(&c, &payer, &t), pay(&c, &payer2, &t));
     let (a, b) = (a?, b?);
@@ -448,7 +491,7 @@ async fn self_signed_callback_without_promise_result_is_rejected() -> Result<()>
     // current account). Only the exactly-one-promise-result guard stops it.
     let (w, c, merchant, payer) = setup(true).await?;
     let t = terms(&w, &c, &merchant, 10).await?;
-    create(&c, &merchant, &t).await?;
+    create(&w, &c, &merchant, &t).await?;
     assert!(pay(&c, &payer, &t).await?.is_failure());
     let stuck = request(&c, &t).await?;
     assert_eq!(stuck["status"], "PAYOUT_IN_FLIGHT");
@@ -474,7 +517,7 @@ async fn expired_or_unpermitted_funding_is_refunded_and_cancel_still_works() -> 
     // Restricted payer.
     let mut restricted = terms(&w, &c, &merchant, 11).await?;
     restricted["permittedPayerAccountId"] = json!(payer.id());
-    create(&c, &merchant, &restricted).await?;
+    create(&w, &c, &merchant, &restricted).await?;
     let before = other.view_account().await?.balance.as_yoctonear();
     let wrong = pay(&c, &other, &restricted).await?;
     assert!(wrong.is_failure());
@@ -489,7 +532,7 @@ async fn expired_or_unpermitted_funding_is_refunded_and_cancel_still_works() -> 
     let now = w.view_block().await?.timestamp();
     let expiry = now + 20_000_000_000;
     short["fundingExpiresAtNs"] = json!(expiry.to_string());
-    create(&c, &merchant, &short).await?;
+    create(&w, &c, &merchant, &short).await?;
     while w.view_block().await?.timestamp() <= expiry {
         w.fast_forward(50).await?;
     }
@@ -525,7 +568,7 @@ async fn retry_pays_exactly_once_and_cannot_be_replayed() -> Result<()> {
         .await?
         .into_result()?;
     let t = terms(&w, &c, &merchant, 13).await?;
-    create(&c, &merchant, &t).await?;
+    create(&w, &c, &merchant, &t).await?;
     merchant.delete_account(root.id()).await?.into_result()?;
     assert!(!pay(&c, &payer, &t).await?.receipt_failures().is_empty());
     assert_eq!(
@@ -586,7 +629,7 @@ async fn failed_transfer_and_failed_callback_also_stays_unresolved() -> Result<(
         .await?
         .into_result()?;
     let t = terms(&w, &c, &merchant, 9).await?;
-    create(&c, &merchant, &t).await?;
+    create(&w, &c, &merchant, &t).await?;
     merchant.delete_account(root.id()).await?.into_result()?;
     assert!(pay(&c, &payer, &t).await?.is_failure());
     assert_eq!(request(&c, &t).await?["status"], "PAYOUT_IN_FLIGHT");
