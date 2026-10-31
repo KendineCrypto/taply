@@ -33,6 +33,9 @@ place a verified claim may be recorded.
 | Protected Pay, Handshake, checkout, send | **disabled** |
 | Service worker, CSP | **deliberately deferred** (reasons in `src/lib/protocol/README.md`) |
 
+Deployment readiness (artifact hash, config, funding, gas, key policy, incident
+procedures, open gates): [`docs/TESTNET_READINESS_REVIEW.md`](docs/TESTNET_READINESS_REVIEW.md).
+
 ### Instant Pay rules (Phase 2C)
 
 - **Gates.** Reads need `NEXT_PUBLIC_TAPLY_CONTRACT_ID` and
