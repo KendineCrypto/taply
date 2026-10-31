@@ -9,10 +9,14 @@ on:
     branches: [feature/frontend, main]
     paths:
       - contracts/payments/**
+      - packages/shared/**
+      - pnpm-lock.yaml
       - .github/workflows/instant-pay-sandbox.yml
   pull_request:
     paths:
       - contracts/payments/**
+      - packages/shared/**
+      - pnpm-lock.yaml
       - .github/workflows/instant-pay-sandbox.yml
 
 permissions:
@@ -32,9 +36,9 @@ env:
 
 jobs:
   validate:
-    name: fmt, unit tests, clippy, WASM, one sandbox test
+    name: fmt, unit tests, clippy, WASM, full sandbox suite, wire schema
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 75
     defaults:
       run:
         shell: bash
@@ -120,16 +124,56 @@ jobs:
           df -h /
           du -sh target sandbox/target ~/.cargo/registry 2>/dev/null || true
 
-      - name: Sandbox integration test (ONE test, production WASM)
-        timeout-minutes: 20
-        working-directory: contracts/payments/sandbox
+      # Existing script: all sandbox tests, one local node at a time (--test-threads=1).
+      - name: Sandbox integration suite (all 9 tests, sequential)
+        id: sandbox
+        timeout-minutes: 30
+        run: |
+          bash scripts/sandbox.sh
+          grep -q "test result: ok. 9 passed; 0 failed" artifacts/sandbox-tests.log \
+            || { echo "::error::Expected exactly 9 passing sandbox tests"; exit 1; }
+
+      - name: Sandbox per-test results and gas measurements
+        if: always()
+        run: |
+          log=artifacts/sandbox-tests.log
+          [ -f "$log" ] || { echo "no sandbox log"; exit 0; }
+          # With --nocapture a test's MEASURE output sits between its name and verdict.
+          awk '/^test [A-Za-z0-9_]+ \.\.\. /{name=$2}
+               name && /(^|[ .])(ok|FAILED)$/{v=($0 ~ /FAILED$/)?"FAILED":"ok"; print v"  "name; name=""}' \
+            "$log" | tee artifacts/sandbox-summary.txt
+          grep -a "MEASURE" "$log" > artifacts/sandbox-gas-measurements.log || true
+          grep -a -A40 "^failures:" "$log" > artifacts/sandbox-failures.log || true
+          grep -a "test result:" "$log" || true
+          ls artifacts/requests 2>/dev/null | wc -l | xargs echo "request records:"
+          { echo '### Sandbox tests'; echo '```'; cat artifacts/sandbox-summary.txt; grep -a "test result:" "$log"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Node 24.22.2 (from .node-version)
+        if: always() && steps.sandbox.outcome == 'success'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - name: Build @taply/shared (pnpm 11.5.0, frozen lockfile)
+        if: always() && steps.sandbox.outcome == 'success'
+        timeout-minutes: 10
+        working-directory: .
         run: |
           set -o pipefail
-          cargo test --locked --test instant -- \
-            --exact actual_transfer_callback_receipts_and_conservation \
-            --test-threads=1 --nocapture --color never 2>&1 | tee ../artifacts/sandbox-one-test.log
-          grep -q "test result: ok. 1 passed; 0 failed" ../artifacts/sandbox-one-test.log \
-            || { echo "::error::Expected exactly one passing sandbox test"; exit 1; }
+          npm install -g pnpm@11.5.0
+          node -v; pnpm -v
+          pnpm install --frozen-lockfile --filter @taply/shared 2>&1 | tee contracts/payments/artifacts/shared-install.log
+          pnpm --filter @taply/shared run build 2>&1 | tee contracts/payments/artifacts/shared-build.log
+
+      # Parses real sandbox read records with the unchanged canonical TypeScript schema and
+      # requires OPEN, FINAL_PAID, PAYOUT_IN_FLIGHT, PAYOUT_FAILED_RECOVERABLE, CANCELLED_UNFUNDED.
+      - name: Wire-schema check (check-wire.mjs)
+        if: always() && steps.sandbox.outcome == 'success'
+        timeout-minutes: 5
+        working-directory: .
+        run: |
+          set -o pipefail
+          node contracts/payments/scripts/check-wire.mjs 2>&1 | tee contracts/payments/artifacts/wire-check.log
 
       - name: Disk and memory (end)
         if: always()
@@ -147,5 +191,6 @@ jobs:
           if-no-files-found: warn
           path: |
             contracts/payments/artifacts/*.log
+            contracts/payments/artifacts/sandbox-summary.txt
             contracts/payments/artifacts/wasm.sha256
             contracts/payments/artifacts/requests/*.json
