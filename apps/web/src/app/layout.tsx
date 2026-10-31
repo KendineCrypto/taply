@@ -4,6 +4,7 @@ import './globals.css';
 import { AppShell } from '@/components/shell/AppShell';
 import { I18nProvider } from '@/lib/i18n/provider';
 import { WalletProvider } from '@/lib/wallet/provider';
+import { PaymentsProvider } from '@/lib/payments/context';
 import { LOCALE_COOKIE, getDictionary, resolveLocale } from '@/lib/i18n';
 
 export const metadata: Metadata = {
@@ -51,7 +52,9 @@ export default async function RootLayout({ children }: { readonly children: Reac
       <body>
         <I18nProvider locale={locale}>
           <WalletProvider>
-            <AppShell>{children}</AppShell>
+            <PaymentsProvider>
+              <AppShell>{children}</AppShell>
+            </PaymentsProvider>
           </WalletProvider>
         </I18nProvider>
         {/* Static, honest statement of what this build is. */}

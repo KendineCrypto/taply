@@ -1,17 +1,16 @@
 'use client';
 
-import { ComingSoon } from '@/components/shell/ComingSoon';
+import { ScreenHeader } from '@/components/primitives/Surface';
+import { CreateRequest } from '@/components/payments/CreateRequest';
 import { useT } from '@/lib/i18n/provider';
 
-/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
-export default function Page() {
+/** Create an Instant Pay request (UX_FLOWS screen 06). Protected Pay is not offered. */
+export default function RequestNewPage() {
   const t = useT();
   return (
-    <ComingSoon
-      title={t.screens.requestNew}
-      summary={t.routes.requestNew}
-      flag="instantPay"
-      icon="request"
-    />
+    <>
+      <ScreenHeader title={t.screens.requestNew} description={t.routes.requestNew} />
+      <CreateRequest />
+    </>
   );
 }

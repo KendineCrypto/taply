@@ -33,7 +33,20 @@ import type {
 /** Semantic tones. `success` is reserved; see SUCCESS_TONE_RULE below. */
 export type StatusTone = 'neutral' | 'caution' | 'success' | 'muted' | 'danger';
 
-export type StatusIcon = 'clock' | 'lock' | 'spinner' | 'check-shield' | 'undo' | 'alert' | 'x';
+export type StatusIcon = 'clock' | 'lock' | 'spinner' | 'check-shield' | 'check' | 'undo' | 'alert' | 'x';
+
+/**
+ * What proves the settlement, independently of the contract's own state.
+ *
+ * `contract_state_only`: a finalized read of the approved contract says
+ *   FINAL_PAID. Strong evidence, but API.md is explicit: "The frontend can show
+ *   Verified Paid only for FINAL_PAID with verified settlement proof", and
+ *   `get_receipt` facts are CONTRACT_FACTS_NOT_FINALITY_PROOF.
+ * `verified_receipt`: a VerifiedReceipt built by an RPC verifier that inspected
+ *   the funding, transfer and callback receipts. Nothing in apps/web produces
+ *   one yet, so the Verified Paid ribbon is currently unreachable in live use.
+ */
+export type SettlementProof = 'contract_state_only' | 'verified_receipt';
 
 /**
  * Where the money actually is. Kept separate from the label so copy review and
@@ -73,6 +86,12 @@ export interface StatusPresentation {
    * for FINAL_PAID + verified_final from a non-mock source.
    */
   readonly verifiedRibbon: boolean;
+  /**
+   * FINAL_PAID from a confident, non-mock read, but without a verified receipt.
+   * Renders "Paid per contract - settlement proof pending": never the ribbon,
+   * never the success tone.
+   */
+  readonly contractReportsPaid: boolean;
   /** Dictionary path: t.status[state].label and .payer/.recipient/.announce. */
   readonly copyKey: ChainState;
   readonly audience: 'payer' | 'recipient';
@@ -306,6 +325,8 @@ export interface MapInput {
   readonly derived: DerivedPaymentActions;
   readonly fundingEligibility: FundingEligibility;
   readonly incident: Incident;
+  /** Required on purpose: every call site must say what proves settlement. */
+  readonly settlementProof: SettlementProof;
 }
 
 export function mapChainState({
@@ -314,25 +335,28 @@ export function mapChainState({
   derived,
   fundingEligibility,
   incident,
+  settlementProof,
 }: MapInput): StatusPresentation {
   const base = BASE_BY_STATE[state];
   const blocked = observation.assurance === 'mismatch';
   const incidentOpen = incident !== null;
   const actionable = observationIsActionable(observation, incident);
 
-  const verifiedRibbon = isVerifiedPaid(
+  const confidentlyPaid = isVerifiedPaid(
     state,
     observation.assurance,
     observation.source as ObservationSource,
   );
+  const verifiedRibbon = confidentlyPaid && settlementProof === 'verified_receipt' && !blocked;
+  const contractReportsPaid = confidentlyPaid && !verifiedRibbon && !blocked;
 
   // Downgrade: FINAL_PAID that is not verified_final is NOT a success.
   let tone: StatusTone = base.tone;
-  if (tone === 'success' && !verifiedRibbon) tone = 'caution';
+  if (tone === 'success' && !verifiedRibbon) tone = contractReportsPaid ? 'neutral' : 'caution';
   if (blocked) tone = 'danger';
 
   let icon: StatusIcon = base.icon;
-  if (base.icon === 'check-shield' && !verifiedRibbon) icon = 'spinner';
+  if (base.icon === 'check-shield' && !verifiedRibbon) icon = contractReportsPaid ? 'check' : 'spinner';
   if (blocked) icon = 'alert';
 
   // Money position degrades to uncertain when the claim is not confidently
@@ -366,6 +390,7 @@ export function mapChainState({
     icon,
     money,
     verifiedRibbon,
+    contractReportsPaid,
     copyKey: state,
     audience: audienceFor(derived.callerRole),
     ctas: ctasFor(state, derived, fundingEligibility, actionable, blocked),

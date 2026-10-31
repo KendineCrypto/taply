@@ -1,7 +1,8 @@
 import type { NearConnector } from '@hot-labs/near-connect';
 import { classifyAccountId, isRejectedAccount } from '@/lib/near/account';
 import { WalletError, classifyWalletError } from './adapter';
-import type { WalletAdapter, WalletSession } from './adapter';
+import { transactionHashOf } from './adapter';
+import type { SignOutcome, WalletAdapter, WalletCall, WalletSession } from './adapter';
 
 /**
  * NEAR Connect adapter (`@hot-labs/near-connect`).
@@ -98,6 +99,46 @@ export function createNearConnectAdapter(rpcUrl: string): WalletAdapter {
       } catch {
         // Already disconnected on the wallet side; local state is cleared by the caller.
       }
+    },
+
+    async signAndSendTransaction(signerAccountId: string, call: WalletCall): Promise<SignOutcome> {
+      let connector: NearConnector;
+      try {
+        connector = await getConnector(rpcUrl);
+      } catch (cause) {
+        throw new WalletError('unavailable', { cause });
+      }
+      // Never let a wallet sign as a different account than the one reviewed.
+      let session: WalletSession;
+      try {
+        const { wallet, accounts } = await connector.getConnectedWallet();
+        session = toSession(accounts, wallet);
+      } catch (cause) {
+        throw new WalletError('no_account', { cause });
+      }
+      if (session.accountId !== signerAccountId) throw new WalletError('no_account');
+
+      const wallet = await connector.wallet();
+      let outcome: unknown;
+      try {
+        outcome = await wallet.signAndSendTransaction({
+          network: 'testnet',
+          signerId: signerAccountId,
+          receiverId: call.receiverId,
+          actions: [
+            {
+              type: 'FunctionCall',
+              params: { methodName: call.methodName, args: { ...call.args }, gas: call.gas, deposit: call.depositYocto },
+            },
+          ],
+        });
+      } catch (cause) {
+        // Only an explicit decline is known to have sent nothing.
+        if (classifyWalletError(cause) === 'cancelled') throw new WalletError('cancelled', { cause });
+        return { kind: 'unknown' };
+      }
+      const transactionHash = transactionHashOf(outcome);
+      return transactionHash === null ? { kind: 'unknown' } : { kind: 'submitted', transactionHash };
     },
 
     subscribe(listener) {

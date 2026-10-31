@@ -289,6 +289,142 @@ export interface Dictionary {
     readonly mockPinned: string;
   };
 
+  /** Phase 2C: real Instant Pay against the configured contract. */
+  readonly payment: {
+    /** FINAL_PAID from a final contract read, without an independently verified receipt. */
+    readonly contractPaid: StatusCopy;
+    readonly settlementProofPending: string;
+    readonly setup: {
+      readonly notConfigured: ErrorCopy;
+      readonly invalidConfig: ErrorCopy;
+      readonly chainUnavailable: ErrorCopy;
+      readonly checking: string;
+      readonly rejected: ErrorCopy;
+      readonly unreachable: ErrorCopy;
+      readonly codeMismatch: ErrorCopy;
+      readonly verifiedContract: string;
+    };
+    readonly signing: {
+      readonly flagOff: ErrorCopy;
+      readonly unverified: ErrorCopy;
+      readonly noJournal: ErrorCopy;
+      readonly wrongAccount: ErrorCopy;
+      readonly rejected: ErrorCopy;
+      readonly unknown: ErrorCopy;
+      readonly submitted: ErrorCopy;
+      readonly blocked: ErrorCopy;
+      readonly mayReattempt: ErrorCopy;
+      readonly reattempt: string;
+      readonly waitingForWallet: string;
+      readonly transactionLabel: string;
+      readonly viewTransaction: string;
+    };
+    readonly create: {
+      readonly connectFirst: string;
+      readonly amountLabel: string;
+      readonly amountHint: string;
+      readonly memoLabel: string;
+      readonly memoHint: string;
+      readonly payerLabel: string;
+      readonly payerHint: string;
+      readonly expiryLabel: string;
+      readonly expiryHint: string;
+      readonly expiry: Readonly<Record<'15m' | '1h' | '12h', string>>;
+      readonly recipientLabel: string;
+      readonly recipientIsYou: string;
+      readonly getQuote: string;
+      readonly quoting: string;
+      readonly quoteTitle: string;
+      readonly storageBond: string;
+      readonly storageBondNote: string;
+      readonly gasLabel: string;
+      readonly gasNote: string;
+      readonly requestIdLabel: string;
+      readonly createInWallet: string;
+      readonly edit: string;
+      readonly errors: Readonly<
+        Record<
+          'amount_required' | 'amount_invalid' | 'amount_zero' | 'memo_too_long' | 'payer_invalid' | 'payer_is_recipient',
+          string
+        >
+      >;
+      readonly quoteFailed: ErrorCopy;
+      readonly nonceConsumed: ErrorCopy;
+      readonly pendingDraft: ErrorCopy;
+      readonly resumeDraft: string;
+      readonly discardDraft: string;
+      readonly created: string;
+    };
+    readonly share: {
+      readonly title: string;
+      readonly body: string;
+      readonly linkLabel: string;
+      readonly copyLink: string;
+      readonly linkCopied: string;
+      readonly share: string;
+      readonly qrLabel: string;
+      readonly qrNote: string;
+    };
+    readonly review: {
+      readonly title: string;
+      readonly intro: string;
+      readonly recipient: string;
+      readonly amount: string;
+      readonly exactBaseUnits: string;
+      readonly memo: string;
+      readonly noMemo: string;
+      readonly permittedPayer: string;
+      readonly anyPayer: string;
+      readonly expires: string;
+      readonly contract: string;
+      readonly attachExactly: string;
+      readonly gasSeparate: string;
+      readonly confirmCheck: string;
+      readonly approveInWallet: string;
+      readonly connectToPay: string;
+      readonly notPermittedPayer: ErrorCopy;
+      readonly payingYourself: ErrorCopy;
+      readonly balanceLow: ErrorCopy;
+      readonly expired: ErrorCopy;
+    };
+    readonly status: {
+      readonly refresh: string;
+      readonly refreshing: string;
+      readonly checkedAt: string;
+      readonly observedBlock: string;
+      readonly autoRefresh: string;
+      readonly inFlightNote: string;
+      readonly unresolved: ErrorCopy;
+      readonly failedRecipient: string;
+      readonly failedPayer: string;
+      readonly retryInWallet: string;
+      readonly retryNote: string;
+      readonly cancelInWallet: string;
+      readonly cancelNote: string;
+      readonly cancelConfirm: string;
+      readonly notFound: ErrorCopy;
+      readonly wrongContract: ErrorCopy;
+      readonly inconsistent: ErrorCopy;
+      readonly readFailed: ErrorCopy;
+      readonly invalidId: ErrorCopy;
+      readonly yourAttempts: string;
+      readonly fundedAt: string;
+      readonly payerLabel: string;
+      readonly operationLabel: string;
+      readonly attemptResolved: string;
+    };
+    readonly receipt: {
+      readonly factsTitle: string;
+      readonly factsNote: string;
+      readonly notTerminal: ErrorCopy;
+      readonly terminalBlock: string;
+      readonly terminalAt: string;
+      readonly cancelledNothingPaid: string;
+      readonly payoutConfirmedByContract: string;
+      readonly backToPayment: string;
+    };
+  };
+
   readonly screens: {
     readonly home: string;
     readonly send: string;

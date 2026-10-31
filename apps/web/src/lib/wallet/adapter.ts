@@ -39,6 +39,48 @@ export class WalletError extends Error {
   }
 }
 
+/**
+ * One contract call, exactly as `@taply/near-client` prepared it. The adapter
+ * passes it to the wallet unchanged; the person approves or declines there.
+ */
+export interface WalletCall {
+  readonly receiverId: string;
+  readonly methodName: string;
+  readonly args: Readonly<Record<string, unknown>>;
+  readonly gas: string;
+  readonly depositYocto: string;
+}
+
+/**
+ * What a wallet reported after a signing request. Neither variant means the call
+ * succeeded: only a finalized chain read can say that.
+ *  - submitted: the wallet returned a transaction hash.
+ *  - unknown:   anything else that was not an explicit decline. The transaction
+ *               may or may not have been broadcast, so the caller must reconcile
+ *               with the chain and must not offer a blind retry.
+ * An explicit decline throws `WalletError('cancelled')` instead: nothing was sent.
+ */
+export type SignOutcome =
+  | { readonly kind: 'submitted'; readonly transactionHash: string }
+  | { readonly kind: 'unknown' };
+
+const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/** Pulls a transaction hash out of a wallet's (untyped) final outcome, or null. */
+export function transactionHashOf(outcome: unknown): string | null {
+  if (typeof outcome !== 'object' || outcome === null) return null;
+  const record = outcome as Record<string, unknown>;
+  const tx = record['transaction'];
+  const fromTx = typeof tx === 'object' && tx !== null ? (tx as Record<string, unknown>)['hash'] : undefined;
+  const txOutcome = record['transaction_outcome'];
+  const fromOutcome =
+    typeof txOutcome === 'object' && txOutcome !== null ? (txOutcome as Record<string, unknown>)['id'] : undefined;
+  for (const candidate of [fromTx, fromOutcome]) {
+    if (typeof candidate === 'string' && TX_HASH.test(candidate)) return candidate;
+  }
+  return null;
+}
+
 export interface WalletAdapter {
   /** Restores a session the wallet still considers connected, or null. Never opens UI. */
   restore(): Promise<WalletSession | null>;
@@ -47,6 +89,13 @@ export interface WalletAdapter {
   disconnect(): Promise<void>;
   /** Wallet-initiated changes (sign-out in the wallet, account switch). */
   subscribe(listener: (session: WalletSession | null) => void): () => void;
+  /**
+   * Asks the connected wallet to sign and send ONE function call as
+   * `signerAccountId`. Throws `WalletError('cancelled')` on an explicit decline,
+   * `WalletError('no_account')` if the wallet is not connected as that signer.
+   * Every other failure is reported as `{ kind: 'unknown' }`.
+   */
+  signAndSendTransaction(signerAccountId: string, call: WalletCall): Promise<SignOutcome>;
 }
 
 /**

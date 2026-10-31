@@ -5,6 +5,7 @@ import { Card, ScreenHeader } from '@/components/primitives/Surface';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Icon } from '@/components/shell/Icons';
 import { AccountChip } from '@/components/wallet/AccountChip';
+import { QrCode } from '@/components/payments/QrCode';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { useT } from '@/lib/i18n/provider';
 import { classifyAccountId } from '@/lib/near/account';
@@ -14,9 +15,8 @@ import { useWallet } from '@/lib/wallet/provider';
 /**
  * Receive (UX_FLOWS screen 05).
  *
- * Shows the connected account ID in full, with copy. It encodes identity only,
- * never an amount or a payable request. The address QR waits for an approved QR
- * library (lockfile change request), so it says so instead of faking one.
+ * Shows the connected account ID in full, with copy and a QR code of exactly
+ * that ID. It encodes identity only, never an amount or a payable request.
  */
 export default function ReceivePage() {
   const t = useT();
@@ -44,7 +44,11 @@ export default function ReceivePage() {
             {t.receive.testnetOnlyWarning}
           </p>
 
-          <p className="px-1 text-sm text-[var(--text-muted)]">{t.receive.qrLater}</p>
+          <Card className="flex flex-col items-center gap-3">
+            {/* Identity only: the account ID, never an amount or a payable request. */}
+            <QrCode value={state.session.accountId} label={t.receive.yourAccount} size={200} />
+            <p className="text-center text-sm text-[var(--text-muted)]">{t.receive.qrLater}</p>
+          </Card>
 
           {CHAIN_CONFIG.ok && (
             <ButtonLink href={explorerAccountUrl(CHAIN_CONFIG.explorerBaseUrl, state.session.accountId)} external block>

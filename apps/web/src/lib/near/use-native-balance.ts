@@ -23,7 +23,7 @@ interface Stored {
  * - Reads never retry automatically (near-client has no timeout retries either).
  */
 export function useNativeBalance(
-  client: NearTestnetClient | null,
+  client: Pick<NearTestnetClient, 'readNativeBalance'> | null,
   accountId: string | null,
 ): { readonly view: BalanceView; readonly refreshing: boolean; readonly refresh: () => void } {
   const [stored, setStored] = useState<Stored | null>(null);

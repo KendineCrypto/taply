@@ -29,6 +29,10 @@ function fakeAdapter(overrides: Partial<WalletAdapter> = {}): WalletAdapter {
     connect: async () => SESSION,
     disconnect: async () => undefined,
     subscribe: () => () => undefined,
+    // Home never signs; a call here is a bug.
+    signAndSendTransaction: async () => {
+      throw new Error('home must not sign');
+    },
     ...overrides,
   };
 }

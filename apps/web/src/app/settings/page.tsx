@@ -69,7 +69,13 @@ export default function SettingsPage() {
             <DetailRow label={t.settings.rpcLabel}>
               <span className="chain-id">{CHAIN_CONFIG.ok ? CHAIN_CONFIG.client.rpcProviderId : t.common.notAvailable}</span>
             </DetailRow>
-            <DetailRow label={t.settings.contractLabel}>{t.settings.contractNotDeployed}</DetailRow>
+            <DetailRow label={t.settings.contractLabel}>
+              {CHAIN_CONFIG.ok && CHAIN_CONFIG.contract.status === 'configured' ? (
+                <span className="chain-id">{CHAIN_CONFIG.contract.accountId}</span>
+              ) : (
+                t.settings.contractNotDeployed
+              )}
+            </DetailRow>
           </dl>
           <p className="mt-2 text-xs text-[var(--text-muted)]">{t.app.demoFundsNote}</p>
         </Card>

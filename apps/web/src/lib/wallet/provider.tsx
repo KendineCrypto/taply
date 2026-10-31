@@ -5,7 +5,8 @@ import type { ReactNode } from 'react';
 import { FLAGS } from '@/lib/flags/features';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { classifyWalletError } from './adapter';
-import type { WalletAdapter, WalletErrorKind, WalletSession } from './adapter';
+import { WalletError } from './adapter';
+import type { SignOutcome, WalletAdapter, WalletCall, WalletErrorKind, WalletSession } from './adapter';
 import { createNearConnectAdapter } from './near-connect';
 
 export type WalletState =
@@ -22,6 +23,11 @@ interface WalletValue {
   readonly connect: () => Promise<void>;
   readonly disconnect: () => Promise<void>;
   readonly dismissError: () => void;
+  /**
+   * Signs one prepared call as the CURRENTLY connected account. Callers must
+   * have journaled the attempt first (lib/payments/submit.ts does).
+   */
+  readonly signAndSend: (call: WalletCall) => Promise<SignOutcome>;
 }
 
 const WalletContext = createContext<WalletValue | null>(null);
@@ -100,9 +106,17 @@ export function WalletProvider({
     setState((current) => (current.status === 'disconnected' ? { status: 'disconnected', lastError: null } : current));
   }, []);
 
+  const signAndSend = useCallback(
+    async (call: WalletCall): Promise<SignOutcome> => {
+      if (adapter === null || state.status !== 'connected') throw new WalletError('no_account');
+      return adapter.signAndSendTransaction(state.session.accountId, call);
+    },
+    [adapter, state],
+  );
+
   const value = useMemo<WalletValue>(
-    () => ({ state, connect, disconnect, dismissError }),
-    [state, connect, disconnect, dismissError],
+    () => ({ state, connect, disconnect, dismissError, signAndSend }),
+    [state, connect, disconnect, dismissError, signAndSend],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

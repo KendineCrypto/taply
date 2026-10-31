@@ -196,6 +196,8 @@ function StateRow({
     derived,
     fundingEligibility: mockFundingEligibility(state),
     incident: null,
+    // Mock data can never carry settlement proof.
+    settlementProof: 'contract_state_only',
   } as const;
   const presentation = mapChainState(input);
   const copy = t.status[state];

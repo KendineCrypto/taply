@@ -19,6 +19,11 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_API_BASE_URL?: string;
     /** Testnet payments contract account id. Empty until Codex deploys one. */
     readonly NEXT_PUBLIC_TAPLY_CONTRACT_ID?: string;
+    /**
+     * Human-approved base58 code hash of that contract. Required together with
+     * the contract id; every contract read checks it at the same final block.
+     */
+    readonly NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH?: string;
     readonly NEXT_PUBLIC_TAPLY_EXPLORER_BASE_URL?: string;
     /** Public Testnet JSON-RPC endpoint (HTTPS, CORS-enabled, no credentials). */
     readonly NEXT_PUBLIC_TAPLY_RPC_URL?: string;
@@ -26,6 +31,8 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_RPC_PROVIDER_ID?: string;
 
     readonly NEXT_PUBLIC_TAPLY_FLAG_WALLET?: string;
+    /** Instant Pay signing gate. Off unless a human turns it on after Testnet review. */
+    readonly NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_MERCHANT?: string;

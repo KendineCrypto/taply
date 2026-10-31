@@ -79,6 +79,9 @@ const DEFAULTS: Readonly<Record<FeatureFlag, FlagState>> = {
  */
 const ENV_KEYS: Partial<Record<FeatureFlag, string>> = {
   walletConnect: 'NEXT_PUBLIC_TAPLY_FLAG_WALLET',
+  // Signing gate for Instant Pay transactions. Turning it on is a human decision
+  // after Testnet review; it also needs a configured, verified contract.
+  instantPay: 'NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY',
   protectedPay: 'NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY',
   handshake: 'NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE',
   merchantCheckout: 'NEXT_PUBLIC_TAPLY_FLAG_MERCHANT',
@@ -106,6 +109,7 @@ export function resolveFlags(env: Record<string, string | undefined>): Readonly<
 
 export const FLAGS = resolveFlags({
   NEXT_PUBLIC_TAPLY_FLAG_WALLET: process.env.NEXT_PUBLIC_TAPLY_FLAG_WALLET,
+  NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY: process.env.NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY,
   NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY: process.env.NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY,
   NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE: process.env.NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE,
   NEXT_PUBLIC_TAPLY_FLAG_MERCHANT: process.env.NEXT_PUBLIC_TAPLY_FLAG_MERCHANT,
