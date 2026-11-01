@@ -103,6 +103,14 @@ test('close while chain verification is pending prevents delayed bind commit', a
   await assert.rejects(f.bind(), /NOT_AUTHORIZED/);
   assert.equal((await f.engine.read(merchant, f.created.session.id)).state, 'CLOSED');
 });
+test('logout during canonical RPC revokes pending bind before commit', async () => {
+  const f=await fixture(); let revoked=false;
+  const authenticate=f.deps.authenticate;
+  f.deps.authenticate=async credential=>{if(revoked) throw Error('AUTH_EXPIRED');return authenticate(credential);};
+  f.setRead(async()=>{revoked=true;return f.record;});
+  await assert.rejects(f.bind(),/AUTH_EXPIRED/); revoked=false;
+  assert.equal((await f.engine.read(merchant,f.created.session.id)).state,'DRAFT');
+});
 test('wrong hash, receiver, binding, contract and RPC outage never open draft', async () => {
   for (const mutate of [
     (r: any) => { r.recipientAccountId = other; },

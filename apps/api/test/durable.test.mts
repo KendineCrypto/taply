@@ -10,6 +10,7 @@ import { createNep413Verifier } from '../src/nep413.mts';
 import { testSigner } from './signer-fixture.mts';
 import { SessionEngine } from '../src/sessions.mts';
 import { Worker } from 'node:worker_threads';
+import { DatabaseSync } from 'node:sqlite';
 
 test('independent worker connections serialize concurrent encrypted mutations without lost updates', async () => {
   const dir=mkdtempSync(join(tmpdir(),'taply-workers-')),path=join(dir,'test.db'),key=randomBytes(32);
@@ -40,6 +41,9 @@ test('SQLite survives restart, serializes separate connections, rolls back excep
     assert.equal(restarted.transaction(s=>s.counter),20); restarted.close();
     assert.equal(readFileSync(path).includes(Buffer.from('private-test-marker')),false);
     assert.throws(()=>new DurableStore(path,randomBytes(32),'test',()=>({})));
+    const tamper=new DatabaseSync(path);
+    tamper.prepare('UPDATE state SET payload=zeroblob(32) WHERE name=?').run('test');tamper.close();
+    assert.throws(()=>new DurableStore(path,key,'test',()=>({}),true));
     assert.throws(()=>new DurableStore(join(dir,'missing.db'),key,'test',()=>({})),/VERIFICATION_UNAVAILABLE/);
   } finally { rmSync(dir,{recursive:true,force:true}); }
 });
