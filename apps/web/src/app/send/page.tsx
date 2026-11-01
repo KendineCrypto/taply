@@ -1,17 +1,16 @@
 'use client';
 
-import { ComingSoon } from '@/components/shell/ComingSoon';
+import { ScreenHeader } from '@/components/primitives/Surface';
+import { SendFlow } from '@/components/send/SendFlow';
 import { useT } from '@/lib/i18n/provider';
 
-/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
-export default function Page() {
+/** Send NEAR Testnet: prepare and review. Confirming is gated (see SendFlow). */
+export default function SendPage() {
   const t = useT();
   return (
-    <ComingSoon
-      title={t.screens.send}
-      summary={t.routes.send}
-      flag="instantPay"
-      icon="send"
-    />
+    <>
+      <ScreenHeader title={t.screens.send} description={t.walletUx.send.subtitle} />
+      <SendFlow />
+    </>
   );
 }

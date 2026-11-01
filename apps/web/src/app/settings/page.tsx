@@ -53,6 +53,13 @@ export default function SettingsPage() {
             </div>
           )}
           <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">{t.wallet.noKeysNote}</p>
+          <Link
+            href="/wallet"
+            className="mt-3 flex min-h-[var(--tap-target)] items-center justify-between gap-3 rounded-[var(--radius-control)] px-1 text-sm font-medium text-[var(--text-primary)] hover:text-[var(--taply-lime)]"
+          >
+            {t.walletUx.onboarding.openWallet}
+            <Icon name="chevron" size={18} />
+          </Link>
         </Card>
 
         <Card as="section">

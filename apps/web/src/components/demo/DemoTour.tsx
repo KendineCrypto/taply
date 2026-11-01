@@ -9,6 +9,10 @@ import { RequestTicket } from '@/components/experience/RequestTicket';
 import { ReviewSummary } from '@/components/experience/ReviewSummary';
 import type { ProgressStage } from '@/components/experience/progress';
 import { ShareActions } from '@/components/payments/PaymentParts';
+import { SendResult, SendReview } from '@/components/send/SendParts';
+import type { SendOutcome } from '@/components/send/SendParts';
+import { ReceiveCard } from '@/components/wallet/ReceiveCard';
+import { WalletKindBadge } from '@/components/wallet/WalletKind';
 import { Amount } from '@/components/primitives/Amount';
 import { Button } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
@@ -26,6 +30,7 @@ import {
   DEMO_PROVIDER,
   DEMO_RECIPIENT,
   DEMO_REFERENCES,
+  DEMO_SEND_AMOUNT_YOCTO,
   DEMO_SETTLED_AT_NS,
   DEMO_STEPS,
   DEMO_STORAGE_BOND_YOCTO,
@@ -72,6 +77,8 @@ function goTo(step: DemoStep): void {
 
 const STEP_ICON: Readonly<Record<DemoStep, IconName>> = {
   home: 'home',
+  receive: 'receive',
+  send: 'send',
   create: 'request',
   share: 'share',
   review: 'check',
@@ -94,6 +101,8 @@ export function DemoTour() {
   );
   const link = `${origin}/demo?step=review`;
   const d = t.experience.demo;
+  const stepCopy = (s: DemoStep) =>
+    s === 'receive' ? t.walletUx.demo.receive : s === 'send' ? t.walletUx.demo.send : d.steps[s];
 
   return (
     <div className="flex flex-col gap-5">
@@ -105,18 +114,19 @@ export function DemoTour() {
           <span className="text-sm text-[var(--text-muted)]">{d.synthetic}</span>
         </div>
         <h1 className="text-[1.75rem] font-semibold leading-tight tracking-tight">{d.title}</h1>
+        <p className="text-lg font-semibold tracking-tight text-[var(--taply-lime)]">{t.walletUx.onboarding.title}</p>
         <p className="text-[0.9375rem] leading-relaxed text-[var(--text-secondary)]">{d.intro}</p>
       </header>
 
       <nav aria-label={d.progressLabel}>
-        <ol className="grid grid-cols-6 gap-1.5">
+        <ol className="grid grid-cols-8 gap-1">
           {DEMO_STEPS.map((s, i) => (
             <li key={s}>
               <button
                 type="button"
                 onClick={() => goTo(s)}
                 aria-current={s === step ? 'step' : undefined}
-                aria-label={`${i + 1}. ${d.steps[s].title}`}
+                aria-label={`${i + 1}. ${stepCopy(s).title}`}
                 className="group flex w-full flex-col items-center gap-1.5 py-1"
               >
                 <span
@@ -138,13 +148,15 @@ export function DemoTour() {
       <div>
         <p className="eyebrow text-[var(--text-muted)]">{fill(d.stepOf, { n: String(index + 1), total: String(DEMO_STEPS.length) })}</p>
         <h2 id="demo-step-title" tabIndex={-1} className="mt-2 text-xl font-semibold tracking-tight focus-visible:outline-none">
-          {d.steps[step].title}
+          {stepCopy(step).title}
         </h2>
-        <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{d.steps[step].caption}</p>
+        <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{stepCopy(step).caption}</p>
       </div>
 
       <div key={step} className="animate-rise">
-        {step === 'home' && <HomeStep onRequest={() => goTo('create')} />}
+        {step === 'home' && <HomeStep onGo={goTo} />}
+        {step === 'receive' && <ReceiveCard demo accountId={DEMO_RECIPIENT} />}
+        {step === 'send' && <SendStep />}
         {step === 'create' && (
           <CreateStep amountText={amountText} onAmount={setAmountText} amountYocto={amountYocto} memo={memo} onCreate={() => goTo('share')} />
         )}
@@ -216,40 +228,156 @@ function DemoBanner() {
   );
 }
 
-function HomeStep({ onRequest }: { readonly onRequest: () => void }) {
+function HomeStep({ onGo }: { readonly onGo: (step: DemoStep) => void }) {
   const t = useT();
+  const actions: ReadonlyArray<{ step: DemoStep; icon: IconName; label: string; primary: boolean }> = [
+    { step: 'send', icon: 'send', label: t.home.send, primary: false },
+    { step: 'receive', icon: 'receive', label: t.home.receive, primary: false },
+    { step: 'create', icon: 'request', label: t.home.request, primary: true },
+  ];
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <section className="surface-hero p-5 pb-6" aria-label={t.experience.demo.balanceLabel}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-[var(--text-secondary)]">{t.experience.demo.balanceLabel}</p>
+        <div className="mb-5 flex items-center gap-3">
+          <Monogram accountId={DEMO_RECIPIENT} size={40} />
+          <div className="min-w-0 flex-1">
+            <p className="chain-id truncate text-[0.9375rem] font-semibold">{DEMO_RECIPIENT}</p>
+            <WalletKindBadge kind="native" />
+          </div>
           <span className="rounded border border-[var(--taply-clay)] px-1.5 text-[10px] font-bold tracking-widest text-[var(--taply-clay)]">
             {t.experience.demo.badge}
           </span>
         </div>
-        <AmountHero baseUnits={DEMO_BALANCE_YOCTO} className="mt-3" />
-        <div className="mt-5 flex items-center gap-3">
-          <Monogram accountId={DEMO_RECIPIENT} />
-          <div className="min-w-0">
-            <p className="text-xs text-[var(--text-muted)]">{t.experience.yourAccount}</p>
-            <p className="chain-id font-medium">{DEMO_RECIPIENT}</p>
-          </div>
-        </div>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">{t.experience.demo.balanceLabel}</p>
+        <AmountHero baseUnits={DEMO_BALANCE_YOCTO} className="mt-2" />
+        <p className="mt-4 text-xs leading-relaxed text-[var(--text-muted)]">{t.walletUx.demo.conceptNote}</p>
       </section>
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={onRequest}
-          className="pressable flex min-h-[64px] items-center justify-center gap-2.5 rounded-[var(--radius-card)] bg-[var(--taply-lime)] px-4 text-base font-semibold text-[var(--taply-night)] shadow-[0_14px_30px_-14px_rgb(199_252_117/0.6)] hover:bg-[#d4fd92]"
-        >
-          <Icon name="request" size={20} />
-          {t.home.request}
-        </button>
-        <span className="flex min-h-[64px] items-center justify-center gap-2.5 rounded-[var(--radius-card)] border border-[var(--border-strong)] px-4 text-base font-semibold text-[var(--text-muted)]">
-          <Icon name="send" size={20} />
-          {t.home.send}
+      <ul className="grid grid-cols-3 gap-3">
+        {actions.map((a) => (
+          <li key={a.step}>
+            <button
+              type="button"
+              onClick={() => onGo(a.step)}
+              className="pressable group flex w-full flex-col items-center gap-2 rounded-[var(--radius-card)] py-1 text-sm font-semibold"
+            >
+              <span
+                className={`grid size-[60px] place-items-center rounded-full ${
+                  a.primary
+                    ? 'bg-[var(--taply-lime)] text-[var(--taply-night)] shadow-[0_12px_28px_-12px_rgb(199_252_117/0.65)]'
+                    : 'bg-[var(--surface-2)] ring-1 ring-[var(--border-strong)]'
+                }`}
+              >
+                <Icon name={a.icon} size={24} />
+              </span>
+              {a.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <section aria-label={t.walletUx.home.activityTitle}>
+        <h3 className="mb-3 text-base font-semibold tracking-tight">{t.walletUx.home.activityTitle}</h3>
+        <ul className="surface-card divide-y divide-[var(--border-subtle)] overflow-hidden">
+          <DemoActivityRow
+            icon="request"
+            title={t.walletUx.activity.method.create_request}
+            amount={demoAmountToYocto('12.5') ?? '1'}
+            phase={t.walletUx.activity.phase.RESOLVED}
+          />
+          <DemoActivityRow
+            icon="send"
+            title={t.walletUx.activity.method.pay_instant_native}
+            amount={DEMO_SEND_AMOUNT_YOCTO}
+            phase={t.walletUx.activity.phase.SUBMITTED}
+          />
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function DemoActivityRow({
+  icon,
+  title,
+  amount,
+  phase,
+}: {
+  readonly icon: IconName;
+  readonly title: string;
+  readonly amount: string;
+  readonly phase: string;
+}) {
+  return (
+    <li className="flex min-h-[64px] items-center gap-3 px-4 py-3">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--surface-2)] ring-1 ring-[var(--border-subtle)]">
+        <Icon name={icon} size={18} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</span>
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <Amount baseUnits={amount} asset={NEAR_NATIVE} display="compact" className="text-sm font-semibold" />
+        <span className="rounded-full bg-[var(--tone-neutral-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+          {phase}
         </span>
-      </div>
+      </span>
+    </li>
+  );
+}
+
+const SEND_OUTCOMES: ReadonlyArray<SendOutcome> = ['pending', 'success', 'failed', 'unknown'];
+
+function SendStep() {
+  const t = useT();
+  const [outcome, setOutcome] = useState<SendOutcome | null>(null);
+
+  useEffect(() => {
+    if (outcome !== 'pending') return;
+    const timer = setTimeout(() => setOutcome('success'), 1800);
+    return () => clearTimeout(timer);
+  }, [outcome]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DemoBanner />
+      {outcome === null ? (
+        <SendReview
+          recipientAccountId={DEMO_PAYER}
+          amountYocto={DEMO_SEND_AMOUNT_YOCTO}
+          confirm={{ available: true, label: t.walletUx.demo.confirmDemo, onConfirm: () => setOutcome('pending') }}
+          onEdit={() => setOutcome(null)}
+        />
+      ) : (
+        <>
+          <SendResult outcome={outcome} recipientAccountId={DEMO_PAYER} amountYocto={DEMO_SEND_AMOUNT_YOCTO} />
+          <fieldset className="surface-card p-4">
+            <legend className="sr-only">{t.walletUx.demo.showResult}</legend>
+            <p className="mb-3 text-sm font-medium">{t.walletUx.demo.showResult}</p>
+            <div className="flex flex-wrap gap-2">
+              {SEND_OUTCOMES.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  aria-pressed={o === outcome}
+                  onClick={() => setOutcome(o)}
+                  className={`min-h-[36px] rounded-full border px-3 text-xs font-medium ${
+                    o === outcome
+                      ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--taply-night)]'
+                      : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {t.walletUx.send.status[o].title}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setOutcome(null)}
+                className="min-h-[36px] rounded-full border border-[var(--border-strong)] px-3 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                {t.walletUx.send.edit}
+              </button>
+            </div>
+          </fieldset>
+        </>
+      )}
+      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{t.experience.demo.approveNote}</p>
     </div>
   );
 }

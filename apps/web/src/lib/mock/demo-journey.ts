@@ -37,7 +37,10 @@ export const DEMO_REFERENCES = {
 
 export const DEMO_PROVIDER = 'demo-rpc (synthetic)';
 
-export const DEMO_STEPS = ['home', 'create', 'share', 'review', 'progress', 'receipt'] as const;
+export const DEMO_STEPS = ['home', 'receive', 'send', 'create', 'share', 'review', 'progress', 'receipt'] as const;
+
+/** Demo transfer for the Send step: 3.2 NEAR to the demo payer. */
+export const DEMO_SEND_AMOUNT_YOCTO = '3200000000000000000000000';
 export type DemoStep = (typeof DEMO_STEPS)[number];
 
 export function isDemoStep(value: string | null): value is DemoStep {

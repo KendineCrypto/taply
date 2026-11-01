@@ -107,7 +107,7 @@ function WalletStatus() {
   const { accountId } = state.session;
   return (
     <Link
-      href="/settings"
+      href="/wallet"
       className="tap-target hidden items-center gap-1.5 rounded-full bg-[var(--surface-2)] px-3 text-xs font-medium min-[380px]:inline-flex"
       aria-label={`${t.wallet.accountMenuLabel}: ${accountId}`}
     >

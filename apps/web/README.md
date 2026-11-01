@@ -1,20 +1,28 @@
 # `apps/web` — Taply v0.4 frontend
 
-**taply.** — payment requests on NEAR, designed for people. Mobile-first PWA,
-NEAR **Testnet** only.
+**taply.** — *Your wallet. Your payment. One tap.* A mobile-first NEAR
+**Testnet** wallet and payments app: connect the NEAR wallet you already have,
+then send, receive and request payments.
 
 ## Try it in 60 seconds
 
-Open `/demo` (or tap **See a full payment in 60 seconds** on Home): a six-step
-tour through the real Taply screens with deterministic **DEMO** data —
-wallet, create, share, review, progress, receipt. No wallet opens, nothing is
-signed, nothing touches the chain, and every screen says so. Exact judge
-walkthrough, recording storyboard, voiceover and launch post:
+Open `/demo` (or tap **See a full payment in 60 seconds** on Home): an eight-step
+tour through the real Taply screens with deterministic **DEMO** data — wallet
+home, receive, send, create, share, review, progress, receipt. No wallet opens,
+nothing is signed, nothing touches the chain, and every screen says so. Judge
+walkthrough, storyboard, voiceover and launch post:
 [`docs/DEMO_KIT.md`](docs/DEMO_KIT.md).
 
-| Request ticket | Payer review | Progress | Receipt (DEMO) |
+| Wallet home (DEMO) | Receive | Request ticket | Receipt (DEMO) |
 |---|---|---|---|
-| ![Request ticket](docs/screenshots/04-share-en.png) | ![Review](docs/screenshots/05-review-en.png) | ![Paid per contract](docs/screenshots/06-progress-contract_paid-en.png) | ![Receipt](docs/screenshots/07-receipt-en.png) |
+| ![Wallet home](docs/screenshots/wallet/05-tour-wallet-home-390-en.png) | ![Receive](docs/screenshots/wallet/06-tour-receive-390-en.png) | ![Request ticket](docs/screenshots/wallet/10-tour-share-390-en.png) | ![Receipt](docs/screenshots/wallet/13-tour-receipt-390-en.png) |
+
+What works with a real wallet today: connect an existing NEAR Testnet wallet
+(NEAR Connect), real finalized balance, wallet identity, receive (account QR),
+send preparation and review, Instant Pay request creation flow, payer review,
+status and the independent receipt verifier. **Signing is switched off**, the
+send confirmation is unavailable (no direct-transfer signer yet), and the
+Taply-controlled wallet (create / restore / unlock) is **not available yet**.
 
 Run locally: `pnpm install --frozen-lockfile`, then from `apps/web`:
 `pnpm build && pnpm start` and open <http://localhost:3000/demo>.
@@ -51,6 +59,7 @@ place a verified claim may be recorded.
 | Recipient retry of a recorded failure; creator cancel of an unpaid request | built, tested; **signing gated** |
 | Receipt: ticket with evidence-based seal; contract terminal facts collapsible | built, tested |
 | Phase 3B design system, experience components, `/demo` tour | built, tested, screenshot-checked (360/390/desktop, EN/TR) |
+| Phase 4B wallet home, `/wallet` onboarding, send (review only), receive, 8-step tour | built, tested; native Taply Wallet **not available**; send confirm **unavailable** |
 | Verified Paid | only from the independent receipt verifier (`src/lib/verify`); no real Taply payment verified yet |
 | Protected Pay, Handshake, checkout, send | **disabled** |
 | Service worker, CSP | **deliberately deferred** (reasons in `src/lib/protocol/README.md`) |

@@ -537,6 +537,96 @@ export interface Dictionary {
     };
   };
 
+  /** Phase 4B: wallet home, onboarding, send and receive. */
+  readonly walletUx: {
+    readonly kind: {
+      readonly external: string;
+      readonly externalVia: string;
+      readonly externalKeys: string;
+      readonly native: string;
+      readonly nativeKeys: string;
+    };
+    readonly onboarding: {
+      readonly eyebrow: string;
+      readonly title: string;
+      readonly subtitle: string;
+      readonly connect: ErrorCopy;
+      readonly create: ErrorCopy;
+      readonly restore: ErrorCopy;
+      readonly unlock: ErrorCopy;
+      readonly works: string;
+      readonly notYet: string;
+      readonly notYetBody: string;
+      readonly tour: string;
+      readonly connectInstead: string;
+      readonly lockedTitle: string;
+      readonly lockedBody: string;
+      readonly openWallet: string;
+    };
+    readonly home: {
+      readonly totalBalance: string;
+      readonly manage: string;
+      readonly activityTitle: string;
+      readonly activityScope: string;
+      readonly activityEmptyTitle: string;
+      readonly activityEmptyBody: string;
+      readonly explorer: string;
+    };
+    readonly activity: {
+      readonly method: Readonly<Record<'create_request' | 'pay_instant_native' | 'retry_native_transfer' | 'cancel_unfunded', string>>;
+      readonly phase: Readonly<Record<'AWAITING_SIGNATURE' | 'USER_REJECTED' | 'OUTCOME_UNKNOWN' | 'SUBMITTED' | 'RESOLVED', string>>;
+      readonly open: string;
+    };
+    readonly send: {
+      readonly subtitle: string;
+      readonly preview: ErrorCopy;
+      readonly recipientLabel: string;
+      readonly recipientPlaceholder: string;
+      readonly recipientHint: string;
+      readonly recipientChecking: string;
+      readonly recipientFound: string;
+      readonly recipientMissing: string;
+      readonly recipientMainnet: string;
+      readonly recipientInvalid: string;
+      readonly recipientSelf: string;
+      readonly recipientUnchecked: string;
+      readonly amountLabel: string;
+      readonly available: string;
+      readonly availableUnknown: string;
+      readonly insufficient: string;
+      readonly amountInvalid: string;
+      readonly review: string;
+      readonly edit: string;
+      readonly reviewTitle: string;
+      readonly youSend: string;
+      readonly walletAction: string;
+      readonly walletActionValue: string;
+      readonly feeValue: string;
+      readonly confirm: string;
+      readonly confirmUnavailable: string;
+      readonly connectFirst: string;
+      readonly status: Readonly<Record<'pending' | 'success' | 'failed' | 'unknown', ErrorCopy>>;
+      readonly sendAnother: string;
+    };
+    readonly receive: {
+      readonly subtitle: string;
+      readonly ticketTitle: string;
+      readonly copy: string;
+      readonly copied: string;
+      readonly share: string;
+      readonly networkWarning: ErrorCopy;
+      readonly qrNote: string;
+      readonly requestInstead: string;
+    };
+    readonly demo: {
+      readonly receive: { readonly title: string; readonly caption: string };
+      readonly send: { readonly title: string; readonly caption: string };
+      readonly confirmDemo: string;
+      readonly conceptNote: string;
+      readonly showResult: string;
+    };
+  };
+
   readonly screens: {
     readonly home: string;
     readonly send: string;

@@ -1,3 +1,6 @@
+import { PaymentsProvider } from '@/lib/payments/context';
+import type { JournalStorage } from '@/lib/payments/journal';
+import { memoryStorage } from '@/test/chain';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NativeBalance, ReadResult } from '@taply/near-client';
@@ -58,11 +61,13 @@ function verified(source: 'rpc' | 'mock' = 'rpc'): ReadResult<NativeBalance> {
   };
 }
 
-function renderHome(adapter: WalletAdapter | null, locale: Locale = 'en') {
+function renderHome(adapter: WalletAdapter | null, locale: Locale = 'en', storage: JournalStorage = memoryStorage()) {
   return render(
     <I18nProvider locale={locale}>
       <WalletProvider adapter={adapter}>
-        <HomePage />
+        <PaymentsProvider setup={{ status: 'not_configured' }} storage={storage}>
+          <HomePage />
+        </PaymentsProvider>
       </WalletProvider>
     </I18nProvider>,
   );
@@ -187,11 +192,48 @@ describe('home - connected', () => {
 });
 
 describe('home - quick actions and activity', () => {
-  it('Send says Soon while signing is off; Request opens the real create flow (which explains the gate)', async () => {
+  it('offers Send, Receive and Request as real screens (no "Soon" in the primary journey)', async () => {
     renderHome(fakeAdapter());
-    expect(await screen.findByRole('link', { name: 'Send, Soon' })).toBeTruthy();
+    expect((await screen.findByRole('link', { name: 'Send' })).getAttribute('href')).toBe('/send');
+    expect(screen.getByRole('link', { name: 'Receive' }).getAttribute('href')).toBe('/receive');
     expect(screen.getByRole('link', { name: 'Request' }).getAttribute('href')).toBe('/request/new');
-    expect(screen.getByRole('link', { name: 'Receive' })).toBeTruthy();
+    expect(screen.queryByText(/soon/i)).toBeNull();
+  });
+
+  it('shows the connected wallet as an external wallet, with its name', async () => {
+    readNativeBalance.mockResolvedValue(verified());
+    renderHome(fakeAdapter({ restore: async () => SESSION }));
+    expect(await screen.findByText('External wallet')).toBeTruthy();
+    expect(screen.getByText(/Connected through Fake Wallet/)).toBeTruthy();
+    expect(screen.queryByText('Taply Wallet')).toBeNull();
+  });
+
+  it('lists recent activity from this browser’s journal only, linking to the chain status', async () => {
+    readNativeBalance.mockResolvedValue(verified());
+    const storage = memoryStorage();
+    const at = '2026-11-01T10:00:00.000Z';
+    const entry = {
+      method: 'create_request',
+      network: 'near-testnet',
+      contractId: 'pay.testnet',
+      requestId: 'a'.repeat(64),
+      termsHash: 'b'.repeat(64),
+      signerAccountId: 'alice.testnet',
+      terms: null,
+      operationNonce: null,
+      phase: 'SUBMITTED',
+      transactionHash: null,
+      startedAt: at,
+      updatedAt: at,
+    };
+    const other = { ...entry, requestId: 'c'.repeat(64), signerAccountId: 'someone-else.testnet' };
+    storage.setItem('taply.journal.v1', JSON.stringify({ version: 1, entries: [entry, other] }));
+    renderHome(fakeAdapter({ restore: async () => SESSION }), 'en', storage);
+    const row = (await screen.findByText('Payment request')).closest('a');
+    expect(row?.getAttribute('href')).toBe(`/pay/${'a'.repeat(64)}`);
+    expect(screen.getByText('Submitted')).toBeTruthy();
+    // Another account's attempt is not shown.
+    expect(document.querySelector(`a[href="/pay/${'c'.repeat(64)}"]`)).toBeNull();
   });
 
   it('offers the product tour, clearly as a tour', async () => {
@@ -210,7 +252,7 @@ describe('home - Turkish locale', () => {
   it('renders the product copy in Turkish', async () => {
     renderHome(fakeAdapter(), 'tr');
     expect(await screen.findByRole('button', { name: 'Cüzdan bağla' })).toBeTruthy();
-    expect(screen.getByText('Son hareketler')).toBeTruthy();
+    expect(screen.getByText('Son işlemler')).toBeTruthy();
     expect(screen.queryByText('Connect wallet')).toBeNull();
   });
 

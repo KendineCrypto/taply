@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Icon } from '@/components/shell/Icons';
+import { Monogram } from '@/components/experience/Basics';
+import { WalletKindBadge } from '@/components/wallet/WalletKind';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
-import { AccountChip } from '@/components/wallet/AccountChip';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { fill } from '@/lib/i18n';
 import type { Dictionary, ErrorCopy, Locale } from '@/lib/i18n';
@@ -63,11 +65,18 @@ function Disconnected() {
   const t = useT();
   return (
     <div className="mt-3">
-      <p className="text-[1.375rem] font-semibold leading-tight tracking-tight">{t.wallet.connectTitle}</p>
+      <p className="text-[1.5rem] font-semibold leading-tight tracking-tight">{t.walletUx.onboarding.title}</p>
       <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">{t.wallet.connectBody}</p>
       <div className="mt-4 flex flex-col gap-3">
         <WalletErrorNotice />
         <ConnectWalletButton />
+        <Link
+          href="/wallet"
+          className="tap-target inline-flex items-center justify-center gap-1.5 rounded-[var(--radius-control)] text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        >
+          {t.walletUx.onboarding.openWallet}
+          <Icon name="chevron" size={16} />
+        </Link>
       </div>
       <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-[var(--text-muted)]">
         <Icon name="check" size={14} className="mt-0.5 shrink-0 text-[var(--taply-lime)]" />
@@ -95,9 +104,24 @@ function ConnectedBalance({ accountId, walletName }: { readonly accountId: strin
 
   return (
     <>
+      <div className="mb-5 flex items-center gap-3">
+        <Monogram accountId={accountId} size={40} />
+        <div className="min-w-0 flex-1">
+          <p className="chain-id truncate text-[0.9375rem] font-semibold text-[var(--text-primary)]" title={accountId}>
+            {accountId}
+          </p>
+          <WalletKindBadge kind="external" walletName={walletName} />
+        </div>
+        <Link
+          href="/wallet"
+          className="tap-target inline-flex shrink-0 items-center gap-1 rounded-full px-3 text-xs font-medium text-[var(--text-secondary)] ring-1 ring-[var(--border-strong)] hover:text-[var(--text-primary)]"
+        >
+          {t.walletUx.home.manage}
+        </Link>
+      </div>
       <div className="flex items-center justify-between gap-2">
         <h2 id="balance-title" className="text-sm font-medium text-[var(--text-secondary)]">
-          {t.balance.title}
+          {t.walletUx.home.totalBalance}
         </h2>
         <Button
           variant="ghost"
@@ -137,9 +161,6 @@ function ConnectedBalance({ accountId, walletName }: { readonly accountId: strin
         </div>
       )}
 
-      <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-        <AccountChip accountId={accountId} caption={fill(t.wallet.connectedWith, { wallet: walletName })} />
-      </div>
     </>
   );
 }
@@ -166,9 +187,9 @@ function BalanceFigure({ verified, stale }: { readonly verified: VerifiedBalance
         title={formatted.exact}
       >
         <span className={`flex flex-wrap items-baseline gap-x-2 ${stale ? 'opacity-60' : ''}`}>
-          <span className="break-all text-[2.5rem] font-semibold leading-[1.05] tracking-tight tabular-nums">
+          <span className="display-amount break-all text-[2.75rem] min-[400px]:text-[3.25rem]">
             {whole}
-            {fraction !== null && <span className="text-[1.5rem] text-[var(--text-secondary)]">{fraction}</span>}
+            {fraction !== null && <span className="text-[var(--text-muted)]">{fraction}</span>}
             {!exact && formatted.truncated && (
               <span aria-hidden="true" className="text-[1.5rem] text-[var(--text-muted)]">
                 …
