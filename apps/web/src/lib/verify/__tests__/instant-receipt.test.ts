@@ -5,7 +5,8 @@ import paidAfterRetry from '@/test/fixtures/sandbox/paid-after-retry.json';
 import inFlight from '@/test/fixtures/sandbox/in-flight.json';
 import failed from '@/test/fixtures/sandbox/failed.json';
 import open from '@/test/fixtures/sandbox/open.json';
-import { VerifierRpcError } from '../rpc';
+import { VerifierRpcError, createFetchVerifierRpc } from '../rpc';
+import type { VerifierMethod } from '../rpc';
 import { verifyInstantReceipt } from '../instant-receipt';
 import type { VerificationResult } from '../instant-receipt';
 import {
@@ -62,6 +63,24 @@ function byKind(tx: Json, kind: 'transfer' | 'callback' | 'first') {
 }
 
 describe('verifyInstantReceipt — positive', () => {
+  it.each([false, true])('verifies through HTTP JSON with legacy block timestamps (unsafe used height = %s)', async (unsafeHeight) => {
+    const { input } = buildPaidChain(PAID);
+    const rpc = createFetchVerifierRpc({
+      rpcUrl: 'https://rpc.example',
+      providerId: 'synthetic-http',
+      fetcher: (async (_url, init) => {
+        const request = JSON.parse(String(init?.body)) as { id: string; method: VerifierMethod; params: unknown };
+        const result = await input.rpc.call(request.method, request.params);
+        let body = JSON.stringify({ jsonrpc: '2.0', id: request.id, result })
+          .replace(/"timestamp_nanosec":"([0-9]+)"/g, '"timestamp":$1,"timestamp_nanosec":"$1"');
+        if (unsafeHeight && request.method === 'block') body = body.replace(/"height":[0-9]+/, '"height":9007199254740993');
+        return new Response(body);
+      }) as typeof fetch,
+    });
+    const result = await verifyInstantReceipt({ ...input, rpc });
+    expect(reason(result)).toBe(unsafeHeight ? 'EVIDENCE_INCONSISTENT' : 'verified');
+  });
+
   it('verifies a single-attempt payment and produces a schema-valid VerifiedReceipt', async () => {
     const { input } = buildPaidChain(PAID);
     const result = await verifyInstantReceipt(input);

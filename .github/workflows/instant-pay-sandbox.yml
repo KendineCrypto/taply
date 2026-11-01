@@ -193,7 +193,19 @@ jobs:
           df -h /
           free -m
 
-      # Logs, WASM hashes and sandbox read records only. No keys, no WASM binaries.
+      # Publish only the production binary, after the pinned-hash check AND the
+      # full validation suite succeed. No callback-fault WASM or keys included.
+      - name: Upload approved production WASM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: instant-pay-approved-wasm
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            contracts/payments/artifacts/payments.wasm
+            contracts/payments/artifacts/pinned-artifact.log
+
+      # Failure diagnostics remain separate; these never contain WASM or keys.
       - name: Upload validation logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

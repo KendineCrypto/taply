@@ -5,6 +5,7 @@ export function createNearTestnetClient(config: NearTestnetConfig): NearTestnetC
   return buildClient(config, (url, init) => globalThis.fetch(url, init), false, () => new Date());
 }
 export { NearClientError, TESTNET_GENESIS_HASH } from "./rpc.js";
+export { parseRpcJsonWithIntegers } from "./validation.js";
 export type * from "./types.js";
 export {
   ABI_MINIMUM_GAS, CONTRACT_ERROR_CODES, ContractConfigSchema, CreateQuoteSchema, TerminalFactsSchema,

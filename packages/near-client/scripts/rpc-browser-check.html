@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Taply read-only Testnet RPC check</title>
+<h1>Taply read-only Testnet RPC check</h1>
+<p>No wallet, signing, account creation or funding. The sample transaction is unrelated to Taply and is only an RPC compatibility probe.</p>
+<label>Public HTTPS Testnet RPC <input id="rpc" size="50" value="https://rpc.testnet.near.org"></label>
+<button id="run">Run read-only checks</button><pre id="result" aria-live="polite">Not run</pre>
+<script type="module">
+const output = document.querySelector('#result');
+document.querySelector('#run').onclick = async () => {
+  output.textContent = 'Checking browser CORS…';
+  const lines = [];
+  const url = new URL(document.querySelector('#rpc').value);
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+    output.textContent = 'Use a public HTTPS Testnet RPC without credentials or query parameters'; return;
+  }
+  const call = async (method, params) => {
+    const id = `browser-${lines.length}`;
+    const response = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+      credentials: 'omit', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw Error(`HTTP ${response.status}`);
+    const body = await response.json();
+    if (body.id !== id || body.jsonrpc !== '2.0') throw Error('Bad JSON-RPC envelope');
+    if (body.error) throw Error(body.error.cause?.name ?? body.error.name ?? 'RPC_ERROR');
+    lines.push(`PASS browser CORS + ${method}`); output.textContent = lines.join('\n');
+    return body.result;
+  };
+  try {
+    const status = await call('status', []);
+    if (status.chain_id !== 'testnet' || status.genesis_hash !== 'FWJ9kR6KFWoyMoNjpLXXGHeuiy7tEY6GmoFeCA5yuc6b' || status.sync_info.syncing) throw Error('Wrong network or syncing');
+    const block = await call('block', { finality: 'final' });
+    const account = await call('query', { request_type: 'view_account', account_id: 'testnet', block_id: block.header.hash });
+    if (account.block_hash !== block.header.hash) throw Error('Unanchored account');
+    const tx = await call('EXPERIMENTAL_tx_status', { tx_hash: '4rtKGZobbcLxfHcaCkvGGfeLUJE49UTY4dF7Y4dDrgys', sender_account_id: 'meteor-relay.testnet', wait_until: 'FINAL' });
+    if (tx.final_execution_status !== 'FINAL' || !Array.isArray(tx.receipts)) throw Error('Receipt history unavailable');
+    lines.push(`PASS Testnet identity, FINAL receipt payloads; block ${block.header.hash}`);
+    lines.push('INFRASTRUCTURE CHECK ONLY — no Taply payment verified');
+  } catch (error) { lines.push(`FAIL ${error.message}. Do not enable signing. Try the second provider or an archival endpoint if history was pruned.`); }
+  output.textContent = lines.join('\n');
+};
+</script></html>

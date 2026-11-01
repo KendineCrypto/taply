@@ -1,3 +1,5 @@
+import { parseRpcJsonWithIntegers } from '@taply/near-client';
+
 /**
  * Read-only JSON-RPC transport for the receipt verifier.
  *
@@ -40,10 +42,10 @@ export interface VerifierRpc {
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 /**
- * JSON.parse silently rounds integers above 2^53. Every integer the verifier
- * relies on (heights, gas, nonces) is below that on NEAR, so anything larger or
- * fractional is rejected rather than read with lost precision. Amounts and
- * timestamps arrive as strings and are untouched.
+ * Used numeric fields (heights, gas, nonces) must be safe integers. The lossless
+ * parser preserves larger tokens as bigint, which the field schemas reject if
+ * used. This allows unused legacy block.header.timestamp without rounding it;
+ * verification uses the exact string block.header.timestamp_nanosec instead.
  */
 export function assertSafeNumbers(value: unknown, depth = 0): void {
   if (depth > 64) throw new VerifierRpcError('MALFORMED');
@@ -103,7 +105,7 @@ export function createFetchVerifierRpc(input: {
       if (text.length > MAX_RESPONSE_BYTES) throw new VerifierRpcError('MALFORMED');
       let envelope: unknown;
       try {
-        envelope = JSON.parse(text);
+        envelope = parseRpcJsonWithIntegers(text);
       } catch {
         throw new VerifierRpcError('MALFORMED');
       }

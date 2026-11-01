@@ -19,3 +19,11 @@ are public on-chain data.
 Observation from a sample of 70 recent Testnet transactions: 68 listed the first
 receipt in `receipts`, 1 did not (the verifier then derives it from the signed
 transaction), and no non-Action receipts appeared.
+
+`final-block.json` is an unedited read-only `block` / `finality: final` response
+from `https://rpc.testnet.near.org`, captured 2026-11-01 at approximately
+12:20:07 UTC (protocol 88), block
+`6yyQncsPtVd3LZorBMt2FZMs7vsGFX2aoPLLu6dk1P5q`, height 275747769.
+Its legacy numeric `header.timestamp` is exactly 1793535606670615924, above
+JavaScript's safe integer limit. The verifier must preserve it losslessly while
+using the string `timestamp_nanosec`. This is RPC compatibility evidence only.
