@@ -4,6 +4,13 @@ import type { NearTestnetClient } from '../../../packages/near-client/dist/types
 
 export const PILOT_CONTRACT = 'taply-pay-pilot-1.testnet';
 export const PILOT_CODE_HASH = 'BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B';
+export const PILOT_ROOM_CAPABILITIES = Object.freeze({ sessionBinding: false, paymentReads: true,
+  independentReceiptVerification: false, reason: 'PILOT_SESSION_BINDING_UNSUPPORTED' as const });
+export class PilotBindingUnavailable extends Error {
+  readonly code = 'VERIFICATION_UNAVAILABLE';
+  readonly reason = 'PILOT_SESSION_BINDING_UNSUPPORTED';
+  constructor() { super('VERIFICATION_UNAVAILABLE'); }
+}
 
 /** Read-only production factory. Network/genesis/code hash are checked by the
  * existing near-client at the same finalized block as get_request. No signer. */
@@ -33,11 +40,22 @@ export function pilotReaderFromClient(client: Pick<NearTestnetClient, 'readPayme
       checkedAt: o.checkedAt, trustModel: 'configured-rpc' as const,
       evidenceKind: 'CANONICAL_REQUEST_NOT_PAYOUT_RECEIPT' as const } };
   };
-  return { read,
+  return { read, capabilities: PILOT_ROOM_CAPABILITIES,
+    async readRoomPayment(id: string) {
+      const result = await read(id), { request, provenance } = result;
+      const status = request.status === 'FINAL_PAID' ? 'PAID_PER_CONTRACT'
+        : request.status === 'CANCELLED_UNFUNDED' ? 'CANCELLED'
+          : request.status === 'OPEN' ? (BigInt(provenance.observedBlock.timestampNs) >= BigInt(request.terms.fundingExpiresAtNs) ? 'EXPIRED' : 'OPEN')
+            : request.status === 'PAYOUT_IN_FLIGHT' ? 'PENDING_CHAIN' : 'BLOCKED';
+      return { schemaVersion: 'taply.room-payment.v1' as const, requestId: id, status,
+        contractStatus: request.status, receiptVerification: 'CLIENT_REQUIRED' as const,
+        capabilities: PILOT_ROOM_CAPABILITIES, request, provenance };
+    },
     async readCanonicalRequest(id: string): Promise<never> {
-      await read(id);
+      HashHexSchema.parse(id);
       // Never downgrade a bound request to the pilot's ordinary Instant request.
-      throw Error('VERIFICATION_UNAVAILABLE');
+      // This capability is structurally unavailable even while the RPC is down.
+      throw new PilotBindingUnavailable();
     },
   };
 }

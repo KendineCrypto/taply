@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ApiErrorSchema, ERROR_CODES, AccountIdSchema, parseStrictJson, type ErrorCode } from '../../../packages/shared/dist/index.js';
 import { DurableAuth, same } from './durable-auth.mts';
 import { SessionEngine } from './sessions.mts';
+import { roomEventStream } from './room.mts';
 
 export type CommerceHttpDependencies = { origin: string; auth: DurableAuth; engine: SessionEngine;
   // Composition boundary only. Production factory always leaves this false until
@@ -77,11 +78,29 @@ export function createCommerceHandler(deps: CommerceHttpDependencies) {
       if(path==='/api/v1/auth/me' && request.method==='GET') return json({accountId:session.identity.accountId,csrfToken:session.csrf,network:'near-testnet'});
       if(path==='/api/v1/auth/logout' && request.method==='POST') {
         const input=await body(request); fields(input,[]); deps.auth.logout(token);
+        deps.engine.disconnectCredential(token);
         headers.append('Set-Cookie',cookie('__Host-taply-session','',0)); return json({loggedOut:true});
       }
       if(path==='/api/v1/sessions' && request.method==='POST') {
         const input=await body(request); fields(input,[]);
         return json(await deps.engine.create(token,request.headers.get('idempotency-key')??''));
+      }
+      const room = path.match(/^\/api\/v1\/sessions\/([^/]+)\/room(?:\/(presence|progress))?$/);
+      if (room) {
+        const [, id, action] = room;
+        if (request.method === 'GET' && !action) {
+          headers.set('Vary', 'Accept');
+          const sync = await deps.engine.sync(token, id, request.headers.get('last-event-id') ?? '0');
+          if (request.headers.get('accept') === 'text/event-stream') {
+            headers.set('Content-Type', 'text/event-stream; charset=utf-8');
+            headers.set('X-Accel-Buffering', 'no');
+            return new Response(roomEventStream(sync), { headers });
+          }
+          return json(sync);
+        }
+        if (request.method === 'POST' && action === 'presence') return json(await deps.engine.roomPresence(token, id, await body(request)));
+        if (request.method === 'POST' && action === 'progress') return json(await deps.engine.progress(token, id, request.headers.get('idempotency-key') ?? '', await body(request)));
+        throw Error('INVALID_ARGUMENT');
       }
       const match=path.match(/^\/api\/v1\/sessions\/([^/]+)(?:\/(bind|join|review|close|presence|events))?$/);
       if(!match) throw Error('VERIFICATION_UNAVAILABLE'); const [,id,action]=match;

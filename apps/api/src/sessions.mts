@@ -1,14 +1,17 @@
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { AccountIdSchema, HashHexSchema, ContractRequestSchema, HandshakeSessionSchema,
   SessionEventSchema, SessionIdSchema, calculateTermsHash, calculateSessionCommitment, comparisonCode,
-  type HandshakeSession, type SessionEvent } from '../../../packages/shared/dist/index.js';
+  ChainHashSchema, canonicalJson, type HandshakeSession, type SessionEvent } from '../../../packages/shared/dist/index.js';
+import { SESSION_FORMAT, roomSnapshot, type RoomRecord, type RoomSync, type RoomEvent, type PayerProgress } from './room.mts';
 
 type EventType = SessionEvent['type'];
 type Entry = { snapshot: HandshakeSession; tokenHash: string | null; reviews: string[];
   permittedPayer: string | null;
-  leases: Record<string, number>; events: SessionEvent[]; sequence: number;
+  leases: Record<string, { actor: string; until: number; sequence: number; connected: boolean }>; events: SessionEvent[]; sequence: number;
+  room: RoomRecord;
   replay: Record<string, { digest: string; result: unknown }> };
-export type SessionDatabase = { entries: Map<string, Entry>; creates: Map<string, { digest: string; result: unknown }> };
+export type SessionDatabase = { format: typeof SESSION_FORMAT; entries: Map<string, Entry>; creates: Map<string, { digest: string; result: unknown }> };
+export const emptySessions = (): SessionDatabase => ({ format: SESSION_FORMAT, entries: new Map(), creates: new Map() });
 /** Atomic serializable transaction with rollback on throw; never run async work inside.
  * Implementations must refuse uncertain commits/recovery. Encryption/access controls
  * required: merchant create-idempotency records retain the returned join secret. */
@@ -16,7 +19,7 @@ export interface SessionPersistence {
   transaction<T>(action: (db: SessionDatabase) => T): T;
 }
 export class MemorySessionPersistence implements SessionPersistence {
-  #db: SessionDatabase = { entries: new Map(), creates: new Map() };
+  #db: SessionDatabase = emptySessions();
   #certain = true;
   invalidate(): void { this.#certain = false; }
   transaction<T>(action: (db: SessionDatabase) => T): T {
@@ -60,17 +63,31 @@ export class SessionEngine {
       emittedAt: new Date(this.#now()).toISOString(), intentId: entry.snapshot.intentId,
       intentRevisionHint: null }));
     entry.events = entry.events.slice(-64);
+    if (type !== 'payment.changed' && type !== 'stream.reset') this.#roomEmit(entry, type);
+  }
+  #roomEmit(entry: Entry, type: RoomEvent['type']): void {
+    if (entry.room.sequence >= Number.MAX_SAFE_INTEGER) fail('RATE_LIMITED');
+    entry.room.events.push({ schemaVersion: 'taply.room-event.v1', eventId: String(++entry.room.sequence),
+      sessionId: entry.snapshot.id, type, emittedAt: new Date(this.#now()).toISOString(),
+      room: roomSnapshot(entry.snapshot, entry.reviews, entry.room) });
+    entry.room.events = entry.room.events.slice(-64);
   }
   #refresh(entry: Entry): void {
     const s = entry.snapshot;
-    if (!['EXPIRED', 'CLOSED'].includes(s.state) && BigInt(this.#now()) * 1000000n >= BigInt(s.expiresAtNs)) {
-      s.state = 'EXPIRED'; entry.tokenHash = null; this.#emit(entry, 'session.expired');
+    const expired = !['EXPIRED', 'CLOSED'].includes(s.state) && BigInt(this.#now()) * 1000000n >= BigInt(s.expiresAtNs);
+    if (expired) { s.state = 'EXPIRED'; entry.tokenHash = null; }
+    const active = (actor: string | null) => !['EXPIRED', 'CLOSED'].includes(s.state) && actor !== null &&
+      Object.values(entry.leases).some(l => l.actor === actor && l.until > this.#now());
+    const merchant = active(s.merchantAccountId), payer = active(s.payerAccountId);
+    for (const role of ['merchant', 'payer'] as const) {
+      const before = entry.room.presence[role], online = role === 'merchant' ? merchant : payer;
+      if (online && before !== 'active' && before !== 'resumed') entry.room.presence[role] = before === 'disconnected' ? 'resumed' : 'active';
+      if (!online && (before === 'active' || before === 'resumed')) entry.room.presence[role] = 'disconnected';
     }
-    const merchant = !['EXPIRED', 'CLOSED'].includes(s.state) && (entry.leases[s.merchantAccountId] ?? 0) > this.#now();
-    const payer = !['EXPIRED', 'CLOSED'].includes(s.state) && s.payerAccountId !== null && (entry.leases[s.payerAccountId] ?? 0) > this.#now();
-    if (merchant !== s.presence.merchant || payer !== s.presence.payer) {
-      s.presence = { merchant, payer }; this.#emit(entry, 'session.presence');
-    }
+    const changed = merchant !== s.presence.merchant || payer !== s.presence.payer;
+    s.presence = { merchant, payer };
+    if (expired) this.#emit(entry, 'session.expired');
+    if (changed) this.#emit(entry, 'session.presence');
   }
   #entry(db: SessionDatabase, id: string): Entry {
     SessionIdSchema.parse(id);
@@ -85,7 +102,7 @@ export class SessionEngine {
   }
   #once<T>(entry: Entry, actor: string, action: string, key: string, body: unknown, work: () => T): T {
     if (!/^[A-Za-z0-9_-]{16,128}$/.test(key)) fail('INVALID_ARGUMENT');
-    const scoped = `${actor}:${action}:${key}`; const hash = digest(JSON.stringify(body));
+    const scoped = `${actor}:${action}:${key}`; const hash = digest(canonicalJson(body));
     const previous = entry.replay[scoped];
     if (previous) return previous.digest === hash ? structuredClone(previous.result) as T : fail('IDEMPOTENCY_CONFLICT');
     if (Object.keys(entry.replay).length >= 128) fail('RATE_LIMITED');
@@ -103,7 +120,9 @@ export class SessionEngine {
         expiresAtNs: (BigInt(this.#now() + 120000) * 1000000n).toString(), state: 'DRAFT',
         merchantAccountId: actor, payerAccountId: null, intentId: null, termsHash: null,
         comparisonCode: null, presence: { merchant: false, payer: false } });
-      db.entries.set(session.id, { snapshot: session, tokenHash: digest(token), permittedPayer: null, reviews: [], leases: {}, events: [], sequence: 0, replay: {} });
+      const entry: Entry = { snapshot: session, tokenHash: digest(token), permittedPayer: null, reviews: [], leases: {}, events: [], sequence: 0, replay: {},
+        room: { sequence: 0, events: [], progress: null, presence: { merchant: 'joined', payer: null } } };
+      db.entries.set(session.id, entry); this.#roomEmit(entry, 'session.created');
       const result = { session, joinToken: token }; db.creates.set(scoped, { digest: '', result: structuredClone(result) }); return result;
     });
   }
@@ -136,6 +155,7 @@ export class SessionEngine {
     });
   }
   async join(credential: unknown, id: string, key: string, input: unknown): Promise<HandshakeSession> {
+    input = structuredClone(input);
     exact(input, ['joinToken']); if (!/^[A-Za-z0-9_-]{43}$/.test(input.joinToken)) fail('INVALID_ARGUMENT');
     const actor = await this.#actor(credential);
     return this.#store.transaction(db => {
@@ -145,32 +165,109 @@ export class SessionEngine {
         if (s.state !== 'OPEN' || e.tokenHash === null) fail('JOIN_TOKEN_USED');
         if (!timingSafeEqual(Buffer.from(digest(input.joinToken)), Buffer.from(e.tokenHash!))) fail('NOT_AUTHORIZED');
         if (e.permittedPayer !== null && e.permittedPayer !== actor) fail('PAYER_MISMATCH');
-        e.tokenHash = null; s.payerAccountId = actor; s.state = 'PAIRED'; this.#emit(e, 'session.joined'); return s;
+        e.tokenHash = null; s.payerAccountId = actor; s.state = 'PAIRED'; e.room.presence.payer = 'joined'; this.#emit(e, 'session.joined'); return s;
       });
     });
   }
   async review(credential: unknown, id: string, key: string, input: unknown): Promise<HandshakeSession> {
+    input = structuredClone(input);
     exact(input, ['termsHash']); HashHexSchema.parse(input.termsHash); const actor = await this.#actor(credential);
     return this.#store.transaction(db => {
       const e = this.#entry(db, id); this.#live(e); this.#participant(e, actor);
       return this.#once(e, actor, 'review', key, input, () => {
         if (!['PAIRED', 'REVIEWED'].includes(e.snapshot.state)) fail('NOT_AUTHORIZED');
         if (input.termsHash !== e.snapshot.termsHash) fail('TERMS_MISMATCH');
-        if (!e.reviews.includes(actor)) { e.reviews.push(actor); this.#emit(e, 'session.reviewed'); }
-        if (e.reviews.length === 2) e.snapshot.state = 'REVIEWED'; return e.snapshot;
+        if (!e.reviews.includes(actor)) {
+          e.reviews.push(actor); if (e.reviews.length === 2) e.snapshot.state = 'REVIEWED'; this.#emit(e, 'session.reviewed');
+        }
+        return e.snapshot;
       });
     });
   }
   async presence(credential: unknown, id: string, connected: boolean): Promise<HandshakeSession> {
     if (typeof connected !== 'boolean') fail('INVALID_ARGUMENT'); const actor = await this.#actor(credential);
     return this.#store.transaction(db => { const e = this.#entry(db, id); this.#live(e); this.#participant(e, actor);
-      e.leases[actor] = connected ? this.#now() + 30000 : 0; this.#refresh(e); return e.snapshot; });
+      const scope = digest(JSON.stringify(credential)) + ':legacy';
+      this.#lease(e, actor, scope, (e.leases[scope]?.sequence ?? 0) + 1, connected); return e.snapshot; });
+  }
+  #lease(e: Entry, actor: string, scope: string, sequence: number, connected: boolean): void {
+    const old = e.leases[scope];
+    if (old && sequence <= old.sequence) {
+      if (sequence === old.sequence && connected !== old.connected) fail('IDEMPOTENCY_CONFLICT');
+      return;
+    }
+    // Keep tombstones until session cleanup: old disconnects cannot resurrect a
+    // retired sequence. Bound total authenticated connection slots per room.
+    if (!old && Object.values(e.leases).filter(l => l.actor === actor).length >= 8) fail('RATE_LIMITED');
+    e.leases[scope] = { actor, sequence, connected, until: connected ? this.#now() + 30000 : 0 };
+    this.#refresh(e);
+  }
+  async roomPresence(credential: unknown, id: string, input: unknown): Promise<RoomSync> {
+    input = structuredClone(input);
+    exact(input, ['connectionId', 'sequence', 'state']);
+    SessionIdSchema.parse(input.connectionId);
+    if (!/^[1-9][0-9]{0,14}$/.test(input.sequence) || !['active', 'disconnected'].includes(input.state)) fail('INVALID_ARGUMENT');
+    const actor = await this.#actor(credential);
+    return this.#store.transaction(db => {
+      const e = this.#entry(db, id); this.#live(e); this.#participant(e, actor);
+      this.#lease(e, actor, digest(JSON.stringify(credential)) + ':' + input.connectionId, Number(input.sequence), input.state === 'active');
+      return this.#sync(e, '0');
+    });
+  }
+  async progress(credential: unknown, id: string, key: string, input: unknown): Promise<RoomSync> {
+    input = structuredClone(input);
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).sort().join() !== 'expectedCursor,phase,termsHash,transactionHash') fail('INVALID_ARGUMENT');
+    const data = input as Record<string, unknown>;
+    HashHexSchema.parse(data.termsHash);
+    const phase = typeof data.phase === 'string' ? data.phase : fail('INVALID_ARGUMENT');
+    const phases = ['AWAITING_WALLET', 'SUBMITTED', 'OUTCOME_UNKNOWN', 'USER_REJECTED'];
+    if (!phases.includes(phase) || typeof data.expectedCursor !== 'string' || !/^(0|[1-9][0-9]{0,15})$/.test(data.expectedCursor)) fail('INVALID_ARGUMENT');
+    if (data.transactionHash !== null) ChainHashSchema.parse(data.transactionHash);
+    if (phase === 'SUBMITTED' && data.transactionHash === null || ['AWAITING_WALLET', 'USER_REJECTED'].includes(phase) && data.transactionHash !== null) fail('INVALID_ARGUMENT');
+    const actor = await this.#actor(credential);
+    return this.#store.transaction(db => {
+      const e = this.#entry(db, id); this.#live(e);
+      if (actor !== e.snapshot.payerAccountId || e.snapshot.state !== 'REVIEWED') fail('NOT_AUTHORIZED');
+      return this.#once(e, actor, 'progress', key, data, () => {
+        if (data.termsHash !== e.snapshot.termsHash) fail('TERMS_MISMATCH');
+        if (data.expectedCursor !== String(e.room.sequence)) fail('IDEMPOTENCY_CONFLICT');
+        const old = e.room.progress;
+        if (old?.phase === 'SUBMITTED' || old?.phase === 'OUTCOME_UNKNOWN') fail('RECONCILIATION_REQUIRED');
+        if (old?.phase === phase && old.transactionHash === data.transactionHash) return this.#sync(e, String(e.room.sequence));
+        if (phase !== 'AWAITING_WALLET' && old?.phase !== 'AWAITING_WALLET') fail('NOT_AUTHORIZED');
+        e.room.progress = { phase: phase as PayerProgress['phase'], transactionHash: data.transactionHash as string | null };
+        this.#roomEmit(e, 'payer.progress'); return this.#sync(e, String(e.room.sequence - 1));
+      });
+    });
+  }
+  /** Internal logout hook: remove only this credential's liveness, never another
+   * tab/login's lease or payer identity. Call after revoking auth authority. */
+  disconnectCredential(credential: unknown): void {
+    const prefix = digest(JSON.stringify(credential)) + ':';
+    this.#store.transaction(db => {
+      for (const e of db.entries.values()) {
+        for (const [scope, lease] of Object.entries(e.leases)) if (scope.startsWith(prefix)) lease.until = 0;
+        this.#refresh(e);
+      }
+    });
+  }
+  #sync(e: Entry, after: string): RoomSync {
+    const cursor = BigInt(after), oldest = BigInt(e.room.events[0]?.eventId ?? '1');
+    const reset = cursor < oldest - 1n || cursor > BigInt(e.room.sequence);
+    return { schemaVersion: 'taply.room-sync.v1', sessionId: e.snapshot.id, cursor: String(e.room.sequence), reset,
+      serverTimeMs: this.#now(), room: roomSnapshot(e.snapshot, e.reviews, e.room),
+      events: reset ? [] : e.room.events.filter(event => BigInt(event.eventId) > cursor) };
+  }
+  async sync(credential: unknown, id: string, after = '0'): Promise<RoomSync> {
+    if (!/^(0|[1-9][0-9]{0,15})$/.test(after)) fail('INVALID_ARGUMENT');
+    const actor = await this.#actor(credential);
+    return this.#store.transaction(db => { const e = this.#entry(db, id); this.#participant(e, actor); return this.#sync(e, after); });
   }
   async close(credential: unknown, id: string): Promise<HandshakeSession> {
     const actor = await this.#actor(credential);
     return this.#store.transaction(db => { const e = this.#entry(db, id);
       if (actor !== e.snapshot.merchantAccountId) fail('NOT_AUTHORIZED');
-      if (!['CLOSED', 'EXPIRED'].includes(e.snapshot.state)) { e.snapshot.state = 'CLOSED'; e.tokenHash = null; this.#emit(e, 'session.closed'); this.#refresh(e); }
+      if (!['CLOSED', 'EXPIRED'].includes(e.snapshot.state)) { e.snapshot.state = 'CLOSED'; e.tokenHash = null; this.#refresh(e); this.#emit(e, 'session.closed'); }
       return e.snapshot; });
   }
   async read(credential: unknown, id: string): Promise<HandshakeSession> {
