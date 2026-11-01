@@ -59,7 +59,7 @@ export function PaymentScreen({ id }: { readonly id: string }) {
 
 function PaymentLive({ id }: { readonly id: string }) {
   const t = useT();
-  const { setup, check, journal } = usePayments();
+  const { setup, check, journal, journalVersion } = usePayments();
   const { state: wallet, signAndSend } = useWallet();
   const accountId = wallet.status === 'connected' ? wallet.session.accountId : null;
   const [result, setResult] = useState<SubmitResult | null>(null);
@@ -68,9 +68,10 @@ function PaymentLive({ id }: { readonly id: string }) {
 
   const entries = useMemo<JournalEntry[]>(() => {
     void journalTick;
+    void journalVersion;
     if (journal === null || !journal.isReadable()) return [];
     return journal.forRequest(id);
-  }, [journal, id, journalTick]);
+  }, [journal, id, journalTick, journalVersion]);
   // Unexplained attempts keep the status polling until the chain explains them.
   const watchJournal = entries.some(isBlocking);
   const { view, loading, checkedAt, block, refresh, watching } = usePaymentRequest(id, watchJournal);

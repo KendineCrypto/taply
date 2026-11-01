@@ -11,6 +11,7 @@ import { createFetchVerifierRpc } from '@/lib/verify/rpc';
 import type { VerifierRpc } from '@/lib/verify/rpc';
 import { SubmissionJournal } from './journal';
 import type { JournalStorage } from './journal';
+import { WalletReturnInbox, captureWalletReturn, processWalletReturns } from './wallet-return';
 
 /**
  * Payments gate.
@@ -67,6 +68,8 @@ interface PaymentsValue {
   /** null when signing is allowed; otherwise the first unmet condition. */
   readonly signingBlock: SigningBlock | null;
   readonly journal: SubmissionJournal | null;
+  /** Increments whenever something outside a screen (wallet redirect recovery) changed the journal. */
+  readonly journalVersion: number;
 }
 
 const PaymentsContext = createContext<PaymentsValue | null>(null);
@@ -127,6 +130,37 @@ export function PaymentsProvider({
     setup.status === 'ready' ? { status: 'checking' } : { status: 'idle' },
   );
   const [generation, setGeneration] = useState(0);
+  const [journalVersion, setJournalVersion] = useState(0);
+  const [inbox] = useState<WalletReturnInbox | null>(() => {
+    const storage = injectedStorage === undefined ? browserStorage() : injectedStorage;
+    return storage === null ? null : new WalletReturnInbox(storage);
+  });
+
+  // Wallet redirect recovery: capture `?transactionHashes=` / `?errorCode=` once,
+  // strip them from the address bar, then bind hashes to journal entries only
+  // after the chain confirms them. Read-only; never signs or resubmits.
+  useEffect(() => {
+    if (inbox === null || journal === null || typeof window === 'undefined') return;
+    captureWalletReturn(inbox, window.location, (url) => window.history.replaceState(window.history.state, '', url));
+    const rpc = setup.status === 'ready' ? setup.verifierRpc : null;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const pass = () => {
+      void processWalletReturns({ inbox, journal, rpc }).then(
+        ({ journalChanged, pending }) => {
+          if (!active) return;
+          if (journalChanged) setJournalVersion((v) => v + 1);
+          if (pending > 0) timer = setTimeout(pass, 5_000);
+        },
+        () => undefined,
+      );
+    };
+    pass();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [inbox, journal, setup]);
 
   useEffect(() => {
     if (setup.status !== 'ready') return;
@@ -167,8 +201,8 @@ export function PaymentsProvider({
   }, []);
 
   const value = useMemo<PaymentsValue>(
-    () => ({ setup, check, recheck, signingBlock: signingBlockFor(setup, check), journal }),
-    [setup, check, recheck, journal],
+    () => ({ setup, check, recheck, signingBlock: signingBlockFor(setup, check), journal, journalVersion }),
+    [setup, check, recheck, journal, journalVersion],
   );
 
   return <PaymentsContext.Provider value={value}>{children}</PaymentsContext.Provider>;

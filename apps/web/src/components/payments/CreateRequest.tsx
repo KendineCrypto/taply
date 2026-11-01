@@ -40,7 +40,7 @@ export function CreateRequest() {
   const t = useT();
   const router = useRouter();
   const { state: wallet, signAndSend } = useWallet();
-  const { setup, check, signingBlock, journal } = usePayments();
+  const { setup, check, signingBlock, journal, journalVersion } = usePayments();
   const ids = { amount: useId(), memo: useId(), payer: useId(), expiry: useId() };
 
   const [amount, setAmount] = useState('');
@@ -79,7 +79,8 @@ export function CreateRequest() {
     return () => {
       active = false;
     };
-  }, [creator, setup, journal]);
+    // journalVersion: re-check after wallet redirect recovery changed the journal.
+  }, [creator, setup, journal, journalVersion]);
 
   if (wallet.status !== 'connected') {
     return (
