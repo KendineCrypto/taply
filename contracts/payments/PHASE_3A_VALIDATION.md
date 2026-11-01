@@ -40,7 +40,8 @@ Node v24.22.2, pnpm 11.5.0, Windows PowerShell:
 | `git diff --check` | PASS |
 | `near.exe --version` (official checksum-verified release) | near-cli-rs 0.30.1 |
 | Complete create/fund, faucet-create and deploy/init CLI paths with terminal `--help` | PASS, parser/help only; no key creation or RPC mutation |
-| `deploy-preflight.mjs wasm contracts/payments/artifacts/payments.wasm` | **FAIL, exit 1**: ignored local WASM SHA/code hash/size mismatch; exports pass |
+| Initial `deploy-preflight.mjs wasm contracts/payments/artifacts/payments.wasm` | **FAIL, exit 1**: ignored local WASM SHA/code hash/size mismatch; exports pass |
+| Downloaded approved CI WASM; same preflight, both downloaded and canonical paths | **PASS, exit 0**: all five checks, exact approved SHA/code hash/345,541 bytes/12 exports |
 | Cargo unit/build/clippy/sandbox commands | Not run: Cargo absent; Docker engine unavailable |
 
 The isolated checkout is inside `contracts/payments/artifacts/phase3a-checkout`.
@@ -51,10 +52,19 @@ same changes; no frontend branch ref is moved.
 
 ## Remote CI actually inspected
 
+- Phase 3A workspace check on `5b871c7`: [41306699099](https://github.com/KendineCrypto/taply/actions/runs/41306699099), success. Logs confirm production build and 92 + 118 + 339 passing tests.
+- Phase 3A contract check on `258f138`: [41306770019](https://github.com/KendineCrypto/taply/actions/runs/41306770019), success. Logs confirm fmt, 15/15 unit tests, both Clippy checks, pinned WASM build, 9/9 sandbox tests, wire validation and production artifact upload.
 - Baseline workspace check on `71afa54`: [41304788137](https://github.com/KendineCrypto/taply/actions/runs/41304788137), success.
 - Contract workflow on `1b5b3ef`: [41304495007](https://github.com/KendineCrypto/taply/actions/runs/41304495007), success. Inspected job steps include fmt, 15 unit tests, clippy, WASM, pinned approved artifact, all 9 sandbox tests and wire schema.
 - Contract source/build scripts/Cargo configuration are unchanged from that run.
-  These are remote historical results, not newly executed local Rust tests.
+  These are remote results, not newly executed local Rust tests.
+
+Production artifact ID `13082709714`, name `instant-pay-approved-wasm`, expires
+2026-11-15 12:35 UTC. Downloaded through the GitHub connector after `gh run download`
+failed on this machine's configured proxy. ZIP SHA-256 independently matches the
+GitHub digest `49b72637cf688b76e76b6c347ecb38b5e35533d7a6f2130e3db885797de5c8dd`.
+Extracted production WASM independently passes all five checks with the approved
+`a13d932f…acb0d2` hash. No fault binary is in this download.
 
 ## Live read-only infrastructure observations
 
@@ -78,12 +88,13 @@ methods, wrong network, wrong code, unanchored state and non-FINAL references.
 
 ## Remaining gates
 
-Obtain the approved 345,541-byte WASM from the successful Phase 3A CI production
-artifact (published only after the full suite and pinned check), or reproduce it
-on the pinned build machine. The artifact packaging change does not change any
-build flags, contract source, dependency or approved hash. The existing
-local ignored artifact has SHA-256
+The approved 345,541-byte production WASM is now ready locally at
+`contracts/payments/artifacts/payments.wasm`, downloaded from the successful
+Phase 3A artifact and verified. Fresh clones can download that artifact or
+reproduce it on the pinned build machine. No build flags, contract source,
+dependency or approved hash changed. The initial unapproved artifact, SHA-256
 `15328bc17b0c1cc0c21cf9eb5c13bf01a6d736fd833d1cf5f1755fc4b167c9f1`
+was preserved at `contracts/payments/artifacts/unapproved-original/payments.wasm`
 and is **not deployable under this approval**. The approved pin stays
 `a13d932f3b4cadbb4a6580d447a8142f8c704656998659fb3ccebde6ddacb0d2`.
 

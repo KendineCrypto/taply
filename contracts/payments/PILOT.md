@@ -31,7 +31,7 @@ Use the observed run ID reported by `gh run list`, not an invented ID:
 
 ```powershell
 gh run list --repo KendineCrypto/taply --branch feature/pilot-core --workflow instant-pay-sandbox.yml --status success
-$runId = '<observed-successful-run-id>'
+$runId = '41306770019' # observed successful run, head 258f138
 gh run download $runId --repo KendineCrypto/taply --name instant-pay-approved-wasm --dir contracts/payments/artifacts/approved-download
 if ($LASTEXITCODE -ne 0) { throw 'Artifact download failed: STOP' }
 node apps/web/scripts/deploy-preflight.mjs wasm contracts/payments/artifacts/approved-download/payments.wasm
@@ -63,12 +63,15 @@ NEAR code hash `BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B`,
 345,541 bytes and exactly the 12 approved ABI exports. Never deploy the callback
 fault WASM. Do not update the pin to make a different artifact pass.
 
-**This workstation's existing ignored WASM is different** (361,529 bytes,
+**This workstation's initial ignored WASM was different** (361,529 bytes,
 SHA-256 `15328bc17b0c1cc0c21cf9eb5c13bf01a6d736fd833d1cf5f1755fc4b167c9f1`).
-Its preflight fails. It was not modified or approved. Cargo is absent and the
-Docker engine is stopped here, so the approved build must be reproduced on the
-operator's build machine or downloaded from the newly validated CI artifact.
-Historical runs before this Phase 3A packaging change upload logs/hashes only.
+It failed preflight and was preserved at
+`artifacts/unapproved-original/payments.wasm`. The approved binary was downloaded
+from successful run [41306770019](https://github.com/KendineCrypto/taply/actions/runs/41306770019),
+independently passed all five checks, and is now at
+`contracts/payments/artifacts/payments.wasm` (same approved hash above).
+Cargo is absent and the Docker engine is stopped here; no local source rebuild
+is claimed. Historical runs before this packaging change upload logs/hashes only.
 
 Check browser CORS without connecting a wallet:
 
@@ -254,6 +257,7 @@ are compiled into the build; changing them requires rebuilding.
 | Missing workspace dist | Build shared, then near-client, before web tests/dev. |
 | Different WASM SHA, code hash, or fault build | Stop. Reproduce pinned build; new artifact requires explicit review. |
 | No Docker engine/Cargo | Use the documented pinned Linux build machine; no local Rust pass is implied. |
+| GitHub CLI artifact download fails | Download the production artifact from the successful Actions run page or connected GitHub tool; extract and run the same pinned preflight. The CLI's configured proxy blocked download here; the GitHub connector succeeded. |
 | Wallet missing / wrong network / mobile popup issue | Use connector-listed Testnet wallet, same HTTPS origin and browser; test before payment. Never import keys into Taply. |
 | Lost return / RPC timeout / no hash | Preserve journal; reconcile the same ID/hash. No automatic transfer retry. |
 | Pay state FINAL_PAID but no Verified Paid | Save reason code, graph and public hash references; investigate. Pilot has not passed. |
