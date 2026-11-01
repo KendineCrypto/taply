@@ -5,13 +5,15 @@ export type Challenge = Readonly<{
   id: string; accountId: string; network: 'near-testnet'; purpose: 'merchant-login';
   origin: string; recipient: string; nonceBase64: string; state: string;
   expiresAtMs: number; message: string;
+  callbackUrl?: string;
 }>;
+export type VerifiedIdentity = { accountId: string; publicKey: string; blockHash: string; blockHeight: string };
 export interface Nep413Verifier {
   // Must verify exact NEP-413 bytes/signature AND finalized FullAccess key
   // association at the Testnet account. Unknown/RPC failure must throw.
-  verify(challenge: Challenge, signed: unknown): Promise<never>;
+  verify(challenge: Challenge, signed: unknown): Promise<VerifiedIdentity>;
 }
-// Deliberately no success type until a tested crypto/RPC implementation exists.
+// Default remains unavailable; production capability gate is separate.
 export const unavailableVerifier: Nep413Verifier = {
   async verify() { throw new Error('VERIFICATION_UNAVAILABLE'); },
 };
@@ -50,7 +52,7 @@ export class Challenges {
     return challenge;
   }
   async consume(id: string, account: string, origin: string, state: string, signed: unknown,
-    verifier: Nep413Verifier = unavailableVerifier): Promise<never> {
+    verifier: Nep413Verifier = unavailableVerifier): Promise<VerifiedIdentity> {
     const item = this.#records.get(id);
     if (!item) throw new Error('AUTH_CHALLENGE_USED');
     if (origin !== item.origin || account !== item.accountId || !equal(state, item.state))
