@@ -1,12 +1,13 @@
 # Taply TypeScript workspace gate: frozen lockfile install + root `pnpm check`
-# (brand assets, build, typecheck, lint, tests for shared, near-client and web).
+# (brand assets, build, typecheck, lint, tests for shared, near-client and web),
+# followed by the standalone gated API and production Webpack build.
 # No deployment, no wallet keys, no repository secrets, no network calls to NEAR.
 name: workspace-check
 
 on:
   workflow_dispatch:
   push:
-    branches: [feature/frontend, main]
+    branches: [feature/frontend, feature/phase7-integration, main]
     paths:
       - apps/**
       - packages/**
@@ -60,3 +61,12 @@ jobs:
       - name: pnpm check
         timeout-minutes: 15
         run: pnpm check
+
+      - name: Standalone API strict types, lint and offline integration tests
+        run: |
+          node packages/shared/node_modules/typescript/bin/tsc -p apps/api/tsconfig.json
+          node apps/web/node_modules/eslint/bin/eslint.js --config apps/api/eslint.config.mjs apps/api/src apps/api/test
+          node --test apps/api/test/*.test.mts
+
+      - name: Production Webpack build
+        run: pnpm --filter @taply/web exec next build --webpack

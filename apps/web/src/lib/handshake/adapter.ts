@@ -4,8 +4,8 @@ import type { HandshakeSession, SessionEvent } from '@/lib/protocol';
 /**
  * Handshake session service boundary (freeze sections 6 and 8, docs/API.md).
  *
- * PENDING BACKEND. The Codex session service and on-chain session binding do
- * not exist yet, so the only implementation in this build is
+ * The backend has an in-process Fetch handler, with production authentication
+ * closed. The pinned contract cannot bind sessions. The only live implementation is
  * `UNAVAILABLE_HANDSHAKE`, which refuses every call. A real adapter must be a
  * separate, reviewed module that talks to:
  *
@@ -14,7 +14,7 @@ import type { HandshakeSession, SessionEvent } from '@/lib/protocol';
  *   POST /api/v1/sessions/:id/join        authenticated payer consumes the join secret
  *   POST /api/v1/sessions/:id/review      exactly { termsHash }
  *   GET  /api/v1/sessions/:id             authenticated snapshot (HandshakeSession)
- *   GET  /api/v1/sessions/:id/events      SSE hints (cookie auth, never a token in the URL)
+ *   GET  /api/v1/sessions/:id/events      bounded JSON hints (cookie auth, Last-Event-ID header)
  *   POST /api/v1/sessions/:id/close       coordination only; never mutates payment
  *
  * Trust rules any implementation must keep:
@@ -22,7 +22,9 @@ import type { HandshakeSession, SessionEvent } from '@/lib/protocol';
  *    payment paid; `subscribe` delivers HINTS that trigger a fresh chain read.
  *  - The comparison code shown to people is derived on this device from terms
  *    read from the contract (see present.ts), never copied from the server.
- *  - The join token stays out of logs, analytics, referrers and SSE URLs.
+ *  - The join token stays out of logs, analytics, referrers and request URLs.
+ * `http-reader.ts` supplies an independently tested read-only seam; it is not
+ * wired into this resolver and cannot authenticate, join, sign or pay.
  */
 
 export type HandshakeUnavailableReason =
