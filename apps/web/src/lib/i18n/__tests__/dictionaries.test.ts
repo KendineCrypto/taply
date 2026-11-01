@@ -192,3 +192,15 @@ describe('resolveLocale', () => {
     expect(resolveLocale(undefined, '')).toBe('en');
   });
 });
+
+describe('commerce copy honesty (Phase 7D)', () => {
+  it('no pre-payment label says "paid", and checkout does not assert merchant status', () => {
+    for (const locale of LOCALES) {
+      const c = DICTIONARIES[locale].commerce;
+      expect(c.sale.receivingLabel, locale).not.toMatch(/paid|ödendi/i);
+      expect(c.checkout.eyebrow, locale).not.toMatch(/merchant|satıcı/i);
+      // The only places a sale may be called "ready" refer to an OPEN request, never to payment.
+      expect(c.sale.ready.body, locale).not.toMatch(/paid|ödendi|verified|doğrulan/i);
+    }
+  });
+});

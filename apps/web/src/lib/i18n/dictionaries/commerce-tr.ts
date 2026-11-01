@@ -87,7 +87,7 @@ export const commerceTr: CommerceCopy = {
 
   checkout: {
     title: 'Ödeme',
-    eyebrow: 'NEAR Testnet satıcısı',
+    eyebrow: 'Ödemeler bu NEAR Testnet hesabına gider',
     merchantAccount: 'Satıcı hesabı',
     unverifiedName: 'Doğrulanmış isim yok. Yalnızca hesap kimliği gösterilir.',
     discoveryState: {

@@ -43,7 +43,7 @@ export const commerceEn: CommerceCopy = {
     stepQr: 'QR',
     referenceLabel: 'Sale reference (optional)',
     referenceHint: 'For example an order number. Customers can see it. Up to 256 bytes.',
-    receivingLabel: 'Paid to',
+    receivingLabel: 'Pay to',
     uniqueNote: 'Your wallet signs a new request with a fresh ID for this sale. It can be paid once.',
     pending: {
       title: 'Waiting for the previous sale',
@@ -87,7 +87,7 @@ export const commerceEn: CommerceCopy = {
 
   checkout: {
     title: 'Checkout',
-    eyebrow: 'Merchant on NEAR Testnet',
+    eyebrow: 'Payments go to this NEAR Testnet account',
     merchantAccount: 'Merchant account',
     unverifiedName: 'No verified name. Only the account ID is shown.',
     discoveryState: {
