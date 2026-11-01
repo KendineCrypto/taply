@@ -848,6 +848,8 @@ export const tr: Dictionary = {
       copyLink: 'Doğrulama bağlantısını kopyala',
       linkCopied: 'Bağlantı kopyalandı',
       linkNote: 'Bağlantı yalnızca herkese açık işlem özetlerini içerir. Herkes bu makbuzu yeniden kontrol etmek için kullanabilir.',
+      copyEvidence: 'Makbuz kanıtını kopyala (JSON)',
+      evidenceCopied: 'Kanıt kopyalandı',
       fundingTx: 'Fonlama işlemi',
       settlementTx: 'Ödeme işlemi',
       transferReceipt: 'Transfer makbuzu',

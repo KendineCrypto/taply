@@ -21,6 +21,7 @@ Changes since this review was written:
 | Key policy | **Changed by the lead:** the pilot retains one FullAccess key. Section 5's `DeleteKey` step is superseded | `docs/TESTNET_DEPLOYMENT_DRY_RUN.md` |
 | Deployment procedure | Reviewed dry run + read-only preflight script; not executed | `docs/TESTNET_DEPLOYMENT_DRY_RUN.md`, `scripts/deploy-preflight.mjs` |
 | `contracts/payments/VALIDATION.md` | Added (documentation only) | `contracts/payments/VALIDATION.md` |
+| Phase 2E pre-pilot review | Verifier checked on genuine Testnet RPC responses; preflight hardened; funding corrected to 3.5 NEAR; pilot runbook and approval register prepared | `PHASE_2E_REVIEW.md`, `TESTNET_PILOT_RUNBOOK.md` |
 
 The rest of this document is the Phase 2C review, unchanged except where a row
 below says otherwise.

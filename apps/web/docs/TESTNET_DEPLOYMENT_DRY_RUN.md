@@ -1,6 +1,8 @@
 # Instant Pay — Testnet deployment procedure (DRY RUN, Phase 2D)
 
-**Status: reviewed procedure, NOT executed and NOT authorized.** No account has
+**Status: reviewed procedure, NOT executed and NOT authorized.** Phase 2E: the
+step-by-step operator checklist, pilot test plan, stop conditions and approval
+register are in `TESTNET_PILOT_RUNBOOK.md`; it takes precedence where they differ. No account has
 been created, nothing has been deployed, signed or funded, and signing stays
 disabled (`NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off`). Every command below that
 changes chain state is a template for a future, explicitly approved run. Only
@@ -87,9 +89,10 @@ Read-only observation on 2026-11-01: `EXPERIMENTAL_protocol_config` at final blo
 | Contract code | 345,541 | 3.4554 |
 | Account record + one access key (fresh account, measured by `view_account`) | ~182 | 0.0018 |
 | Base contract state allowance | 300 | 0.0030 |
-| **Required** | ~346,023 | **~3.4602** |
-| Margin | | 0.5 |
-| **Recommended funding** | | **4 NEAR** |
+| **Required storage** | ~346,023 | **~3.4602** |
+| Deploy + init gas bought up front (56.23 Tgas × 10^8, Phase 2E) | | 0.0056 |
+| Buffer | | 0.03 |
+| **Recommended funding (Phase 2E, supersedes the earlier 4 NEAR)** | | **3.5 NEAR** |
 
 Who pays what afterwards: each request creator pays an exact permanent storage
 bond (557–842 bytes measured in sandbox, 0.00557–0.00842 NEAR); callers prepay all
@@ -107,7 +110,7 @@ account name, the retained-key policy (section 3) and fund movement.
 **Step 1 — Verify the artifact** (section 1). Record the output.
 
 **Step 2 — Create and fund the dedicated account** (operator, own wallet). Fund
-with 4 NEAR from a Testnet faucet or the operator's Testnet account.
+with 3.5 NEAR (see `TESTNET_PILOT_RUNBOOK.md` section 2) from a Testnet faucet or the operator's Testnet account.
 
 **Step 3 — Pre-deployment preflight (read-only):**
 
@@ -116,8 +119,8 @@ node apps/web/scripts/deploy-preflight.mjs account <account>.testnet \
   --wasm contracts/payments/artifacts/payments.wasm --rpc <reviewed-testnet-rpc>
 ```
 
-Must PASS: no contract yet, exactly one key, FullAccess, balance covers storage
-and margin.
+Must PASS: named `.testnet` account, no contract yet, exactly one key, FullAccess,
+balance covers the minimum (storage + up-front gas) and the buffer.
 
 **Step 4 — Deploy and initialize in ONE transaction signed by the contract
 account itself.** `new()` is `#[private]`, so it must be called by the account it

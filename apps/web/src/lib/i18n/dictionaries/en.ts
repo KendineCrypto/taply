@@ -850,6 +850,8 @@ export const en: Dictionary = {
       copyLink: 'Copy verification link',
       linkCopied: 'Link copied',
       linkNote: 'The link holds only public transaction hashes. Anyone can use it to re-check this receipt.',
+      copyEvidence: 'Copy receipt evidence (JSON)',
+      evidenceCopied: 'Evidence copied',
       fundingTx: 'Funding transaction',
       settlementTx: 'Payout transaction',
       transferReceipt: 'Transfer receipt',

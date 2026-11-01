@@ -88,6 +88,7 @@ describe('receipt verification on /receipt/[id]', () => {
     expect(screen.getByText('Verified')).toBeTruthy();
     expect(screen.queryByText('Paid per contract')).toBeNull();
     expect(screen.getByRole('button', { name: 'Copy verification link' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Copy receipt evidence (JSON)' })).toBeTruthy();
     expect(screen.getByText('fake-testnet')).toBeTruthy();
   });
 

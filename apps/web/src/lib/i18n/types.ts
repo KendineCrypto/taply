@@ -438,6 +438,8 @@ export interface Dictionary {
       readonly copyLink: string;
       readonly linkCopied: string;
       readonly linkNote: string;
+      readonly copyEvidence: string;
+      readonly evidenceCopied: string;
       readonly fundingTx: string;
       readonly settlementTx: string;
       readonly transferReceipt: string;

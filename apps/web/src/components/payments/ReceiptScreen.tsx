@@ -292,6 +292,8 @@ function VerifiedEvidence({
 function ShareVerification({ id, receipt }: { readonly id: string; readonly receipt: VerifiedReceipt }) {
   const t = useT();
   const { status, copy } = useCopy();
+  // Public chain data only (the shared VerifiedReceipt): for pilot evidence and support.
+  const evidence = useCopy();
   if (typeof window === 'undefined') return null;
   const retries = receipt.operationNonce === '1' ? [] : [receipt.settlementTransaction];
   // More than one retry: this device cannot list every hash, so it offers no link.
@@ -307,6 +309,9 @@ function ShareVerification({ id, receipt }: { readonly id: string; readonly rece
         {status === 'copied' ? t.payment.verification.linkCopied : t.payment.verification.copyLink}
       </Button>
       <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.verification.linkNote}</p>
+      <Button variant="secondary" onClick={() => evidence.copy(JSON.stringify(receipt, null, 2))}>
+        {evidence.status === 'copied' ? t.payment.verification.evidenceCopied : t.payment.verification.copyEvidence}
+      </Button>
       <span className="sr-only" role="status">
         {status === 'copied' ? t.payment.verification.linkCopied : ''}
       </span>
