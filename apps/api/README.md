@@ -1,5 +1,11 @@
 # API service (production gates closed)
 
+Shared-room follow-up: see [the frontend handoff](../../docs/PHASE_7_SHARED_ROOM.md)
+for atomic room sync, bounded JSON/SSE catch-up, connection sequencing and
+advisory payer progress. Current API validation: 57 passed / 1 Windows-specific
+skip. The handshake domain format has changed and refuses old snapshots; no
+automatic migration. Production auth/live G2 remain closed; no listener is added.
+
 Current Phase 7C.1: read `docs/PHASE_7C_SECURITY_REVIEW.md` and
 `docs/PHASE_7C_POS_INTEGRATION.md` before integration. API suite: 42 passed,
 1 POSIX-only test skipped on Windows. Strict typecheck/lint and full pnpm check

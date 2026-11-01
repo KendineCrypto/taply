@@ -1,5 +1,11 @@
 # Phase 7C.1 security review
 
+Shared-room follow-up: [PHASE_7_SHARED_ROOM.md](PHASE_7_SHARED_ROOM.md) documents
+the additive synchronization model and current tests. Encryption remains v2;
+the handshake domain now explicitly versions room events/progress/connection
+tombstones and refuses older domain snapshots before rewriting their payload.
+No migration, production auth, live G2 or rollback-resistance claim is added.
+
 Date: 2026-11-02 (Europe/Istanbul). Source-level hardening and local adversarial
 testing, not an external audit or production approval. Worktree feature/phase7-core.
 Production authentication, Merchant/Handshake flags and Testnet G2 remain NO-GO.

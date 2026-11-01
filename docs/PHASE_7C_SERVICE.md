@@ -1,5 +1,11 @@
 # Phase 7C commerce service handoff
 
+Shared-room update (2026-11-02): [shared payment room handoff](PHASE_7_SHARED_ROOM.md)
+documents atomic room snapshots/cursors, scoped sequenced presence, advisory
+payer progress, bounded JSON/SSE catch-up and the new handshake domain storage
+format. Production authentication/live G2 remain closed. Historical results below
+are retained; the new handoff contains current validation and recovery requirements.
+
 Phase 7C.1 update (2026-11-02): see
 [security review](PHASE_7C_SECURITY_REVIEW.md) and
 [exact POS integration guide](PHASE_7C_POS_INTEGRATION.md). Storage now requires
