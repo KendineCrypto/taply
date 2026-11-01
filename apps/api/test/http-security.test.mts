@@ -55,7 +55,9 @@ test('every mutation enforces cookie/CSRF/origin; roles, cross-session reads and
     record={terms,termsHash:calculateTermsHash(terms),sessionCommitment:calculateSessionCommitment(terms),recipientAccountId:'alice.testnet',status:'OPEN',revision:'1',createdAtNs:String(BigInt(now)*1000000n),payerAccountId:null,fundedAtNs:null,cancelUntilNs:null,settlementBranch:null,latestOperation:null};
     const routes:[string,unknown][]=[['sessions',{}],[`sessions/${s.id}/bind`,{intentId:terms.id,termsHash:record.termsHash}],
       [`sessions/${s.id}/join`,{joinToken:created.joinToken}],[`sessions/${s.id}/review`,{termsHash:record.termsHash}],
-      [`sessions/${s.id}/presence`,{connected:true}],[`sessions/${s.id}/close`,{}],['auth/logout',{}]];
+      [`sessions/${s.id}/presence`,{connected:true}],[`sessions/${s.id}/close`,{}],['auth/logout',{}],
+      [`sessions/${s.id}/room/presence`,{connectionId:'11111111-1111-4111-8111-111111111111',sequence:'1',state:'active'}],
+      [`sessions/${s.id}/room/progress`,{expectedCursor:'0',phase:'AWAITING_WALLET',transactionHash:null,termsHash:record.termsHash}]];
     const disabled=createCommerceHandler({origin,auth,engine,authenticationAccepted:false});
     for(const [route,input] of routes) {
       const result=await disabled(new Request(origin+'/api/v1/'+route,{method:'POST',headers:{origin,'content-type':'application/json',
@@ -72,7 +74,7 @@ test('every mutation enforces cookie/CSRF/origin; roles, cross-session reads and
       assert.equal((await request('POST',route,route.endsWith('bind')?{intentId:terms.id,termsHash:record.termsHash}:{},outsider)).status,403);
     assert.equal((await request('POST',`sessions/${s.id}/bind`,{intentId:terms.id,termsHash:record.termsHash},merchant)).status,200);
     assert.equal((await request('POST',`sessions/${s.id}/join`,{joinToken:created.joinToken},payer)).status,200);
-    for(const route of [`sessions/${s.id}`,`sessions/${s.id}/events`,`sessions/${other.session.id}`])
+    for(const route of [`sessions/${s.id}`,`sessions/${s.id}/events`,`sessions/${s.id}/room`,`sessions/${other.session.id}`])
       assert.equal((await request('GET',route,{},route.endsWith(other.session.id)?payer:outsider)).status,403);
     for(const [action,input] of [['review',{termsHash:record.termsHash}],['presence',{connected:true}],['close',{}]] as const)
       assert.equal((await request('POST',`sessions/${s.id}/${action}`,input,outsider)).status,403);

@@ -33,7 +33,7 @@ test('two authenticated clients complete durable offline Handshake via HTTP hand
         assert.match(value,/Secure; HttpOnly; SameSite=Strict/); const [pair]=value.split(';'); const [name,token]=pair.split('='); jar.set(name,token);
       }
       assert.equal(response.headers.get('cache-control'),'no-store'); assert.equal(response.headers.get('access-control-allow-origin'),null);
-      return {status:response.status,data:await response.json()};
+      return {status:response.status,headers:response.headers,data:response.headers.get('content-type')?.startsWith('text/event-stream') ? await response.text() : await response.json()};
     };
     return { call, async login(accountId: string) {
       const challenge=await call('POST','auth/challenges',{accountId}); assert.equal(challenge.status,200);
@@ -64,6 +64,28 @@ test('two authenticated clients complete durable offline Handshake via HTTP hand
     assert.equal(m.data.comparisonCode,p.data.comparisonCode); assert.equal(p.data.comparisonCode,comparisonCode(calculateSessionCommitment(terms)!));
     assert.equal((await merchant.call('POST',`sessions/${s.id}/review`,{termsHash:record.termsHash})).data.state,'PAIRED');
     assert.equal((await payer.call('POST',`sessions/${s.id}/review`,{termsHash:record.termsHash})).data.state,'REVIEWED');
+    const roomPath = `sessions/${s.id}/room`;
+    const room = await payer.call('GET', roomPath);
+    assert.equal(room.status, 200); assert.equal(room.data.room.phase, 'WAITING_FOR_WALLET');
+    assert.equal(room.data.room.authority, 'coordination_only');
+    assert.equal(room.data.events.at(-1).room.session.state, 'REVIEWED');
+    const progress = { expectedCursor: room.data.cursor, phase: 'AWAITING_WALLET', transactionHash: null, termsHash: record.termsHash };
+    assert.equal((await merchant.call('POST', `${roomPath}/progress`, progress)).status, 403);
+    assert.equal((await payer.call('POST', `${roomPath}/progress`, { ...progress, paid: true })).status, 400);
+    const opened = await payer.call('POST', `${roomPath}/progress`, progress);
+    assert.equal(opened.status, 200);
+    const caughtUp = await merchant.call('GET', roomPath, undefined, { 'last-event-id': room.data.cursor });
+    assert.equal(caughtUp.data.events.length, 1);
+    assert.equal(caughtUp.data.events[0].type, 'payer.progress');
+    const connectionId = '11111111-1111-4111-8111-111111111111';
+    assert.equal((await payer.call('POST', `${roomPath}/presence`, { connectionId, sequence: '1', state: 'active' })).status, 200);
+    assert.equal((await payer.call('POST', `${roomPath}/presence`, { connectionId, sequence: '1', state: 'active', accountId: 'mallory.testnet' })).status, 400);
+    assert.equal((await merchant.call('GET', roomPath, undefined, { 'last-event-id': '01' })).status, 400);
+    const sse = await payer.call('GET', roomPath, undefined, { accept: 'text/event-stream', 'last-event-id': room.data.cursor });
+    assert.equal(sse.status, 200); assert.match(sse.headers.get('content-type')!, /^text\/event-stream/);
+    assert.match(sse.data, /event: room.changed/); assert.match(sse.data, /event: room.snapshot/);
+    assert.ok(!sse.data.includes(created.data.joinToken));
+    assert.equal((await payer.call('POST', `${roomPath}/presence`, { connectionId, sequence: '2', state: 'disconnected' })).status, 200);
     for(const connected of [true,false,true]) assert.equal((await payer.call('POST',`sessions/${s.id}/presence`,{connected})).data.presence.payer,connected);
     const hints=await payer.call('GET',`sessions/${s.id}/events`); assert.equal(hints.status,200);
     assert.ok(!JSON.stringify(hints.data).includes('FINAL_PAID')); assert.ok(!JSON.stringify(hints.data).includes('verified_final'));
@@ -74,6 +96,8 @@ test('two authenticated clients complete durable offline Handshake via HTTP hand
     assert.equal((await payer.call('GET','auth/me?token=secret')).status,400);
     assert.equal((await payer.call('POST','auth/logout',{})).status,200);
     assert.equal((await payer.call('GET','auth/me')).status,401);
+    const revokedRoom = await payer.call('GET', roomPath, undefined, { accept: 'text/event-stream' });
+    assert.equal(revokedRoom.status, 401); assert.match(revokedRoom.headers.get('content-type')!, /application\/json/);
     // Invalidate outstanding auth session and confirm bind re-authentication after RPC.
     assert.equal((await merchant.call('GET','merchants/alice.testnet')).status,404);
   } finally {store.close();sessions.close();rmSync(dir,{recursive:true,force:true});}
@@ -84,6 +108,12 @@ test('production composition refuses login and rate abuse fails closed', async (
   try {
     const response=await service.handle(new Request('https://taply.example/api/v1/auth/challenges',{method:'POST',headers:{origin:'https://taply.example'}}),'client');
     assert.equal(response.status,503); assert.equal(response.headers.get('set-cookie'),null);
+    for (const suffix of ['', '/presence', '/progress']) {
+      const gated = await service.handle(new Request(`https://taply.example/api/v1/sessions/11111111-1111-4111-8111-111111111111/room${suffix}`, {
+        method: suffix ? 'POST' : 'GET', headers: { origin: 'https://taply.example', accept: 'text/event-stream' },
+      }), 'room-client');
+      assert.equal(gated.status, 503); assert.match(gated.headers.get('content-type')!, /application\/json/);
+    }
     let last: Response|undefined;
     for(let i=0;i<61;i++) last=await service.handle(new Request('https://taply.example/api/v1/auth/me'),'abusive-client');
     assert.equal(last!.status,429);

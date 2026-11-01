@@ -1,5 +1,12 @@
 # Merchant POS integration contract — Phase 7C.1
 
+For the new additive `/sessions/:id/room` interface, finite SSE catch-up and
+connection-scoped presence, read [shared payment room handoff](PHASE_7_SHARED_ROOM.md).
+Its room cursor is distinct from the legacy `/events` cursor described below.
+Both surfaces remain production-gated. New session-domain storage refuses old
+snapshots without migration; preserve old data and follow the handoff's recovery
+requirements rather than initializing over it.
+
 This guide targets Claude's Merchant Hub/POS/Checkout/scanner/demo and gated live
 Handshake without assuming those new files are in this worktree. No frontend
 files, feature flags or production gates were modified. Use shared v1 schemas;
