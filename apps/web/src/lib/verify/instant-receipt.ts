@@ -504,6 +504,10 @@ async function verifyAttempt(
 
   const receipts = new Map<string, Receipt>();
   for (const r of value.receipts) {
+    // Non-Action receipts (e.g. promise Data receipts) carry no actions and have no
+    // outcome of their own. They are skipped; any receipt the checks below need
+    // must still be present as an Action receipt, or the result is EVIDENCE_INCOMPLETE.
+    if (!isActionReceipt(r)) continue;
     const parsed = parse(ReceiptSchema, r, 'EVIDENCE_INCONSISTENT', 'receipt');
     check(!receipts.has(parsed.id), 'EVIDENCE_INCONSISTENT', 'duplicate receipt');
     receipts.set(parsed.id, parsed);
@@ -676,6 +680,12 @@ async function verifyAttempt(
     transfer: { receipt: transfer, outcome: transferOutcome },
     callback: { receipt: callback, outcome: callbackOutcome },
   };
+}
+
+function isActionReceipt(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const inner = (value as Record<string, unknown>)['receipt'];
+  return typeof inner === 'object' && inner !== null && Object.hasOwn(inner, 'Action');
 }
 
 function isRefund(receipt: Receipt, allowedReceivers: ReadonlyArray<string>): boolean {

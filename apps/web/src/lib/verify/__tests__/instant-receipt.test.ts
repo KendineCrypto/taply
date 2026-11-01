@@ -373,6 +373,28 @@ describe('verifyInstantReceipt — protocol refunds', () => {
   });
 });
 
+describe('verifyInstantReceipt — non-action receipts', () => {
+  it('ignores a promise Data receipt in the list', async () => {
+    const result = await mutated((ctx) => {
+      receipts(fundingTx(ctx)).push({
+        receipt_id: hashOf('data-receipt'),
+        predecessor_id: PAID.recipientAccountId,
+        receiver_id: PAID.terms.contractId,
+        receipt: { Data: { data_id: hashOf('data'), data: null, is_promise_resume: false } },
+      });
+    });
+    expect(reason(result)).toBe('verified');
+  });
+
+  it('still refuses when the callback is only present as a Data receipt', async () => {
+    const result = await mutated((ctx) => {
+      const cb = byKind(fundingTx(ctx), 'callback');
+      cb.receipt['receipt'] = { Data: { data_id: hashOf('data'), data: null } };
+    });
+    expect(reason(result)).toBe('EVIDENCE_INCOMPLETE');
+  });
+});
+
 describe('verifyInstantReceipt — callback receipt', () => {
   it('refuses a callback for a different nonce', async () => {
     const result = await mutated((ctx) => {
