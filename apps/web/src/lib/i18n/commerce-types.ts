@@ -14,6 +14,7 @@ export interface CommerceCopy {
   readonly instantOnlyBadge: string;
   readonly unbound: TitleBody;
   readonly comingLater: string;
+  readonly accountChanged: TitleBody;
   readonly needsBackend: string;
 
   readonly merchant: {
@@ -48,6 +49,11 @@ export interface CommerceCopy {
     readonly referenceHint: string;
     readonly receivingLabel: string;
     readonly uniqueNote: string;
+    readonly pending: TitleBody;
+    readonly pendingStale: TitleBody;
+    readonly autoRecheck: string;
+    readonly ready: TitleBody;
+    readonly showQr: string;
   };
 
   readonly discovery: {

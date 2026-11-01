@@ -7,6 +7,10 @@ export const commerceEn: CommerceCopy = {
     body: 'Each sale is an ordinary Instant Testnet payment request to your account. The deployed contract cannot yet bind a merchant profile or live session to it, so customers see your account, not a verified business.',
   },
   comingLater: 'Coming later',
+  accountChanged: {
+    title: 'Connected account changed',
+    body: 'This was prepared for {account}. Nothing was signed. Review it again for the account connected now.',
+  },
   needsBackend: 'Needs the Taply session service, which is not connected yet.',
 
   merchant: {
@@ -41,6 +45,20 @@ export const commerceEn: CommerceCopy = {
     referenceHint: 'For example an order number. Customers can see it. Up to 256 bytes.',
     receivingLabel: 'Paid to',
     uniqueNote: 'Your wallet signs a new request with a fresh ID for this sale. It can be paid once.',
+    pending: {
+      title: 'Waiting for the previous sale',
+      body: 'The network has not confirmed your last sale ({sale}) yet. A new sale can start as soon as it does, usually within seconds. This stops a sale from being created twice.',
+    },
+    pendingStale: {
+      title: 'Previous sale still not confirmed',
+      body: 'Your last sale ({sale}) is still not on the network after 2 minutes. Check its status, sign the same sale again (same ID, it cannot be created twice) or discard it to start a new one.',
+    },
+    autoRecheck: 'Taply checks again automatically.',
+    ready: {
+      title: 'Sale ready for payment',
+      body: 'Your last sale ({sale}) is open on the network. Show its QR to the customer.',
+    },
+    showQr: 'Show sale QR',
   },
 
   discovery: {

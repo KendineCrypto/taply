@@ -13,7 +13,9 @@ import { Icon } from '@/components/shell/Icons';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { fill } from '@/lib/i18n';
-import { useT } from '@/lib/i18n/provider';
+import { useLocale, useT } from '@/lib/i18n/provider';
+import { formatBaseUnits } from '@/lib/format/amount';
+import { blockingCreations, latestRecentCreation, recheckDelayMs } from '@/lib/payments/creation-gate';
 import { FUNDING_LIFETIMES, buildInstantTerms, newCreationNonce, validateRequestForm } from '@/lib/payments/create';
 import type { FundingLifetime, RequestFormError } from '@/lib/payments/create';
 import { usePayments } from '@/lib/payments/context';
@@ -49,6 +51,7 @@ export function CreateRequest({
   readonly onStepChange?: (step: 0 | 1) => void;
 } = {}) {
   const t = useT();
+  const { locale } = useLocale();
   const c = t.commerce;
   const sale = variant === 'sale';
   const router = useRouter();
@@ -66,40 +69,63 @@ export function CreateRequest({
   const [quoteError, setQuoteError] = useState<'failed' | 'nonce_consumed' | 'stale' | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [pending, setPending] = useState<ReadonlyArray<{ entry: JournalEntry; state: Reconciliation }>>([]);
+  // The newest recent creation that a finalized read shows OPEN and still payable.
+  const [openSale, setOpenSale] = useState<JournalEntry | null>(null);
+  // Bumped by a timer while the chain has not yet explained a creation.
+  const [recheckPass, setRecheckPass] = useState(0);
 
-  const reviewing = step.kind === 'review' || step.kind === 'signing';
+  const creator = wallet.status === 'connected' ? wallet.session.accountId : null;
+  const ready = setup.status === 'ready' && check.status === 'verified';
+  const contractId = setup.status === 'ready' ? setup.contractId : null;
+  // A review prepared for another account (the wallet switched or reconnected)
+  // is never shown as "you" and never signed. It must be reviewed again.
+  const staleReview = (step.kind === 'review' || step.kind === 'signing') && step.terms.creatorAccountId !== creator;
+
+  const reviewing = (step.kind === 'review' || step.kind === 'signing') && !staleReview;
   useEffect(() => {
     onStepChange?.(reviewing ? 1 : 0);
   }, [reviewing, onStepChange]);
 
-  const creator = wallet.status === 'connected' ? wallet.session.accountId : null;
-  const ready = setup.status === 'ready' && check.status === 'verified';
-
   // Unexplained creations by this account block new ones (API.md: never allocate
-  // another intent on an unknown submission). Each is reconciled with the chain.
+  // another intent on an unknown submission). Each is reconciled with the chain,
+  // and re-checked on a bounded backoff while the chain has not caught up yet, so
+  // a confirmed sale unblocks the next one without a reload.
   useEffect(() => {
     if (creator === null || setup.status !== 'ready' || journal === null || !journal.isReadable()) return;
-    const unresolved = journal
-      .entries()
-      .filter((e) => e.method === 'create_request' && e.signerAccountId === creator && e.contractId === setup.contractId && isBlocking(e));
-    if (unresolved.length === 0) return;
+    const all = journal.entries();
+    const unresolved = blockingCreations(all, creator, setup.contractId);
+    const latest = latestRecentCreation(all, creator, setup.contractId, Date.now());
+    const toRead = latest === null || unresolved.some((e) => e.requestId === latest.requestId) ? unresolved : [...unresolved, latest];
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     void Promise.all(
-      unresolved.map(async (entry) => {
+      toRead.map(async (entry) => {
         const read = await setup.reader.readPaymentRequest(entry.requestId);
         const view = buildPaymentView({ read, expectedContractId: setup.contractId, accountId: creator });
         const state = reconcile(entry, view, dateToNs(entry.startedAt));
-        if (state === 'resolved') await journal.update(entry, { phase: 'RESOLVED' }).catch(() => undefined);
-        return { entry, state };
+        if (state === 'resolved' && isBlocking(entry)) await journal.update(entry, { phase: 'RESOLVED' }).catch(() => undefined);
+        return { entry, state, view };
       }),
-    ).then((all) => {
-      if (active) setPending(all.filter((p) => p.state !== 'resolved'));
+    ).then((results) => {
+      if (!active) return;
+      setPending(results.filter((r) => isBlocking(r.entry) && r.state !== 'resolved').map(({ entry, state }) => ({ entry, state })));
+      const newest = latest === null ? undefined : results.find((r) => r.entry.requestId === latest.requestId);
+      const open =
+        newest !== undefined &&
+        newest.view.kind === 'ok' &&
+        newest.view.request.status === 'OPEN' &&
+        BigInt(newest.view.observedAtNs) < BigInt(newest.view.request.terms.fundingExpiresAtNs);
+      setOpenSale(open && newest !== undefined ? newest.entry : null);
+      if (results.some((r) => isBlocking(r.entry) && r.state === 'pending')) {
+        timer = setTimeout(() => setRecheckPass((n) => n + 1), recheckDelayMs(recheckPass));
+      }
     });
     return () => {
       active = false;
+      clearTimeout(timer);
     };
     // journalVersion: re-check after wallet redirect recovery changed the journal.
-  }, [creator, setup, journal, journalVersion]);
+  }, [creator, setup, journal, journalVersion, recheckPass]);
 
   if (wallet.status !== 'connected') {
     return (
@@ -195,7 +221,7 @@ export function CreateRequest({
   };
 
   const onSign = async () => {
-    if (step.kind !== 'review' || check.status !== 'verified' || creator === null || signingBlock !== null) return;
+    if (step.kind !== 'review' || staleReview || check.status !== 'verified' || creator === null || signingBlock !== null) return;
     const reviewed = step;
     // Before the wallet opens: the contract must still verify at a fresh final
     // block, with the same config the quote was reviewed against, and the
@@ -265,7 +291,16 @@ export function CreateRequest({
     </Field>
   );
 
-  const blockingDrafts = pending.filter((p) => p.state === 'pending' || p.state === 'may_reattempt');
+  // Only this account on this contract: another account's draft never blocks this one.
+  const blockingDrafts = pending.filter(
+    (p) => p.entry.signerAccountId === creator && p.entry.contractId === contractId && (p.state === 'pending' || p.state === 'may_reattempt'),
+  );
+  const saleLabel = (terms: IntentTerms) => {
+    const amount = `${formatBaseUnits(terms.amountBaseUnits, NEAR_NATIVE.decimals, { locale, maxFractionDigits: 24 }).exact} ${NEAR_NATIVE.symbol}`;
+    // Plain text only: the reference is untrusted.
+    return terms.memo === '' ? amount : `${amount} · “${terms.memo}”`;
+  };
+  const readySale = sale && openSale !== null && openSale.signerAccountId === creator && openSale.contractId === contractId && !reviewing ? openSale : null;
   const summaryMemo = sale ? '' : memo;
   const optionsSummary =
     payer.trim() === '' && summaryMemo === ''
@@ -283,10 +318,28 @@ export function CreateRequest({
         </p>
       )}
 
+      {readySale !== null && readySale.terms !== null && (
+        <InlineNotice
+          tone="neutral"
+          copy={{ title: c.sale.ready.title, body: fill(c.sale.ready.body, { sale: saleLabel(readySale.terms) }) }}
+          action={
+            <ButtonLink href={`/pay/${readySale.requestId}`} variant="secondary">
+              {c.sale.showQr}
+            </ButtonLink>
+          }
+        />
+      )}
+
       {blockingDrafts.map(({ entry, state }) => (
         <InlineNotice
           key={entry.requestId}
-          copy={t.payment.create.pendingDraft}
+          copy={
+            !sale || entry.terms === null
+              ? t.payment.create.pendingDraft
+              : state === 'may_reattempt'
+                ? { title: c.sale.pendingStale.title, body: fill(c.sale.pendingStale.body, { sale: saleLabel(entry.terms) }) }
+                : { title: c.sale.pending.title, body: `${fill(c.sale.pending.body, { sale: saleLabel(entry.terms) })} ${c.sale.autoRecheck}` }
+          }
           action={
             <div className="flex flex-wrap gap-2">
               <ButtonLink href={`/pay/${entry.requestId}`}>{t.payment.status.refresh}</ButtonLink>
@@ -305,7 +358,11 @@ export function CreateRequest({
         />
       ))}
 
-      {(step.kind === 'form' || step.kind === 'quoting') && (
+      {staleReview && (
+        <InlineNotice tone="caution" copy={{ title: c.accountChanged.title, body: fill(c.accountChanged.body, { account: step.terms.creatorAccountId }) }} />
+      )}
+
+      {(step.kind === 'form' || step.kind === 'quoting' || staleReview) && (
         <form
           className="flex flex-col gap-5"
           noValidate
@@ -404,7 +461,7 @@ export function CreateRequest({
         </form>
       )}
 
-      {(step.kind === 'review' || step.kind === 'signing') && (
+      {(step.kind === 'review' || step.kind === 'signing') && !staleReview && (
         <section aria-labelledby="create-review-title" className="animate-page flex flex-col gap-5">
           <div>
             <h2 id="create-review-title" className="text-lg font-semibold">

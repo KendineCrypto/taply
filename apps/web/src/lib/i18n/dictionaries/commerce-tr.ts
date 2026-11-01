@@ -7,6 +7,10 @@ export const commerceTr: CommerceCopy = {
     body: 'Her satış, hesabına gelen sıradan bir Anında Testnet ödeme isteğidir. Yüklü kontrat henüz bir satıcı profilini veya canlı oturumu isteğe bağlayamıyor; müşteriler doğrulanmış bir işletme değil, hesabını görür.',
   },
   comingLater: 'Yakında',
+  accountChanged: {
+    title: 'Bağlı hesap değişti',
+    body: 'Bu, {account} için hazırlanmıştı. Hiçbir şey imzalanmadı. Şu an bağlı hesap için yeniden kontrol et.',
+  },
   needsBackend: 'Taply oturum servisi gerekiyor; henüz bağlı değil.',
 
   merchant: {
@@ -41,6 +45,20 @@ export const commerceTr: CommerceCopy = {
     referenceHint: 'Örneğin sipariş numarası. Müşteri görebilir. En fazla 256 bayt.',
     receivingLabel: 'Ödenecek hesap',
     uniqueNote: 'Cüzdanın bu satış için yeni kimlikli bir istek imzalar. Yalnızca bir kez ödenebilir.',
+    pending: {
+      title: 'Önceki satış bekleniyor',
+      body: 'Ağ son satışını ({sale}) henüz onaylamadı. Onaylanınca, genellikle birkaç saniye içinde, yeni satış başlayabilir. Bu, bir satışın iki kez oluşturulmasını önler.',
+    },
+    pendingStale: {
+      title: 'Önceki satış hâlâ onaylanmadı',
+      body: 'Son satışın ({sale}) 2 dakika sonra hâlâ ağda değil. Durumunu kontrol et, aynı satışı yeniden imzala (aynı kimlik, iki kez oluşturulamaz) veya yenisini başlatmak için vazgeç.',
+    },
+    autoRecheck: 'Taply otomatik olarak yeniden kontrol eder.',
+    ready: {
+      title: 'Satış ödemeye hazır',
+      body: 'Son satışın ({sale}) ağda açık. QR’ını müşteriye göster.',
+    },
+    showQr: 'Satış QR’ını göster',
   },
 
   discovery: {

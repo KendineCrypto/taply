@@ -3,10 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiscoveryQr } from '../DiscoveryQr';
 import { MerchantHome, SaleRegister } from '../MerchantScreens';
 import { selectRecentSales } from '../RecentSales';
-import { installChain, memoryStorage, must, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
+import { FIXTURES, installChain, memoryStorage, must, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
 import { JOURNAL_STORAGE_KEY } from '@/lib/payments/journal';
 import type { JournalEntry } from '@/lib/payments/journal';
-import { IntentTermsSchema } from '@/lib/protocol';
+import { IntentTermsSchema, calculateTermsHash } from '@/lib/protocol';
+import type { ContractRequest } from '@/lib/protocol';
 import type { IntentTerms } from '@/lib/protocol';
 
 const push = vi.fn();
@@ -103,9 +104,71 @@ describe('merchant POS (sale register)', () => {
     });
     cleanup();
     renderWithChain(<SaleRegister />, { setup: readySetup(chain, true), adapter, storage });
-    expect(await screen.findByText('A request you started is still unconfirmed')).toBeTruthy();
+    expect(await screen.findByText('Waiting for the previous sale')).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
     expect(signed).toHaveLength(1);
+  });
+
+  it('the block is account-scoped, explains the pending sale, and lifts by itself once the chain confirms it (no reload)', async () => {
+    const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
+    const { adapter, signed } = recordingWallet(MERCHANT);
+    const storage = memoryStorage();
+    renderWithChain(<SaleRegister />, { setup: readySetup(chain, true), adapter, storage });
+    await createSale('1.25', 'Table 7');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create request in wallet' }));
+    });
+    const terms = (must(signed[0], 'signature').call.args as { terms: IntentTerms }).terms;
+    cleanup();
+
+    renderWithChain(<SaleRegister />, { setup: readySetup(chain, true), adapter, storage });
+    expect(await screen.findByText('Waiting for the previous sale')).toBeTruthy();
+    expect(screen.getByText(/1\.25 NEAR · “Table 7”/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Check chain status' }).getAttribute('href')).toBe(`/pay/${terms.id}`);
+    expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
+
+    // The chain now confirms the first sale: the automatic re-check lifts the block
+    // and offers the open sale's QR. Still exactly one signature.
+    const confirmed: ContractRequest = {
+      ...FIXTURES.open,
+      terms,
+      termsHash: calculateTermsHash(terms),
+      recipientAccountId: terms.creatorAccountId,
+      createdAtNs: CHAIN_NOW,
+    };
+    chain.requests.set(terms.id, confirmed);
+    expect(await screen.findByText('Sale ready for payment', {}, { timeout: 6000 })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Show sale QR' }).getAttribute('href')).toBe(`/pay/${terms.id}`);
+    expect(screen.queryByText('Waiting for the previous sale')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Amount (NEAR)'), { target: { value: '2' } });
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(signed).toHaveLength(1);
+    cleanup();
+
+    // Another account on the same device is not blocked by this account's sales.
+    const other = recordingWallet('other-shop.testnet');
+    renderWithChain(<SaleRegister />, { setup: readySetup(chain, true), adapter: other.adapter, storage });
+    await screen.findByLabelText('Amount (NEAR)');
+    fireEvent.change(screen.getByLabelText('Amount (NEAR)'), { target: { value: '1' } });
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.queryByText('Sale ready for payment')).toBeNull();
+  }, 15000);
+
+  it('an account switch during review drops the prepared sale: never shown as "you", never signed', async () => {
+    const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
+    const { adapter, signed } = recordingWallet(MERCHANT);
+    let emit: (session: { accountId: string; walletId: string; walletName: string } | null) => void = () => undefined;
+    const switching = { ...adapter, subscribe: (listener: typeof emit) => ((emit = listener), () => undefined) };
+    renderWithChain(<SaleRegister />, { setup: readySetup(chain, true), adapter: switching, storage: memoryStorage() });
+    await createSale('3', 'Order 9');
+    act(() => emit({ accountId: 'second-shop.testnet', walletId: 'fake', walletName: 'Fake Wallet' }));
+    expect(await screen.findByText('Connected account changed')).toBeTruthy();
+    expect(screen.getByText(/prepared for merchant\.testnet/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Create request in wallet' })).toBeNull();
+    expect(screen.queryByText('Check before you sign')).toBeNull();
+    // Back on the form for the new account; nothing was signed.
+    expect(screen.getByText('second-shop.testnet')).toBeTruthy();
+    expect(signed).toHaveLength(0);
   });
 
   it('asks for a wallet before showing the register', async () => {
