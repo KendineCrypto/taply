@@ -90,6 +90,14 @@ export function createReviewedWalletBackend(input: {
     if (value.network !== "near-testnet" || value.accountId !== id.accountId || value.publicKey !== ed25519PublicKeyFromHex(id.publicKeyHex) ||
       age < -10_000_000_000n || age > 90_000_000_000n || BigInt(value.nonce) >= U64_MAX)
       throw new WalletEngineError("INVALID_SNAPSHOT");
+    const previous = journal.read();
+    if (previous?.accountId === id.accountId && previous.unsignedTransaction && previous.transactionHash &&
+      (previous.phase === "FINAL_SUCCEEDED" || previous.phase === "FINAL_FAILED")) {
+      const oldBytes = base64Decode(previous.unsignedTransaction);
+      const oldTx = Transaction.decode(oldBytes);
+      if (await hashOf(oldBytes) !== previous.transactionHash || oldTx.signerId !== id.accountId || BigInt(value.nonce) < oldTx.nonce)
+        throw new WalletEngineError("REVIEW_EXPIRED");
+    }
     return value;
   };
   const checkedPayment = async (candidate: PreparedContractCall): Promise<PreparedContractCall> => {

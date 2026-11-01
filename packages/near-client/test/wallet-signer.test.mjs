@@ -99,3 +99,10 @@ test('a lock/reunlock cycle invalidates an already signed transaction lease', as
   assert.throws(() => signed.assertActive(), { code: 'CANCELLED' });
   assert.equal(f.state.sends, 0); f.vault.lock();
 });
+test('a stale RPC nonce after FINAL cannot replay the same signed transfer from a fresh backend', async () => {
+  const f = await signerFixture(); const review = await f.backend.prepareTransfer(receiver, '0.1');
+  assert.equal((await f.backend.submit(review.id, async () => true)).kind, 'final');
+  await assert.rejects(f.makeBackend().prepareTransfer(receiver, '0.1'), { code: 'REVIEW_EXPIRED' });
+  assert.equal(f.state.sends, 1); f.state.nonce++;
+  assert.equal((await f.makeBackend().prepareTransfer(receiver, '0.1')).nonce, '9'); f.vault.lock();
+});
