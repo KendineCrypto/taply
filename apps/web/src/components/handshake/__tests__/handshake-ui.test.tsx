@@ -55,6 +55,9 @@ describe('handshake demo', () => {
     next();
     fireEvent.click(screen.getByRole('button', { name: 'Simulate a substituted code' }));
     expect(screen.getByText('Do not pay. Start a new session.')).toBeTruthy();
+    // The two phones now show different codes, both from the canonical algorithm.
+    const [merchantCode, customerCode] = screen.getAllByTestId('comparison-code').map((c) => c.getAttribute('aria-label'));
+    expect(merchantCode).not.toBe(customerCode);
     expect((screen.getByRole('button', { name: /Next/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 

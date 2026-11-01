@@ -7,7 +7,7 @@ import { Icon } from '@/components/shell/Icons';
 import { presentHandshake } from '@/lib/handshake/present';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
-import { DEMO_NOW_NS, DEMO_TERMS, demoSession } from '@/lib/mock/handshake-demo';
+import { DEMO_NOW_NS, DEMO_TERMS, DEMO_TERMS_SUBSTITUTED, demoSession } from '@/lib/mock/handshake-demo';
 import type { DemoStep } from '@/lib/mock/handshake-demo';
 import { ComparisonCode, DeviceFrame, HandshakeTerms, Presence } from './HandshakeParts';
 
@@ -31,9 +31,12 @@ export function HandshakeDemo() {
   const [checked, setChecked] = useState(false);
   const [tampered, setTampered] = useState(false);
 
-  const session = demoSession(step, reviewed, tampered);
+  const session = demoSession(step, reviewed);
+  // Each phone derives its code from the terms IT read. "Substituted" = the
+  // customer's phone was shown different terms than the merchant signed.
+  const customerTerms = tampered ? DEMO_TERMS_SUBSTITUTED : DEMO_TERMS;
   const merchant = presentHandshake({ role: 'merchant', session, chainTerms: DEMO_TERMS, nowNs: DEMO_NOW_NS });
-  const customer = presentHandshake({ role: 'customer', session, chainTerms: DEMO_TERMS, nowNs: DEMO_NOW_NS });
+  const customer = presentHandshake({ role: 'customer', session, chainTerms: customerTerms, nowNs: DEMO_NOW_NS });
   const copy = d.steps[STEPS[step]];
   const codeTone = (phase: string) => (phase === 'mismatch' ? 'mismatch' : step >= 2 ? 'match' : 'neutral');
   const blocked = customer.phase === 'mismatch';
@@ -85,7 +88,7 @@ export function HandshakeDemo() {
           ) : (
             <>
               <Presence connected={customer.counterpartConnected} onLabel={h.merchantPresent} offLabel={h.merchantDisconnected} />
-              <HandshakeTerms terms={DEMO_TERMS} />
+              <HandshakeTerms terms={customerTerms} />
               <ComparisonCode code={customer.code} tone={codeTone(customer.phase)} />
               {blocked && <InlineNotice copy={h.mismatch} tone="danger" live="assertive" />}
               {step >= 3 && !blocked && (

@@ -53,7 +53,10 @@ export function MerchantHome() {
   const m = t.commerce.merchant;
   return (
     <>
-      <ScreenHeader title={m.title} description={m.subtitle} trailing={<InstantOnlyBadge />} />
+      <ScreenHeader title={m.title} description={m.subtitle} />
+      <div className="-mt-2 mb-5">
+        <InstantOnlyBadge />
+      </div>
       <WithMerchantAccount>
         {(accountId) => (
           <div className="flex flex-col gap-6">
@@ -100,7 +103,10 @@ export function SaleRegister() {
   return (
     <>
       <MerchantBack label={s.back} />
-      <ScreenHeader title={s.title} description={s.subtitle} trailing={<InstantOnlyBadge />} />
+      <ScreenHeader title={s.title} description={s.subtitle} />
+      <div className="-mt-2 mb-5">
+        <InstantOnlyBadge />
+      </div>
       <WithMerchantAccount>
         {() => (
           <>

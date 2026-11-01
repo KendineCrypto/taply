@@ -41,10 +41,20 @@ export const DEMO_TERMS: IntentTerms = IntentTermsSchema.parse({
 
 const DEMO_CODE = localComparisonCode(DEMO_TERMS);
 
+/**
+ * What a substituted request looks like: the customer's phone read terms whose
+ * amount differs by one yoctoNEAR. Its locally derived code differs, and the
+ * presenter blocks it because the terms hash no longer matches the session.
+ */
+export const DEMO_TERMS_SUBSTITUTED: IntentTerms = IntentTermsSchema.parse({
+  ...DEMO_TERMS,
+  amountBaseUnits: (BigInt(DEMO_TERMS.amountBaseUnits) + 1n).toString(),
+});
+
 export type DemoStep = 0 | 1 | 2 | 3 | 4;
 
-/** The synthetic session snapshot at each demo step. `tampered` simulates a substituted code. */
-export function demoSession(step: DemoStep, reviewed: boolean, tampered: boolean): HandshakeSession {
+/** The synthetic session snapshot at each demo step (bound to the merchant's signed terms). */
+export function demoSession(step: DemoStep, reviewed: boolean): HandshakeSession {
   const joined = step >= 1;
   const state = !joined ? 'OPEN' : reviewed && step >= 3 ? 'REVIEWED' : 'PAIRED';
   return HandshakeSessionSchema.parse({
@@ -56,12 +66,7 @@ export function demoSession(step: DemoStep, reviewed: boolean, tampered: boolean
     payerAccountId: joined ? DEMO_CUSTOMER : null,
     intentId: DEMO_TERMS.id,
     termsHash: calculateTermsHash(DEMO_TERMS),
-    comparisonCode: tampered ? flip(DEMO_CODE ?? '000000') : DEMO_CODE,
+    comparisonCode: DEMO_CODE,
     presence: { merchant: true, payer: joined },
   });
-}
-
-function flip(code: string): string {
-  const last = code.slice(-1) === 'A' ? 'B' : 'A';
-  return `${code.slice(0, -1)}${last}`;
 }

@@ -53,8 +53,9 @@ export function AmountHero({
   const muted = tone === 'paper' ? 'text-[var(--ink-muted)]' : 'text-[var(--text-muted)]';
   const figure = size === 'xl' ? 'text-[3.25rem] min-[400px]:text-[3.75rem]' : 'text-[2.5rem]';
   return (
-    <p className={`display-amount flex flex-wrap items-baseline gap-x-2 ${className ?? ''}`}>
-      <span className={figure} aria-hidden="true">
+    <p className={`display-amount flex min-w-0 flex-wrap items-baseline gap-x-2 ${className ?? ''}`}>
+      {/* Exact amounts can have 24 decimals: let long fractions wrap instead of overflowing. */}
+      <span className={`${figure} min-w-0 [overflow-wrap:anywhere]`} aria-hidden="true">
         {whole}
         {fraction !== undefined && (
           <span className={muted}>
