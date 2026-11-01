@@ -48,7 +48,7 @@ export function RestoreWalletFlow() {
 
   return (
     <form
-      className="surface-card flex flex-col gap-4 p-5"
+      className="animate-page flex flex-col gap-4"
       noValidate
       onSubmit={async (event) => {
         event.preventDefault();

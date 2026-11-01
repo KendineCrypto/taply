@@ -350,3 +350,145 @@ body {
     transform: scale(0.98);
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* Phase 5 one-tap motion layer                                              */
+/* Durations follow docs/UX_ONE_TAP_REDESIGN.md: 160-240ms taps and tabs,    */
+/* 220-320ms sheets, ~450ms one-time verified seal. Reduced motion is        */
+/* handled by the global rule above.                                         */
+/* ------------------------------------------------------------------------ */
+
+:root {
+  --ease-spring: cubic-bezier(0.32, 1.25, 0.5, 1);
+}
+
+@keyframes taply-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes taply-seal-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@utility animate-page {
+  animation: taply-page-in 0.22s var(--ease-out) both;
+}
+
+/* Quiet stagger for real list rows: set --i on each item. */
+@utility stagger-item {
+  animation: taply-page-in 0.24s var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 6) * 40ms);
+}
+
+@utility animate-seal {
+  animation: taply-seal-pop 0.45s var(--ease-spring) both;
+}
+
+@utility animate-seal-check {
+  stroke-dasharray: 24;
+  animation: taply-draw 0.3s 0.2s var(--ease-out) both;
+}
+
+/** Bottom sheet built on <dialog>: slides up, backdrop fades. */
+.taply-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 480px;
+  max-height: min(88dvh, 720px);
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-bottom: 0;
+  border-radius: var(--radius-hero) var(--radius-hero) 0 0;
+  background: var(--taply-forest);
+  color: var(--text-primary);
+  box-shadow: 0 -24px 60px -20px rgb(0 0 0 / 0.8);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transform: translateY(100%);
+  transition:
+    transform 0.28s var(--ease-out),
+    overlay 0.28s allow-discrete,
+    display 0.28s allow-discrete;
+}
+.taply-sheet[open] {
+  transform: none;
+}
+@starting-style {
+  .taply-sheet[open] {
+    transform: translateY(100%);
+  }
+}
+.taply-sheet.is-closing {
+  transform: translateY(100%);
+  transition-duration: 0.22s;
+}
+.taply-sheet::backdrop {
+  background: rgb(5 9 7 / 0);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 0.28s,
+    backdrop-filter 0.28s,
+    overlay 0.28s allow-discrete,
+    display 0.28s allow-discrete;
+}
+.taply-sheet[open]::backdrop {
+  background: rgb(5 9 7 / 0.62);
+  backdrop-filter: blur(2px);
+}
+@starting-style {
+  .taply-sheet[open]::backdrop {
+    background: rgb(5 9 7 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+.taply-sheet.is-closing::backdrop {
+  background: rgb(5 9 7 / 0);
+}
+@media (min-width: 640px) {
+  .taply-sheet {
+    bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    border-radius: var(--radius-hero);
+    max-width: 440px;
+  }
+}
+/* Locks page scroll only while a sheet is open. */
+html:has(.taply-sheet[open]) {
+  overflow: hidden;
+}
+
+/** Disclosure rows (<details>) for technical proof and optional settings. */
+@utility disclosure {
+  & > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+  & > summary::-webkit-details-marker {
+    display: none;
+  }
+  &[open] > summary .disclosure-chevron {
+    transform: rotate(90deg);
+  }
+}
+.disclosure-chevron {
+  transition: transform 0.2s var(--ease-out);
+}

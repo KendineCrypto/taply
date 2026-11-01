@@ -1,61 +1,51 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useId, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { TaplyWordmark } from '@/components/brand/TaplyIcon';
+import { Monogram } from '@/components/experience/Basics';
 import { Icon } from '@/components/shell/Icons';
 import type { IconName } from '@/components/shell/Icons';
+import { Sheet, SheetAction } from '@/components/shell/Sheet';
+import { WalletKindBadge } from '@/components/wallet/WalletKind';
+import { useWalletMode } from '@/components/wallet/taply/mode';
 import { useOnline } from '@/lib/hooks/browser';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { LOCALES, DICTIONARIES } from '@/lib/i18n';
 import type { Locale } from '@/lib/i18n';
-import { shortAccountId } from '@/lib/near/account';
+import { requestIdFromPayLink } from '@/lib/payments/pay-link';
 import { useWallet } from '@/lib/wallet/provider';
 
 /**
- * Mobile-first shell. Target widths 360 / 390 / 430px with a desktop-responsive
- * centred column (CLAUDE.md, UX_FLOWS.md).
+ * Mobile-first shell (docs/UX_ONE_TAP_REDESIGN.md).
  *
- * Chrome requirements met here: wordmark, persistent NEAR Testnet badge, wallet
- * account short ID, bottom navigation with >= 44px targets, a skip link, a
- * single <main> landmark, and safe-area insets for notched / home-bar devices.
+ * Three persistent destinations only: Wallet, Tap (opens a sheet) and
+ * Activity. Settings, wallet management, receive, language and help live in
+ * the account menu (top right). The NEAR Testnet badge is always visible.
+ * Targets are >= 44px, there is a skip link, one <main> landmark and
+ * safe-area insets for notched devices.
  */
-
-interface NavItem {
-  readonly href: '/' | '/pay' | '/scan' | '/activity' | '/settings';
-  readonly labelKey: 'home' | 'pay' | 'scan' | 'activity' | 'settings';
-  readonly icon: IconName;
-}
-
-const NAV_ITEMS: ReadonlyArray<NavItem> = [
-  { href: '/', labelKey: 'home', icon: 'home' },
-  { href: '/pay', labelKey: 'pay', icon: 'pay' },
-  { href: '/scan', labelKey: 'scan', icon: 'scan' },
-  { href: '/activity', labelKey: 'activity', icon: 'activity' },
-  { href: '/settings', labelKey: 'settings', icon: 'settings' },
-];
 
 export function AppShell({ children }: { readonly children: ReactNode }) {
   const t = useT();
+  const pathname = usePathname();
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col">
-      <a
-        href="#main"
-        className="sr-only-focusable m-2 rounded bg-[var(--surface-2)] p-2 text-sm"
-      >
+    <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col lg:max-w-[560px]">
+      <a href="#main" className="sr-only-focusable m-2 rounded bg-[var(--surface-2)] p-2 text-sm">
         {t.app.skipToContent}
       </a>
 
       <TopBar />
       <OfflineBanner />
 
-      <main
-        id="main"
-        className="flex-1 px-4 pt-3 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:px-5"
-      >
-        {children}
+      <main id="main" className="flex-1 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-5">
+        {/* Keyed by route so each tab change gets a short fade-in. */}
+        <div key={pathname} className="animate-page">
+          {children}
+        </div>
       </main>
 
       <BottomNav />
@@ -67,14 +57,14 @@ function TopBar() {
   const t = useT();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-[var(--border-subtle)] bg-[rgb(11_18_14/0.88)] pt-[env(safe-area-inset-top)] backdrop-blur-md">
+    <header className="sticky top-0 z-20 bg-[rgb(11_18_14/0.86)] pt-[env(safe-area-inset-top)] backdrop-blur-md">
       <div className="flex h-14 items-center justify-between gap-2 px-4 sm:px-5">
         <Link href="/" aria-label={t.app.name} className="tap-target -ml-1 flex items-center px-1">
-          <TaplyWordmark width={84} />
+          <TaplyWordmark width={76} />
         </Link>
         <div className="flex items-center gap-2">
           <NetworkBadge />
-          <WalletStatus />
+          <AccountMenu />
         </div>
       </div>
     </header>
@@ -98,24 +88,100 @@ export function NetworkBadge() {
   );
 }
 
-/** Short account ID when connected; links to Settings where it can be managed. */
-function WalletStatus() {
-  const t = useT();
-  const { state } = useWallet();
-  if (state.status !== 'connected') return null;
+interface MenuLink {
+  readonly href: '/wallet' | '/receive' | '/settings' | '/demo';
+  readonly icon: IconName;
+  readonly label: string;
+  readonly body?: string;
+}
 
-  const { accountId } = state.session;
+/** Avatar button + account sheet. Shows which wallet is active; never switches it silently. */
+function AccountMenu() {
+  const t = useT();
+  const m = t.oneTap.menu;
+  const router = useRouter();
+  const { state } = useWallet();
+  const [mode] = useWalletMode();
+  const [open, setOpen] = useState(false);
+  const accountId = state.status === 'connected' ? state.session.accountId : null;
+
+  const links: ReadonlyArray<MenuLink> = [
+    { href: '/wallet', icon: 'wallet', label: m.wallet },
+    { href: '/receive', icon: 'receive', label: m.receive },
+    { href: '/settings', icon: 'settings', label: m.settings },
+    { href: '/demo', icon: 'shield', label: m.help, body: m.helpBody },
+  ];
+
+  const go = (href: MenuLink['href']) => {
+    setOpen(false);
+    router.push(href);
+  };
+
   return (
-    <Link
-      href="/wallet"
-      className="tap-target hidden items-center gap-1.5 rounded-full bg-[var(--surface-2)] px-3 text-xs font-medium min-[380px]:inline-flex"
-      aria-label={`${t.wallet.accountMenuLabel}: ${accountId}`}
-    >
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--taply-lime)]" />
-      <span className="chain-id max-w-[7.5rem] truncate text-xs" aria-hidden="true">
-        {shortAccountId(accountId)}
-      </span>
-    </Link>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={accountId === null ? m.open : `${m.open}: ${accountId}`}
+        className="pressable tap-target grid place-items-center rounded-full"
+      >
+        {accountId !== null && mode === 'external' ? (
+          <Monogram accountId={accountId} size={34} />
+        ) : (
+          <span className="grid size-[34px] place-items-center rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)] ring-1 ring-[var(--border-strong)]">
+            <Icon name={mode === 'taply' ? 'shield' : 'wallet'} size={17} />
+          </span>
+        )}
+      </button>
+
+      <Sheet open={open} onClose={() => setOpen(false)} title={m.title} closeLabel={t.oneTap.sheet.close}>
+        <div className="mb-3 flex items-center gap-3 rounded-[var(--radius-card)] bg-[var(--tone-neutral-bg)] p-3">
+          {accountId !== null ? (
+            <>
+              <Monogram accountId={accountId} size={40} />
+              <div className="min-w-0">
+                <p className="chain-id truncate font-semibold" title={accountId}>
+                  {accountId}
+                </p>
+                {mode === 'taply' ? (
+                  <WalletKindBadge kind="native" />
+                ) : (
+                  <WalletKindBadge kind="external" {...(state.status === 'connected' ? { walletName: state.session.walletName } : {})} />
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="px-1 text-sm text-[var(--text-secondary)]">
+              {mode === 'taply' ? <WalletKindBadge kind="native" /> : m.notConnected}
+            </p>
+          )}
+        </div>
+        <ul className="flex flex-col">
+          {links.map((link, i) => (
+            <li key={link.href} className="stagger-item" style={{ '--i': i } as CSSProperties}>
+              <button
+                type="button"
+                onClick={() => go(link.href)}
+                className="flex min-h-[52px] w-full items-center gap-3 rounded-[var(--radius-control)] px-2 text-left hover:bg-[var(--tone-neutral-bg)]"
+              >
+                <Icon name={link.icon} size={20} className="shrink-0 text-[var(--text-secondary)]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.9375rem] font-medium">{link.label}</span>
+                  {link.body !== undefined && <span className="block text-xs text-[var(--text-muted)]">{link.body}</span>}
+                </span>
+                <Icon name="chevron" size={16} className="shrink-0 text-[var(--text-muted)]" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+          <p className="mb-2 text-sm font-medium text-[var(--text-secondary)]">{m.language}</p>
+          <LocaleSwitch />
+        </div>
+      </Sheet>
+    </>
   );
 }
 
@@ -171,37 +237,188 @@ export function LocaleSwitch() {
 function BottomNav() {
   const t = useT();
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   return (
     <nav
       aria-label={t.nav.primaryLabel}
-      className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-[var(--border-subtle)] bg-[rgb(17_28_21/0.94)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
+      className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-[var(--border-subtle)] bg-[rgb(17_28_21/0.94)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:bottom-5 lg:max-w-[360px] lg:rounded-full lg:border lg:pb-0 lg:shadow-[var(--shadow-float)]"
     >
-      <ul className="flex items-stretch justify-around px-1">
-        {NAV_ITEMS.map((item) => {
-          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-          return (
-            <li key={item.href} className="flex-1">
-              <Link
-                href={item.href}
-                aria-current={active ? 'page' : undefined}
-                className={`flex min-h-[60px] flex-col items-center justify-center gap-1 text-[11px] font-medium ${
-                  active ? 'text-[var(--taply-lime)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <span
-                  className={`grid h-7 w-12 place-items-center rounded-full transition-colors ${
-                    active ? 'bg-[var(--tone-success-bg)]' : ''
-                  }`}
-                >
-                  <Icon name={item.icon} size={22} />
-                </span>
-                {t.nav[item.labelKey]}
-              </Link>
-            </li>
-          );
-        })}
+      <ul className="grid grid-cols-3 items-end px-2">
+        <li>
+          <NavLink href="/" icon="wallet" label={t.oneTap.nav.wallet} active={pathname === '/'} />
+        </li>
+        <li className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            className="pressable group -mt-5 flex flex-col items-center gap-1 pb-2 text-[11px] font-semibold text-[var(--text-primary)] lg:-mt-4"
+          >
+            <span className="grid size-[58px] place-items-center rounded-full bg-[var(--taply-lime)] text-[var(--taply-night)] shadow-[0_12px_28px_-10px_rgb(199_252_117/0.6)] ring-4 ring-[var(--surface-0)] transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
+              <TapGlyph />
+            </span>
+            {t.oneTap.nav.tap}
+          </button>
+        </li>
+        <li>
+          <NavLink href="/activity" icon="activity" label={t.oneTap.nav.activity} active={pathname.startsWith('/activity')} />
+        </li>
       </ul>
+      <TapSheet open={open} onClose={() => setOpen(false)} />
     </nav>
+  );
+}
+
+function NavLink({
+  href,
+  icon,
+  label,
+  active,
+}: {
+  readonly href: '/' | '/activity';
+  readonly icon: IconName;
+  readonly label: string;
+  readonly active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      className={`flex min-h-[62px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200 ${
+        active ? 'text-[var(--taply-lime)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+      }`}
+    >
+      <span
+        className={`grid h-7 w-12 place-items-center rounded-full transition-[background-color,transform] duration-200 ${
+          active ? 'scale-100 bg-[var(--tone-success-bg)]' : 'scale-95'
+        }`}
+      >
+        <Icon name={icon} size={22} />
+      </span>
+      {label}
+    </Link>
+  );
+}
+
+/** Two concentric arcs: a tap ripple. Generic glyph, not the Taply mark. */
+function TapGlyph() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none" />
+      <path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9" />
+      <path d="M4.6 4.6a10.5 10.5 0 0 0 0 14.8M19.4 4.6a10.5 10.5 0 0 1 0 14.8" opacity="0.55" />
+    </svg>
+  );
+}
+
+/** The Tap sheet: Request (primary), Pay (paste/scan link), Send (honestly labelled preview). */
+function TapSheet({ open, onClose }: { readonly open: boolean; readonly onClose: () => void }) {
+  const t = useT();
+  const s = t.oneTap.sheet;
+  const router = useRouter();
+  const [view, setView] = useState<'menu' | 'pay'>('menu');
+
+  const close = () => {
+    onClose();
+    // Reset after the slide-out so the next open starts at the menu.
+    window.setTimeout(() => setView('menu'), 260);
+  };
+  const go = (href: '/request/new' | '/send') => {
+    close();
+    router.push(href);
+  };
+
+  return (
+    <Sheet
+      open={open}
+      onClose={close}
+      title={view === 'menu' ? s.title : t.oneTap.payLink.title}
+      description={view === 'menu' ? s.description : t.oneTap.payLink.body}
+      closeLabel={s.close}
+    >
+      {view === 'menu' ? (
+        <div className="flex flex-col gap-1">
+          <SheetAction index={0} primary icon={<Icon name="request" size={22} />} label={s.request.label} body={s.request.body} onSelect={() => go('/request/new')} />
+          <SheetAction index={1} icon={<Icon name="scan" size={22} />} label={s.pay.label} body={s.pay.body} onSelect={() => setView('pay')} />
+          <SheetAction index={2} icon={<Icon name="send" size={22} />} label={s.send.label} body={s.send.body} onSelect={() => go('/send')} />
+        </div>
+      ) : (
+        <PayLinkForm
+          onBack={() => setView('menu')}
+          onOpen={(id) => {
+            close();
+            router.push(`/pay/${id}`);
+          }}
+        />
+      )}
+    </Sheet>
+  );
+}
+
+function PayLinkForm({ onBack, onOpen }: { readonly onBack: () => void; readonly onOpen: (id: string) => void }) {
+  const t = useT();
+  const p = t.oneTap.payLink;
+  const inputId = useId();
+  const [value, setValue] = useState('');
+  const [invalid, setInvalid] = useState(false);
+
+  return (
+    <form
+      className="animate-page flex flex-col gap-3"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        const id = requestIdFromPayLink(value);
+        if (id === null) {
+          setInvalid(true);
+          return;
+        }
+        onOpen(id);
+      }}
+    >
+      <label htmlFor={inputId} className="text-sm font-medium">
+        {p.label}
+      </label>
+      <input
+        id={inputId}
+        type="url"
+        inputMode="url"
+        autoComplete="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        placeholder={p.placeholder}
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setInvalid(false);
+        }}
+        aria-invalid={invalid || undefined}
+        aria-describedby={`${inputId}-error`}
+        className="taply-input chain-id"
+        // Opened by an explicit tap on Pay; focusing the only field is expected.
+        autoFocus
+      />
+      <p id={`${inputId}-error`} role={invalid ? 'alert' : undefined} className="min-h-5 text-sm text-[var(--tone-danger-fg)]">
+        {invalid ? p.invalid : ''}
+      </p>
+      <button
+        type="submit"
+        disabled={value.trim() === ''}
+        className="pressable inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--taply-lime)] px-5 text-base font-semibold text-[var(--taply-night)] disabled:cursor-not-allowed disabled:bg-[rgb(199_252_117/0.35)]"
+      >
+        {p.open}
+        <Icon name="arrow-right" size={18} />
+      </button>
+      <button
+        type="button"
+        onClick={onBack}
+        className="tap-target inline-flex items-center justify-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+      >
+        <Icon name="arrow-left" size={16} />
+        {p.back}
+      </button>
+    </form>
   );
 }

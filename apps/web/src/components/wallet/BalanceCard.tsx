@@ -32,29 +32,28 @@ export function BalanceCard() {
   const t = useT();
   const { state } = useWallet();
 
+  if (state.status === 'connected') {
+    return (
+      <section aria-labelledby="balance-title" className="animate-rise pt-3">
+        <ConnectedBalance accountId={state.session.accountId} walletName={state.session.walletName} />
+      </section>
+    );
+  }
+
   return (
-    <section
-      aria-labelledby="balance-title"
-      className="surface-hero animate-rise p-5 pb-6"
-    >
+    <section aria-labelledby="balance-title" className="surface-hero animate-rise p-5 pb-6">
       <div className="relative">
-        {state.status === 'connected' ? (
-          <ConnectedBalance accountId={state.session.accountId} walletName={state.session.walletName} />
+        <h2 id="balance-title" className="text-sm font-medium text-[var(--text-secondary)]">
+          {t.balance.title}
+        </h2>
+        {state.status === 'disabled' ? (
+          <div className="mt-4">
+            <InlineNotice copy={t.wallet.disabled} tone="neutral" />
+          </div>
+        ) : state.status === 'restoring' ? (
+          <BalanceSkeleton label={t.wallet.restoring} />
         ) : (
-          <>
-            <h2 id="balance-title" className="text-sm font-medium text-[var(--text-secondary)]">
-              {t.balance.title}
-            </h2>
-            {state.status === 'disabled' ? (
-              <div className="mt-4">
-                <InlineNotice copy={t.wallet.disabled} tone="neutral" />
-              </div>
-            ) : state.status === 'restoring' ? (
-              <BalanceSkeleton label={t.wallet.restoring} />
-            ) : (
-              <Disconnected />
-            )}
-          </>
+          <Disconnected />
         )}
       </div>
     </section>
@@ -104,53 +103,40 @@ function ConnectedBalance({ accountId, walletName }: { readonly accountId: strin
 
   return (
     <>
-      <div className="mb-5 flex items-center gap-3">
-        <Monogram accountId={accountId} size={40} />
-        <div className="min-w-0 flex-1">
-          <p className="chain-id truncate text-[0.9375rem] font-semibold text-[var(--text-primary)]" title={accountId}>
-            {accountId}
-          </p>
-          <WalletKindBadge kind="external" walletName={walletName} />
+      <div className="flex flex-col items-center text-center">
+        <div className="flex items-center gap-1">
+          <h2 id="balance-title" className="text-sm font-medium text-[var(--text-secondary)]">
+            {t.walletUx.home.totalBalance}
+          </h2>
+          <Button
+            variant="ghost"
+            className="px-2"
+            onClick={refresh}
+            disabled={refreshing}
+            aria-label={refreshing ? t.balance.refreshing : t.balance.refresh}
+          >
+            {refreshing ? <Spinner /> : <Icon name="refresh" size={16} />}
+          </Button>
         </div>
-        <Link
-          href="/wallet"
-          className="tap-target inline-flex shrink-0 items-center gap-1 rounded-full px-3 text-xs font-medium text-[var(--text-secondary)] ring-1 ring-[var(--border-strong)] hover:text-[var(--text-primary)]"
-        >
-          {t.walletUx.home.manage}
-        </Link>
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <h2 id="balance-title" className="text-sm font-medium text-[var(--text-secondary)]">
-          {t.walletUx.home.totalBalance}
-        </h2>
-        <Button
-          variant="ghost"
-          className="-mr-2 px-2"
-          onClick={refresh}
-          disabled={refreshing}
-          aria-label={refreshing ? t.balance.refreshing : t.balance.refresh}
-        >
-          {refreshing ? <Spinner /> : <Icon name="refresh" size={18} />}
-        </Button>
-      </div>
 
-      <div aria-live="polite" aria-busy={view.kind === 'loading' || undefined}>
-        {shown !== null ? (
-          <BalanceFigure verified={shown} stale={view.kind === 'stale'} />
-        ) : view.kind === 'loading' ? (
-          <BalanceSkeleton label={t.balance.loading} />
-        ) : (
-          <div className="mt-3">
-            <p className="text-[2.25rem] font-semibold leading-none text-[var(--text-muted)]" aria-hidden="true">
-              —
-            </p>
-            <span className="sr-only">{t.balance.notShown}</span>
-          </div>
-        )}
+        <div aria-live="polite" aria-busy={view.kind === 'loading' || undefined} className="flex w-full flex-col items-center">
+          {shown !== null ? (
+            <BalanceFigure verified={shown} stale={view.kind === 'stale'} />
+          ) : view.kind === 'loading' ? (
+            <BalanceSkeleton label={t.balance.loading} />
+          ) : (
+            <div className="mt-2">
+              <p className="text-[3rem] font-semibold leading-none text-[var(--text-muted)]" aria-hidden="true">
+                —
+              </p>
+              <span className="sr-only">{t.balance.notShown}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {view.kind === 'stale' && (
-        <p className="mt-2 text-xs text-[var(--tone-caution-fg)]">{errorCopyFor(t, view.errorCode).title}</p>
+        <p className="mt-2 text-center text-xs text-[var(--tone-caution-fg)]">{errorCopyFor(t, view.errorCode).title}</p>
       )}
 
       <BalanceProblem view={view} retry={refresh} />
@@ -161,6 +147,21 @@ function ConnectedBalance({ accountId, walletName }: { readonly accountId: strin
         </div>
       )}
 
+      {/* Identity: tap for the receive address and QR code. */}
+      <Link
+        href="/receive"
+        className="pressable mx-auto mt-6 flex w-full max-w-sm items-center gap-3 rounded-full bg-[var(--tone-neutral-bg)] py-2 pl-2 pr-4 ring-1 ring-[var(--border-subtle)] hover:ring-[var(--border-strong)]"
+      >
+        <Monogram accountId={accountId} size={36} />
+        <span className="min-w-0 flex-1 text-left">
+          <span className="chain-id block truncate text-sm font-semibold text-[var(--text-primary)]" title={accountId}>
+            {accountId}
+          </span>
+          <WalletKindBadge kind="external" walletName={walletName} />
+        </span>
+        <span className="sr-only">{t.oneTap.home.accountRowHint}</span>
+        <Icon name="scan" size={18} className="shrink-0 text-[var(--text-secondary)]" />
+      </Link>
     </>
   );
 }
@@ -178,16 +179,16 @@ function BalanceFigure({ verified, stale }: { readonly verified: VerifiedBalance
   const [whole, fraction] = splitDecimal(value, locale);
 
   return (
-    <div className="mt-2">
+    <div className="mt-1 flex flex-col items-center">
       <button
         type="button"
         onClick={() => setExact((v) => !v)}
         aria-pressed={exact}
-        className="block max-w-full rounded-lg text-left"
+        className="block max-w-full rounded-lg text-center"
         title={formatted.exact}
       >
-        <span className={`flex flex-wrap items-baseline gap-x-2 ${stale ? 'opacity-60' : ''}`}>
-          <span className="display-amount break-all text-[2.75rem] min-[400px]:text-[3.25rem]">
+        <span className={`flex flex-wrap items-baseline justify-center gap-x-2 ${stale ? 'opacity-60' : ''}`}>
+          <span className={`display-amount break-all ${exact ? 'text-[2rem]' : 'text-[3.25rem] min-[400px]:text-[3.75rem]'}`}>
             {whole}
             {fraction !== null && <span className="text-[var(--text-muted)]">{fraction}</span>}
             {!exact && formatted.truncated && (
@@ -203,7 +204,7 @@ function BalanceFigure({ verified, stale }: { readonly verified: VerifiedBalance
         </span>
       </button>
 
-      <p className="mt-3 flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
         {stale ? (
           <span className="text-[var(--tone-caution-fg)]">
             {fill(t.balance.staleAt, { time: formatTime(verified.checkedAt, locale) })}
@@ -228,7 +229,7 @@ function BalanceFigure({ verified, stale }: { readonly verified: VerifiedBalance
           {NEAR_NATIVE.symbol}
         </p>
       )}
-      <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{t.balance.storageNote}</p>
+      {exact && <p className="mt-1 max-w-xs text-xs leading-relaxed text-[var(--text-muted)]">{t.balance.storageNote}</p>}
     </div>
   );
 }

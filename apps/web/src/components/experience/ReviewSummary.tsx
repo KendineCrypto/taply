@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useT } from '@/lib/i18n/provider';
 import { AmountHero, Monogram, NetworkPill } from './Basics';
 
@@ -13,11 +14,19 @@ export function ReviewSummary({
   amountBaseUnits,
   contractId,
   memo,
+  payerAccountId = null,
+  permittedPayerAccountId = null,
+  payableUntil = null,
 }: {
   readonly recipientAccountId: string;
   readonly amountBaseUnits: string;
   readonly contractId: string;
   readonly memo: string;
+  /** The connected account that would sign, shown in full. */
+  readonly payerAccountId?: string | null;
+  readonly permittedPayerAccountId?: string | null;
+  /** Funding deadline (chain time), when the request is still payable. */
+  readonly payableUntil?: ReactNode;
 }) {
   const t = useT();
   return (
@@ -36,6 +45,24 @@ export function ReviewSummary({
         </div>
       </div>
       <dl className="grid gap-2 text-sm">
+        {payerAccountId !== null && (
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.oneTap.payment.from}</dt>
+            <dd className="chain-id text-right">{payerAccountId}</dd>
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-3">
+          <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.oneTap.request.whoCanPay}</dt>
+          <dd className={permittedPayerAccountId === null ? 'text-right' : 'chain-id text-right'}>
+            {permittedPayerAccountId ?? t.oneTap.request.anyoneMayPay}
+          </dd>
+        </div>
+        {payableUntil !== null && (
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.oneTap.request.payableUntil}</dt>
+            <dd className="text-right">{payableUntil}</dd>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-3">
           <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.experience.review.walletAction}</dt>
           <dd className="text-right">{t.experience.review.walletActionValue}</dd>

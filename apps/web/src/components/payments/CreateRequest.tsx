@@ -5,11 +5,14 @@ import { useEffect, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CreateQuote, PreparedContractCall } from '@taply/near-client';
 import { prepareCreateRequest } from '@taply/near-client';
-import { Amount } from '@/components/primitives/Amount';
+import { AccountId, Amount } from '@/components/primitives/Amount';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Card, DetailRow } from '@/components/primitives/Surface';
+import { AmountHero, Monogram } from '@/components/experience/Basics';
+import { Icon } from '@/components/shell/Icons';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
+import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
 import { FUNDING_LIFETIMES, buildInstantTerms, newCreationNonce, validateRequestForm } from '@/lib/payments/create';
 import type { FundingLifetime, RequestFormError } from '@/lib/payments/create';
@@ -22,7 +25,7 @@ import type { Reconciliation, SubmitResult } from '@/lib/payments/submit';
 import { NEAR_NATIVE } from '@/lib/protocol';
 import type { IntentTerms } from '@/lib/protocol';
 import { useWallet } from '@/lib/wallet/provider';
-import { PaymentsSetupNotice, RequestTermsPreview, SigningBlockNotice, SubmitResultNotice } from './PaymentParts';
+import { ChainTime, PaymentsSetupNotice, RequestTermsPreview, SigningBlockNotice, SubmitResultNotice } from './PaymentParts';
 
 type Step =
   | { readonly kind: 'form' }
@@ -41,12 +44,13 @@ export function CreateRequest() {
   const router = useRouter();
   const { state: wallet, signAndSend } = useWallet();
   const { setup, check, signingBlock, journal, journalVersion } = usePayments();
-  const ids = { amount: useId(), memo: useId(), payer: useId(), expiry: useId() };
+  const ids = { amount: useId(), memo: useId(), payer: useId(), expiry: useId(), options: useId() };
 
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [payer, setPayer] = useState('');
   const [lifetime, setLifetime] = useState<FundingLifetime>('15m');
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [errors, setErrors] = useState<ReadonlyArray<RequestFormError>>([]);
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [quoteError, setQuoteError] = useState<'failed' | 'nonce_consumed' | null>(null);
@@ -113,6 +117,8 @@ export function CreateRequest() {
     const validation = validateRequestForm({ amount, memo, payer }, creator);
     if (!validation.ok) {
       setErrors(validation.errors);
+      // An error in an optional field must be visible, never hidden behind the toggle.
+      if (validation.errors.some((e) => !e.startsWith('amount'))) setOptionsOpen(true);
       return;
     }
     setErrors([]);
@@ -178,6 +184,12 @@ export function CreateRequest() {
   };
 
   const blockingDrafts = pending.filter((p) => p.state === 'pending' || p.state === 'may_reattempt');
+  const optionsSummary =
+    payer.trim() === '' && memo === ''
+      ? fill(t.oneTap.request.defaults, { expiry: t.payment.create.expiry[lifetime] })
+      : [payer.trim() === '' ? t.oneTap.request.anyoneMayPay : payer.trim(), t.payment.create.expiry[lifetime], memo === '' ? null : `“${memo}”`]
+          .filter((part) => part !== null)
+          .join(' · ');
 
   return (
     <div className="flex flex-col gap-4">
@@ -211,139 +223,235 @@ export function CreateRequest() {
       ))}
 
       {(step.kind === 'form' || step.kind === 'quoting') && (
-        <Card as="section" className="p-5">
-          <form
-            className="flex flex-col gap-4"
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onReview();
-            }}
-          >
-            <Field id={ids.amount} label={t.payment.create.amountLabel} hint={t.payment.create.amountHint} error={errorFor(errors, ['amount_required', 'amount_invalid', 'amount_zero'], t.payment.create.errors)}>
-              <div className="flex items-baseline gap-2 border-b-2 border-[var(--border-strong)] pb-2 focus-within:border-[var(--taply-lime)]">
-                <input
-                  id={ids.amount}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder={t.experience.create.amountPlaceholder}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="display-amount min-h-[64px] w-full min-w-0 bg-transparent text-[3rem] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none"
-                  aria-describedby={`${ids.amount}-hint ${ids.amount}-error`}
-                  aria-invalid={errors.some((e) => e.startsWith('amount')) || undefined}
-                />
-                <span aria-hidden="true" className="text-xl font-semibold text-[var(--text-secondary)]">
-                  NEAR
-                </span>
+        <form
+          className="flex flex-col gap-5"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onReview();
+          }}
+        >
+          <AmountField
+            id={ids.amount}
+            value={amount}
+            onChange={setAmount}
+            error={errorFor(errors, ['amount_required', 'amount_invalid', 'amount_zero'], t.payment.create.errors)}
+          />
+
+          {/* The recipient is always the connected account; it is never edited here. */}
+          <p className="mx-auto flex max-w-full items-center gap-2 rounded-full bg-[var(--tone-neutral-bg)] py-1.5 pl-1.5 pr-3.5 text-sm">
+            <Monogram accountId={creator ?? ''} size={26} />
+            <span className="shrink-0 text-[var(--text-muted)]">{t.oneTap.request.toYou}</span>
+            <span className="chain-id truncate font-medium" title={creator ?? ''}>
+              {creator}
+            </span>
+          </p>
+
+          <div className="rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
+            <button
+              type="button"
+              aria-expanded={optionsOpen}
+              aria-controls={ids.options}
+              onClick={() => setOptionsOpen((v) => !v)}
+              className="flex min-h-[56px] w-full items-center justify-between gap-3 px-4 py-2 text-left"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{t.oneTap.request.moreOptions}</span>
+                {!optionsOpen && <span className="block truncate text-xs text-[var(--text-muted)]">{optionsSummary}</span>}
+              </span>
+              <Icon name="chevron" size={18} className={`disclosure-chevron shrink-0 text-[var(--text-muted)] ${optionsOpen ? 'rotate-90' : ''}`} />
+            </button>
+            {optionsOpen && (
+              <div id={ids.options} className="animate-page flex flex-col gap-4 border-t border-[var(--border-subtle)] px-4 pb-4 pt-4">
+                <Field id={ids.memo} label={t.payment.create.memoLabel} hint={t.payment.create.memoHint} error={errorFor(errors, ['memo_too_long'], t.payment.create.errors)}>
+                  <textarea
+                    id={ids.memo}
+                    value={memo}
+                    rows={2}
+                    onChange={(e) => setMemo(e.target.value)}
+                    className="taply-input"
+                    aria-describedby={`${ids.memo}-hint ${ids.memo}-error`}
+                    aria-invalid={errors.includes('memo_too_long') || undefined}
+                  />
+                </Field>
+                <Field id={ids.payer} label={t.payment.create.payerLabel} hint={t.payment.create.payerHint} error={errorFor(errors, ['payer_invalid', 'payer_is_recipient'], t.payment.create.errors)}>
+                  <input
+                    id={ids.payer}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={payer}
+                    onChange={(e) => setPayer(e.target.value)}
+                    className="taply-input chain-id"
+                    aria-describedby={`${ids.payer}-hint ${ids.payer}-error`}
+                    aria-invalid={errors.some((e) => e.startsWith('payer')) || undefined}
+                  />
+                </Field>
+                <Field id={ids.expiry} label={t.payment.create.expiryLabel} hint={t.payment.create.expiryHint} error={null}>
+                  <select
+                    id={ids.expiry}
+                    value={lifetime}
+                    onChange={(e) => setLifetime(e.target.value as FundingLifetime)}
+                    className="taply-input"
+                    aria-describedby={`${ids.expiry}-hint`}
+                  >
+                    {(Object.keys(FUNDING_LIFETIMES) as FundingLifetime[]).map((key) => (
+                      <option key={key} value={key}>
+                        {t.payment.create.expiry[key]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               </div>
-            </Field>
-            <p className="eyebrow mt-2 text-[var(--text-muted)]">{t.experience.create.options}</p>
-            <Field id={ids.memo} label={t.payment.create.memoLabel} hint={t.payment.create.memoHint} error={errorFor(errors, ['memo_too_long'], t.payment.create.errors)}>
-              <textarea
-                id={ids.memo}
-                value={memo}
-                rows={2}
-                onChange={(e) => setMemo(e.target.value)}
-                className="taply-input"
-                aria-describedby={`${ids.memo}-hint ${ids.memo}-error`}
-                aria-invalid={errors.includes('memo_too_long') || undefined}
-              />
-            </Field>
-            <Field id={ids.payer} label={t.payment.create.payerLabel} hint={t.payment.create.payerHint} error={errorFor(errors, ['payer_invalid', 'payer_is_recipient'], t.payment.create.errors)}>
-              <input
-                id={ids.payer}
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                value={payer}
-                onChange={(e) => setPayer(e.target.value)}
-                className="taply-input chain-id"
-                aria-describedby={`${ids.payer}-hint ${ids.payer}-error`}
-                aria-invalid={errors.some((e) => e.startsWith('payer')) || undefined}
-              />
-            </Field>
-            <Field id={ids.expiry} label={t.payment.create.expiryLabel} hint={t.payment.create.expiryHint} error={null}>
-              <select
-                id={ids.expiry}
-                value={lifetime}
-                onChange={(e) => setLifetime(e.target.value as FundingLifetime)}
-                className="taply-input"
-                aria-describedby={`${ids.expiry}-hint`}
-              >
-                {(Object.keys(FUNDING_LIFETIMES) as FundingLifetime[]).map((key) => (
-                  <option key={key} value={key}>
-                    {t.payment.create.expiry[key]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <dl>
-              <DetailRow label={t.payment.create.recipientLabel}>
-                <span className="flex flex-col items-end">
-                  <span className="chain-id">{creator}</span>
-                  <span className="text-xs text-[var(--text-muted)]">{t.payment.create.recipientIsYou}</span>
-                </span>
-              </DetailRow>
-              <DetailRow label={t.common.mode}>{t.mode.instant}</DetailRow>
-              <DetailRow label={t.common.network}>{t.app.networkBadge}</DetailRow>
-            </dl>
-            {quoteError !== null && (
-              <InlineNotice copy={quoteError === 'nonce_consumed' ? t.payment.create.nonceConsumed : t.payment.create.quoteFailed} />
             )}
-            <Button type="submit" size="lg" block disabled={!ready || step.kind === 'quoting' || blockingDrafts.length > 0}>
-              {step.kind === 'quoting' ? (
-                <>
-                  <Spinner /> {t.payment.create.quoting}
-                </>
-              ) : (
-                t.payment.create.getQuote
-              )}
-            </Button>
-          </form>
-        </Card>
+          </div>
+
+          {quoteError !== null && (
+            <InlineNotice copy={quoteError === 'nonce_consumed' ? t.payment.create.nonceConsumed : t.payment.create.quoteFailed} />
+          )}
+          <Button type="submit" size="lg" block disabled={!ready || step.kind === 'quoting' || blockingDrafts.length > 0}>
+            {step.kind === 'quoting' ? (
+              <>
+                <Spinner /> {t.payment.create.quoting}
+              </>
+            ) : (
+              t.oneTap.request.continue
+            )}
+          </Button>
+        </form>
       )}
 
       {(step.kind === 'review' || step.kind === 'signing') && (
-        <>
-          <h2 className="text-lg font-semibold">{t.payment.create.quoteTitle}</h2>
-          <RequestTermsPreview terms={step.terms}>
+        <section aria-labelledby="create-review-title" className="animate-page flex flex-col gap-5">
+          <div>
+            <h2 id="create-review-title" className="text-lg font-semibold">
+              {t.payment.create.quoteTitle}
+            </h2>
+            <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{t.oneTap.request.reviewBody}</p>
+          </div>
+          <div>
+            <AmountHero baseUnits={step.terms.amountBaseUnits} size="lg" />
+            {step.terms.memo !== '' && (
+              // Plain text only: memos are untrusted and never rendered as HTML.
+              <p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-secondary)]">“{step.terms.memo}”</p>
+            )}
+          </div>
+          <dl className="surface-card px-4 py-1">
+            <DetailRow label={t.payment.review.recipient} emphasis>
+              <span className="flex flex-col items-end">
+                <AccountId accountId={step.terms.creatorAccountId} />
+                <span className="text-xs font-normal text-[var(--text-muted)]">{t.payment.create.recipientIsYou}</span>
+              </span>
+            </DetailRow>
+            <DetailRow label={t.oneTap.request.whoCanPay}>
+              {step.terms.permittedPayerAccountId === null ? (
+                t.oneTap.request.anyoneMayPay
+              ) : (
+                <AccountId accountId={step.terms.permittedPayerAccountId} />
+              )}
+            </DetailRow>
+            <DetailRow label={t.oneTap.request.payableUntil}>
+              <ChainTime ns={step.terms.fundingExpiresAtNs} />
+            </DetailRow>
+            <DetailRow label={t.common.network}>
+              {t.app.networkBadge} · {t.mode.instant}
+            </DetailRow>
             <DetailRow label={t.payment.create.storageBond} emphasis>
               <Amount baseUnits={step.quote.depositYocto} asset={NEAR_NATIVE} />
             </DetailRow>
             <DetailRow label={t.payment.create.gasLabel}>
               <span className="chain-id">{(BigInt(step.quote.gas) / 1_000_000_000_000n).toString()} Tgas</span>
             </DetailRow>
-          </RequestTermsPreview>
-          <p className="px-1 text-sm text-[var(--text-secondary)]">{t.payment.create.storageBondNote}</p>
-          <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.create.gasNote}</p>
+          </dl>
+          <div className="-mt-2 flex flex-col gap-1 px-1">
+            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{t.payment.create.storageBondNote}</p>
+            <p className="text-xs text-[var(--text-muted)]">{t.payment.create.gasNote}</p>
+          </div>
+
+          <details className="disclosure">
+            <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 px-1 text-sm font-medium text-[var(--text-secondary)]">
+              {t.oneTap.request.technical}
+              <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
+            </summary>
+            <div className="mt-2">
+              <RequestTermsPreview terms={step.terms} />
+            </div>
+          </details>
+
           {result !== null && <SubmitResultNotice result={result} />}
-          {signingBlock !== null ? (
-            <SigningBlockNotice block={signingBlock} />
-          ) : (
-            <Button size="lg" block onClick={() => void onSign()} disabled={step.kind === 'signing'}>
-              {step.kind === 'signing' ? (
-                <>
-                  <Spinner /> {t.payment.signing.waitingForWallet}
-                </>
-              ) : (
-                t.payment.create.createInWallet
-              )}
+          <div className="flex flex-col gap-1">
+            {signingBlock !== null ? (
+              <SigningBlockNotice block={signingBlock} />
+            ) : (
+              <Button size="lg" block onClick={() => void onSign()} disabled={step.kind === 'signing'}>
+                {step.kind === 'signing' ? (
+                  <>
+                    <Spinner /> {t.payment.signing.waitingForWallet}
+                  </>
+                ) : (
+                  t.payment.create.createInWallet
+                )}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              block
+              disabled={step.kind === 'signing'}
+              onClick={() => {
+                setResult(null);
+                setStep({ kind: 'form' });
+              }}
+            >
+              {t.payment.create.edit}
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            block
-            disabled={step.kind === 'signing'}
-            onClick={() => {
-              setResult(null);
-              setStep({ kind: 'form' });
-            }}
-          >
-            {t.payment.create.edit}
-          </Button>
-        </>
+          </div>
+        </section>
       )}
+    </div>
+  );
+}
+
+/** Amount-first input: one large field, the only mandatory one. */
+function AmountField({
+  id,
+  value,
+  onChange,
+  error,
+}: {
+  readonly id: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly error: string | null;
+}) {
+  const t = useT();
+  return (
+    <div className="flex flex-col items-center gap-2 pt-2 text-center">
+      <label htmlFor={id} className="text-sm font-medium text-[var(--text-secondary)]">
+        {t.payment.create.amountLabel}
+      </label>
+      <div className="flex w-full items-baseline justify-center gap-2">
+        <input
+          id={id}
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder={t.experience.create.amountPlaceholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          size={Math.max(1, Math.min(value.length || 1, 14))}
+          className="display-amount min-h-[76px] max-w-[78%] bg-transparent text-center text-[3.5rem] text-[var(--text-primary)] caret-[var(--taply-lime)] placeholder:text-[var(--text-muted)] focus-visible:outline-none min-[400px]:text-[4rem]"
+          aria-describedby={`${id}-hint ${id}-error`}
+          aria-invalid={error !== null || undefined}
+        />
+        <span aria-hidden="true" className="text-2xl font-semibold text-[var(--text-muted)]">
+          NEAR
+        </span>
+      </div>
+      <p id={`${id}-hint`} className="text-xs text-[var(--text-muted)]">
+        {t.payment.create.amountHint}
+      </p>
+      <p id={`${id}-error`} className="min-h-5 text-sm text-[var(--tone-danger-fg)]" role={error === null ? undefined : 'alert'}>
+        {error}
+      </p>
     </div>
   );
 }

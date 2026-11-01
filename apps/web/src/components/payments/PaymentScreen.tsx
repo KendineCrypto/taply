@@ -143,24 +143,29 @@ function PaymentLive({ id }: { readonly id: string }) {
         onRun={run}
         onReattempt={allowReattempt}
       />
-      {view !== null && <Provenance block={block} checkedAt={checkedAt} />}
-      <Button variant="secondary" block onClick={refresh} disabled={loading}>
-        {loading ? (
-          <>
-            <Spinner /> {t.payment.status.refreshing}
-          </>
-        ) : (
-          <>
-            <Icon name="refresh" size={16} /> {t.payment.status.refresh}
-          </>
-        )}
-      </Button>
-      {watching && view?.kind === 'ok' && <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.status.autoRefresh}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        {view !== null && <Provenance block={block} checkedAt={checkedAt} />}
+        <Button variant="ghost" onClick={refresh} disabled={loading} className="-mr-2 px-2">
+          {loading ? (
+            <>
+              <Spinner /> {t.payment.status.refreshing}
+            </>
+          ) : (
+            <>
+              <Icon name="refresh" size={16} /> {t.oneTap.payment.refresh}
+            </>
+          )}
+        </Button>
+      </div>
+      {watching && view?.kind === 'ok' && <p className="-mt-2 px-1 text-xs text-[var(--text-muted)]">{t.payment.status.autoRefresh}</p>}
       {check.status === 'checking' && <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.setup.checking}</p>}
       {attempts.length > 0 && setup.status === 'ready' && (
-        <Card>
-          <h2 className="mb-2 text-sm font-semibold">{t.payment.status.yourAttempts}</h2>
-          <ul className="flex flex-col gap-2 text-sm">
+        <details className="disclosure surface-card px-4 py-1">
+          <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 text-sm font-medium">
+            <span>{t.payment.status.yourAttempts}</span>
+            <Icon name="chevron" size={16} className="disclosure-chevron shrink-0 text-[var(--text-muted)]" />
+          </summary>
+          <ul className="flex flex-col gap-2 pb-3 text-sm">
             {attempts.map(({ entry }) => (
               <li key={`${entry.method}:${entry.signerAccountId}`} className="flex flex-col gap-0.5">
                 <span className="font-mono text-xs">
@@ -173,7 +178,7 @@ function PaymentLive({ id }: { readonly id: string }) {
               </li>
             ))}
           </ul>
-        </Card>
+        </details>
       )}
     </div>
   );
@@ -352,26 +357,6 @@ function RequestView({
       )}
       {response.fundingEligibility === 'EXPIRED' && <InlineNotice copy={t.payment.review.expired} tone="neutral" />}
 
-      <RequestTerms request={request}>
-        {request.payerAccountId !== null && (
-          <DetailRow label={t.payment.status.payerLabel}>
-            <AccountId accountId={request.payerAccountId} />
-          </DetailRow>
-        )}
-        {request.fundedAtNs !== null && (
-          <DetailRow label={t.payment.status.fundedAt}>
-            <ChainTime ns={request.fundedAtNs} />
-          </DetailRow>
-        )}
-        {op !== null && (
-          <DetailRow label={t.payment.status.operationLabel}>
-            <span className="chain-id">
-              #{op.nonce} · {t.payment.status.operationStatus[op.status]}
-            </span>
-          </DetailRow>
-        )}
-      </RequestTerms>
-
       {result !== null && <SubmitResultNotice result={result} />}
       {refused && <InlineNotice copy={t.payment.status.inconsistent} tone="danger" />}
 
@@ -424,10 +409,38 @@ function RequestView({
       )}
 
       {ctaKinds.has('view_receipt') && (
-        <ButtonLink href={`/receipt/${id}`} block>
+        <ButtonLink href={`/receipt/${id}`} variant="primary" size="lg" block>
           {t.common.viewReceipt}
         </ButtonLink>
       )}
+
+      <details className="disclosure">
+        <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 px-1 text-sm font-medium text-[var(--text-secondary)]">
+          {t.oneTap.payment.details}
+          <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
+        </summary>
+        <div className="mt-2">
+          <RequestTerms request={request}>
+            {request.payerAccountId !== null && (
+              <DetailRow label={t.payment.status.payerLabel}>
+                <AccountId accountId={request.payerAccountId} />
+              </DetailRow>
+            )}
+            {request.fundedAtNs !== null && (
+              <DetailRow label={t.payment.status.fundedAt}>
+                <ChainTime ns={request.fundedAtNs} />
+              </DetailRow>
+            )}
+            {op !== null && (
+              <DetailRow label={t.payment.status.operationLabel}>
+                <span className="chain-id">
+                  #{op.nonce} · {t.payment.status.operationStatus[op.status]}
+                </span>
+              </DetailRow>
+            )}
+          </RequestTerms>
+        </div>
+      </details>
     </>
   );
 }
@@ -502,6 +515,9 @@ function PayReview({
         amountBaseUnits={request.terms.amountBaseUnits}
         contractId={request.terms.contractId}
         memo={request.terms.memo}
+        payerAccountId={accountId}
+        permittedPayerAccountId={request.terms.permittedPayerAccountId}
+        payableUntil={stillOpen ? <ChainTime ns={request.terms.fundingExpiresAtNs} /> : null}
       />
       {payGas !== null && (
         <dl>

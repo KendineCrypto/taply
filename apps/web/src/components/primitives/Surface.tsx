@@ -56,8 +56,8 @@ export function DetailRow({
   readonly emphasis?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-0.5 border-b border-[var(--border-subtle)] py-2 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-      <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
+    <div className="flex flex-col gap-0.5 border-b border-[var(--border-subtle)] py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <dt className="shrink-0 text-sm text-[var(--text-muted)]">{label}</dt>
       <dd className={`min-w-0 text-right sm:text-right ${emphasis ? 'font-semibold' : ''}`}>{children}</dd>
     </div>
   );

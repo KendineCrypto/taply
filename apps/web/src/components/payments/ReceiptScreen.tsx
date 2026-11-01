@@ -170,22 +170,25 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           settledAtNs={showVerified && verified !== null ? verified.callbackReceipt.block.timestampNs : facts.terminalAtNs}
           references={ticketReferences}
           explorerBaseUrl={setup.explorerBaseUrl}
-          {...(showVerified && verified !== null ? { checkedVia: verified.verification.rpcProviderId } : {})}
+          {...(showVerified && verified !== null
+            ? {
+                checkedVia: verified.verification.rpcProviderId,
+                celebrateKey: `${id}:${verified.callbackReceipt.receiptId}`,
+                proofActions: <ProofActions receipt={verified} />,
+              }
+            : {})}
           actions={showVerified && verified !== null ? <ShareVerification id={id} receipt={verified} /> : undefined}
         />
       </div>
-      {showVerified && verified !== null && (
-        <p className="px-1 text-sm leading-relaxed text-[var(--text-secondary)]">{v.verifiedNote}</p>
-      )}
       {!showVerified && paid && <VerificationNotice view={verification} onRetry={() => setGeneration((g) => g + 1)} />}
       {!showVerified && paid && (
         <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>
       )}
 
-      <details className="surface-card group p-4">
-        <summary className="flex min-h-[var(--tap-target)] cursor-pointer list-none items-center justify-between gap-3 font-medium">
+      <details className="disclosure">
+        <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 px-1 text-sm font-medium text-[var(--text-secondary)]">
           {t.payment.receipt.factsTitle}
-          <Icon name="chevron" size={18} className="shrink-0 transition-transform group-open:rotate-90" />
+          <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
         </summary>
         <div className="mt-2 flex flex-col gap-3">
           <p className="text-sm text-[var(--text-secondary)]">{t.payment.receipt.factsNote}</p>
@@ -217,9 +220,9 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
               <ChainTime ns={facts.terminalAtNs} />
             </DetailRow>
           </RequestTerms>
+          <Provenance block={observation.observedBlock} checkedAt={observation.checkedAt} />
         </div>
       </details>
-      <Provenance block={observation.observedBlock} checkedAt={observation.checkedAt} />
       <BackToPayment id={id} />
     </div>
   );
@@ -281,8 +284,6 @@ function VerificationNotice({ view, onRetry }: { readonly view: VerificationView
 function ShareVerification({ id, receipt }: { readonly id: string; readonly receipt: VerifiedReceipt }) {
   const t = useT();
   const { status, copy } = useCopy();
-  // Public chain data only (the shared VerifiedReceipt): for pilot evidence and support.
-  const evidence = useCopy();
   if (typeof window === 'undefined') return null;
   const retries = receipt.operationNonce === '1' ? [] : [receipt.settlementTransaction];
   // More than one retry: this device cannot list every hash, so it offers no link.
@@ -292,18 +293,35 @@ function ShareVerification({ id, receipt }: { readonly id: string; readonly rece
     retries,
   });
   return (
-    <div className="flex flex-col gap-1">
-      <Button variant="secondary" onClick={() => copy(link)}>
-        <Icon name="copy" size={16} />
+    <div className="flex flex-col gap-1.5">
+      <Button size="lg" block onClick={() => copy(link)}>
+        <Icon name={status === 'copied' ? 'check' : 'link'} size={18} />
         {status === 'copied' ? t.payment.verification.linkCopied : t.payment.verification.copyLink}
       </Button>
-      <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.verification.linkNote}</p>
-      <Button variant="secondary" onClick={() => evidence.copy(JSON.stringify(receipt, null, 2))}>
-        {evidence.status === 'copied' ? t.payment.verification.evidenceCopied : t.payment.verification.copyEvidence}
-      </Button>
+      <p className="px-1 text-center text-xs text-[var(--text-muted)]">{t.payment.verification.linkNote}</p>
       <span className="sr-only" role="status">
         {status === 'copied' ? t.payment.verification.linkCopied : ''}
       </span>
+    </div>
+  );
+}
+
+/** Inside the collapsed technical proof: what was checked, and the raw evidence. */
+function ProofActions({ receipt }: { readonly receipt: VerifiedReceipt }) {
+  const t = useT();
+  // Public chain data only (the shared VerifiedReceipt): for pilot evidence and support.
+  const evidence = useCopy();
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs leading-relaxed text-[var(--ink-secondary)]">{t.payment.verification.verifiedNote}</p>
+      <button
+        type="button"
+        onClick={() => evidence.copy(JSON.stringify(receipt, null, 2))}
+        className="tap-target inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--ink-line)] px-3 text-sm font-medium text-[var(--ink)] hover:bg-[rgb(11_18_14/0.04)]"
+      >
+        <Icon name={evidence.status === 'copied' ? 'check' : 'copy'} size={16} />
+        {evidence.status === 'copied' ? t.payment.verification.evidenceCopied : t.payment.verification.copyEvidence}
+      </button>
     </div>
   );
 }

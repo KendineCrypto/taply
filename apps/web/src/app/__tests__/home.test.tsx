@@ -192,12 +192,47 @@ describe('home - connected', () => {
 });
 
 describe('home - quick actions and activity', () => {
-  it('offers Send, Receive and Request as real screens (no "Soon" in the primary journey)', async () => {
+  it('has no duplicate shortcut cluster: Tap in the bottom navigation is the one primary action', async () => {
     renderHome(fakeAdapter());
-    expect((await screen.findByRole('link', { name: 'Send' })).getAttribute('href')).toBe('/send');
-    expect(screen.getByRole('link', { name: 'Receive' }).getAttribute('href')).toBe('/receive');
-    expect(screen.getByRole('link', { name: 'Request' }).getAttribute('href')).toBe('/request/new');
+    await screen.findByRole('button', { name: 'Connect wallet' });
+    expect(screen.queryByRole('navigation', { name: 'Quick actions' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Send' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Request' })).toBeNull();
     expect(screen.queryByText(/soon/i)).toBeNull();
+  });
+
+  it('opens the receive address and QR from the account row', async () => {
+    readNativeBalance.mockResolvedValue(verified());
+    renderHome(fakeAdapter({ restore: async () => SESSION }));
+    const row = await screen.findByRole('link', { name: /Show address and QR code/ });
+    expect(row.getAttribute('href')).toBe('/receive');
+    expect(row.textContent).toContain('alice.testnet');
+  });
+
+  it('previews at most three activities with one link to all activity', async () => {
+    readNativeBalance.mockResolvedValue(verified());
+    const storage = memoryStorage();
+    const entries = [1, 2, 3, 4, 5].map((n) => ({
+      method: 'create_request',
+      network: 'near-testnet',
+      contractId: 'pay.testnet',
+      requestId: String(n).repeat(64),
+      termsHash: 'b'.repeat(64),
+      signerAccountId: 'alice.testnet',
+      terms: null,
+      operationNonce: null,
+      phase: 'RESOLVED',
+      transactionHash: null,
+      startedAt: `2026-11-01T10:0${n}:00.000Z`,
+      updatedAt: `2026-11-01T10:0${n}:00.000Z`,
+    }));
+    storage.setItem('taply.journal.v1', JSON.stringify({ version: 1, entries }));
+    renderHome(fakeAdapter({ restore: async () => SESSION }), 'en', storage);
+    expect((await screen.findAllByText('Payment request')).length).toBe(3);
+    // Newest first.
+    expect(document.querySelector(`a[href="/pay/${'5'.repeat(64)}"]`)).not.toBeNull();
+    expect(document.querySelector(`a[href="/pay/${'1'.repeat(64)}"]`)).toBeNull();
+    expect(screen.getByRole('link', { name: 'All activity' }).getAttribute('href')).toBe('/activity');
   });
 
   it('shows the connected wallet as an external wallet, with its name', async () => {
@@ -236,10 +271,11 @@ describe('home - quick actions and activity', () => {
     expect(document.querySelector(`a[href="/pay/${'c'.repeat(64)}"]`)).toBeNull();
   });
 
-  it('offers the product tour, clearly as a tour', async () => {
+  it('shows no permanent demo billboard on the live wallet home', async () => {
     renderHome(fakeAdapter());
-    const tour = await screen.findByRole('link', { name: /See a full payment in 60 seconds/ });
-    expect(tour.getAttribute('href')).toBe('/demo');
+    await screen.findByRole('button', { name: 'Connect wallet' });
+    expect(screen.queryByText(/See a full payment in 60 seconds/)).toBeNull();
+    expect(document.querySelector('a[href="/demo"]')).toBeNull();
   });
 
   it('shows an honest empty activity state instead of invented rows', async () => {

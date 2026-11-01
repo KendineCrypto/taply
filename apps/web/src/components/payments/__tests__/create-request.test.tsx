@@ -21,12 +21,14 @@ beforeEach(() => push.mockReset());
 
 async function fillAndReview(amount: string, extra: { memo?: string; payer?: string } = {}) {
   fireEvent.change(await screen.findByLabelText('Amount (NEAR)'), { target: { value: amount } });
+  // Memo, payer and expiry are optional and live behind "More options".
+  if (extra.memo !== undefined || extra.payer !== undefined) fireEvent.click(screen.getByRole('button', { name: /More options/ }));
   if (extra.memo !== undefined) fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: extra.memo } });
   if (extra.payer !== undefined) {
     fireEvent.change(screen.getByLabelText('Only this account may pay (optional)'), { target: { value: extra.payer } });
   }
   // The button stays disabled until get_config has been verified at a final block.
-  const review = screen.getByRole('button', { name: 'Review request' }) as HTMLButtonElement;
+  const review = screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement;
   await waitFor(() => expect(review.disabled).toBe(false));
   await act(async () => {
     fireEvent.click(review);
@@ -67,7 +69,7 @@ describe('create request', () => {
     expect(terms.id).toBe(calculateRequestId({ contractId: CONTRACT, creationNonce: terms.creationNonce, creatorAccountId: CREATOR, network: 'near-testnet' }));
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Create in wallet' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Create request in wallet' }));
     });
     expect(signed).toEqual([
       {
@@ -105,7 +107,7 @@ describe('create request', () => {
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter: first.adapter, storage });
     await fillAndReview('2');
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Create in wallet' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Create request in wallet' }));
     });
     const original = (must(first.signed[0], 'a first signature').call.args as { terms: IntentTerms }).terms;
     cleanup();
@@ -115,7 +117,7 @@ describe('create request', () => {
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter: second.adapter, storage });
     const notice = (await screen.findByText('A request you started is still unconfirmed')).closest('[role="status"]') as HTMLElement;
     expect(within(notice).queryByRole('button', { name: 'Resume this request' })).toBeNull();
-    expect((screen.getByRole('button', { name: 'Review request' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
     cleanup();
 
     // Later, still not on chain: the SAME terms (same nonce, same id) may be re-signed.
@@ -128,7 +130,7 @@ describe('create request', () => {
       fireEvent.click(resume);
     });
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Create in wallet' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Create request in wallet' }));
     });
     expect((must(third.signed[0], 'a resumed signature').call.args as { terms: IntentTerms }).terms).toEqual(original);
   });
@@ -144,7 +146,63 @@ describe('create request', () => {
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, false), adapter: gated.adapter });
     await fillAndReview('1');
     expect(await screen.findByText('Transactions are switched off')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Create in wallet' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create request in wallet' })).toBeNull();
     expect(gated.signed).toHaveLength(0);
+  });
+
+  it('asks for the amount only; optional fields stay collapsed with safe defaults', async () => {
+    const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
+    const { adapter } = recordingWallet(CREATOR);
+    renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter });
+    expect(await screen.findByLabelText('Amount (NEAR)')).toBeTruthy();
+    // The only editable field at rest is the amount.
+    expect(screen.queryByLabelText('Note (optional)')).toBeNull();
+    expect(screen.queryByLabelText('Only this account may pay (optional)')).toBeNull();
+    expect(screen.queryByLabelText('Payable for')).toBeNull();
+    const toggle = screen.getByRole('button', { name: /More options/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.textContent).toContain('Anyone can pay · payable for 15 minutes');
+    // The recipient is the connected account: shown, never editable.
+    expect(screen.getByText(CREATOR)).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByLabelText('Note (optional)')).toBeTruthy();
+    expect(screen.getByLabelText('Only this account may pay (optional)')).toBeTruthy();
+    expect((screen.getByLabelText('Payable for') as HTMLSelectElement).value).toBe('15m');
+  });
+
+  it('shows the exact terms, bond and network on review before the wallet is ever asked', async () => {
+    const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
+    const { adapter, signed } = recordingWallet(CREATOR);
+    renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter });
+    await fillAndReview('0.1');
+    const review = must((await screen.findByRole('heading', { name: 'Check before you sign' })).closest('section'), 'review');
+    expect(within(review).getByText('Anyone may pay')).toBeTruthy();
+    expect(within(review).getByText('Storage bond')).toBeTruthy();
+    expect(within(review).getByText('0.00586')).toBeTruthy(); // exact bond from the quote
+    expect(within(review).getByText('Payable until')).toBeTruthy();
+    expect(within(review).getAllByText(/NEAR Testnet/).length).toBeGreaterThan(0);
+    expect(within(review).getAllByText(CREATOR).length).toBeGreaterThan(0);
+    expect(within(review).getByText('100000000000000000000000')).toBeTruthy(); // exact yocto in technical details
+    expect(within(review).getByRole('button', { name: 'Create request in wallet' })).toBeTruthy();
+    expect(signed).toHaveLength(0);
+  });
+
+  it('opens the optional settings when one of them is invalid', async () => {
+    const chain = installChain({ contractId: CONTRACT });
+    const { adapter } = recordingWallet(CREATOR);
+    renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter });
+    fireEvent.change(await screen.findByLabelText('Amount (NEAR)'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /More options/ }));
+    fireEvent.change(screen.getByLabelText('Only this account may pay (optional)'), { target: { value: CREATOR } });
+    fireEvent.click(screen.getByRole('button', { name: /More options/ })); // collapsed again
+    const next = screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement;
+    await waitFor(() => expect(next.disabled).toBe(false));
+    await act(async () => {
+      fireEvent.click(next);
+    });
+    expect(screen.getByRole('button', { name: /More options/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('The payer cannot be you.')).toBeTruthy();
+    expect(chain.calls.some((c) => c.methodName === 'quote_create_request')).toBe(false);
   });
 });

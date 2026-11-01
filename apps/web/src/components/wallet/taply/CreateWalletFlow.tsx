@@ -69,16 +69,16 @@ export function CreateWalletFlow() {
     <div className="flex flex-col gap-5">
       <div>
         <p className="eyebrow text-[var(--text-muted)]">{fill(c.stepOf, { n: String(stepIndex) })}</p>
-        <div className="mt-2 grid grid-cols-3 gap-1.5" aria-hidden="true">
+        <div className="mt-2 grid grid-cols-3 gap-1" aria-hidden="true">
           {[1, 2, 3].map((i) => (
-            <span key={i} className={`h-1.5 rounded-full ${i <= stepIndex ? 'bg-[var(--taply-lime)]' : 'bg-[var(--border-strong)]'}`} />
+            <span key={i} className={`h-1 rounded-full transition-colors duration-300 ${i <= stepIndex ? 'bg-[var(--taply-lime)]' : 'bg-[var(--border-subtle)]'}`} />
           ))}
         </div>
       </div>
 
       {step === 'understand' && (
-        <section className="surface-card flex flex-col gap-4 p-5" aria-labelledby="understand-title">
-          <h2 id="understand-title" className="text-lg font-semibold">
+        <section key="understand" className="animate-page flex flex-col gap-4" aria-labelledby="understand-title">
+          <h2 id="understand-title" className="text-xl font-semibold tracking-tight">
             {c.understandTitle}
           </h2>
           {[c.ack1, c.ack2, c.ack3].map((label, i) => (
@@ -101,7 +101,8 @@ export function CreateWalletFlow() {
 
       {step === 'passphrase' && (
         <form
-          className="surface-card flex flex-col gap-4 p-5"
+          key="passphrase"
+          className="animate-page flex flex-col gap-4"
           aria-labelledby="pass-title"
           noValidate
           onSubmit={async (event) => {
@@ -121,7 +122,7 @@ export function CreateWalletFlow() {
             setStep('backup');
           }}
         >
-          <h2 id="pass-title" className="text-lg font-semibold">
+          <h2 id="pass-title" className="text-xl font-semibold tracking-tight">
             {c.passTitle}
           </h2>
           <PassphraseField
@@ -178,17 +179,17 @@ export function CreateWalletFlow() {
       )}
 
       {step === 'backup' && (
-        <section className="flex flex-col gap-4" aria-labelledby="backup-title">
-          <div className="surface-card flex flex-col gap-2 p-5">
+        <section key="backup" className="animate-page flex flex-col gap-4" aria-labelledby="backup-title">
+          <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 id="backup-title" className="text-lg font-semibold">
+              <h2 id="backup-title" className="text-xl font-semibold tracking-tight">
                 {c.createdTitle}
               </h2>
               <TaplyStatusBadge state={state} />
             </div>
             <p className="text-sm text-[var(--text-secondary)]">{c.createdBody}</p>
           </div>
-          <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--tone-caution-border)] bg-[var(--tone-caution-bg)] p-5" role="note">
+          <div className="flex flex-col gap-2 border-l-2 border-[var(--tone-caution-border)] py-1 pl-4" role="note">
             <p className="flex items-center gap-2 font-semibold text-[var(--tone-caution-fg)]">
               <Icon name="alert" size={18} />
               {n.backup.title}

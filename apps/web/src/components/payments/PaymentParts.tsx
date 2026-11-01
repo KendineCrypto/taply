@@ -193,7 +193,7 @@ export function Provenance({ block, checkedAt }: { readonly block: BlockRef | nu
   if (block === null || checkedAt === null) return null;
   const time = new Intl.DateTimeFormat(locale, { timeStyle: 'medium' }).format(new Date(checkedAt));
   return (
-    <p className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs text-[var(--text-muted)]">
+    <p className="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 px-1 text-xs text-[var(--text-muted)]">
       <span>{fill(t.payment.status.observedBlock, { height: block.height })}</span>
       <span>{fill(t.payment.status.checkedAt, { time })}</span>
       <span>{t.payment.setup.verifiedContract}</span>
@@ -229,26 +229,25 @@ export function ShareActions({ link }: { readonly link: string }) {
     () => false,
   );
   return (
-    <div className="flex flex-col gap-2">
-      <div className={`grid grid-cols-1 gap-2 ${canShare ? 'min-[380px]:grid-cols-2' : ''}`}>
-        <Button block size="lg" variant="primary" onClick={() => copy(link)}>
-          <Icon name={status === 'copied' ? 'check' : 'copy'} size={18} />
-          {status === 'copied' ? t.payment.share.linkCopied : t.payment.share.copyLink}
+    <div className="flex flex-col gap-1">
+      {/* One dominant action: native share where available, otherwise copy. */}
+      {canShare && (
+        <Button
+          block
+          size="lg"
+          variant="primary"
+          onClick={() => {
+            void navigator.share({ url: link }).catch(() => undefined);
+          }}
+        >
+          <Icon name="share" size={18} />
+          {t.payment.share.share}
         </Button>
-        {canShare && (
-          <Button
-            block
-            size="lg"
-            variant="secondary"
-            onClick={() => {
-              void navigator.share({ url: link }).catch(() => undefined);
-            }}
-          >
-            <Icon name="share" size={18} />
-            {t.payment.share.share}
-          </Button>
-        )}
-      </div>
+      )}
+      <Button block size={canShare ? 'md' : 'lg'} variant={canShare ? 'ghost' : 'primary'} onClick={() => copy(link)}>
+        <Icon name={status === 'copied' ? 'check' : 'copy'} size={18} />
+        {status === 'copied' ? t.payment.share.linkCopied : t.payment.share.copyLink}
+      </Button>
       <p className="px-1 text-center text-xs text-[var(--text-muted)]">{t.payment.share.body}</p>
       <span className="sr-only" role="status">
         {status === 'copied' ? t.payment.share.linkCopied : ''}
@@ -260,7 +259,7 @@ export function ShareActions({ link }: { readonly link: string }) {
 export function BackToPayment({ id }: { readonly id: string }) {
   const t = useT();
   return (
-    <ButtonLink href={`/pay/${id}`} block>
+    <ButtonLink href={`/pay/${id}`} variant="ghost" block>
       {t.payment.receipt.backToPayment}
     </ButtonLink>
   );

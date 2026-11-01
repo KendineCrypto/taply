@@ -1,16 +1,20 @@
 'use client';
 
-import { ComingSoon } from '@/components/shell/ComingSoon';
+import { ScreenHeader } from '@/components/primitives/Surface';
+import { RecentActivity } from '@/components/home/RecentActivity';
 import { useT } from '@/lib/i18n/provider';
 
-/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
-export default function Page() {
+/**
+ * Activity tab: every request and payment this browser started for the
+ * connected account, from the local journal. Each row opens its status page,
+ * which reads the chain. No synthetic history.
+ */
+export default function ActivityPage() {
   const t = useT();
   return (
-    <ComingSoon
-      title={t.screens.activity}
-      summary={t.routes.activity}
-      icon="activity"
-    />
+    <>
+      <ScreenHeader title={t.oneTap.activity.title} />
+      <RecentActivity preview={false} />
+    </>
   );
 }

@@ -744,4 +744,66 @@ export interface Dictionary {
     readonly notFound: string;
     readonly errorBoundary: string;
   };
+
+  /** Phase 5 one-tap redesign: shell, Tap sheet, simplified home/request/receipt. */
+  readonly oneTap: {
+    readonly nav: { readonly wallet: string; readonly tap: string; readonly activity: string };
+    readonly sheet: {
+      readonly title: string;
+      readonly description: string;
+      readonly close: string;
+      readonly request: { readonly label: string; readonly body: string };
+      readonly pay: { readonly label: string; readonly body: string };
+      readonly send: { readonly label: string; readonly body: string };
+    };
+    readonly payLink: {
+      readonly title: string;
+      readonly body: string;
+      readonly label: string;
+      readonly placeholder: string;
+      readonly open: string;
+      readonly invalid: string;
+      readonly back: string;
+    };
+    readonly menu: {
+      readonly open: string;
+      readonly title: string;
+      readonly wallet: string;
+      readonly receive: string;
+      readonly settings: string;
+      readonly help: string;
+      readonly helpBody: string;
+      readonly language: string;
+      readonly notConnected: string;
+    };
+    readonly home: {
+      readonly allActivity: string;
+      readonly accountRowHint: string;
+    };
+    readonly activity: {
+      readonly title: string;
+      readonly scope: string;
+    };
+    readonly request: {
+      readonly title: string;
+      readonly continue: string;
+      readonly moreOptions: string;
+      readonly defaults: string;
+      readonly anyoneMayPay: string;
+      readonly toYou: string;
+      readonly reviewTitle: string;
+      readonly reviewBody: string;
+      readonly whoCanPay: string;
+      readonly payableUntil: string;
+      readonly technical: string;
+    };
+    readonly payment: {
+      readonly details: string;
+      readonly from: string;
+      readonly refresh: string;
+    };
+    readonly receipt: {
+      readonly technicalProof: string;
+    };
+  };
 }
