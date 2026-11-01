@@ -1,0 +1,20 @@
+{
+  "kind": "SYNTHETIC_LATENCY_NOT_LIVE_SPEED",
+  "baseline": "f69a8e5",
+  "latencyMs": 20,
+  "samplesPerCase": 5,
+  "measurements": {
+    "walletSnapshot": {
+      "beforeMedianMs": 187,
+      "beforeCallsPerSample": 6,
+      "afterMedianMs": 140,
+      "afterCallsPerSample": 6
+    },
+    "eightReceiptBlocks": {
+      "beforeMedianMs": 322,
+      "beforeCallsPerSample": 10,
+      "afterMedianMs": 128,
+      "afterCallsPerSample": 10
+    }
+  }
+}

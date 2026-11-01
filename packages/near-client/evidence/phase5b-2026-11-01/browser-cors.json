@@ -1,0 +1,126 @@
+{
+  "kind": "LOCAL_ORIGIN_CHROMIUM_CORS_NOT_PHYSICAL_DEVICE_ACCEPTANCE",
+  "checkedAt": "2026-11-01T15:58:33.999Z",
+  "results": [
+    {
+      "rpcUrl": "https://rpc.testnet.near.org",
+      "providerId": "near-public-testnet",
+      "device": "desktop",
+      "engine": "156.0.8078.4",
+      "kind": "passed",
+      "blockHash": "8NAiSBQc3T9PQdjLgpwU5kgMRJiSW3hBC22h1vCDJZUK",
+      "calls": [
+        {
+          "method": "status",
+          "httpStatus": 200,
+          "elapsedMs": 5959
+        },
+        {
+          "method": "block",
+          "httpStatus": 200,
+          "elapsedMs": 3083
+        },
+        {
+          "method": "query",
+          "httpStatus": 200,
+          "elapsedMs": 3289
+        },
+        {
+          "method": "EXPERIMENTAL_tx_status",
+          "httpStatus": 200,
+          "elapsedMs": 3225
+        }
+      ]
+    },
+    {
+      "rpcUrl": "https://test.rpc.fastnear.com",
+      "providerId": "fastnear-testnet",
+      "device": "desktop",
+      "engine": "156.0.8078.4",
+      "kind": "passed",
+      "blockHash": "94WUof6w1AKCwtoMgSrEcvMHHrNhP39qfrXg45yY49Y3",
+      "calls": [
+        {
+          "method": "status",
+          "httpStatus": 200,
+          "elapsedMs": 161
+        },
+        {
+          "method": "block",
+          "httpStatus": 200,
+          "elapsedMs": 80
+        },
+        {
+          "method": "query",
+          "httpStatus": 200,
+          "elapsedMs": 113
+        },
+        {
+          "method": "EXPERIMENTAL_tx_status",
+          "httpStatus": 200,
+          "elapsedMs": 83
+        }
+      ]
+    },
+    {
+      "rpcUrl": "https://rpc.testnet.near.org",
+      "providerId": "near-public-testnet",
+      "device": "mobile-emulation",
+      "engine": "156.0.8078.4",
+      "kind": "passed",
+      "blockHash": "BvHFyNHyf48k6DyQ6eW7qMx4dCNmnA25QxYukjcAV335",
+      "calls": [
+        {
+          "method": "status",
+          "httpStatus": 200,
+          "elapsedMs": 3128
+        },
+        {
+          "method": "block",
+          "httpStatus": 200,
+          "elapsedMs": 3108
+        },
+        {
+          "method": "query",
+          "httpStatus": 200,
+          "elapsedMs": 3092
+        },
+        {
+          "method": "EXPERIMENTAL_tx_status",
+          "httpStatus": 200,
+          "elapsedMs": 3100
+        }
+      ]
+    },
+    {
+      "rpcUrl": "https://test.rpc.fastnear.com",
+      "providerId": "fastnear-testnet",
+      "device": "mobile-emulation",
+      "engine": "156.0.8078.4",
+      "kind": "passed",
+      "blockHash": "Fqn8z2y5T9wu4ZA2qtjccyCLzvbhPSg26jZdwH4KH4VH",
+      "calls": [
+        {
+          "method": "status",
+          "httpStatus": 200,
+          "elapsedMs": 248
+        },
+        {
+          "method": "block",
+          "httpStatus": 200,
+          "elapsedMs": 175
+        },
+        {
+          "method": "query",
+          "httpStatus": 200,
+          "elapsedMs": 84
+        },
+        {
+          "method": "EXPERIMENTAL_tx_status",
+          "httpStatus": 200,
+          "elapsedMs": 98
+        }
+      ]
+    }
+  ]
+}

@@ -233,3 +233,30 @@ test('prepared calls follow the ABI exactly and refuse anything the contract wou
   assert.throws(() => prepareCancelUnfunded({ contractId: IN_FLIGHT.terms.contractId, config, request: IN_FLIGHT,
     signerAccountId: IN_FLIGHT.recipientAccountId }));
 });
+
+test('request review keeps exact quoted storage bond and immutable terms despite later form mutation', () => {
+  const terms = structuredClone(IN_FLIGHT.terms); const quote = structuredClone(QUOTE);
+  const config = configFor(terms.contractId);
+  const args = { contractId: terms.contractId, config, terms, quote, signerAccountId: terms.creatorAccountId };
+  const prepared = prepareCreateRequest(args);
+  assert.equal(prepared.depositYocto, quote.depositYocto);
+  assert.equal(BigInt(quote.depositYocto), BigInt(quote.storageBytes) * BigInt(config.storageByteCostYocto));
+  const frozenArgs = structuredClone(prepared.args);
+  terms.amountBaseUnits = (BigInt(terms.amountBaseUnits) + 1n).toString();
+  quote.depositYocto = '1';
+  assert.deepEqual(prepared.args, frozenArgs);
+  assert.notEqual(prepared.depositYocto, quote.depositYocto);
+  assert.throws(() => prepareCreateRequest({ ...args, quote: QUOTE }));
+});
+
+test('every funded or closed request refuses another payment; callbacks and quotes never grant payment authority', () => {
+  for (const request of [IN_FLIGHT, PAID, FAILED, CANCELLED]) {
+    assert.throws(() => preparePayInstantNative({ contractId: request.terms.contractId, config: configFor(request.terms.contractId), request,
+      signerAccountId: 'payer.testnet', observedAtNs: '0' }));
+  }
+  const before = (BigInt(OPEN.terms.fundingExpiresAtNs) - 1n).toString();
+  for (const changes of [{ recipientAccountId: 'attacker.testnet' }, { termsHash: '0'.repeat(64) }, { terms: { ...OPEN.terms, amountBaseUnits: '1' } }]) {
+    assert.throws(() => preparePayInstantNative({ contractId: OPEN.terms.contractId, config: configFor(OPEN.terms.contractId), request: { ...OPEN, ...changes },
+      signerAccountId: 'payer.testnet', observedAtNs: before }));
+  }
+});

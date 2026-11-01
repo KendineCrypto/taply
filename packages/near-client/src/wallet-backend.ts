@@ -213,7 +213,10 @@ export function createReviewedWalletBackend(input: {
         const current = await snapshot();
         const budget = spendingBudget(current, plan.review.depositYocto);
         if (current.nonce !== plan.snapshot.nonce || current.publicKey !== plan.snapshot.publicKey || current.accountId !== plan.snapshot.accountId ||
-          BigInt(current.blockHeight) < BigInt(plan.snapshot.blockHeight) || BigInt(budget.gasReserveYocto) > BigInt(plan.review.gasReserveYocto) ||
+          BigInt(current.blockHeight) < BigInt(plan.snapshot.blockHeight) ||
+          (current.blockHeight === plan.snapshot.blockHeight && current.blockHash !== plan.snapshot.blockHash) ||
+          BigInt(current.blockTimestampNs) < BigInt(plan.snapshot.blockTimestampNs) ||
+          BigInt(budget.gasReserveYocto) > BigInt(plan.review.gasReserveYocto) ||
           BigInt(budget.storageReserveYocto) > BigInt(plan.review.storageReserveYocto)) throw new WalletEngineError("REVIEW_EXPIRED");
         await chain.receiverExists(plan.review.receiverId, current.blockHash);
         if (plan.call) await checkedPayment(plan.call);

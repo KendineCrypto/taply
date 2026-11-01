@@ -46,10 +46,16 @@ export function createWalletChain(config: NearTestnetConfig, fetcher: Fetch = (u
       try { rawAccount = await rpc("query", { request_type: "view_account", account_id: accountId, block_id: block.hash }); }
       catch (e) { if (e instanceof NearClientError && e.code === "ACCOUNT_NOT_FOUND") return null; throw e; }
       const account = anchored(read(AccountSchema, rawAccount), block);
-      const key = anchored(read(z.object({ nonce: RpcU64Schema, permission: z.literal("FullAccess"), block_hash: z.string(), block_height: RpcU64Schema }),
-        await rpc("query", { request_type: "view_access_key", account_id: accountId, public_key: publicKey, block_id: block.hash })), block);
-      const protocol = read(z.object({ runtime_config: z.object({ storage_amount_per_byte: U128Schema }) }), await rpc("EXPERIMENTAL_protocol_config", { block_id: block.hash }));
-      const gas = read(z.object({ gas_price: U128Schema }), await rpc("gas_price", [block.hash]));
+      // Independent reads share the already selected FINAL block. Keep the
+      // account-existence check first so unprovisioned identities remain LOCAL_ONLY.
+      const [rawKey, rawProtocol, rawGas] = await Promise.all([
+        rpc("query", { request_type: "view_access_key", account_id: accountId, public_key: publicKey, block_id: block.hash }),
+        rpc("EXPERIMENTAL_protocol_config", { block_id: block.hash }),
+        rpc("gas_price", [block.hash]),
+      ]);
+      const key = anchored(read(z.object({ nonce: RpcU64Schema, permission: z.literal("FullAccess"), block_hash: z.string(), block_height: RpcU64Schema }), rawKey), block);
+      const protocol = read(z.object({ runtime_config: z.object({ storage_amount_per_byte: U128Schema }) }), rawProtocol);
+      const gas = read(z.object({ gas_price: U128Schema }), rawGas);
       return Object.freeze({ network: "near-testnet", accountId, publicKey, nonce: key.nonce,
         blockHash: block.hash, blockHeight: block.height, blockTimestampNs: block.timestampNs,
         amountYocto: account.amount, storageUsageBytes: account.storage_usage,
