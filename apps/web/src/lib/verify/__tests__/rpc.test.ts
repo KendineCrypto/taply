@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { VerifierRpcError, assertSafeNumbers, createFetchVerifierRpc } from '../rpc';
 import type { VerifierMethod } from '../rpc';
 
@@ -51,7 +52,6 @@ describe('verifier RPC transport', () => {
   it.each([
     ['mismatched id', respond(() => ({ jsonrpc: '2.0', id: 'other', result: {} })), 'MALFORMED'],
     ['result and error', respond(({ id }) => ({ jsonrpc: '2.0', id, result: {}, error: {} })), 'MALFORMED'],
-    ['unsafe integer', respond(({ id }) => ({ jsonrpc: '2.0', id, result: { n: 2 ** 60 } })), 'MALFORMED'],
     ['fractional number', respond(({ id }) => ({ jsonrpc: '2.0', id, result: { n: 1.5 } })), 'MALFORMED'],
     [
       'unknown transaction',
@@ -100,6 +100,36 @@ describe('verifier RPC transport', () => {
       fetcher,
     });
     expect(await codeOf(rpc.call('status', []))).toBe('RPC_UNAVAILABLE');
+  });
+
+  it('reads a genuine Testnet block without rounding its legacy numeric timestamp', async () => {
+    const raw = readFileSync('src/lib/verify/__tests__/fixtures/testnet/final-block.json', 'utf8');
+    const rpc = createFetchVerifierRpc({
+      rpcUrl: 'https://rpc.example',
+      providerId: 'p',
+      fetcher: (async (_url, init) => {
+        const { id } = JSON.parse(String(init?.body)) as { id: string };
+        return new Response(raw.replace('"id":"pilot-check"', `"id":"${id}"`));
+      }) as typeof fetch,
+    });
+    const block = await rpc.call('block', { finality: 'final' }) as {
+      header: { height: number; timestamp: bigint; timestamp_nanosec: string };
+    };
+    expect(block.header.height).toBe(275747769);
+    expect(block.header.timestamp).toBe(1793535606670615924n);
+    expect(block.header.timestamp_nanosec).toBe('1793535606670615924');
+  });
+
+  it('rejects duplicate JSON fields before their values can be overwritten', async () => {
+    const rpc = createFetchVerifierRpc({
+      rpcUrl: 'https://rpc.example',
+      providerId: 'p',
+      fetcher: (async (_url, init) => {
+        const { id } = JSON.parse(String(init?.body)) as { id: string };
+        return new Response(`{"jsonrpc":"2.0","id":"${id}","result":{"n":1,"n":2}}`);
+      }) as typeof fetch,
+    });
+    expect(await codeOf(rpc.call('status', []))).toBe('MALFORMED');
   });
 
   it('refuses any method outside the read-only allowlist', async () => {

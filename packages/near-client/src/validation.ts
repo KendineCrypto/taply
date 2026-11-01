@@ -68,3 +68,26 @@ export function losslessStringify(value: unknown): string {
   if (result === undefined) throw new Error("Cannot serialize JSON");
   return result;
 }
+
+/**
+ * JSON for schema-based RPC consumers: safe integer tokens become numbers;
+ * larger tokens stay exact as bigint. Never coerce numeric tokens into strings
+ * (amount schemas must still reject a number where the wire requires a string).
+ * A consumer's numeric schema must reject bigint for fields it actually uses.
+ */
+export function parseRpcJsonWithIntegers(text: string): unknown {
+  const convert = (value: unknown): unknown => {
+    if (isLosslessNumber(value)) {
+      const token = value.toString();
+      if (!/^-?(0|[1-9][0-9]*)$/.test(token)) throw new Error("Expected RPC integer");
+      const integer = BigInt(token);
+      return integer >= BigInt(Number.MIN_SAFE_INTEGER) && integer <= BigInt(Number.MAX_SAFE_INTEGER)
+        ? Number(integer) : integer;
+    }
+    if (Array.isArray(value)) return value.map(convert);
+    if (typeof value === "object" && value !== null)
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, convert(item)]));
+    return value;
+  };
+  return convert(parseRpcJson(text));
+}
