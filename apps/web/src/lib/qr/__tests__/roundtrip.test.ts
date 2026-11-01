@@ -1,5 +1,7 @@
 import jsQR from 'jsqr';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createFrameDecoder } from '../decoder';
+import { installQrWorkerStub } from '@/test/qr-worker';
 import { encodeQr } from '../encode';
 import { parsePayInput } from '@/lib/payments/pay-link';
 import { canonicalPayUrl } from '@/lib/share/origin';
@@ -11,6 +13,8 @@ import { canonicalPayUrl } from '@/lib/share/origin';
  */
 
 const ID = '9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502';
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+beforeEach(() => { installQrWorkerStub(); });
 
 /** Night-on-cream pixels, 4-module quiet zone, `scale` px per module (as QrCode draws it). */
 function rasterize(text: string, scale: number): { data: Uint8ClampedArray; side: number } {
@@ -34,6 +38,19 @@ function rasterize(text: string, scale: number): { data: Uint8ClampedArray; side
 }
 
 describe('share QR round trip', () => {
+  it('the real bundled scanner decodes an inverted QR on its fourth pass', async () => {
+    const link = canonicalPayUrl('https://pilot.taply.app', ID);
+    const { data, side } = rasterize(link, 4);
+    for (let i = 0; i < data.length; i++) if (i % 4 !== 3) data[i] = 255 - (data[i] ?? 0);
+    vi.stubGlobal('BarcodeDetector', undefined);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(), getImageData: () => ({ data, width: side, height: side }),
+    } as unknown as CanvasRenderingContext2D);
+    const decoder = await createFrameDecoder();
+    const frame = { videoWidth: side, videoHeight: side } as HTMLVideoElement;
+    for (let i = 0; i < 3; i++) expect(await decoder.decode(frame)).toBeNull();
+    expect(await decoder.decode(frame)).toBe(link);
+  });
   it('a canonical pay link survives encode → bundled decode → parse', () => {
     const link = canonicalPayUrl('https://pilot.taply.app', ID);
     const { data, side } = rasterize(link, 4);

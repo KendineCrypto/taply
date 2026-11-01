@@ -23,8 +23,8 @@ export type VerificationView =
     };
 
 /**
- * Runs the independent receipt verifier once per (request, references, retry
- * tick). Read-only. The result is kept in memory only: a VerifiedReceipt is
+ * Runs the independent receipt verifier with bounded retries for transient RPC
+ * lag/finality failures. Read-only. The result is kept in memory only: a VerifiedReceipt is
  * never cached in storage, so a later visit re-verifies against the chain.
  */
 export function useReceiptVerification(input: {
@@ -42,7 +42,8 @@ export function useReceiptVerification(input: {
   const complete = references?.complete === true;
   const key =
     applicable && rpc !== null && complete && funding !== null
-      ? [request.terms.id, funding.hash, ...retries.map((r) => r.hash), generation].join(':')
+      ? JSON.stringify([contractId, approvedCodeHash, rpc.providerId, request.terms.id, request.termsHash,
+          request.latestOperation?.nonce, funding, retries, generation])
       : null;
   const [result, setResult] = useState<{
     key: string;
@@ -52,14 +53,24 @@ export function useReceiptVerification(input: {
   useEffect(() => {
     if (key === null || rpc === null || request === null || funding === null) return;
     let active = true;
-    void verifyInstantReceipt({
-      rpc,
-      contractId,
-      approvedCodeHash,
-      requestId: request.terms.id,
-      fundingTransaction: funding,
-      retryTransactions: retries,
-    }).then((outcome) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let retriesUsed = 0;
+    let waitingForVisible = false;
+    const run = async () => {
+      if (!active) return;
+      if (document.visibilityState === 'hidden') {
+        waitingForVisible = true;
+        return;
+      }
+      waitingForVisible = false;
+      const outcome = await verifyInstantReceipt({
+        rpc,
+        contractId,
+        approvedCodeHash,
+        requestId: request.terms.id,
+        fundingTransaction: funding,
+        retryTransactions: retries,
+      });
       if (!active) return;
       setResult({
         key,
@@ -72,11 +83,21 @@ export function useReceiptVerification(input: {
                 transient: outcome.transient,
               },
       });
-    });
+      if (outcome.kind !== 'verified' && outcome.transient && retriesUsed < 3) {
+        timer = setTimeout(() => void run(), [1_000, 3_000, 10_000][retriesUsed++]);
+      }
+    };
+    const onVisible = () => {
+      if (waitingForVisible && document.visibilityState === 'visible') void run();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    void run();
     return () => {
       active = false;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-    // `key` captures request ID, references and generation.
+    // `key` captures the contract/version, request terms/operation, references and generation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, rpc, contractId, approvedCodeHash]);
 

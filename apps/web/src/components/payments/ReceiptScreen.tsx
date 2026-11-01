@@ -48,7 +48,10 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
   const t = useT();
   const { setup, journal, walletReturnsPending } = usePayments();
   const accountId = useAccountId();
-  const [read, setRead] = useState<ReadResult<TerminalFactsRead> | null>(null);
+  const [readState, setRead] = useState<{ id: string; result: ReadResult<TerminalFactsRead> } | null>(null);
+  // A previous route's terminal facts must disappear in the very first render
+  // of a new ID, before the asynchronous read/effect runs.
+  const read = readState?.id === id ? readState.result : null;
   // The server renders without the query string; the client reads it after hydration.
   const search = useSyncExternalStore(
     noSubscription,
@@ -63,7 +66,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
     if (!validId || setup.status !== 'ready') return;
     let active = true;
     void setup.reader.readTerminalFacts(id).then((result) => {
-      if (active) setRead(result);
+      if (active) setRead({ id, result });
     });
     return () => {
       active = false;
@@ -73,7 +76,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
   const facts = read !== null && read.error === null ? (read.observation.data?.facts ?? null) : null;
   const ready = setup.status === 'ready' ? setup : null;
   const request =
-    facts !== null && ready !== null && facts.request.terms.contractId === ready.contractId ? facts.request : null;
+    facts !== null && ready !== null && facts.request.terms.id === id && facts.request.terms.contractId === ready.contractId ? facts.request : null;
   const entries = journal?.isReadable() ? journal.forRequest(id) : [];
   const references = request === null ? null : collectReferences(request, entries, hints);
   const verification = useReceiptVerification({

@@ -14,6 +14,8 @@ import { CAMERA_CONSTRAINTS } from '@/lib/qr/camera';
 
 const ID = '9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502';
 const ORIGIN = 'https://pay.taply.app';
+const route = vi.hoisted(() => ({ pathname: '/scan' }));
+vi.mock('next/navigation', () => ({ usePathname: () => route.pathname }));
 
 type GetUserMedia = (constraints?: MediaStreamConstraints) => Promise<MediaStream>;
 
@@ -40,6 +42,7 @@ function scriptedDecoder() {
   const decoder: FrameDecoder = {
     kind: 'bundled',
     decode: vi.fn(async () => (queue.length > 0 ? (queue.shift() ?? null) : null)),
+    dispose: vi.fn(),
   };
   return { decoder, queue, factory: vi.fn(async () => decoder) };
 }
@@ -69,6 +72,8 @@ function renderScanner(props: Partial<QrScannerProps> & Pick<QrScannerProps, 'me
 const status = () => screen.getByRole('status', { hidden: true }).textContent ?? '';
 
 beforeEach(() => {
+  route.pathname = '/scan';
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
   setReducedMotion(true);
   // jsdom has no media pipeline: report a playable frame and a no-op play().
   Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { configurable: true, get: () => 4 });
@@ -81,6 +86,109 @@ afterEach(() => {
 });
 
 describe('QrScanner', () => {
+  it('a decoder loaded after dismissal is disposed instead of starting a scan', async () => {
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    let load!: (decoder: FrameDecoder) => void;
+    const factory = vi.fn(() => new Promise<FrameDecoder>((resolve) => { load = resolve; }));
+    const { onRequest } = renderScanner({ media: cam.media, createDecoder: factory });
+    await waitFor(() => expect(factory).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Close scanner', hidden: true }));
+    await act(async () => load(dec.decoder));
+    expect(dec.decoder.dispose).toHaveBeenCalled();
+    expect(dec.decoder.decode).not.toHaveBeenCalled();
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+
+  it('a camera track ending externally stops the session and offers retry', async () => {
+    const track = Object.assign(new EventTarget(), { stop: vi.fn() });
+    const media = { getUserMedia: vi.fn(async () => ({ getTracks: () => [track] }) as unknown as MediaStream) };
+    const dec = scriptedDecoder();
+    renderScanner({ media, createDecoder: dec.factory });
+    await waitFor(() => expect(status()).toBe('Looking for a payment QR code'));
+    act(() => track.dispatchEvent(new Event('ended')));
+    expect(status()).toBe('Camera unavailable');
+    expect(track.stop).toHaveBeenCalled();
+    expect(dec.decoder.dispose).toHaveBeenCalled();
+  });
+  it.each(['Close scanner', 'Paste a link instead'])('%s releases hardware without waiting for a parent unmount', async (name) => {
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    renderScanner({ media: cam.media, createDecoder: dec.factory });
+    await waitFor(() => expect(status()).toBe('Looking for a payment QR code'));
+    fireEvent.click(screen.getByRole('button', { name, hidden: true }));
+    expect(cam.tracks[0]?.stop).toHaveBeenCalled();
+    expect(dec.decoder.dispose).toHaveBeenCalled();
+  });
+
+  it('pagehide releases tracks synchronously, before React processes state', async () => {
+    const cam = fakeCamera();
+    renderScanner({ media: cam.media, createDecoder: scriptedDecoder().factory });
+    await waitFor(() => expect(status()).toBe('Looking for a payment QR code'));
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+      expect(cam.tracks[0]?.stop).toHaveBeenCalled();
+    });
+  });
+
+  it('does not request camera access when initially hidden', async () => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    const cam = fakeCamera();
+    renderScanner({ media: cam.media, createDecoder: scriptedDecoder().factory });
+    await waitFor(() => expect(status()).toBe('Camera paused'));
+    expect(cam.media.getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it('a playback rejection stops tracks and offers retry instead of an endless scanner', async () => {
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      configurable: true, value: () => Promise.reject(new DOMException('blocked', 'NotAllowedError')),
+    });
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    renderScanner({ media: cam.media, createDecoder: dec.factory });
+    await waitFor(() => expect(status()).toBe('Camera unavailable'));
+    expect(cam.tracks[0]?.stop).toHaveBeenCalled();
+    expect(dec.factory).not.toHaveBeenCalled();
+  });
+
+  it('a scan completing after pagehide cannot navigate', async () => {
+    const cam = fakeCamera();
+    let finish!: (text: string) => void;
+    const decode = vi.fn(() => new Promise<string>((resolve) => { finish = resolve; }));
+    const { onRequest } = renderScanner({ media: cam.media, createDecoder: async () => ({ kind: 'native', decode }) });
+    await waitFor(() => expect(decode).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+      finish(ID);
+    });
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+
+  it('backgrounding during success cancels delayed navigation', async () => {
+    setReducedMotion(false);
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    dec.queue.push(ID);
+    const { onRequest } = renderScanner({ media: cam.media, createDecoder: dec.factory });
+    await waitFor(() => expect(status()).toBe('Payment found. Opening the request…'));
+    act(() => window.dispatchEvent(new Event('pagehide')));
+    await new Promise((resolve) => setTimeout(resolve, SUCCESS_HOLD_MS + 50));
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+
+  it('browser back dismisses and a route change in the persistent shell stops the camera', async () => {
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    const view = renderScanner({ media: cam.media, createDecoder: dec.factory });
+    await waitFor(() => expect(status()).toBe('Looking for a payment QR code'));
+    act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+    expect(cam.tracks[0]?.stop).toHaveBeenCalled();
+    expect(view.onClose).toHaveBeenCalledTimes(1);
+    route.pathname = '/activity';
+    view.rerender(<I18nProvider locale="en"><QrScanner secureContext media={cam.media} createDecoder={dec.factory} onClose={view.onClose} onRequest={view.onRequest} onPasteLink={view.onPasteLink} /></I18nProvider>);
+    expect(view.onClose).toHaveBeenCalledTimes(2);
+    expect(cam.media.getUserMedia).toHaveBeenCalledTimes(1);
+  });
   it('asks for the rear camera (no audio) on open, and decodes on this device', async () => {
     const cam = fakeCamera();
     const dec = scriptedDecoder();

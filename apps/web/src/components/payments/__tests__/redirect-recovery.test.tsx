@@ -138,8 +138,8 @@ describe('static guard: redirect recovery cannot sign', () => {
     const source = readFileSync(`${process.cwd()}/src/lib/payments/wallet-return.ts`, 'utf8');
     const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(code).not.toMatch(/signAndSend|WalletAdapter|near-connect|submitCall|broadcast_tx|send_tx/);
-    // Only these modules are imported: schemas, read-only RPC types, the journal.
+    // Only schemas/hashing, read-only RPC, the journal and its storage mutex.
     const imports = [...code.matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort();
-    expect(imports).toEqual(['./journal', '@/lib/verify/rpc', '@/lib/verify/rpc', 'zod']);
+    expect(imports).toEqual(['./journal', './journal-lock', './journal-lock', '@/lib/protocol', '@/lib/verify/rpc', '@/lib/verify/rpc', 'zod']);
   });
 });

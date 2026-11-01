@@ -1,4 +1,5 @@
-import { cleanup, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReceiptScreen } from '../ReceiptScreen';
 import {
@@ -75,6 +76,35 @@ function journalWith(request: ContractRequest, hash: string) {
 }
 
 describe('receipt verification on /receipt/[id]', () => {
+  it('a route change immediately removes the previous receipt while the new read is pending', async () => {
+    const { setup, verifierChain } = setupFor(paidRestricted);
+    if (setup.status !== 'ready') throw new Error('ready setup required');
+    const original = setup.reader.readTerminalFacts.bind(setup.reader);
+    const otherId = 'f'.repeat(64);
+    const delayed = { ...setup, reader: { ...setup.reader, readTerminalFacts: (id: string) =>
+      id === otherId ? new Promise<Awaited<ReturnType<typeof original>>>(() => undefined) : original(id) } };
+    const storage = journalWith(paidRestricted, verifierChain.input.fundingTransaction.hash);
+    function Routes() {
+      const [id, setId] = useState(paidRestricted.terms.id);
+      return <><button onClick={() => setId(otherId)}>Another receipt</button><ReceiptScreen id={id} /></>;
+    }
+    renderWithChain(<Routes />, { setup: delayed, adapter: recordingWallet(null).adapter, storage });
+    expect(await screen.findByTestId('verified-evidence', {}, { timeout: 5000 })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Another receipt' }));
+    expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
+    expect(screen.queryByTestId('verified-evidence')).toBeNull();
+  });
+
+  it('terminal facts for a different request ID cannot verify the requested route', async () => {
+    const { setup, verifierChain } = setupFor(paidRestricted);
+    if (setup.status !== 'ready') throw new Error('ready setup required');
+    const original = setup.reader.readTerminalFacts.bind(setup.reader);
+    const wrongRead = { ...setup, reader: { ...setup.reader, readTerminalFacts: () => original(paidRestricted.terms.id) } };
+    const storage = journalWith(paidRestricted, verifierChain.input.fundingTransaction.hash);
+    renderWithChain(<ReceiptScreen id={'f'.repeat(64)} />, { setup: wrongRead, adapter: recordingWallet(null).adapter, storage });
+    expect(await screen.findByText('No receipt yet')).toBeTruthy();
+    expect(screen.queryByTestId('verified-evidence')).toBeNull();
+  });
   it('shows Verified Paid only after the verifier confirms the receipts (journal hash)', async () => {
     const { setup, verifierChain } = setupFor(paidRestricted);
     const storage = journalWith(paidRestricted, verifierChain.input.fundingTransaction.hash);

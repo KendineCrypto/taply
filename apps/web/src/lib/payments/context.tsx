@@ -169,7 +169,8 @@ export function PaymentsProvider({
   const [journalVersion, setJournalVersion] = useState(0);
   const [inbox] = useState<WalletReturnInbox | null>(() => {
     const storage = injectedStorage === undefined ? browserStorage() : injectedStorage;
-    return storage === null ? null : new WalletReturnInbox(storage);
+    const lock = injectedLock === undefined ? browserJournalLock() : injectedLock;
+    return storage === null ? null : new WalletReturnInbox(storage, undefined, lock);
   });
   // Known before the first pass finishes, so screens can wait for a returned hash.
   const [walletReturnsPending, setWalletReturnsPending] = useState<number>(() => {
@@ -183,19 +184,28 @@ export function PaymentsProvider({
   // after the chain confirms them. Read-only; never signs or resubmits.
   useEffect(() => {
     if (inbox === null || journal === null || typeof window === 'undefined') return;
-    captureWalletReturn(inbox, window.location, (url) => window.history.replaceState(window.history.state, '', url));
     const rpc = setup.status === 'ready' ? setup.verifierRpc : null;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let passes = 0;
     const pass = () => {
-      void processWalletReturns({ inbox, journal, rpc }).then(
+      void (async () => {
+        // Capture before stripping, even if storage was temporarily full/unavailable.
+        // A failed capture leaves the original URL available for the next pass.
+        await captureWalletReturn(inbox, window.location, (url) => window.history.replaceState(window.history.state, '', url)).catch(() => undefined);
+        return processWalletReturns({ inbox, journal, rpc });
+      })().then(
         ({ journalChanged, pending }) => {
           if (!active) return;
           setWalletReturnsPending(pending);
           if (journalChanged) setJournalVersion((v) => v + 1);
-          if (pending > 0) timer = setTimeout(pass, 5_000);
+          if (pending > 0 || parseWalletReturn(window.location.search) !== null) {
+            timer = setTimeout(pass, Math.min(5_000 * 2 ** Math.min(passes++, 3), 30_000));
+          }
         },
-        () => undefined,
+        () => {
+          if (active) timer = setTimeout(pass, 30_000);
+        },
       );
     };
     pass();

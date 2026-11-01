@@ -111,9 +111,9 @@ function PaymentLive({ id }: { readonly id: string }) {
   // travels with the receipt link.
   const matchingReturn = walletReturnsPending > 0 && setup.status === 'ready' && setup.verifierRpc !== null;
   useEffect(() => {
-    if (view?.kind !== 'ok' || matchingReturn) return;
+    if (view?.kind !== 'ok') return;
     const own = ownFundingAttempt(view.request, entries, Date.now());
-    if (own === null || !claimFollowUp(sessionFollowUpStorage(), own)) return;
+    if (own === null || (own.transactionHash === null && matchingReturn) || !claimFollowUp(sessionFollowUpStorage(), own)) return;
     router.push(receiptPath(view.request, entries));
   }, [view, entries, router, matchingReturn]);
 

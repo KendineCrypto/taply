@@ -50,6 +50,26 @@ function tabs(lock: JournalLock = inProcessJournalLock()) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('journal lock', () => {
+  it('late work for a replaced attempt cannot resolve or attach a hash to the new attempt', async () => {
+    const storage = memory();
+    const journal = new SubmissionJournal(storage, () => new Date('2026-11-01T10:00:00Z'), inProcessJournalLock());
+    const first = await journal.begin(entry(A));
+    await journal.update(first, { phase: 'RESOLVED' });
+    const second = await journal.begin(entry(A));
+    expect(second.startedAt).not.toBe(first.startedAt);
+    await expect(journal.update(first, { phase: 'RESOLVED', transactionHash: TX })).rejects.toThrow('superseded');
+    expect(journal.find(A, 'pay_instant_native', 'payer.testnet')).toEqual(second);
+    await expect(journal.begin(entry(A))).rejects.toThrow(JournalBlockedError);
+  });
+
+  it('concurrent recovery cannot overwrite a known hash or downgrade a submitted attempt', async () => {
+    const { one, two } = tabs();
+    const target = await one.begin(entry(A));
+    await one.update(target, { phase: 'SUBMITTED', transactionHash: TX });
+    await two.update(target, { phase: 'SUBMITTED', transactionHash: '1'.repeat(32) });
+    await two.update(target, { phase: 'USER_REJECTED' });
+    expect(one.find(A, 'pay_instant_native', 'payer.testnet')).toMatchObject({ phase: 'SUBMITTED', transactionHash: TX });
+  });
   it('concurrent attempts for the same request from two tabs open the wallet once', async () => {
     const { one, two } = tabs();
     let prompts = 0;

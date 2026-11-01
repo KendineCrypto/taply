@@ -2,6 +2,9 @@ import { z } from 'zod';
 import type { VerifierRpc } from '@/lib/verify/rpc';
 import { VerifierRpcError } from '@/lib/verify/rpc';
 import type { JournalEntry, JournalStorage, SubmissionJournal } from './journal';
+import { browserJournalLock } from './journal-lock';
+import type { JournalLock } from './journal-lock';
+import { calculateTermsHash, parseStrictJson } from '@/lib/protocol';
 
 /**
  * Wallet redirect recovery (Phase 2D, priority B).
@@ -25,11 +28,8 @@ import type { JournalEntry, JournalStorage, SubmissionJournal } from './journal'
  *  - hashes are only hints; a hash that does not match a pending entry on chain
  *    is dropped, and a matching one only adds an explorer link and a reference
  *    for the receipt verifier, which re-checks everything itself;
- *  - an explicit decline can only move an AWAITING_SIGNATURE entry to
- *    USER_REJECTED. Even if forged, the worst case is a second wallet prompt the
- *    person must approve again; the contract accepts one funding per request,
- *    consumes each creation nonce once and checks retry nonces, so a duplicate
- *    can never move funds twice (sandbox-verified);
+ *  - an unsigned error/decline is only a hint, never authority to unblock an
+ *    attempt. It remains OUTCOME_UNKNOWN until reconciled with the chain;
  *  - `errorMessage` is never stored or rendered.
  */
 
@@ -39,8 +39,9 @@ export const WALLET_RETURN_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 /** An entry that started longer ago than this is not matched to a fresh return. */
 const ENTRY_MATCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_ITEMS = 20;
-/** Passes after which an unplaceable hash is given up on (the entry stays blocking). */
+/** Backoff saturation; references remain available for the full retention window. */
 export const WALLET_RETURN_MAX_ATTEMPTS = 60;
+export const WALLET_RETURN_RPC_BUDGET = 4;
 const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const RETURN_PARAMS = ['transactionHashes', 'errorCode', 'errorMessage'] as const;
 
@@ -85,6 +86,7 @@ export class WalletReturnInbox {
   constructor(
     private readonly storage: JournalStorage,
     private readonly now: () => Date = () => new Date(),
+    private readonly lock: JournalLock | null = browserJournalLock(),
   ) {}
 
   items(): Item[] {
@@ -102,11 +104,18 @@ export class WalletReturnInbox {
   }
 
   /** Adds a return. The same return delivered twice (duplicate callback) is stored once. */
-  add(ret: WalletReturn): void {
+  async add(ret: WalletReturn): Promise<void> {
+    const task = () => this.addLocked(ret);
+    if (this.lock === null) task();
+    else await this.lock.run(task);
+  }
+
+  private addLocked(ret: WalletReturn): void {
     const id =
       ret.kind === 'hashes' ? `hashes:${[...ret.hashes].sort().join(',')}` : `${ret.kind}:${this.now().toISOString()}`;
     const items = this.items();
     if (items.some((i) => i.id === id)) return;
+    if (items.length >= MAX_ITEMS) throw new Error('wallet-return inbox full');
     items.push({
       id,
       kind: ret.kind,
@@ -114,11 +123,26 @@ export class WalletReturnInbox {
       receivedAt: this.now().toISOString(),
       attempts: 0,
     });
-    this.write(items.slice(-MAX_ITEMS));
+    this.write(items);
   }
 
-  replace(items: Item[]): void {
-    this.write(items);
+  /** Commit only unchanged items from this pass; concurrent arrivals/decisions survive. */
+  async complete(snapshot: Item[], keep: Item[]): Promise<number> {
+    const task = () => {
+      const next = this.items().flatMap((current) => {
+        const before = snapshot.find((item) => item.id === current.id);
+        if (before === undefined || JSON.stringify(before) !== JSON.stringify(current)) return [current];
+        const retained = keep.find((item) => item.id === current.id);
+        return retained === undefined ? [] : [retained];
+      });
+      // Rotate the bounded queue so one unavailable transaction cannot starve
+      // other returns of the next pass's RPC budget.
+      const first = next.shift();
+      if (first !== undefined) next.push(first);
+      this.write(next);
+      return next.length;
+    };
+    return this.lock === null ? task() : this.lock.run(task);
   }
 
   private write(items: Item[]): void {
@@ -127,15 +151,18 @@ export class WalletReturnInbox {
 }
 
 /** Captures a wallet return from the current URL, then strips it. Returns true if one was found. */
-export function captureWalletReturn(
+export async function captureWalletReturn(
   inbox: WalletReturnInbox,
   location: { readonly href: string; readonly search: string },
   replaceUrl: (url: string) => void,
-): boolean {
+): Promise<boolean> {
+  const href = location.href;
   const ret = parseWalletReturn(location.search);
   if (ret === null) return false;
-  inbox.add(ret);
-  replaceUrl(stripWalletReturn(location.href));
+  await inbox.add(ret);
+  // The page may have navigated or received a different callback while waiting
+  // for the storage lock. Never strip parameters we have not captured.
+  if (location.href === href) replaceUrl(stripWalletReturn(href));
   return true;
 }
 
@@ -195,11 +222,23 @@ export async function matchTransaction(rpc: VerifierRpc, hash: string, entry: Jo
   if (!call.success || call.data.FunctionCall.method_name !== entry.method) return 'mismatch';
   let args: unknown;
   try {
-    args = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(base64Bytes(call.data.FunctionCall.args)));
+    args = parseStrictJson(new TextDecoder('utf-8', { fatal: true }).decode(base64Bytes(call.data.FunctionCall.args)));
   } catch {
     return 'mismatch';
   }
-  return requestIdOf(entry.method, args) === entry.requestId ? 'match' : 'mismatch';
+  if (requestIdOf(entry.method, args) !== entry.requestId) return 'mismatch';
+  const record = args as Record<string, unknown>;
+  if (entry.method === 'create_request') {
+    try {
+      return calculateTermsHash(record['terms'] as NonNullable<JournalEntry['terms']>) === entry.termsHash ? 'match' : 'mismatch';
+    } catch {
+      return 'mismatch';
+    }
+  }
+  if (entry.method === 'retry_native_transfer') {
+    return record['expectedOperationNonce'] === entry.operationNonce ? 'match' : 'mismatch';
+  }
+  return record['expectedTermsHash'] === entry.termsHash ? 'match' : 'mismatch';
 }
 
 function base64Bytes(base64: string): Uint8Array {
@@ -262,25 +301,32 @@ export async function processWalletReturns(input: {
   if (!journal.isReadable()) return { journalChanged: false, pending: inbox.items().length };
   let journalChanged = false;
   const keep: Item[] = [];
+  const snapshot = inbox.items();
+  // One lookup per hash/signer, with a hard per-pass network budget. Large or
+  // forged inboxes cannot fan out into thousands of sequential RPC requests.
+  const lookups = new Map<string, Promise<unknown>>();
+  const queriedHashes = new Set<string>();
+  const boundedRpc: VerifierRpc | null = rpc === null ? null : {
+    providerId: rpc.providerId,
+    call(method, params) {
+      const key = JSON.stringify([method, params]);
+      const existing = lookups.get(key);
+      if (existing !== undefined) return existing;
+      if (lookups.size >= WALLET_RETURN_RPC_BUDGET) return Promise.reject(new VerifierRpcError('RPC_UNAVAILABLE'));
+      queriedHashes.add((params as { tx_hash: string }).tx_hash);
+      const result = rpc.call(method, params);
+      lookups.set(key, result);
+      return result;
+    },
+  };
+  const retain = (item: Item): Item => ({ ...item, attempts: Math.min(item.attempts + 1, WALLET_RETURN_MAX_ATTEMPTS) });
 
-  for (const item of inbox.items()) {
+  for (const item of snapshot) {
     // Stale returns are forgotten; their entries stay blocking until the chain explains them.
     if (now.getTime() - Date.parse(item.receivedAt) > WALLET_RETURN_MAX_AGE_MS) continue;
-    if (item.attempts >= WALLET_RETURN_MAX_ATTEMPTS) continue;
     const open = candidates(journal, now);
 
-    if (item.kind === 'rejected') {
-      // Only an attempt still waiting for the wallet can have been declined, and
-      // only when exactly one is waiting: otherwise the decline cannot be attributed.
-      const awaiting = open.filter((e) => e.phase === 'AWAITING_SIGNATURE');
-      const [only] = awaiting;
-      if (only !== undefined && awaiting.length === 1) {
-        await journal.update(only, { phase: 'USER_REJECTED' });
-        journalChanged = true;
-      }
-      continue;
-    }
-    if (item.kind === 'error') {
+    if (item.kind === 'error' || item.kind === 'rejected') {
       // The wallet came back with an unexplained error: something may have been
       // sent. Waiting attempts become OUTCOME_UNKNOWN (still blocking).
       for (const e of open.filter((x) => x.phase === 'AWAITING_SIGNATURE')) {
@@ -296,8 +342,8 @@ export async function processWalletReturns(input: {
       await journal.update(e, { phase: 'OUTCOME_UNKNOWN' });
       journalChanged = true;
     }
-    if (rpc === null) {
-      keep.push({ ...item, attempts: item.attempts + 1 });
+    if (boundedRpc === null) {
+      keep.push(retain(item));
       continue;
     }
     const unbound: string[] = [];
@@ -305,7 +351,7 @@ export async function processWalletReturns(input: {
       let bound = false;
       let undecided = false;
       for (const entry of hashCandidates(journal, now)) {
-        const verdict = await matchTransaction(rpc, hash, entry);
+        const verdict = await matchTransaction(boundedRpc, hash, entry);
         if (verdict === 'match') {
           // The journal keeps a RESOLVED entry RESOLVED (journal.ts); otherwise SUBMITTED.
           await journal.update(entry, { phase: 'SUBMITTED', transactionHash: hash });
@@ -318,9 +364,13 @@ export async function processWalletReturns(input: {
       // A hash no pending entry claims is dropped; one the chain cannot place yet is retried later.
       if (!bound && undecided) unbound.push(hash);
     }
-    if (unbound.length > 0) keep.push({ ...item, hashes: unbound, attempts: item.attempts + 1 });
+    if (unbound.length > 0) {
+      // Hashes deferred by the budget get first turn next time.
+      unbound.sort((a, b) => queriedHashes.has(a) === queriedHashes.has(b) ? 0 : queriedHashes.has(a) ? 1 : -1);
+      keep.push(retain({ ...item, hashes: unbound }));
+    }
   }
 
-  inbox.replace(keep);
-  return { journalChanged, pending: keep.length };
+  const pending = await inbox.complete(snapshot, keep);
+  return { journalChanged, pending };
 }

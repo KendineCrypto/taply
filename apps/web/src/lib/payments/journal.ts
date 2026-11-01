@@ -134,7 +134,9 @@ export class SubmissionJournal {
   private beginLocked(entry: Omit<JournalEntry, 'phase' | 'transactionHash' | 'startedAt' | 'updatedAt'>): JournalEntry {
     const existing = this.find(entry.requestId, entry.method, entry.signerAccountId);
     if (existing !== null && isBlocking(existing)) throw new JournalBlockedError(existing);
-    const at = this.now().toISOString();
+    // startedAt also identifies this attempt. Two consecutive attempts in the
+    // same millisecond must not share an identity.
+    const at = new Date(Math.max(this.now().getTime(), existing === null ? 0 : Date.parse(existing.startedAt) + 1)).toISOString();
     const next = JournalEntrySchema.parse({
       ...entry,
       phase: 'AWAITING_SIGNATURE',
@@ -148,7 +150,7 @@ export class SubmissionJournal {
 
   /** Changes one entry. Re-reads storage under the lock so other tabs' entries survive. */
   async update(
-    target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'>,
+    target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'> & Partial<Pick<JournalEntry, 'startedAt'>>,
     change: { readonly phase: JournalPhase; readonly transactionHash?: string | null },
   ): Promise<JournalEntry> {
     if (this.lock === null) return this.updateLocked(target, change);
@@ -156,21 +158,24 @@ export class SubmissionJournal {
   }
 
   private updateLocked(
-    target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'>,
+    target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'> & Partial<Pick<JournalEntry, 'startedAt'>>,
     change: { readonly phase: JournalPhase; readonly transactionHash?: string | null },
   ): JournalEntry {
     const entries = this.entries();
     const index = entries.findIndex((e) => keyOf(e) === keyOf(target));
     const current = entries[index];
     if (current === undefined) throw new Error('journal entry missing');
+    if (target.startedAt !== undefined && current.startedAt !== target.startedAt) throw new Error('journal attempt superseded');
     const next = JournalEntrySchema.parse({
       ...current,
       // Once a finalized read explained an attempt it stays explained: a late
       // wallet outcome or redirect only attaches its hash (Phase 6A). Only a new
       // `begin` replaces a RESOLVED entry.
-      phase: current.phase === 'RESOLVED' ? 'RESOLVED' : change.phase,
+      phase: current.phase === 'RESOLVED' ? 'RESOLVED'
+        : current.transactionHash !== null && (change.phase === 'USER_REJECTED' || change.phase === 'OUTCOME_UNKNOWN')
+          ? current.phase : change.phase,
       // A known hash is never forgotten by a later update.
-      transactionHash: change.transactionHash ?? current.transactionHash,
+      transactionHash: current.transactionHash ?? change.transactionHash ?? null,
       updatedAt: this.now().toISOString(),
     });
     entries[index] = next;

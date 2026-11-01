@@ -45,6 +45,9 @@ export function validateShareOrigin(value: string | null | undefined): string | 
   if (value === null || value === undefined) return null;
   const text = value.trim();
   if (text === '' || text.length > 253 + 16) return null;
+  // Check the original syntax too: URL normalizes away control characters,
+  // backslashes and dot-segment paths, which are not an origin-only config.
+  if (!/^https:\/\/[^/?#\\\s]+\/?$/i.test(text)) return null;
   let url: URL;
   try {
     url = new URL(text);

@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PaymentScreen } from '../PaymentScreen';
 import { ReceiptScreen } from '../ReceiptScreen';
@@ -88,6 +88,41 @@ function journalEntry(storage: ReturnType<typeof memoryStorage>) {
 }
 
 describe('same-device mobile redirect → receipt → Verified Paid', () => {
+  it('automatically retries delayed FINAL transaction availability without claiming verification early', async () => {
+    const { setup, fundingHash } = paidWorld();
+    const ready = setup as Extract<typeof setup, { status: 'ready' }>;
+    const original = must(ready.verifierRpc, 'verifier RPC');
+    let failOnce = true;
+    let release!: () => void;
+    const available = new Promise<void>((resolve) => { release = resolve; });
+    const lagging = { ...original, async call(...args: Parameters<typeof original.call>) {
+      if (args[0] === 'EXPERIMENTAL_tx_status' && failOnce) {
+        failOnce = false;
+        throw new VerifierRpcError('UNKNOWN_TRANSACTION');
+      }
+      if (args[0] === 'EXPERIMENTAL_tx_status') await available;
+      return original.call(...args);
+    } };
+    window.history.replaceState(null, '', `/receipt/${ID}?ftx=${fundingHash}`);
+    renderWithChain(<ReceiptScreen id={ID} />, {
+      setup: { ...ready, verifierRpc: lagging }, adapter: recordingWallet(PAYER).adapter, storage: memoryStorage(),
+    });
+    expect(await screen.findByTestId('verification-failed', {}, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByTestId('verified-evidence')).toBeNull();
+    await act(async () => release());
+    expect(await screen.findByTestId('verified-evidence', {}, { timeout: 4000 })).toBeTruthy();
+  });
+
+  it('an unrelated pending wallet hash cannot block a follow-up with known funding evidence', async () => {
+    const { setup, fundingHash } = paidWorld();
+    const storage = await ownAttempt();
+    const journal = new SubmissionJournal(storage);
+    const entry = must(journal.find(ID, 'pay_instant_native', PAYER), 'own attempt');
+    await journal.update(entry, { phase: 'SUBMITTED', transactionHash: fundingHash });
+    await new WalletReturnInbox(storage).add({ kind: 'hashes', hashes: [hashOf('unrelated-hint')] });
+    renderWithChain(<PaymentScreen id={ID} />, { setup, adapter: recordingWallet(PAYER).adapter, storage });
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/receipt/${ID}?ftx=${fundingHash}`));
+  });
   it('attaches the returned hash, opens the receipt with it once, and the verifier confirms it', async () => {
     const { setup, fundingHash } = paidWorld(true);
     const storage = await ownAttempt();
@@ -151,7 +186,7 @@ describe('missing transaction evidence stays honest', () => {
     const { setup } = paidWorld();
     const storage = await ownAttempt();
     // A hash the chain cannot place yet: kept in the inbox for a later pass.
-    new WalletReturnInbox(storage).add({ kind: 'hashes', hashes: [hashOf('not-indexed-yet')] });
+    await new WalletReturnInbox(storage).add({ kind: 'hashes', hashes: [hashOf('not-indexed-yet')] });
     window.history.replaceState(null, '', `/receipt/${ID}`);
     renderWithChain(<ReceiptScreen id={ID} />, { setup, adapter: recordingWallet(PAYER).adapter, storage });
     expect(await screen.findByText('Matching the transaction your wallet returned to this payment…')).toBeTruthy();

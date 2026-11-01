@@ -40,12 +40,13 @@ export async function submitCall(input: {
   // duplicate brake would not work. Refuse rather than sign unprotected.
   if (journal === null || !journal.isReadable() || !journal.canBegin()) return { kind: 'no_journal' };
 
-  const target = { requestId: input.requestId, method: call.methodName as JournalMethod, signerAccountId };
+  const identity = { requestId: input.requestId, method: call.methodName as JournalMethod, signerAccountId };
+  let target: JournalEntry;
   try {
     // Under the cross-tab journal lock: a concurrent attempt in another tab is
     // seen here and blocks this one before any wallet prompt.
-    await journal.begin({
-      ...target,
+    target = await journal.begin({
+      ...identity,
       network: 'near-testnet',
       contractId: call.receiverId,
       termsHash: input.termsHash,
@@ -87,7 +88,7 @@ export async function submitCall(input: {
 /** Records an outcome. A failed write leaves the earlier blocking phase in place. */
 async function record(
   journal: SubmissionJournal,
-  target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'>,
+  target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId' | 'startedAt'>,
   change: Parameters<SubmissionJournal['update']>[1],
 ): Promise<boolean> {
   try {

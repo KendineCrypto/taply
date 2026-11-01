@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/shell/Icons';
 import { usePrefersReducedMotion } from '@/lib/hooks/browser';
 import { fill } from '@/lib/i18n';
@@ -75,6 +76,9 @@ export function QrScanner({
   // Bumped to (re)start the camera: retry after a problem, resume after a pause.
   const [attempt, setAttempt] = useState(0);
   const [paused, setPaused] = useState(false);
+  const stopSession = useRef<() => void>(() => undefined);
+  const pathname = usePathname();
+  const openedPath = useRef(pathname);
 
   // Latest values for the long-running scan loop, without restarting the camera.
   const latest = useRef({ onRequest, approvedOrigins, reduced, createDecoder });
@@ -85,6 +89,31 @@ export function QrScanner({
   // A success that is still showing its animation must not navigate after a close.
   const navTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(navTimer.current), []);
+
+  const dismiss = (action: () => void) => {
+    clearTimeout(navTimer.current);
+    stopSession.current();
+    action();
+  };
+
+  // The scanner can live in the persistent navigation shell across route changes.
+  useEffect(() => {
+    if (pathname !== openedPath.current) {
+      clearTimeout(navTimer.current);
+      stopSession.current();
+      onClose();
+    }
+  }, [pathname, onClose]);
+
+  useEffect(() => {
+    const onBack = () => {
+      clearTimeout(navTimer.current);
+      stopSession.current();
+      onClose();
+    };
+    window.addEventListener('popstate', onBack);
+    return () => window.removeEventListener('popstate', onBack);
+  }, [onClose]);
 
   // Top-layer modal: focus trap, inert page and Escape come from the browser.
   useEffect(() => {
@@ -104,8 +133,11 @@ export function QrScanner({
   // Hidden page: stop the camera now. Back: offer to resume.
   useEffect(() => {
     const pause = () => {
+      // Release hardware in the event handler, before React can be suspended.
+      clearTimeout(navTimer.current);
+      stopSession.current();
       setPaused(true);
-      setPhase((p) => (p.kind === 'success' ? p : { kind: 'paused' }));
+      setPhase({ kind: 'paused' });
     };
     const onHidden = () => {
       if (document.visibilityState === 'hidden') pause();
@@ -113,6 +145,7 @@ export function QrScanner({
     const onPageHide = pause;
     document.addEventListener('visibilitychange', onHidden);
     window.addEventListener('pagehide', onPageHide);
+    onHidden();
     return () => {
       document.removeEventListener('visibilitychange', onHidden);
       window.removeEventListener('pagehide', onPageHide);
@@ -124,19 +157,28 @@ export function QrScanner({
     if (paused) return;
     let active = true;
     let stream: MediaStream | null = null;
+    let frameDecoder: FrameDecoder | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let lastRejected: { text: string; at: number } | null = null;
     let hintTimer: ReturnType<typeof setTimeout> | undefined;
+    const trackCleanups: Array<() => void> = [];
     const video = videoRef.current;
 
     const stop = () => {
       active = false;
       clearTimeout(timer);
       clearTimeout(hintTimer);
+      for (const cleanup of trackCleanups) cleanup();
+      frameDecoder?.dispose?.();
       stopStream(stream);
       stream = null;
       if (video !== null) video.srcObject = null;
     };
+    stopSession.current = stop;
+    if (document.visibilityState === 'hidden') {
+      stop();
+      return stop;
+    }
 
     const handle = (text: string): boolean => {
       const parsed = parsePayInput(text, latest.current.approvedOrigins ?? approvedPayOrigins(window.location.origin));
@@ -189,15 +231,32 @@ export function QrScanner({
         stopStream(stream);
         return;
       }
+      for (const track of stream.getTracks()) {
+        const ended = () => {
+          if (!active) return;
+          stop();
+          setPhase({ kind: 'problem', problem: 'busy' });
+        };
+        track.addEventListener?.('ended', ended);
+        trackCleanups.push(() => track.removeEventListener?.('ended', ended));
+      }
       if (video !== null) {
         video.srcObject = stream;
         // iOS needs muted + playsInline (set on the element) for autoplay.
-        await Promise.resolve()
-          .then(() => video.play())
-          .catch(() => undefined);
+        try {
+          await video.play();
+        } catch {
+          if (active) {
+            stop();
+            setPhase({ kind: 'problem', problem: 'busy' });
+          }
+          return;
+        }
       }
+      if (!active) return;
       try {
         decoder = await latest.current.createDecoder();
+        frameDecoder = decoder;
       } catch {
         if (active) {
           stop();
@@ -205,7 +264,10 @@ export function QrScanner({
         }
         return;
       }
-      if (!active) return;
+      if (!active) {
+        decoder.dispose?.();
+        return;
+      }
       setPhase({ kind: 'scanning' });
       loop(decoder);
     })();
@@ -245,14 +307,14 @@ export function QrScanner({
       data-motion={reduced ? 'reduced' : 'full'}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        dismiss(onClose);
       }}
     >
       <div className="scan-shell">
         <header className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => dismiss(onClose)}
             aria-label={sc.close}
             className="tap-target grid place-items-center rounded-full bg-[rgb(244_243_232/0.06)] text-[var(--text-primary)] ring-1 ring-[var(--border-subtle)] hover:bg-[rgb(244_243_232/0.1)]"
           >
@@ -335,7 +397,7 @@ export function QrScanner({
         <div className="mt-auto flex flex-col items-center gap-2 pt-6">
           <button
             type="button"
-            onClick={onPasteLink}
+            onClick={() => dismiss(onPasteLink)}
             className="pressable inline-flex min-h-12 w-full max-w-[340px] items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[rgb(244_243_232/0.06)] px-5 font-semibold text-[var(--text-primary)] ring-1 ring-[var(--border-subtle)] hover:bg-[rgb(244_243_232/0.1)]"
           >
             <Icon name="link" size={18} />
