@@ -34,4 +34,3 @@ test('reads actual production refusal without activating auth or exposing cookie
       assert.equal(auth.headers.has('set-cookie'), false);
     } finally { service.close(); rmSync(dir, { recursive: true }); }
   });
-
