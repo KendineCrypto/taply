@@ -3,6 +3,11 @@
 Status: G2 NO-GO. Protocol Freeze v1 remains authoritative. No deployment,
 upgrade, transaction or feature enablement is authorized by this document.
 
+Continuation status: isolated transactional Handshake engine and read-only pilot
+adapter now exist. See PHASE_7_SESSION_ENGINE.md for tested behavior and limits;
+this audit's architecture/acceptance gates remain applicable. HTTP auth and
+mutations are still disabled; live contract limitations are unchanged.
+
 ## Current capabilities and blockers
 
 The operator reports mobile Instant Pay and shared verified receipts working.

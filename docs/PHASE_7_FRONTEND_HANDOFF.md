@@ -1,5 +1,12 @@
 # Phase 7 bounded implementation handoff
 
+> Continuation update: the original snapshot below is historical. The isolated
+> Handshake engine and read-only pilot adapter are now implemented and tested.
+> See PHASE_7_SESSION_ENGINE.md for the current integration contract. Public
+> mutations remain disabled and G2 remains NO-GO. The prior three near-client
+> failures were diagnosed and fixed in test fixtures only; full pnpm check now
+> passes. No new deployment or transaction occurred.
+
 G2 NO-GO. Stage 1 audited and committed. Stage 2 completed only in its explicitly
 permitted disabled-verifier form. Stage 3 engine is not implemented. Stage 4
 contract code is not implemented; proposal below. No public server is deployed.

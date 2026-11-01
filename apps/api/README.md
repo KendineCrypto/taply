@@ -1,5 +1,21 @@
 # API security foundation (disabled)
 
+The isolated session engine in `src/sessions.mts` now implements coordination;
+`src/pilot-reader.mts` reads canonical pilot requests with finalized provenance
+but always refuses Handshake binding. See `docs/PHASE_7_SESSION_ENGINE.md`.
+Neither is wired into HTTP. Run all API tests with the command below (23 tests).
+
+Additional checks from root:
+
+```
+node packages/shared/node_modules/typescript/bin/tsc -p apps/api/tsconfig.json
+node apps/web/node_modules/eslint/bin/eslint.js --config apps/api/eslint.config.mjs apps/api/src apps/api/test
+```
+
+Tooling is reused from the installed workspace; no dependencies added. This is
+temporary until lead-approved API workspace/CI integration. Lint permits `any`
+only in adversarial test fixtures; production sources use strict types.
+
 No HTTP server is started. `src/http.mts` is a refusal-only Fetch handler:
 auth/me returns 401; every other request returns 503 VERIFICATION_UNAVAILABLE.
 No cookies, signatures, bearer sessions, merchant profiles or payment claims are
