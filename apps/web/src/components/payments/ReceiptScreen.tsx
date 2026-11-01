@@ -20,6 +20,7 @@ import type { JournalEntry } from '@/lib/payments/journal';
 import { collectReferences, parseLinkHints, verificationLink } from '@/lib/verify/references';
 import type { LinkHints } from '@/lib/verify/references';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
+import { saleCode } from '@/lib/merchant/journey';
 import { useReceiptVerification } from '@/lib/verify/use-receipt-verification';
 import type { VerificationView } from '@/lib/verify/use-receipt-verification';
 import { useAccountId } from '@/lib/wallet/provider';
@@ -175,6 +176,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           settledAtNs={showVerified && verified !== null ? verified.callbackReceipt.block.timestampNs : facts.terminalAtNs}
           references={ticketReferences}
           explorerBaseUrl={setup.explorerBaseUrl}
+          code={saleCode(request.terms.id)}
           {...(showVerified && verified !== null
             ? {
                 checkedVia: verified.verification.rpcProviderId,

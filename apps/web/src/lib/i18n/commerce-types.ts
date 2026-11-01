@@ -153,4 +153,71 @@ export interface CommerceCopy {
     readonly undoMismatch: string;
     readonly openDemo: string;
   };
+
+  readonly journey: JourneyCopy;
+}
+
+/**
+ * Phase 7F shared payment journey. Receiver/payer headlines for the stages
+ * both phones go through. Only chain-observable facts are stated; customer
+ * presence and wallet activity of the OTHER phone exist only in the DEMO.
+ */
+export interface JourneyCopy {
+  readonly eyebrow: {
+    readonly pos: string;
+    readonly checkout: string;
+    readonly request: string;
+    readonly receiving: string;
+  };
+  readonly saleCode: string;
+  readonly saleCodeHint: string;
+  readonly payTo: string;
+  readonly live: string;
+  readonly liveNote: string;
+  readonly receiver: {
+    readonly awaitingSale: TitleBody;
+    readonly awaitingRequest: TitleBody;
+    readonly transfer: TitleBody;
+    readonly contract_paid: TitleBody;
+    readonly verified: TitleBody;
+  };
+  readonly payer: {
+    readonly awaitingCheckout: TitleBody;
+    readonly awaiting: TitleBody;
+    readonly wallet: TitleBody;
+    readonly transfer: TitleBody;
+    readonly contract_paid: TitleBody;
+    readonly verified: TitleBody;
+  };
+  readonly counterpart: {
+    readonly merchantReady: string;
+    readonly requesterReady: string;
+    readonly noPaymentYet: string;
+    readonly paymentSeen: string;
+    readonly paidBy: string;
+    readonly presenceGated: string;
+  };
+  /** Short visible labels for the five-step timeline. */
+  readonly steps: {
+    readonly created: string;
+    readonly approved: string;
+    readonly transfer: string;
+    readonly contract: string;
+    readonly verified: string;
+  };
+  readonly proofLegend: {
+    readonly contract: string;
+    readonly verified: string;
+    readonly verifiedPending: string;
+  };
+  readonly newSale: string;
+  readonly merchantHome: string;
+  readonly demo: {
+    readonly customerJoined: string;
+    readonly waitingCustomer: string;
+    readonly waitingWallet: string;
+    readonly merchantReady: string;
+    readonly reviewing: string;
+    readonly yourWallet: string;
+  };
 }

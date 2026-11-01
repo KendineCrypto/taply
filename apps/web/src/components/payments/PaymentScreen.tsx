@@ -9,7 +9,7 @@ import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Card, DetailRow } from '@/components/primitives/Surface';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { StatusBadge } from '@/components/status/StatusBadge';
-import { PaymentProgress } from '@/components/experience/PaymentProgress';
+import { SharedSession } from '@/components/experience/SharedSession';
 import { progressStageFor } from '@/components/experience/progress';
 import { ReviewSummary } from '@/components/experience/ReviewSummary';
 import { Icon } from '@/components/shell/Icons';
@@ -28,6 +28,7 @@ import { canonicalPayUrl } from '@/lib/share/origin';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
 import type { Reconciliation, SubmitResult } from '@/lib/payments/submit';
 import { usePaymentRequest } from '@/lib/payments/use-payment-request';
+import { cameFromCheckout, isPosSale, journeyContext, journeySide, localHints, sessionHints } from '@/lib/merchant/journey';
 import { HashHexSchema } from '@/lib/protocol';
 import type { ContractRequest } from '@/lib/protocol';
 import { useNativeBalance } from '@/lib/near/use-native-balance';
@@ -82,7 +83,8 @@ function PaymentLive({ id }: { readonly id: string }) {
   }, [journal, id, journalTick, journalVersion]);
   // Unexplained attempts keep the status polling until the chain explains them.
   const watchJournal = entries.some(isBlocking);
-  const { view, loading, checkedAt, block, refresh, watching } = usePaymentRequest(id, watchJournal);
+  // Phase 7F: the receiving side of an open request watches the chain live (read-only).
+  const { view, loading, checkedAt, block, refresh, watching, live } = usePaymentRequest(id, watchJournal, { liveWatchOpen: true });
 
   // Reconcile journal entries against each new finalized read.
   const attempts = useMemo<Attempt[]>(() => {
@@ -150,6 +152,7 @@ function PaymentLive({ id }: { readonly id: string }) {
         attempts={attempts}
         result={result}
         submitting={submitting}
+        live={live}
         onRun={run}
         onRefresh={refresh}
       />
@@ -167,7 +170,7 @@ function PaymentLive({ id }: { readonly id: string }) {
           )}
         </Button>
       </div>
-      {watching && view?.kind === 'ok' && <p className="-mt-2 px-1 text-xs text-[var(--text-muted)]">{t.payment.status.autoRefresh}</p>}
+      {watching && !live && view?.kind === 'ok' && <p className="-mt-2 px-1 text-xs text-[var(--text-muted)]">{t.payment.status.autoRefresh}</p>}
       {check.status === 'checking' && <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.setup.checking}</p>}
       {attempts.length > 0 && setup.status === 'ready' && (
         <details className="disclosure surface-card px-4 py-1">
@@ -201,6 +204,7 @@ function ViewBody({
   attempts,
   result,
   submitting,
+  live,
   onRun,
   onRefresh,
 }: {
@@ -210,6 +214,7 @@ function ViewBody({
   readonly attempts: ReadonlyArray<Attempt>;
   readonly result: SubmitResult | null;
   readonly submitting: boolean;
+  readonly live: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
   readonly onRefresh: () => void;
 }) {
@@ -252,6 +257,7 @@ function ViewBody({
           attempts={attempts}
           result={result}
           submitting={submitting}
+          live={live}
           onRun={onRun}
           onRefresh={onRefresh}
         />
@@ -266,6 +272,7 @@ function RequestView({
   attempts,
   result,
   submitting,
+  live,
   onRun,
   onRefresh,
 }: {
@@ -275,6 +282,7 @@ function RequestView({
   readonly attempts: ReadonlyArray<Attempt>;
   readonly result: SubmitResult | null;
   readonly submitting: boolean;
+  readonly live: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
   readonly onRefresh: () => void;
 }) {
@@ -302,6 +310,14 @@ function RequestView({
   });
   const op = request.latestOperation;
   const role = response.derived.callerRole;
+  const side = journeySide(role);
+  // Wording hints only (Phase 7F): created from this device's POS, or opened from
+  // this receiving account's checkout page. Read once; they never unlock anything.
+  const [hints] = useState(() => ({
+    posSale: isPosSale(localHints(), id),
+    fromCheckout: cameFromCheckout(sessionHints(), request.recipientAccountId, Date.now()),
+  }));
+  const context = journeyContext({ side, ...hints });
 
   const blockingFor = (method: JournalMethod) =>
     attempts.find((a) => a.entry.method === method && a.entry.signerAccountId === accountId && a.state !== 'resolved');
@@ -353,11 +369,24 @@ function RequestView({
     void onRun(call, request, operationNonce);
   };
 
+  const showsTicket = ctaKinds.has('share_request') && link !== null;
+  const showsReview = ctaKinds.has('review_and_pay');
+  const terminal = request.status === 'FINAL_PAID' || request.status === 'CANCELLED_UNFUNDED' || response.fundingEligibility === 'EXPIRED';
+
   return (
     <>
       {stage !== null ? (
-        <PaymentProgress
+        <SharedSession
+          side={side}
+          context={context}
           stage={stage}
+          requestId={request.terms.id}
+          amountBaseUnits={request.terms.amountBaseUnits}
+          recipientAccountId={request.recipientAccountId}
+          payerAccountId={request.payerAccountId}
+          // The QR ticket and the pay review below already show the amount large.
+          showAmount={!(side === 'receiver' ? showsTicket : showsReview)}
+          live={live}
           audienceNote={
             stage === 'contract_paid'
               ? t.payment.settlementProofPending
@@ -399,7 +428,7 @@ function RequestView({
       {refused && <InlineNotice copy={t.payment.status.inconsistent} tone="danger" />}
       {stale && <InlineNotice copy={t.reliability.reviewAgain} live="assertive" />}
 
-      {ctaKinds.has('share_request') && link !== null && <ShareRequest link={link} request={request} />}
+      {showsTicket && link !== null && <ShareRequest link={link} request={request} />}
       {ctaKinds.has('share_request') && share?.kind === 'unavailable' && <ShareUnavailable reason={share.reason} requestId={id} />}
 
       {ctaKinds.has('review_and_pay') && (
@@ -454,6 +483,13 @@ function RequestView({
       {ctaKinds.has('view_receipt') && (
         <ButtonLink href={receiptPath(request, attempts.map((a) => a.entry))} variant="primary" size="lg" block>
           {t.common.viewReceipt}
+        </ButtonLink>
+      )}
+
+      {side === 'receiver' && context === 'pos' && terminal && (
+        <ButtonLink href="/merchant/register" variant={ctaKinds.has('view_receipt') ? 'secondary' : 'primary'} size="lg" block>
+          <Icon name="request" size={18} />
+          {t.commerce.journey.newSale}
         </ButtonLink>
       )}
 
@@ -535,7 +571,7 @@ function PayReview({
   const payGas = check.status === 'verified' ? check.config.gas.payInstantNative : null;
 
   return (
-    <Card as="section" className="flex flex-col gap-4 p-5">
+    <Card as="section" className="journey-amount-glow flex flex-col gap-4 p-5">
       <h2 className="text-lg font-semibold">{t.payment.review.title}</h2>
       <p className="text-sm text-[var(--text-secondary)]">{t.payment.review.intro}</p>
       <ReviewSummary

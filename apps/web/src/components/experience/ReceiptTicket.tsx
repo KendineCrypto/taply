@@ -6,6 +6,7 @@ import { TaplyWordmark } from '@/components/brand/TaplyIcon';
 import { Icon } from '@/components/shell/Icons';
 import { useT } from '@/lib/i18n/provider';
 import { explorerTransactionUrl } from '@/lib/near/config';
+import { groupCode } from '@/lib/merchant/journey';
 import { AmountHero, DemoStamp, Monogram, NetworkPill, PaperRow, TicketTear, useShortDateTime } from './Basics';
 
 /**
@@ -40,6 +41,7 @@ export function ReceiptTicket({
   actions,
   proofActions,
   celebrateKey,
+  code = null,
 }: {
   readonly status: 'verified' | 'contract_paid' | 'cancelled';
   readonly amountBaseUnits: string;
@@ -59,6 +61,8 @@ export function ReceiptTicket({
    * key is seen in this browser session, and is static afterwards.
    */
   readonly celebrateKey?: string;
+  /** Phase 7F sale code, the same one both phones showed before payment. */
+  readonly code?: string | null;
 }) {
   const t = useT();
   const shortDate = useShortDateTime();
@@ -105,6 +109,11 @@ export function ReceiptTicket({
           )}
           {settledAtNs !== null && <PaperRow label={r.settledAt}>{shortDate(settledAtNs)}</PaperRow>}
           <PaperRow label={t.common.mode}>{t.experience.instantPay}</PaperRow>
+          {code !== null && (
+            <PaperRow label={t.commerce.journey.saleCode}>
+              <span className="font-mono tracking-[0.14em]">{groupCode(code)}</span>
+            </PaperRow>
+          )}
         </dl>
 
         {hasProof && (
@@ -130,7 +139,7 @@ export function ReceiptTicket({
                       href={explorerTransactionUrl(explorerBaseUrl, ref.value)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="chain-id inline-flex items-center gap-1 break-all font-medium underline decoration-[var(--ink-line)] underline-offset-2"
+                      className="chain-id inline-flex min-h-[var(--tap-target)] items-center gap-1 break-all font-medium underline decoration-[var(--ink-line)] underline-offset-2"
                     >
                       {ref.value}
                       <Icon name="external" size={13} className="shrink-0" />
@@ -180,14 +189,23 @@ function Seal({ status, celebrateKey }: { readonly status: 'verified' | 'contrac
   const celebrate = useFirstTime(status === 'verified' ? celebrateKey : undefined);
   if (status === 'verified') {
     return (
-      <span
-        className={`grid size-16 place-items-center rounded-full bg-[var(--ink)] text-[var(--taply-lime)] shadow-[0_10px_30px_-10px_rgb(11_18_14/0.6)] ${celebrate ? 'animate-seal' : ''}`}
-        data-celebrate={celebrate || undefined}
-      >
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6z" />
-          <path d="m9 12 2.2 2.2L15.5 10" className={celebrate ? 'animate-seal-check' : ''} />
-        </svg>
+      <span className="relative grid size-16 place-items-center">
+        {/* Phase 7F: two lime rings leave the seal once, the first time it is seen. */}
+        {celebrate && (
+          <>
+            <span aria-hidden="true" className="celebrate-burst absolute inset-0 rounded-full border-2 border-[var(--taply-lime)]" />
+            <span aria-hidden="true" className="celebrate-burst-late absolute inset-0 rounded-full bg-[rgb(199_252_117/0.25)]" />
+          </>
+        )}
+        <span
+          className={`relative grid size-16 place-items-center rounded-full bg-[var(--ink)] text-[var(--taply-lime)] shadow-[0_10px_30px_-10px_rgb(11_18_14/0.6)] ${celebrate ? 'animate-seal' : ''}`}
+          data-celebrate={celebrate || undefined}
+        >
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6z" />
+            <path d="m9 12 2.2 2.2L15.5 10" className={celebrate ? 'animate-seal-check' : ''} />
+          </svg>
+        </span>
       </span>
     );
   }

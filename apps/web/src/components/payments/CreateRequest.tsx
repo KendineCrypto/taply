@@ -16,6 +16,7 @@ import { fill } from '@/lib/i18n';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { blockingCreations, latestRecentCreation, recheckDelayMs } from '@/lib/payments/creation-gate';
+import { localHints, rememberPosSale } from '@/lib/merchant/journey';
 import { FUNDING_LIFETIMES, buildInstantTerms, newCreationNonce, validateRequestForm } from '@/lib/payments/create';
 import type { FundingLifetime, RequestFormError } from '@/lib/payments/create';
 import { usePayments } from '@/lib/payments/context';
@@ -240,6 +241,8 @@ export function CreateRequest({
     });
     setResult(outcome);
     if (outcome.kind === 'submitted' || outcome.kind === 'unknown') {
+      // Wording hint only: /pay frames this request as "Your sale" with a New sale action.
+      if (sale) rememberPosSale(localHints(), reviewed.terms.id);
       // The status page reads the chain and reconciles the journal entry.
       router.push(`/pay/${reviewed.terms.id}`);
       return;

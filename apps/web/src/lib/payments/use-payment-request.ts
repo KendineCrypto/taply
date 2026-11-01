@@ -7,6 +7,7 @@ import { usePayments } from './context';
 import type { PaymentsReader } from './context';
 import { buildPaymentView } from './intent';
 import { isInFlight } from './map-chain-state';
+import { liveWatchDelayMs, shouldLiveWatch } from '@/lib/merchant/journey';
 import type { PaymentView } from './intent';
 
 /**
@@ -20,6 +21,12 @@ import type { PaymentView } from './intent';
  * transfer may still settle or this browser has an unexplained attempt, and
  * only while the tab is visible. It backs off from 4 s to 20 s and never
  * triggers any transaction.
+ *
+ * Phase 7F live watch (opt-in): the RECEIVER of a request that is OPEN and
+ * still payable at the observed final block re-reads every 5 s (15 s after
+ * ten minutes), so a merchant showing the sale QR sees the payment arrive
+ * without touching the screen. Same read, same authority; it stops by itself
+ * once the request leaves OPEN or its funding deadline passes.
  *
  * Concurrency (Phase 5C):
  *  - At most one read is in flight. A refresh requested meanwhile is queued, and
@@ -59,7 +66,8 @@ export function usePaymentRequest(
   id: string,
   /** Extra reason to poll, e.g. this browser has an unexplained attempt. */
   watchAttempt: boolean,
-): PaymentRequestState & { readonly refresh: () => void; readonly watching: boolean } {
+  options: { readonly liveWatchOpen?: boolean } = {},
+): PaymentRequestState & { readonly refresh: () => void; readonly watching: boolean; readonly live: boolean } {
   const { setup } = usePayments();
   const accountId = useAccountId();
   const ready = setup.status === 'ready' ? setup : null;
@@ -145,20 +153,33 @@ export function usePaymentRequest(
 
   const matches = stored !== null && sameTag(stored.tag, current);
   const view = matches ? stored.view : null;
-  const watch = watchAttempt || (view?.kind === 'ok' && isInFlight(view.request.status));
+  const settling = view?.kind === 'ok' && isInFlight(view.request.status);
+  const live =
+    options.liveWatchOpen === true &&
+    view?.kind === 'ok' &&
+    shouldLiveWatch({
+      status: view.request.status,
+      callerRole: view.response.derived.callerRole,
+      observedAtNs: view.observedAtNs,
+      fundingExpiresAtNs: view.request.terms.fundingExpiresAtNs,
+    });
+  const watch = watchAttempt || settling || live;
+  // Live-only watching keeps a steady cadence; any other reason uses the backoff.
+  const steady = live && !watchAttempt && !settling;
 
   useEffect(() => {
     if (!watch) return;
-    let delay = FIRST_DELAY_MS;
+    const started = Date.now();
+    let delay = steady ? liveWatchDelayMs(0) : FIRST_DELAY_MS;
     let timer: ReturnType<typeof setTimeout>;
     const tick = () => {
       if (typeof document === 'undefined' || document.visibilityState === 'visible') refresh();
-      delay = Math.min(delay * 1.5, MAX_DELAY_MS);
+      delay = steady ? liveWatchDelayMs(Date.now() - started) : Math.min(delay * 1.5, MAX_DELAY_MS);
       timer = setTimeout(tick, delay);
     };
     timer = setTimeout(tick, delay);
     return () => clearTimeout(timer);
-  }, [watch, refresh]);
+  }, [watch, steady, refresh]);
 
   // Back in the foreground: re-read once, so a status that changed while the
   // tab was hidden (or a skipped poll) is caught up immediately.
@@ -179,5 +200,6 @@ export function usePaymentRequest(
     block: matches ? stored.block : null,
     refresh,
     watching: watch,
+    live,
   };
 }

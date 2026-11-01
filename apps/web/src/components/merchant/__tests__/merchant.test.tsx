@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { POS_SALES_KEY } from '@/lib/merchant/journey';
 import { DiscoveryQr } from '../DiscoveryQr';
 import { MerchantHome, SaleRegister } from '../MerchantScreens';
 import { selectRecentSales } from '../RecentSales';
@@ -21,7 +22,10 @@ afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
 });
-beforeEach(() => push.mockReset());
+beforeEach(() => {
+  push.mockReset();
+  window.localStorage.clear();
+});
 
 async function createSale(amount: string, reference: string) {
   fireEvent.change(await screen.findByLabelText('Amount (NEAR)'), { target: { value: amount } });
@@ -55,6 +59,8 @@ describe('merchant POS (sale register)', () => {
     const call = must(signed[0], 'one signature').call;
     expect(call.methodName).toBe('create_request');
     const terms = IntentTermsSchema.parse((call.args as { terms: IntentTerms }).terms);
+    // Phase 7F wording hint: /pay will call it "Your sale". Not a journal, not an authority.
+    expect(JSON.parse(window.localStorage.getItem(POS_SALES_KEY) ?? '[]')).toEqual([terms.id]);
     expect(terms).toMatchObject({
       creatorAccountId: MERCHANT,
       amountBaseUnits: '2500000000000000000000000',

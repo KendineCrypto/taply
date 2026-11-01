@@ -766,3 +766,145 @@ html:has(.taply-sheet[open]) {
     opacity: 0;
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* Phase 7F: shared payment journey motion                                   */
+/* CSS only. Every effect has a still rest state under reduced motion.       */
+/* ------------------------------------------------------------------------ */
+
+/* Soft breathing glow around the session card. Neutral while waiting, gold
+   while money moves, lime ONLY when independently verified. */
+.journey-hero {
+  --journey-glow: rgb(244 243 232 / 0.07);
+}
+.journey-hero[data-tone='caution'] {
+  --journey-glow: rgb(201 174 98 / 0.2);
+}
+.journey-hero[data-tone='success'] {
+  --journey-glow: rgb(199 252 117 / 0.24);
+}
+
+@keyframes taply-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--journey-glow);
+  }
+  50% {
+    box-shadow: 0 0 36px 4px var(--journey-glow);
+  }
+}
+
+.journey-hero[data-live='true'],
+.journey-hero[data-tone='caution'] {
+  animation:
+    taply-rise 0.55s var(--ease-out) both,
+    taply-breathe 3.4s 0.6s ease-in-out infinite;
+}
+
+.journey-hero[data-tone='success'] {
+  animation:
+    taply-rise 0.55s var(--ease-out) both,
+    taply-breathe 2.4s 0.6s ease-in-out 2;
+}
+
+/* The amount card the person acts on (QR ticket, pay review) breathes softly. */
+.journey-amount-glow {
+  --journey-glow: rgb(244 243 232 / 0.09);
+  animation: taply-breathe 3.6s 0.8s ease-in-out infinite;
+}
+
+/* "Recognized": one ring leaves the sale code as the session appears. */
+@keyframes taply-connect {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.45, 1.9);
+    opacity: 0;
+  }
+}
+
+.journey-connect {
+  opacity: 0;
+  animation: taply-connect 0.9s 0.25s var(--ease-out) both;
+}
+
+/* Timeline: the track fills smoothly; the current node sends a gold ripple. */
+.journey-track-fill {
+  transition: width 0.7s var(--ease-out);
+}
+
+@keyframes taply-node-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.3);
+    opacity: 0;
+  }
+}
+
+.journey-node {
+  transition:
+    background-color 0.3s var(--ease-out),
+    box-shadow 0.3s var(--ease-out);
+}
+
+.journey-node-current::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 2px solid var(--taply-gold);
+  animation: taply-node-ripple 1.8s var(--ease-out) infinite;
+}
+
+.journey-live-dot {
+  animation: taply-checkout-pulse 1.8s var(--ease-out) infinite;
+}
+
+/* Verified Paid: a single lime burst behind the seal, the first time only. */
+@keyframes taply-burst {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.celebrate-burst {
+  opacity: 0;
+  animation: taply-burst 1s 0.2s var(--ease-out) both;
+}
+
+.celebrate-burst-late {
+  opacity: 0;
+  animation: taply-burst 1.2s 0.45s var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-amount-glow,
+  .journey-hero,
+  .journey-hero[data-live='true'],
+  .journey-hero[data-tone='caution'],
+  .journey-hero[data-tone='success'] {
+    animation: none !important;
+  }
+  .journey-connect,
+  .journey-live-dot,
+  .journey-node-current::after,
+  .celebrate-burst,
+  .celebrate-burst-late {
+    animation: none !important;
+    opacity: 0;
+  }
+  .journey-track-fill,
+  .journey-node {
+    transition: none !important;
+  }
+}

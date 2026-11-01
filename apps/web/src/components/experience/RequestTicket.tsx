@@ -5,6 +5,7 @@ import { TaplyWordmark } from '@/components/brand/TaplyIcon';
 import { QrCode } from '@/components/payments/QrCode';
 import { useT } from '@/lib/i18n/provider';
 import { AmountHero, DemoStamp, Monogram, NetworkPill, PaperRow, TicketTear, useShortDateTime } from './Basics';
+import { SaleCodeChip } from './SharedSession';
 
 /**
  * The shareable payment request: a cream "ticket" that reads well on a phone
@@ -22,6 +23,7 @@ export function RequestTicket({
   permittedPayerAccountId,
   demo = false,
   actions,
+  code = null,
 }: {
   readonly link: string;
   readonly recipientAccountId: string;
@@ -31,21 +33,26 @@ export function RequestTicket({
   readonly permittedPayerAccountId: string | null;
   readonly demo?: boolean;
   readonly actions?: ReactNode;
+  /** Phase 7F sale code (from the request ID), so it can be read off the QR screen. */
+  readonly code?: string | null;
 }) {
   const t = useT();
   const shortDate = useShortDateTime();
   return (
     <section aria-labelledby="request-ticket-title" className="animate-rise flex flex-col gap-4">
-      <div className="paper relative overflow-hidden px-5 pb-5 pt-5">
+      <div className={`paper relative overflow-hidden px-5 pb-5 pt-5 ${code !== null ? 'journey-amount-glow' : ''}`}>
         <div className="mb-5 flex items-center justify-between gap-3">
           <TaplyWordmark width={72} tone="paper" />
           <NetworkPill tone="paper" />
         </div>
         {demo && <DemoStamp />}
 
-        <h2 id="request-ticket-title" className="eyebrow text-[var(--ink-muted)]">
-          {t.experience.paymentRequest}
-        </h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="request-ticket-title" className="eyebrow pt-0.5 text-[var(--ink-muted)]">
+            {t.experience.paymentRequest}
+          </h2>
+          {code !== null && <SaleCodeChip code={code} tone="paper" />}
+        </div>
         <AmountHero baseUnits={amountBaseUnits} tone="paper" className="mt-3" />
         {memo !== '' && <p className="mt-3 whitespace-pre-wrap break-words text-base text-[var(--ink-secondary)]">“{memo}”</p>}
 

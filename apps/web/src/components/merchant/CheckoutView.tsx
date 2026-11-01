@@ -11,6 +11,7 @@ import { QrScanner } from '@/components/scan/QrScanner';
 import { Icon } from '@/components/shell/Icons';
 import { useT } from '@/lib/i18n/provider';
 import { checkMerchantAccount, merchantCheckoutPath } from '@/lib/merchant/discovery';
+import { rememberCheckout, sessionHints } from '@/lib/merchant/journey';
 import { useWallet } from '@/lib/wallet/provider';
 
 /**
@@ -43,7 +44,11 @@ export function CheckoutView({ accountId }: { readonly accountId: string }) {
   }
 
   const own = state.status === 'connected' && state.session.accountId === checked.accountId;
-  const openRequest = (id: string) => router.push(`/pay/${id}`);
+  const openRequest = (id: string) => {
+    // Wording hint only: /pay calls it "Live checkout" if the sale pays THIS account.
+    rememberCheckout(sessionHints(), checked.accountId, Date.now());
+    router.push(`/pay/${id}`);
+  };
   const openMerchant = (next: string) => router.push(merchantCheckoutPath(next));
 
   return (

@@ -18,6 +18,7 @@ import type { SubmitResult } from '@/lib/payments/submit';
 import { NEAR_NATIVE } from '@/lib/protocol';
 import type { BlockRef, ContractRequest, IntentTerms } from '@/lib/protocol';
 import { RequestTicket } from '@/components/experience/RequestTicket';
+import { saleCode } from '@/lib/merchant/journey';
 
 /** Contract configuration problems that stop every payment screen. Null when reads may proceed. */
 export function PaymentsSetupNotice() {
@@ -223,6 +224,7 @@ export function ShareRequest({ link, request }: { readonly link: string; readonl
       memo={request.terms.memo}
       expiresAtNs={request.status === 'OPEN' ? request.terms.fundingExpiresAtNs : null}
       permittedPayerAccountId={request.terms.permittedPayerAccountId}
+      code={saleCode(request.terms.id)}
       actions={<ShareActions link={link} />}
     />
   );
