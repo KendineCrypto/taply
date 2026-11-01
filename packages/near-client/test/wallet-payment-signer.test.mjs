@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { calculateRequestId, calculateTermsHash } from '@taply/shared';
+import { calculateRequestId, calculateTermsHash, ContractRequestSchema } from '@taply/shared';
 import { createReviewedWalletBackend, APPROVED_PAYMENT_CODE_HASH } from '../dist/wallet-backend.js';
 import { buildClient } from '../dist/client.js';
 import { prepareCreateRequest, preparePayInstantNative, prepareCancelUnfunded, prepareRetryNativeTransfer } from '../dist/contract.js';
@@ -21,11 +21,21 @@ for (const method of ['create_request', 'pay_instant_native', 'cancel_unfunded',
     const record = JSON.parse(readFileSync(new URL(`./fixtures/${method === 'retry_native_transfer' ? 'request-payout-failed' : 'request-open'}.json`, import.meta.url), 'utf8'));
     record.terms.contractId = contractId;
     record.terms.creatorAccountId = record.recipientAccountId = method === 'pay_instant_native' ? 'recipient.testnet' : f.identity.accountId;
+    // Move the entire captured lifecycle together. Moving only expiry eventually
+    // exceeds the schema's 24-hour lifetime as the wall clock advances.
+    const shift = BigInt(f.state.now - 60000) * 1000000n - BigInt(record.createdAtNs);
+    record.createdAtNs = (BigInt(record.createdAtNs) + shift).toString();
+    if (record.fundedAtNs !== null) record.fundedAtNs = (BigInt(record.fundedAtNs) + shift).toString();
+    if (record.latestOperation) {
+      record.latestOperation.startedAtNs = (BigInt(record.latestOperation.startedAtNs) + shift).toString();
+      record.latestOperation.resolvedAtNs = (BigInt(record.latestOperation.resolvedAtNs) + shift).toString();
+    }
     record.terms.fundingExpiresAtNs = (BigInt(f.state.now + 900000) * 1000000n).toString();
     const { creationNonce, creatorAccountId, network } = record.terms;
     record.terms.id = calculateRequestId({ contractId, creationNonce, creatorAccountId, network });
     record.termsHash = calculateTermsHash(record.terms);
     if (record.latestOperation) record.latestOperation.destinationAccountId = record.recipientAccountId;
+    ContractRequestSchema.parse(record);
     const quote = { quoteVersion: '1', requestId: record.terms.id, termsHash: record.termsHash, storageBytes: '586', depositYocto: '5860000000000000000000', gas: '30000000000000' };
     f.state.views = { get_config: deployed, get_request: record, quote_create_request: quote };
     const common = { config: deployed, contractId, signerAccountId: f.identity.accountId };
