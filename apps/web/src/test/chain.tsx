@@ -10,6 +10,7 @@ import type { Locale } from '@/lib/i18n';
 import { PaymentsProvider } from '@/lib/payments/context';
 import type { PaymentsSetup } from '@/lib/payments/context';
 import type { JournalStorage } from '@/lib/payments/journal';
+import type { VerifierRpc } from '@/lib/verify/rpc';
 import type { SignOutcome, WalletAdapter, WalletCall, WalletSession } from '@/lib/wallet/adapter';
 import { WalletProvider } from '@/lib/wallet/provider';
 import openRestricted from './fixtures/sandbox/open-restricted.json';
@@ -165,8 +166,14 @@ export function installChain(init: Partial<ChainState> & { contractId: string })
   return chain;
 }
 
-export function readySetup(chain: ChainState, signingFlag: boolean, expectedCodeHash = CODE_HASH): PaymentsSetup {
+export function readySetup(
+  chain: ChainState,
+  signingFlag: boolean,
+  expectedCodeHash = CODE_HASH,
+  verifierRpc: VerifierRpc | null = null,
+): PaymentsSetup {
   return {
+    verifierRpc,
     status: 'ready',
     contractId: chain.contractId,
     expectedCodeHash,

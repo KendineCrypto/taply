@@ -599,7 +599,7 @@ export const tr: Dictionary = {
       announce: 'Kesinleşmiş blokta kontrat durumu ödendi diyor. Ödeme makbuzu henüz bağımsız olarak doğrulanmadı.',
     },
     settlementProofPending:
-      'Bu bilgi, kesinleşmiş bir bloktaki kontrat durumundan gelir. Doğrulanmış Ödendi makbuzu için fonlama, aktarım ve geri çağrı (callback) makbuzlarının da kontrol edilmesi gerekir; bu uygulama bunu henüz yapamıyor.',
+      'Bu bilgi, kesinleşmiş bir bloktaki kontrat durumundan gelir. Doğrulanmış Ödendi makbuzu için fonlama, aktarım ve geri çağrı (callback) makbuzlarının da kontrol edilmesi gerekir. Doğrulamak için makbuzu açın.',
     setup: {
       notConfigured: {
         title: 'Ödemeler kurulmamış',
@@ -818,6 +818,42 @@ export const tr: Dictionary = {
       cancelledNothingPaid: 'Ödemeden önce iptal edildi. Hiçbir şey ödenmedi.',
       payoutConfirmedByContract: 'Ödeme, kontratın geri çağrısıyla onaylandı',
       backToPayment: 'Ödemeye dön',
+    },
+    verification: {
+      checking: 'Fonlama, transfer ve geri çağrı makbuzları zincirde kontrol ediliyor',
+      verifiedNote:
+        'FINAL düzeyinde kontrol edildi: ödeyen tam bu tutarı fonladı, kontrat tutarı alıcıya gönderdi ve kontratın geri çağrısı bunu onayladı; hepsi onaylı kontrat koduyla. Güven modeli: aşağıdaki RPC sağlayıcısı, hafif istemci değil.',
+      unavailable: {
+        title: 'Doğrulama kullanılamıyor',
+        body: 'Bu sürüm ödeme makbuzlarını kontrol edemiyor, bu yüzden yalnızca kontrat durumunu gösteriyor.',
+      },
+      missingReference: {
+        title: 'Bu cihazda ödeme kanıtı yok',
+        body: 'Doğrulama için işlem özetleri gerekiyor ve bu cihazda yok. Ödeyenin makbuzundaki doğrulama bağlantısını açın. Tekrar ödeme yapmayın.',
+      },
+      failedTransient: {
+        title: 'Henüz doğrulanamadı',
+        body: 'Makbuzlar şu anda kontrol edilemedi. Bu, ödemenin başarısız olduğu anlamına gelmez. Tekrar ödeme yapmayın.',
+      },
+      historyUnavailable: {
+        title: 'Bu RPC geçmişi sunmuyor',
+        body: 'Bu ödeme, RPC’nin sakladığı süreden eski. Doğrulamak için arşiv RPC gerekir. Tekrar ödeme yapmayın.',
+      },
+      failedMismatch: {
+        title: 'Makbuz kanıtı eşleşmiyor',
+        body: 'Zincir kanıtı doğrulamayı geçemedi; bu bir Doğrulanmış Ödendi makbuzu değildir. Tekrar ödeme yapmayın. İşlem özetlerini saklayın ve destekle iletişime geçin.',
+      },
+      reasonCode: 'Neden kodu',
+      checkAgain: 'Tekrar kontrol et',
+      copyLink: 'Doğrulama bağlantısını kopyala',
+      linkCopied: 'Bağlantı kopyalandı',
+      linkNote: 'Bağlantı yalnızca herkese açık işlem özetlerini içerir. Herkes bu makbuzu yeniden kontrol etmek için kullanabilir.',
+      fundingTx: 'Fonlama işlemi',
+      settlementTx: 'Ödeme işlemi',
+      transferReceipt: 'Transfer makbuzu',
+      callbackReceipt: 'Geri çağrı makbuzu',
+      stateBlock: 'Kontrat durum bloğu',
+      provider: 'Kontrol eden RPC',
     },
   },
 

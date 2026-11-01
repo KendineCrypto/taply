@@ -1,29 +1,60 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ReadResult, TerminalFactsRead } from '@taply/near-client';
 import { AccountId } from '@/components/primitives/Amount';
-import { Spinner } from '@/components/primitives/Button';
+import { Button, Spinner } from '@/components/primitives/Button';
 import { Card, DetailRow } from '@/components/primitives/Surface';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
+import { VerifiedPaidRibbon } from '@/components/status/StatusBadge';
+import { Icon } from '@/components/shell/Icons';
+import { useCopy } from '@/lib/hooks/browser';
 import { useT } from '@/lib/i18n/provider';
 import { usePayments } from '@/lib/payments/context';
+import { callerRoleFor } from '@/lib/payments/intent';
+import { mapChainState } from '@/lib/payments/map-chain-state';
 import { HashHexSchema } from '@/lib/protocol';
-import { BackToPayment, ChainTime, PaymentsSetupNotice, Provenance, RequestTerms, TransactionLink } from './PaymentParts';
+import type { ContractRequest, VerifiedReceipt } from '@/lib/protocol';
+import { collectReferences, parseLinkHints, verificationLink } from '@/lib/verify/references';
+import type { LinkHints } from '@/lib/verify/references';
+import { useReceiptVerification } from '@/lib/verify/use-receipt-verification';
+import type { VerificationView } from '@/lib/verify/use-receipt-verification';
+import { useAccountId } from '@/lib/wallet/provider';
+import {
+  BackToPayment,
+  ChainTime,
+  PaymentsSetupNotice,
+  Provenance,
+  RequestTerms,
+  TransactionLink,
+} from './PaymentParts';
 
 /**
- * `/receipt/[id]` (UX_FLOWS screen 17), Phase 2C scope.
+ * `/receipt/[id]` (UX_FLOWS screen 17).
  *
- * Shows the contract's own terminal facts (`get_receipt`), read at a finalized
- * block of the approved code. They are labelled for what they are -
- * CONTRACT_FACTS_NOT_FINALITY_PROOF - and never rendered as a Verified Paid
- * receipt: that needs a verifier of the funding, transfer and callback receipts,
- * which does not exist yet (freeze section 8, API.md "VerifiedReceipt").
+ * Two layers, never merged:
+ *  1. The contract's own terminal facts (`get_receipt`) at a finalized block of
+ *     the approved code. Labelled CONTRACT_FACTS_NOT_FINALITY_PROOF.
+ *  2. Phase 2D: the independent receipt verifier (lib/verify). Only its
+ *     `verified` result can turn on the Verified Paid ribbon, and only through
+ *     `mapChainState(..., settlementProof: 'verified_receipt')`.
+ *
+ * The verifier needs transaction hashes. They come from this device's journal
+ * or from a verification link (`?ftx=&rtx=`); either way the chain decides.
  */
 export function ReceiptScreen({ id }: { readonly id: string }) {
   const t = useT();
   const { setup, journal } = usePayments();
+  const accountId = useAccountId();
   const [read, setRead] = useState<ReadResult<TerminalFactsRead> | null>(null);
+  // The server renders without the query string; the client reads it after hydration.
+  const search = useSyncExternalStore(
+    noSubscription,
+    () => window.location.search,
+    () => '',
+  );
+  const hints = useMemo<LinkHints>(() => parseLinkHints(search), [search]);
+  const [generation, setGeneration] = useState(0);
   const validId = HashHexSchema.safeParse(id).success;
 
   useEffect(() => {
@@ -37,6 +68,21 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
     };
   }, [id, validId, setup]);
 
+  const facts = read !== null && read.error === null ? (read.observation.data?.facts ?? null) : null;
+  const ready = setup.status === 'ready' ? setup : null;
+  const request =
+    facts !== null && ready !== null && facts.request.terms.contractId === ready.contractId ? facts.request : null;
+  const entries = journal?.isReadable() ? journal.forRequest(id) : [];
+  const references = request === null ? null : collectReferences(request, entries, hints);
+  const verification = useReceiptVerification({
+    rpc: ready?.verifierRpc ?? null,
+    contractId: ready?.contractId ?? '',
+    approvedCodeHash: ready?.expectedCodeHash ?? '',
+    request,
+    references,
+    generation,
+  });
+
   if (!validId) return <InlineNotice copy={t.payment.status.invalidId} tone="danger" />;
   if (setup.status !== 'ready') return <PaymentsSetupNotice />;
   if (read === null) {
@@ -48,16 +94,17 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
   }
 
   const { observation, error } = read;
-  const facts = observation.data?.facts ?? null;
   if (error !== null || observation.data === null) {
     return (
       <div className="flex flex-col gap-4">
-        <InlineNotice copy={error?.code === 'CONTRACT_CODE_MISMATCH' ? t.payment.setup.codeMismatch : t.payment.status.readFailed} />
+        <InlineNotice
+          copy={error?.code === 'CONTRACT_CODE_MISMATCH' ? t.payment.setup.codeMismatch : t.payment.status.readFailed}
+        />
         <BackToPayment id={id} />
       </div>
     );
   }
-  if (facts === null || facts.request.terms.contractId !== setup.contractId) {
+  if (facts === null || request === null) {
     return (
       <div className="flex flex-col gap-4">
         <InlineNotice copy={t.payment.receipt.notTerminal} tone="neutral" />
@@ -66,21 +113,52 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
     );
   }
 
-  const { request } = facts;
   const paid = request.status === 'FINAL_PAID';
-  const hashes = journal?.isReadable()
-    ? journal.forRequest(id).flatMap((e) => (e.transactionHash === null ? [] : [{ method: e.method, hash: e.transactionHash }]))
-    : [];
+  const verified =
+    verification.kind === 'verified' && matches(verification.receipt, request) ? verification.receipt : null;
+  const presentation = mapChainState({
+    state: request.status,
+    observation,
+    derived: {
+      callerRole: callerRoleFor(request, accountId),
+      cancelWindowOpen: null,
+      releaseEligible: null,
+      retry: { eligible: false, operationNonce: null, kind: null },
+    },
+    fundingEligibility: 'NOT_OPEN',
+    incident: null,
+    settlementProof: verified !== null ? 'verified_receipt' : 'contract_state_only',
+  });
+  const hashes = entries.flatMap((e) =>
+    e.transactionHash === null ? [] : [{ method: e.method, hash: e.transactionHash }],
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex flex-col gap-2">
-        <p className="font-semibold">{paid ? t.payment.contractPaid.label : t.status.CANCELLED_UNFUNDED.label}</p>
-        <p className="text-sm text-[var(--text-secondary)]">
-          {paid ? t.payment.receipt.payoutConfirmedByContract : t.payment.receipt.cancelledNothingPaid}
-        </p>
-      </Card>
-      <InlineNotice copy={{ title: t.payment.receipt.factsTitle, body: t.payment.receipt.factsNote }} tone="neutral" />
+      {presentation.verifiedRibbon && verified !== null ? (
+        <>
+          <VerifiedPaidRibbon presentation={presentation} />
+          <VerifiedEvidence receipt={verified} explorerBaseUrl={setup.explorerBaseUrl} />
+          <ShareVerification id={id} receipt={verified} />
+        </>
+      ) : (
+        <>
+          <Card className="flex flex-col gap-2">
+            <p className="font-semibold">{paid ? t.payment.contractPaid.label : t.status.CANCELLED_UNFUNDED.label}</p>
+            <p className="text-sm text-[var(--text-secondary)]">
+              {paid ? t.payment.receipt.payoutConfirmedByContract : t.payment.receipt.cancelledNothingPaid}
+            </p>
+          </Card>
+          {paid && <VerificationNotice view={verification} onRetry={() => setGeneration((g) => g + 1)} />}
+        </>
+      )}
+      <InlineNotice
+        copy={{
+          title: t.payment.receipt.factsTitle,
+          body: t.payment.receipt.factsNote,
+        }}
+        tone="neutral"
+      />
       <RequestTerms request={request}>
         {request.payerAccountId !== null && (
           <DetailRow label={t.payment.status.payerLabel}>
@@ -106,12 +184,132 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           <ChainTime ns={facts.terminalAtNs} />
         </DetailRow>
       </RequestTerms>
-      {paid && <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>}
-      {hashes.map(({ method, hash }) => (
-        <TransactionLink key={method} explorerBaseUrl={setup.explorerBaseUrl} hash={hash} />
-      ))}
+      {paid && verified === null && (
+        <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>
+      )}
+      {verified === null &&
+        hashes.map(({ method, hash }) => (
+          <TransactionLink key={method} explorerBaseUrl={setup.explorerBaseUrl} hash={hash} />
+        ))}
       <Provenance block={observation.observedBlock} checkedAt={observation.checkedAt} />
       <BackToPayment id={id} />
+    </div>
+  );
+}
+
+const noSubscription = () => () => undefined;
+
+/** A receipt from another read must describe exactly the request shown. */
+function matches(receipt: VerifiedReceipt, request: ContractRequest): boolean {
+  return (
+    receipt.requestId === request.terms.id &&
+    receipt.termsHash === request.termsHash &&
+    receipt.payerAccountId === request.payerAccountId &&
+    receipt.recipientAccountId === request.recipientAccountId &&
+    receipt.amountBaseUnits === request.terms.amountBaseUnits &&
+    receipt.operationNonce === request.latestOperation?.nonce
+  );
+}
+
+function VerificationNotice({ view, onRetry }: { readonly view: VerificationView; readonly onRetry: () => void }) {
+  const t = useT();
+  const v = t.payment.verification;
+  switch (view.kind) {
+    case 'not_applicable':
+    case 'verified':
+      return null;
+    case 'checking':
+      return (
+        <p className="flex items-center gap-2 px-1 text-sm text-[var(--text-secondary)]" role="status">
+          <Spinner /> {v.checking}
+        </p>
+      );
+    case 'unavailable':
+      return <InlineNotice copy={v.unavailable} tone="neutral" />;
+    case 'missing_reference':
+      return <InlineNotice copy={v.missingReference} tone="neutral" />;
+    case 'failed': {
+      const copy = view.transient
+        ? v.failedTransient
+        : view.reason === 'HISTORY_UNAVAILABLE'
+          ? v.historyUnavailable
+          : v.failedMismatch;
+      const tone = view.transient || view.reason === 'HISTORY_UNAVAILABLE' ? 'neutral' : 'danger';
+      return (
+        <div className="flex flex-col gap-2" data-testid="verification-failed">
+          <InlineNotice copy={copy} tone={tone} />
+          <p className="px-1 text-xs text-[var(--text-muted)]">
+            {v.reasonCode}: <span className="chain-id">{view.reason}</span>
+          </p>
+          <Button variant="secondary" onClick={onRetry}>
+            {v.checkAgain}
+          </Button>
+        </div>
+      );
+    }
+  }
+}
+
+function VerifiedEvidence({
+  receipt,
+  explorerBaseUrl,
+}: {
+  readonly receipt: VerifiedReceipt;
+  readonly explorerBaseUrl: string;
+}) {
+  const t = useT();
+  const v = t.payment.verification;
+  const sameTx = receipt.settlementTransaction.hash === receipt.fundingTransaction.hash;
+  return (
+    <div data-testid="verified-evidence">
+      <Card className="flex flex-col gap-2">
+        <p className="text-sm text-[var(--text-secondary)]">{v.verifiedNote}</p>
+        <DetailRow label={v.fundingTx}>
+          <TransactionLink explorerBaseUrl={explorerBaseUrl} hash={receipt.fundingTransaction.hash} />
+        </DetailRow>
+        {!sameTx && (
+          <DetailRow label={v.settlementTx}>
+            <TransactionLink explorerBaseUrl={explorerBaseUrl} hash={receipt.settlementTransaction.hash} />
+          </DetailRow>
+        )}
+        <DetailRow label={v.transferReceipt}>
+          <span className="chain-id break-all">{receipt.transferReceipt.receiptId}</span>
+        </DetailRow>
+        <DetailRow label={v.callbackReceipt}>
+          <span className="chain-id break-all">{receipt.callbackReceipt.receiptId}</span>
+        </DetailRow>
+        <DetailRow label={v.stateBlock}>
+          <span className="chain-id">#{receipt.contractStateBlock.height}</span>
+        </DetailRow>
+        <DetailRow label={v.provider}>
+          <span className="chain-id">{receipt.verification.rpcProviderId}</span>
+        </DetailRow>
+      </Card>
+    </div>
+  );
+}
+
+function ShareVerification({ id, receipt }: { readonly id: string; readonly receipt: VerifiedReceipt }) {
+  const t = useT();
+  const { status, copy } = useCopy();
+  if (typeof window === 'undefined') return null;
+  const retries = receipt.operationNonce === '1' ? [] : [receipt.settlementTransaction];
+  // More than one retry: this device cannot list every hash, so it offers no link.
+  if (BigInt(receipt.operationNonce) > 2n) return null;
+  const link = verificationLink(window.location.origin, id, {
+    funding: receipt.fundingTransaction,
+    retries,
+  });
+  return (
+    <div className="flex flex-col gap-1">
+      <Button variant="secondary" onClick={() => copy(link)}>
+        <Icon name="copy" size={16} />
+        {status === 'copied' ? t.payment.verification.linkCopied : t.payment.verification.copyLink}
+      </Button>
+      <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.verification.linkNote}</p>
+      <span className="sr-only" role="status">
+        {status === 'copied' ? t.payment.verification.linkCopied : ''}
+      </span>
     </div>
   );
 }

@@ -424,6 +424,27 @@ export interface Dictionary {
       readonly payoutConfirmedByContract: string;
       readonly backToPayment: string;
     };
+    /** Phase 2D: independent receipt verification (lib/verify). */
+    readonly verification: {
+      readonly checking: string;
+      readonly verifiedNote: string;
+      readonly unavailable: ErrorCopy;
+      readonly missingReference: ErrorCopy;
+      readonly failedTransient: ErrorCopy;
+      readonly historyUnavailable: ErrorCopy;
+      readonly failedMismatch: ErrorCopy;
+      readonly reasonCode: string;
+      readonly checkAgain: string;
+      readonly copyLink: string;
+      readonly linkCopied: string;
+      readonly linkNote: string;
+      readonly fundingTx: string;
+      readonly settlementTx: string;
+      readonly transferReceipt: string;
+      readonly callbackReceipt: string;
+      readonly stateBlock: string;
+      readonly provider: string;
+    };
   };
 
   readonly screens: {

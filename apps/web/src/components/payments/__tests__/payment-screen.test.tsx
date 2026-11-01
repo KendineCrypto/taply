@@ -69,7 +69,7 @@ describe('payer review and wallet approval', () => {
     // Paid per contract - never the Verified Paid ribbon (no receipt verifier yet).
     expect(await screen.findAllByText('Paid per contract')).not.toHaveLength(0);
     expect(screen.queryByText('Verified')).toBeNull();
-    expect(screen.getByText(/cannot do yet/)).toBeTruthy();
+    expect(screen.getByText(/Open the receipt to check them/)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View receipt' })).toBeTruthy();
   });
 

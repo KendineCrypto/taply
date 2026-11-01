@@ -7,6 +7,8 @@ import type { ContractConfig, ContractConfigProblem, NearTestnetClient, RpcError
 import { FLAGS } from '@/lib/flags/features';
 import { getNearClient } from '@/lib/near/client';
 import { CHAIN_CONFIG } from '@/lib/near/config';
+import { createFetchVerifierRpc } from '@/lib/verify/rpc';
+import type { VerifierRpc } from '@/lib/verify/rpc';
 import { SubmissionJournal } from './journal';
 import type { JournalStorage } from './journal';
 
@@ -38,6 +40,8 @@ export type PaymentsSetup =
       readonly reader: PaymentsReader;
       readonly signingFlag: boolean;
       readonly explorerBaseUrl: string;
+      /** Read-only RPC for the independent receipt verifier; null disables Verified Paid. */
+      readonly verifierRpc: VerifierRpc | null;
     };
 
 export type ContractCheck =
@@ -81,6 +85,10 @@ function defaultSetup(): PaymentsSetup {
     reader,
     signingFlag: FLAGS.instantPay.enabled,
     explorerBaseUrl: CHAIN_CONFIG.explorerBaseUrl,
+    verifierRpc: createFetchVerifierRpc({
+      rpcUrl: CHAIN_CONFIG.client.rpcUrl,
+      providerId: CHAIN_CONFIG.client.rpcProviderId,
+    }),
   };
 }
 

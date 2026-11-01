@@ -601,7 +601,7 @@ export const en: Dictionary = {
       announce: 'Contract state says paid at a finalized block. Settlement receipt not independently verified yet.',
     },
     settlementProofPending:
-      "This comes from the contract's state at a finalized block. A Verified Paid receipt also needs the funding, transfer and callback receipts checked, which this app cannot do yet.",
+      "This comes from the contract's state at a finalized block. A Verified Paid receipt also needs the funding, transfer and callback receipts checked. Open the receipt to check them.",
     setup: {
       notConfigured: {
         title: 'Payments are not set up',
@@ -820,6 +820,42 @@ export const en: Dictionary = {
       cancelledNothingPaid: 'Cancelled before payment. Nothing was paid.',
       payoutConfirmedByContract: 'Payout confirmed by the contract callback',
       backToPayment: 'Back to payment',
+    },
+    verification: {
+      checking: 'Checking the funding, transfer and callback receipts on chain',
+      verifiedNote:
+        'Checked at FINAL: the payer funded exactly this amount, the contract sent it to the recipient, and the contract callback confirmed it, all under the approved contract code. Trust model: the RPC provider below, not a light client.',
+      unavailable: {
+        title: 'Verification not available',
+        body: 'This build cannot check settlement receipts, so it shows the contract state only.',
+      },
+      missingReference: {
+        title: 'Settlement proof not available on this device',
+        body: 'Verifying needs the transaction hashes, which this device does not have. Open the verification link from the payer’s receipt. Do not pay again.',
+      },
+      failedTransient: {
+        title: 'Could not verify yet',
+        body: 'The receipts could not be checked right now. This does not mean the payment failed. Do not pay again.',
+      },
+      historyUnavailable: {
+        title: 'History not available from this RPC',
+        body: 'This payment is older than the RPC keeps. Verifying it needs an archival RPC. Do not pay again.',
+      },
+      failedMismatch: {
+        title: 'Receipt evidence does not match',
+        body: 'The chain evidence did not pass verification, so this is not a Verified Paid receipt. Do not pay again. Keep the transaction hashes and contact support.',
+      },
+      reasonCode: 'Reason code',
+      checkAgain: 'Check again',
+      copyLink: 'Copy verification link',
+      linkCopied: 'Link copied',
+      linkNote: 'The link holds only public transaction hashes. Anyone can use it to re-check this receipt.',
+      fundingTx: 'Funding transaction',
+      settlementTx: 'Payout transaction',
+      transferReceipt: 'Transfer receipt',
+      callbackReceipt: 'Callback receipt',
+      stateBlock: 'Contract state block',
+      provider: 'Checked via RPC',
     },
   },
 

@@ -42,9 +42,10 @@ export type StatusIcon = 'clock' | 'lock' | 'spinner' | 'check-shield' | 'check'
  *   FINAL_PAID. Strong evidence, but API.md is explicit: "The frontend can show
  *   Verified Paid only for FINAL_PAID with verified settlement proof", and
  *   `get_receipt` facts are CONTRACT_FACTS_NOT_FINALITY_PROOF.
- * `verified_receipt`: a VerifiedReceipt built by an RPC verifier that inspected
- *   the funding, transfer and callback receipts. Nothing in apps/web produces
- *   one yet, so the Verified Paid ribbon is currently unreachable in live use.
+ * `verified_receipt`: a VerifiedReceipt built by the independent RPC verifier
+ *   (lib/verify/instant-receipt.ts) that inspected the funding, transfer and
+ *   callback receipts at FINAL. Only the receipt screen passes this, and only
+ *   for a `verified` result describing the same request.
  */
 export type SettlementProof = 'contract_state_only' | 'verified_receipt';
 

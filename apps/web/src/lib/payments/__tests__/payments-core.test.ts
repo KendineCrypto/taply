@@ -264,7 +264,7 @@ describe('configuration and signing gate', () => {
   });
 
   it('signing needs a ready setup, a verified contract and the flag, in that order', () => {
-    const ready = { status: 'ready' as const, contractId: 'p.testnet', expectedCodeHash: 'h', signingFlag: true, explorerBaseUrl: 'https://x', reader: {} as never };
+    const ready = { status: 'ready' as const, contractId: 'p.testnet', expectedCodeHash: 'h', signingFlag: true, explorerBaseUrl: 'https://x', reader: {} as never, verifierRpc: null };
     const verified = { status: 'verified' as const, config: {} as never, observedAtNs: '1' };
     expect(signingBlockFor({ status: 'not_configured' }, verified)).toBe('not_configured');
     expect(signingBlockFor(ready, { status: 'checking' })).toBe('contract_unverified');

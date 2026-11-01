@@ -268,7 +268,7 @@ function RequestView({
     derived: response.derived,
     fundingEligibility: response.fundingEligibility,
     incident: response.incident,
-    // No settlement receipt verifier exists yet (API.md): contract state only.
+    // The receipt verifier runs on /receipt/[id]; this screen shows contract state only.
     settlementProof: 'contract_state_only',
   };
   const presentation = mapChainState(input);
