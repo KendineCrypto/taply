@@ -12,6 +12,7 @@ on:
       - packages/shared/**
       - pnpm-lock.yaml
       - .github/workflows/instant-pay-sandbox.yml
+      - apps/web/scripts/deploy-preflight.mjs
   pull_request:
     paths:
       - contracts/payments/**
@@ -111,6 +112,16 @@ jobs:
           ls -la artifacts/*.wasm
           node scripts/check-exports.mjs
 
+      # Read-only: compares the fresh build with the reviewed, frontend-pinned artifact
+      # (SHA-256, NEAR code hash, size, exact ABI exports, not the fault build).
+      # A contract change fails here on purpose until the artifact is re-reviewed and re-pinned.
+      - name: Pinned approved artifact (deploy-preflight wasm)
+        timeout-minutes: 2
+        run: |
+          set -o pipefail
+          node --version
+          node ../../apps/web/scripts/deploy-preflight.mjs wasm artifacts/payments.wasm 2>&1 | tee artifacts/pinned-artifact.log
+
       - name: Clippy (sandbox runner)
         timeout-minutes: 20
         working-directory: contracts/payments/sandbox
@@ -194,4 +205,5 @@ jobs:
             contracts/payments/artifacts/*.log
             contracts/payments/artifacts/sandbox-summary.txt
             contracts/payments/artifacts/wasm.sha256
+            contracts/payments/artifacts/pinned-artifact.log
             contracts/payments/artifacts/requests/*.json
