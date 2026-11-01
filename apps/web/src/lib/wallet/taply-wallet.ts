@@ -1,9 +1,10 @@
 import {
   EncryptedTestnetVault, WalletEngineError, createWalletChain, ed25519PublicKeyFromHex,
-  prepareNativeNearTransfer, VAULT_STORAGE_KEY,
+  prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
 } from '@taply/near-client';
-import type { LocalWalletIdentity, NearTestnetConfig, VaultStorage, WalletBalanceSnapshot, WalletChain } from '@taply/near-client';
+import type { LocalWalletIdentity, NearTestnetConfig, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall } from '@taply/near-client';
 import { encodeQr } from '@/lib/qr/encode';
+import { FLAGS } from '@/lib/flags/features';
 import { WalletError } from './adapter';
 import type { WalletAdapter, WalletSession } from './adapter';
 
@@ -26,6 +27,7 @@ export function createTaplyWalletController(input: {
   readonly crypto?: Crypto;
   /** Deterministic read-only test seam; production uses createWalletChain. */
   readonly chain?: WalletChain;
+  readonly confirmTransaction?: (review: WalletTransactionReview) => Promise<boolean>;
 }) {
   if (typeof window === 'undefined' || globalThis.isSecureContext !== true) throw new WalletError('unavailable');
   const vault = new EncryptedTestnetVault(input.storage, input.crypto ? { crypto: input.crypto } : {});
@@ -45,6 +47,10 @@ export function createTaplyWalletController(input: {
     if (!navigator.locks) throw new WalletError('unavailable');
     return navigator.locks.request('taply.testnet-vault-write.v1', { mode: 'exclusive' }, task);
   };
+  const backend = createReviewedWalletBackend({ config: input.config, vault, storage: input.storage, chain,
+    ...(input.crypto ? { crypto: input.crypto } : {}),
+    policy: { signingPermitted: () => TAPLY_WALLET_SIGNING_ENABLED, contractCallsPermitted: () => FLAGS.instantPay.enabled,
+      withExclusiveLock: withVaultWriteLock } });
 
   const read = async (): Promise<TaplyWalletRead> => {
     const identity = vault.getIdentity();
@@ -67,10 +73,20 @@ export function createTaplyWalletController(input: {
     },
     async disconnect() { vault.lock(); },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    async signAndSendTransaction() {
-      // Deliberately no signer/transport is reachable from this production adapter.
-      // It can be injected into WalletProvider without duplicating payment logic.
-      throw new WalletError('unavailable');
+    async signAndSendTransaction(signerAccountId, call) {
+      if (!TAPLY_WALLET_SIGNING_ENABLED || !FLAGS.instantPay.enabled || !input.confirmTransaction) throw new WalletError('unavailable');
+      if (!connected || !vault.unlocked || vault.getIdentity()?.accountId !== signerAccountId) throw new WalletError('no_account');
+      if (!['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName)) throw new WalletError('failed');
+      try {
+        const review = await backend.prepareContractCall({ ...call, methodName: call.methodName as PreparedContractCall['methodName'] });
+        const outcome = await backend.submit(review.id, input.confirmTransaction);
+        return outcome.kind === 'unknown'
+          ? { kind: 'unknown', ...(outcome.transactionHash ? { transactionHash: outcome.transactionHash } : {}) }
+          : { kind: 'submitted', transactionHash: outcome.transactionHash };
+      } catch (error) {
+        if (error instanceof WalletEngineError && error.code === 'REVIEW_REJECTED') throw new WalletError('cancelled');
+        throw new WalletError('failed');
+      }
     },
   };
   return Object.freeze({
@@ -84,6 +100,12 @@ export function createTaplyWalletController(input: {
     exportEncryptedBackup: () => vault.exportEncryptedBackup(),
     restoreEncryptedBackup: (backup: string, password: string) => withVaultWriteLock(() => vault.restoreEncryptedBackup(backup, password)),
     read,
+    prepareTransactionReview: backend.prepareTransfer,
+    async confirmAndSend(reviewId: string) {
+      if (!TAPLY_WALLET_SIGNING_ENABLED || !input.confirmTransaction) throw new WalletError('unavailable');
+      return backend.submit(reviewId, input.confirmTransaction);
+    },
+    reconcileTransaction: backend.reconcile,
     receive() {
       const identity = vault.getIdentity();
       if (identity === null) throw new WalletEngineError('ACCOUNT_NOT_PROVISIONED');

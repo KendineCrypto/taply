@@ -152,6 +152,12 @@ describe('journal and submission', () => {
     expect(await submitCall({ journal: other, call, signerAccountId: 'payer.testnet', requestId: open.terms.id, termsHash: open.termsHash,
       signAndSend: async () => Promise.reject(new WalletError('no_account')) })).toEqual({ kind: 'wrong_account' });
   });
+  it('retains a locally verified hash on an ambiguous wallet outcome without unblocking', async () => {
+    const journal = new SubmissionJournal(memory());
+    expect(await submit(journal, async () => ({ kind: 'unknown', transactionHash: TX }))).toEqual({ kind: 'unknown', transactionHash: TX });
+    expect(journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet')).toMatchObject({ phase: 'OUTCOME_UNKNOWN', transactionHash: TX });
+    expect((await submit(journal, async () => { throw new Error('must not resubmit'); })).kind).toBe('blocked');
+  });
 
   it('refuses to sign without a readable journal', async () => {
     const signed: unknown[] = [];

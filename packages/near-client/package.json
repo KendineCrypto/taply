@@ -5,8 +5,14 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./testing": { "types": "./dist/testing.d.ts", "import": "./dist/testing.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -18,7 +24,10 @@
     "@taply/shared": "workspace:*",
     "jsonc-parser": "3.3.1",
     "lossless-json": "4.3.3",
+    "near-api-js": "7.4.0",
     "zod": "4.6.7"
   },
-  "devDependencies": { "typescript": "7.0.2" }
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
 }
