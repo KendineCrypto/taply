@@ -1,6 +1,37 @@
 # taply. — NEAR Testnet Payments That Feel Human
 
-> **Taply v0.4 — Protocol Phase 0.** Shared schemas, canonical fixtures and local unit tests are implemented. There is no functioning blockchain deployment yet. [Protocol Freeze v1](docs/LEAD_PROTOCOL_FREEZE_v1.md) supersedes conflicting older specifications.
+> **Phase 3A — Testnet pilot preparation.** Native Instant Pay has unit/sandbox tests, payment screens and an independent receipt verifier. **No Taply Testnet payment or deployment has been observed.** Signing remains off. [Protocol Freeze v1](docs/LEAD_PROTOCOL_FREEZE_v1.md) supersedes conflicting older specifications.
+
+## Run the developer demo
+
+Use Node **24.22.2** (`.node-version`) and pnpm **11.5.0**. From a fresh clone:
+
+```sh
+git clone --branch feature/pilot-core https://github.com/KendineCrypto/taply.git
+cd taply
+pnpm install --frozen-lockfile
+pnpm check
+```
+
+Copy `apps/web/.env.example` to `apps/web/.env.local`, leave the contract ID/hash
+empty and `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off`, then:
+
+```sh
+pnpm --filter @taply/web dev
+```
+
+Open `http://localhost:3000/demo` for **local simulation only**. It cannot produce
+a real verified receipt. Public balance/RPC reads are separate infrastructure
+checks. `pnpm check` builds the app, checks types/lint/brand and runs local tests;
+it does not run Rust, deploy or move funds. For **sandbox contract evidence**, use
+[contract validation](contracts/payments/VALIDATION.md) and its reproduction commands.
+
+For the **real two-wallet pilot**, use the exact, approval-gated
+[Phase 3A operator commands](contracts/payments/PILOT.md). That guide covers the
+pinned WASM, account creation/funding, atomic deploy/init, environment variables,
+mobile return, FINAL receipts, raw evidence and troubleshooting. Deployment,
+signing enablement and payment require explicit human approval. A passing
+simulation or sandbox run never establishes a real Testnet result.
 
 **One sentence:** Taply is a NEAR Testnet wallet and merchant payment app with live **Handshake** sessions, **Instant Pay**, consent-based **Protected Pay**, and chain-verifiable receipts.
 
@@ -33,7 +64,7 @@
 
 ## Phase 0 reproduction
 
-Use Node **24.13.0** (`.node-version`) and pnpm **11.5.0** (`packageManager`).
+Use Node **24.22.2** (`.node-version`) and pnpm **11.5.0** (`packageManager`).
 
 ```sh
 pnpm install --frozen-lockfile --ignore-scripts
@@ -56,7 +87,7 @@ demo, organizers require a video, not screenshots alone (HACKATHON.md Q-012).
 The organizer's mainnet **prize payout account** field is unrelated to Taply's
 Testnet-only application; the human supplies it at submission time.
 
-## Repo structure (only shared protocol is implemented so far)
+## Repo structure
 ```text
 apps/web/                Claude — mobile-first web/PWA & consumer/merchant UX
 apps/api/                Codex — session server, read models, notifications, auth
