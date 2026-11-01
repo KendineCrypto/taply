@@ -9,9 +9,10 @@
  *    is not proof of key ownership (that arrives later with NEP-413, owned by
  *    the API). It is enough to read a public balance; it is never enough to
  *    authorise anything.
- *  - Taply holds no keys. Sign-in requests no function-call access key, so no
- *    private key is created, stored or handled by this app (CLAUDE.md: "Do not
- *    invent own private-key storage").
+ *  - The external connector holds no keys in Taply. The separate experimental
+ *    Taply-local controller uses an encrypted, explicitly unlocked vault and is
+ *    never automatically substituted for the external connector. Its signing
+ *    path stays disabled pending independent SDK integration/security approval.
  */
 
 export interface WalletSession {

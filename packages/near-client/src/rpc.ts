@@ -44,7 +44,7 @@ export function publicError(error: NearClientError, providerId: string): RpcRead
     retry: wait ? "WAIT_AND_RECONCILE" : retry ? "READ_ONLY" : "NONE" };
   return error.contractCode === null ? base : { ...base, contractCode: error.contractCode };
 }
-type Method = "status" | "block" | "query" | "tx_status" | "EXPERIMENTAL_tx_status";
+type Method = "status" | "block" | "query" | "tx_status" | "EXPERIMENTAL_tx_status" | "EXPERIMENTAL_protocol_config" | "gas_price";
 const EnvelopeSchema = z.object({ jsonrpc: z.literal("2.0"), id: z.string(), result: z.unknown().optional(), error: z.unknown().optional() });
 
 export function createRpc(config: Config, fetcher: Fetch) {
