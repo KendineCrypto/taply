@@ -4,6 +4,8 @@ import { QuickActions } from '@/components/home/QuickActions';
 import { RecentActivity } from '@/components/home/RecentActivity';
 import { TourCard } from '@/components/home/TourCard';
 import { BalanceCard } from '@/components/wallet/BalanceCard';
+import { TaplyHomeCard } from '@/components/wallet/taply/TaplyHomeCard';
+import { useWalletMode } from '@/components/wallet/taply/mode';
 import { useT } from '@/lib/i18n/provider';
 
 /**
@@ -15,11 +17,12 @@ import { useT } from '@/lib/i18n/provider';
  */
 export default function HomePage() {
   const t = useT();
+  const [mode] = useWalletMode();
 
   return (
     <div className="flex flex-col gap-5 pt-2">
       <h1 className="sr-only">{t.screens.home}</h1>
-      <BalanceCard />
+      {mode === 'taply' ? <TaplyHomeCard /> : <BalanceCard />}
       <QuickActions />
       <TourCard />
       <RecentActivity />

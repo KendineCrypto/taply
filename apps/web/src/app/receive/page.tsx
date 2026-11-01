@@ -5,6 +5,8 @@ import { Card, ScreenHeader } from '@/components/primitives/Surface';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Icon } from '@/components/shell/Icons';
 import { ReceiveCard } from '@/components/wallet/ReceiveCard';
+import { TaplyReceive } from '@/components/wallet/taply/TaplyReceive';
+import { useWalletMode } from '@/components/wallet/taply/mode';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { useT } from '@/lib/i18n/provider';
 import { classifyAccountId } from '@/lib/near/account';
@@ -20,12 +22,15 @@ import { useWallet } from '@/lib/wallet/provider';
 export default function ReceivePage() {
   const t = useT();
   const { state } = useWallet();
+  const [mode] = useWalletMode();
 
   return (
     <>
       <ScreenHeader title={t.screens.receive} description={t.walletUx.receive.subtitle} />
 
-      {state.status === 'connected' ? (
+      {mode === 'taply' ? (
+        <TaplyReceive />
+      ) : state.status === 'connected' ? (
         <div className="flex flex-col gap-4">
           {classifyAccountId(state.session.accountId) === 'likely_mainnet' && (
             <InlineNotice copy={t.wallet.likelyMainnet} />

@@ -627,6 +627,101 @@ export interface Dictionary {
     };
   };
 
+  /** Phase 4D: native Taply Wallet (encrypted local vault, signing disabled). */
+  readonly walletNative: {
+    readonly switchLabel: string;
+    readonly external: string;
+    readonly taply: string;
+    readonly switchNote: string;
+    readonly unavailable: ErrorCopy;
+    readonly intro: ErrorCopy;
+    readonly point1: string;
+    readonly point2: string;
+    readonly point3: string;
+    readonly create: string;
+    readonly restore: string;
+    readonly identityLabel: string;
+    readonly status: {
+      readonly checking: string;
+      readonly localOnly: ErrorCopy;
+      readonly provisioned: ErrorCopy;
+      readonly unknown: ErrorCopy;
+    };
+    readonly lock: {
+      readonly locked: string;
+      readonly unlocked: string;
+      readonly unlockTitle: string;
+      readonly unlock: string;
+      readonly unlocking: string;
+      readonly lockNow: string;
+      readonly passphrase: string;
+      readonly autoLock: string;
+    };
+    readonly backup: {
+      readonly title: string;
+      readonly body: string;
+      readonly fileWarning: string;
+      readonly download: string;
+      readonly downloaded: string;
+      readonly confirm: string;
+      readonly finish: string;
+      readonly required: string;
+    };
+    readonly createFlow: {
+      readonly title: string;
+      readonly stepOf: string;
+      readonly understandTitle: string;
+      readonly ack1: string;
+      readonly ack2: string;
+      readonly ack3: string;
+      readonly continue: string;
+      readonly back: string;
+      readonly passTitle: string;
+      readonly passLabel: string;
+      readonly passHint: string;
+      readonly confirmLabel: string;
+      readonly show: string;
+      readonly hide: string;
+      readonly mismatch: string;
+      readonly tooShort: string;
+      readonly tooLong: string;
+      readonly strengthLabel: string;
+      readonly strength: Readonly<Record<'weak' | 'fair' | 'strong' | 'excellent', string>>;
+      readonly creating: string;
+      readonly createButton: string;
+      readonly createdTitle: string;
+      readonly createdBody: string;
+    };
+    readonly restoreFlow: {
+      readonly title: string;
+      readonly body: string;
+      readonly file: string;
+      readonly paste: string;
+      readonly restoring: string;
+      readonly restoreButton: string;
+      readonly restored: string;
+    };
+    readonly errors: Readonly<Record<'BAD_PASSWORD_OR_DATA' | 'PASSWORD_POLICY' | 'ALREADY_EXISTS' | 'INVALID_RECORD' | 'STORAGE_UNAVAILABLE' | 'CRYPTO_UNAVAILABLE' | 'CANCELLED' | 'LOCKED' | 'ACCOUNT_NOT_PROVISIONED' | 'INVALID_ADDRESS' | 'INVALID_AMOUNT' | 'INSUFFICIENT_AVAILABLE_BALANCE' | 'NETWORK_MISMATCH' | 'RPC_UNAVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN', string>>;
+    readonly send: {
+      readonly notActive: ErrorCopy;
+      readonly available: string;
+      readonly storageReserve: string;
+      readonly gasReserve: string;
+      readonly signingOff: string;
+      readonly preparing: string;
+    };
+    readonly home: {
+      readonly noBalance: string;
+      readonly lockedHint: string;
+    };
+    readonly receive: {
+      readonly localOnlyNote: string;
+    };
+    readonly paymentsNote: string;
+    readonly createdAlready: string;
+    readonly nativeChip: string;
+  };
+
   readonly screens: {
     readonly home: string;
     readonly send: string;

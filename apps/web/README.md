@@ -20,9 +20,15 @@ walkthrough, storyboard, voiceover and launch post:
 What works with a real wallet today: connect an existing NEAR Testnet wallet
 (NEAR Connect), real finalized balance, wallet identity, receive (account QR),
 send preparation and review, Instant Pay request creation flow, payer review,
-status and the independent receipt verifier. **Signing is switched off**, the
-send confirmation is unavailable (no direct-transfer signer yet), and the
-Taply-controlled wallet (create / restore / unlock) is **not available yet**.
+status and the independent receipt verifier. **Taply Wallet** (native, Phase 4D):
+create a local Testnet identity with a strong passphrase, mandatory encrypted
+backup download, restore from that backup, unlock / lock, local-only vs
+active-on-Testnet status, verified balance, receive QR and native transfer
+review — keys are generated and encrypted by the Codex wallet controller
+(Web Crypto), never in UI code. **Signing is switched off** everywhere: the send
+confirmation is unavailable for both wallets, and Instant Pay keeps using the
+external (NEAR Connect / Meteor) wallet. Screens:
+[`docs/screenshots/taply-wallet/`](docs/screenshots/taply-wallet/).
 
 Run locally: `pnpm install --frozen-lockfile`, then from `apps/web`:
 `pnpm build && pnpm start` and open <http://localhost:3000/demo>.
@@ -59,7 +65,8 @@ place a verified claim may be recorded.
 | Recipient retry of a recorded failure; creator cancel of an unpaid request | built, tested; **signing gated** |
 | Receipt: ticket with evidence-based seal; contract terminal facts collapsible | built, tested |
 | Phase 3B design system, experience components, `/demo` tour | built, tested, screenshot-checked (360/390/desktop, EN/TR) |
-| Phase 4B wallet home, `/wallet` onboarding, send (review only), receive, 8-step tour | built, tested; native Taply Wallet **not available**; send confirm **unavailable** |
+| Phase 4B wallet home, `/wallet` onboarding, send (review only), receive, 8-step tour | built, tested; send confirm **unavailable** |
+| Phase 4D native Taply Wallet UI (create, encrypted backup, restore, unlock/lock, status, balance, receive, transfer review, wallet switch) | built on the real Codex controller, tested with real Web Crypto; **signing disabled**; no account created or funded |
 | Verified Paid | only from the independent receipt verifier (`src/lib/verify`); no real Taply payment verified yet |
 | Protected Pay, Handshake, checkout, send | **disabled** |
 | Service worker, CSP | **deliberately deferred** (reasons in `src/lib/protocol/README.md`) |

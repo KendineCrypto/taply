@@ -1,6 +1,7 @@
 'use client';
 
 import { useId } from 'react';
+import type { ReactNode } from 'react';
 import { AmountHero, Monogram, NetworkPill } from '@/components/experience/Basics';
 import { Button } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
@@ -19,11 +20,16 @@ export function SendReview({
   amountYocto,
   confirm,
   onEdit,
+  details,
 }: {
   readonly recipientAccountId: string;
   readonly amountYocto: string;
-  readonly confirm: { readonly available: true; readonly label: string; readonly onConfirm: () => void } | { readonly available: false };
+  readonly confirm:
+    | { readonly available: true; readonly label: string; readonly onConfirm: () => void }
+    | { readonly available: false; readonly reason?: string };
   readonly onEdit: () => void;
+  /** Extra rows (e.g. sender and reserves for Taply Wallet). */
+  readonly details?: ReactNode;
 }) {
   const t = useT();
   const s = t.walletUx.send;
@@ -58,6 +64,7 @@ export function SendReview({
           <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.experience.review.networkFee}</dt>
           <dd className="text-right text-[var(--text-secondary)]">{s.feeValue}</dd>
         </div>
+        {details}
       </dl>
       {confirm.available ? (
         <Button size="lg" block onClick={confirm.onConfirm}>
@@ -71,7 +78,7 @@ export function SendReview({
             {s.confirm}
           </Button>
           <p id={reasonId} className="text-sm leading-relaxed text-[var(--tone-caution-fg)]">
-            {s.confirmUnavailable}
+            {confirm.reason ?? s.confirmUnavailable}
           </p>
         </>
       )}

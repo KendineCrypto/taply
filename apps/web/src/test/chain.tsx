@@ -13,6 +13,10 @@ import type { JournalStorage } from '@/lib/payments/journal';
 import type { VerifierRpc } from '@/lib/verify/rpc';
 import type { SignOutcome, WalletAdapter, WalletCall, WalletSession } from '@/lib/wallet/adapter';
 import { WalletProvider } from '@/lib/wallet/provider';
+import { TaplyWalletProvider } from '@/components/wallet/taply/TaplyWalletProvider';
+import type { TaplyWalletController } from '@/components/wallet/taply/TaplyWalletProvider';
+
+const noTaplyWallet = (): TaplyWalletController | null => null;
 import openRestricted from './fixtures/sandbox/open-restricted.json';
 import paidRestricted from './fixtures/sandbox/paid-restricted.json';
 import open from './fixtures/sandbox/open.json';
@@ -224,13 +228,20 @@ export function recordingWallet(
 
 export function renderWithChain(
   ui: ReactNode,
-  options: { setup: PaymentsSetup; adapter: WalletAdapter; storage?: JournalStorage; locale?: Locale },
+  options: {
+    setup: PaymentsSetup;
+    adapter: WalletAdapter;
+    storage?: JournalStorage;
+    locale?: Locale;
+    /** Taply Wallet controller factory. Default: none (the provider reports "unavailable"). */
+    taply?: () => TaplyWalletController | null;
+  },
 ) {
   return render(
     <I18nProvider locale={options.locale ?? 'en'}>
       <WalletProvider adapter={options.adapter}>
         <PaymentsProvider setup={options.setup} storage={options.storage ?? memoryStorage()}>
-          {ui}
+          <TaplyWalletProvider factory={options.taply ?? noTaplyWallet}>{ui}</TaplyWalletProvider>
         </PaymentsProvider>
       </WalletProvider>
     </I18nProvider>,

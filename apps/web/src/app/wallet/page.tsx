@@ -8,17 +8,39 @@ import { Icon } from '@/components/shell/Icons';
 import { AccountChip } from '@/components/wallet/AccountChip';
 import { WalletKindBadge } from '@/components/wallet/WalletKind';
 import { WalletOnboarding } from '@/components/wallet/WalletOnboarding';
+import { TaplyWalletPanel, WalletModeSwitch } from '@/components/wallet/taply/TaplyWalletUi';
+import { useWalletMode } from '@/components/wallet/taply/mode';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
 import { CHAIN_CONFIG, explorerAccountUrl } from '@/lib/near/config';
 import { useWallet } from '@/lib/wallet/provider';
 
 /**
- * /wallet - onboarding when disconnected, wallet management when connected.
- * Connected wallets are always external (NEAR Connect); the native Taply
- * Wallet is not available in this build and is never shown as active.
+ * /wallet - switch between the external wallet (NEAR Connect / Meteor) and the
+ * native Taply Wallet (encrypted local vault). A local-only Taply identity is
+ * never shown as an active account, and Taply Wallet signing is off.
  */
 export default function WalletPage() {
+  const t = useT();
+  const [mode] = useWalletMode();
+  return (
+    <>
+      <div className="mb-5">
+        <WalletModeSwitch />
+      </div>
+      {mode === 'taply' ? (
+        <>
+          <ScreenHeader title={t.walletNative.taply} description={t.walletNative.intro.body} />
+          <TaplyWalletPanel />
+        </>
+      ) : (
+        <ExternalWallet />
+      )}
+    </>
+  );
+}
+
+function ExternalWallet() {
   const t = useT();
   const { state, disconnect } = useWallet();
   const o = t.walletUx.onboarding;

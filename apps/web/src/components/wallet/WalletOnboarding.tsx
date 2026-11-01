@@ -7,24 +7,24 @@ import type { IconName } from '@/components/shell/Icons';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import type { ErrorCopy } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
+import { useTaplyWallet } from './taply/TaplyWalletProvider';
 
 /**
  * Wallet onboarding.
  *
- * Only "Connect existing wallet" is functional: it uses the NEAR Connect
- * adapter, and the person's keys stay in their own wallet. Creating or
- * restoring a Taply-controlled wallet needs a reviewed native wallet engine
- * (owned by core) that does not exist in this build, so those options are shown
- * as "Not available yet". They never collect a password, phrase or key; they
- * open an explanation with a working alternative, so nothing is a dead end.
- *
- * When core ships the native engine, it should expose its availability through
- * the wallet adapter; this component then enables the rows from that signal.
+ * "Connect existing wallet" uses NEAR Connect (keys stay in that wallet).
+ * "Create / Restore Taply Wallet" open the native flows backed by the Codex
+ * controller (encrypted local vault, Testnet only, signing off). In browsers
+ * that cannot run the controller they show "Not available yet" with an
+ * explanation instead; those rows never collect a passphrase or key.
  */
 export function WalletOnboarding() {
   const t = useT();
   const o = t.walletUx.onboarding;
   const connectId = useId();
+  const taply = useTaplyWallet();
+  // Native creation needs the controller (secure context, Web Crypto, Web Locks).
+  const nativeAvailable = taply.state.status !== 'unavailable';
 
   return (
     <div className="flex flex-col gap-4">
@@ -52,10 +52,43 @@ export function WalletOnboarding() {
       </section>
 
       <ul className="flex flex-col gap-3">
-        <NotYetOption icon="shield" copy={o.create} />
-        <NotYetOption icon="refresh" copy={o.restore} />
+        {nativeAvailable ? (
+          <>
+            <NativeOption href="/wallet/create" icon="shield" copy={o.create} />
+            <NativeOption href="/wallet/restore" icon="refresh" copy={o.restore} />
+          </>
+        ) : (
+          <>
+            <NotYetOption icon="shield" copy={o.create} />
+            <NotYetOption icon="refresh" copy={o.restore} />
+          </>
+        )}
       </ul>
     </div>
+  );
+}
+
+/** Taply Wallet option backed by the real controller. Signing stays off and says so. */
+function NativeOption({ href, icon, copy }: { readonly href: '/wallet/create' | '/wallet/restore'; readonly icon: IconName; readonly copy: ErrorCopy }) {
+  const t = useT();
+  return (
+    <li>
+      <Link href={href} className="surface-card pressable flex items-start gap-4 p-4 hover:border-[var(--border-strong)]">
+        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[var(--surface-2)] text-[var(--taply-lime)] ring-1 ring-[var(--border-subtle)]">
+          <Icon name={icon} size={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-[var(--text-primary)]">{copy.title}</span>
+            <span className="rounded-full bg-[var(--tone-caution-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--tone-caution-fg)] ring-1 ring-[var(--tone-caution-border)]">
+              {t.walletNative.nativeChip}
+            </span>
+          </span>
+          <span className="mt-1 block text-sm leading-relaxed text-[var(--text-secondary)]">{copy.body}</span>
+        </span>
+        <Icon name="chevron" size={18} className="mt-1 shrink-0 text-[var(--text-muted)]" />
+      </Link>
+    </li>
   );
 }
 

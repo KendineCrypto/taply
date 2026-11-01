@@ -7,8 +7,8 @@ import { useT } from '@/lib/i18n/provider';
 /**
  * Which kind of wallet controls the account. The two must never look alike:
  *  - external: a NEAR wallet connected through NEAR Connect. Keys stay there.
- *  - native:   a Taply-controlled wallet. Not available in this build; only the
- *              /demo tour may render it, as a labelled design preview.
+ *  - native:   the Taply Wallet (encrypted local vault on this device). Its
+ *              signing is off; the payments provider never uses it.
  */
 export function WalletKindBadge({
   kind,

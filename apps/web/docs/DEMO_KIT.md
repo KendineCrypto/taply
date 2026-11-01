@@ -6,10 +6,11 @@ Everything needed to record and present Taply. **Honesty rules for every asset:*
 
 - The `/demo` tour runs on deterministic DEMO data and says so on every screen.
   Never crop the DEMO markers out of a recording.
-- The **Taply Wallet** (a Taply-controlled wallet) appears only in the tour, as a
-  labelled design preview. In this build Taply connects your **existing**
-  NEAR Testnet wallet; creating, restoring and unlocking a Taply Wallet are shown
-  as "Not available yet".
+- The **Taply Wallet** is real in the app (Phase 4D): it creates a local Testnet
+  identity encrypted on the device, with a mandatory encrypted backup, restore,
+  unlock and lock. A new identity is **local only**: it is not an account on
+  NEAR Testnet until it receives a first transfer, and Taply never creates or
+  funds accounts. Its signing is off. The tour's wallet home remains DEMO data.
 - Sending and paying are not signed in this build (signing is off; there is no
   direct-transfer signer yet). Do not present the demo receipt or the demo
   "Sent" screen as real Testnet transactions. Show a real Verified Paid receipt
@@ -32,6 +33,13 @@ desktop. Captured with reduced motion; nothing is retouched.
 | `09-tour-create-*` / `10-tour-share-*` | Tour 4–5: create a request, share ticket with QR |
 | `11-tour-review-*` | Tour 6: payer review with confirmation |
 | `12-tour-verified-*` / `13-tour-receipt-*` | Tour 7–8: Verified Paid progress and receipt (DEMO, synthetic references) |
+
+Native Taply Wallet captures (Phase 4D, real controller driven in Chromium with a
+throwaway profile; no account created, nothing signed) are in
+[`screenshots/taply-wallet/`](screenshots/taply-wallet/): `20-wallet-external`,
+`21-taply-intro`, `22-create-understand`, `23-create-passphrase`,
+`24-create-backup`, `25-taply-local-locked`, `26-taply-unlocked`, `27-home-taply`,
+`28-receive-taply`, `29-send-taply-local`, `30-restore-existing`, `31-restore`.
 
 Earlier Phase 3B captures remain in [`screenshots/`](screenshots/).
 

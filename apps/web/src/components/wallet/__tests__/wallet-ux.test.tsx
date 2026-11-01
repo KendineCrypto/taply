@@ -36,9 +36,10 @@ describe('/wallet onboarding', () => {
 
   it('a connected wallet is shown as an external wallet with its keys outside Taply', async () => {
     renderWithChain(<WalletPage />, { setup: setup(), adapter: recordingWallet('alice.testnet').adapter });
-    expect(await screen.findByText('External wallet')).toBeTruthy();
-    expect(screen.getByText(/Your keys stay in Fake Wallet/)).toBeTruthy();
-    expect(screen.queryByText('Taply Wallet')).toBeNull();
+    expect(await screen.findByText(/Your keys stay in Fake Wallet/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'External wallet' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Taply Wallet' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.queryByText('Account ID (implicit)')).toBeNull();
     expect(screen.getByRole('button', { name: 'Disconnect' })).toBeTruthy();
   });
 });

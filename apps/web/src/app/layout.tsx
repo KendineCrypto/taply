@@ -6,6 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { I18nProvider } from '@/lib/i18n/provider';
 import { WalletProvider } from '@/lib/wallet/provider';
 import { PaymentsProvider } from '@/lib/payments/context';
+import { TaplyWalletProvider } from '@/components/wallet/taply/TaplyWalletProvider';
 import { LOCALE_COOKIE, getDictionary, resolveLocale } from '@/lib/i18n';
 
 // Self-hosted at build time by next/font (no runtime request to Google).
@@ -58,7 +59,9 @@ export default async function RootLayout({ children }: { readonly children: Reac
         <I18nProvider locale={locale}>
           <WalletProvider>
             <PaymentsProvider>
-              <AppShell>{children}</AppShell>
+              <TaplyWalletProvider>
+                <AppShell>{children}</AppShell>
+              </TaplyWalletProvider>
             </PaymentsProvider>
           </WalletProvider>
         </I18nProvider>
