@@ -27,6 +27,18 @@ export function PaymentsSetupNotice() {
   if (setup.status === 'invalid_config') return <InlineNotice copy={t.payment.setup.invalidConfig} tone="danger" />;
   if (setup.status === 'chain_unavailable') return <InlineNotice copy={t.payment.setup.chainUnavailable} tone="danger" />;
   if (check.status === 'rejected') return <InlineNotice copy={t.payment.setup.rejected} tone="danger" />;
+  if (check.status === 'stale_chain') {
+    return (
+      <InlineNotice
+        copy={check.freshness === 'future' ? t.reliability.clockAhead : t.reliability.staleChain}
+        action={
+          <Button variant="secondary" onClick={recheck}>
+            {t.common.retry}
+          </Button>
+        }
+      />
+    );
+  }
   if (check.status === 'unreachable') {
     const copy = check.error === 'CONTRACT_CODE_MISMATCH' ? t.payment.setup.codeMismatch : t.payment.setup.unreachable;
     return (

@@ -10,6 +10,7 @@ import { transactionHashOf } from '@/lib/wallet/adapter';
 import { buildInstantTerms, newCreationNonce, payLink, validateRequestForm } from '../create';
 import { buildPaymentView, callerRoleFor, IN_FLIGHT_INCIDENT_AFTER_NS } from '../intent';
 import { JournalBlockedError, SubmissionJournal } from '../journal';
+import { inProcessJournalLock } from '../journal-lock';
 import type { JournalEntry } from '../journal';
 import { reconcile, submitCall } from '../submit';
 import { signingBlockFor } from '../context';
@@ -127,7 +128,7 @@ describe('journal and submission', () => {
 
   it('journals before signing; outcomes map to phases; an unexplained attempt blocks the next', async () => {
     const storage = memory();
-    const journal = new SubmissionJournal(storage);
+    const journal = new SubmissionJournal(storage, undefined, inProcessJournalLock());
     let seenBeforeSigning: JournalEntry | null = null;
     const first = await submit(journal, async () => {
       seenBeforeSigning = journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet');
@@ -139,21 +140,21 @@ describe('journal and submission', () => {
       throw new Error('must not be called');
     });
     expect(second.kind).toBe('blocked');
-    expect(() => journal.begin(base)).toThrow(JournalBlockedError);
+    await expect(journal.begin(base)).rejects.toThrow(JournalBlockedError);
   });
 
   it('decline -> USER_REJECTED (not blocking); hash -> SUBMITTED; wrong account -> nothing sent', async () => {
-    const journal = new SubmissionJournal(memory());
+    const journal = new SubmissionJournal(memory(), undefined, inProcessJournalLock());
     expect(await submit(journal, async () => Promise.reject(new WalletError('cancelled')))).toEqual({ kind: 'rejected' });
     expect(journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet')?.phase).toBe('USER_REJECTED');
     expect(await submit(journal, async () => ({ kind: 'submitted', transactionHash: TX }))).toEqual({ kind: 'submitted', transactionHash: TX });
     expect(journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet')).toMatchObject({ phase: 'SUBMITTED', transactionHash: TX });
-    const other = new SubmissionJournal(memory());
+    const other = new SubmissionJournal(memory(), undefined, inProcessJournalLock());
     expect(await submitCall({ journal: other, call, signerAccountId: 'payer.testnet', requestId: open.terms.id, termsHash: open.termsHash,
       signAndSend: async () => Promise.reject(new WalletError('no_account')) })).toEqual({ kind: 'wrong_account' });
   });
   it('retains a locally verified hash on an ambiguous wallet outcome without unblocking', async () => {
-    const journal = new SubmissionJournal(memory());
+    const journal = new SubmissionJournal(memory(), undefined, inProcessJournalLock());
     expect(await submit(journal, async () => ({ kind: 'unknown', transactionHash: TX }))).toEqual({ kind: 'unknown', transactionHash: TX });
     expect(journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet')).toMatchObject({ phase: 'OUTCOME_UNKNOWN', transactionHash: TX });
     expect((await submit(journal, async () => { throw new Error('must not resubmit'); })).kind).toBe('blocked');
@@ -164,13 +165,13 @@ describe('journal and submission', () => {
     expect(await submit(null, async () => (signed.push(1), { kind: 'unknown' }))).toEqual({ kind: 'no_journal' });
     const corrupt = memory();
     corrupt.setItem('taply.journal.v1', '{"version":1,"entries":[{"phase":"PAID"}]}');
-    expect(await submit(new SubmissionJournal(corrupt), async () => (signed.push(1), { kind: 'unknown' }))).toEqual({ kind: 'no_journal' });
+    expect(await submit(new SubmissionJournal(corrupt, undefined, inProcessJournalLock()), async () => (signed.push(1), { kind: 'unknown' }))).toEqual({ kind: 'no_journal' });
     expect(signed).toHaveLength(0);
   });
 
   it('stores only public data', async () => {
     const storage = memory();
-    await submit(new SubmissionJournal(storage), async () => ({ kind: 'submitted', transactionHash: TX }));
+    await submit(new SubmissionJournal(storage, undefined, inProcessJournalLock()), async () => ({ kind: 'submitted', transactionHash: TX }));
     expect(storage.data.get('taply.journal.v1')).not.toMatch(/ed25519|secret|private|seed/i);
   });
 
@@ -271,7 +272,7 @@ describe('configuration and signing gate', () => {
 
   it('signing needs a ready setup, a verified contract and the flag, in that order', () => {
     const ready = { status: 'ready' as const, contractId: 'p.testnet', expectedCodeHash: 'h', signingFlag: true, explorerBaseUrl: 'https://x', reader: {} as never, verifierRpc: null };
-    const verified = { status: 'verified' as const, config: {} as never, observedAtNs: '1' };
+    const verified = { status: 'verified' as const, config: {} as never, observedAtNs: '1', checkedAtMs: 0 };
     expect(signingBlockFor({ status: 'not_configured' }, verified)).toBe('not_configured');
     expect(signingBlockFor(ready, { status: 'checking' })).toBe('contract_unverified');
     expect(signingBlockFor(ready, { status: 'rejected', problems: ['TEST_FAULT_BUILD'] })).toBe('contract_rejected');

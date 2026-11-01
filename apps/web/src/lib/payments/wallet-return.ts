@@ -257,7 +257,7 @@ export async function processWalletReturns(input: {
       const awaiting = open.filter((e) => e.phase === 'AWAITING_SIGNATURE');
       const [only] = awaiting;
       if (only !== undefined && awaiting.length === 1) {
-        journal.update(only, { phase: 'USER_REJECTED' });
+        await journal.update(only, { phase: 'USER_REJECTED' });
         journalChanged = true;
       }
       continue;
@@ -266,7 +266,7 @@ export async function processWalletReturns(input: {
       // The wallet came back with an unexplained error: something may have been
       // sent. Waiting attempts become OUTCOME_UNKNOWN (still blocking).
       for (const e of open.filter((x) => x.phase === 'AWAITING_SIGNATURE')) {
-        journal.update(e, { phase: 'OUTCOME_UNKNOWN' });
+        await journal.update(e, { phase: 'OUTCOME_UNKNOWN' });
         journalChanged = true;
       }
       continue;
@@ -275,7 +275,7 @@ export async function processWalletReturns(input: {
     // Hashes: the wallet says it broadcast something. Until bound, waiting
     // attempts are at least OUTCOME_UNKNOWN; nothing becomes unblocked here.
     for (const e of open.filter((x) => x.phase === 'AWAITING_SIGNATURE')) {
-      journal.update(e, { phase: 'OUTCOME_UNKNOWN' });
+      await journal.update(e, { phase: 'OUTCOME_UNKNOWN' });
       journalChanged = true;
     }
     if (rpc === null) {
@@ -289,7 +289,7 @@ export async function processWalletReturns(input: {
       for (const entry of candidates(journal, now)) {
         const verdict = await matchTransaction(rpc, hash, entry);
         if (verdict === 'match') {
-          journal.update(entry, { phase: 'SUBMITTED', transactionHash: hash });
+          await journal.update(entry, { phase: 'SUBMITTED', transactionHash: hash });
           journalChanged = true;
           bound = true;
           break;

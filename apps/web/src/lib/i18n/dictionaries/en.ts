@@ -641,7 +641,7 @@ export const en: Dictionary = {
       },
       noJournal: {
         title: 'This browser cannot keep a safety record',
-        body: 'Local storage is unavailable, so an interrupted payment could not be tracked. Signing is disabled here.',
+        body: 'Local storage or cross-tab locking is unavailable, so an interrupted payment could not be tracked safely. Nothing was sent. Signing is disabled here.',
       },
       wrongAccount: {
         title: 'Different wallet account',
@@ -1304,6 +1304,21 @@ export const en: Dictionary = {
     },
     receipt: {
       technicalProof: 'Technical proof',
+    },
+  },
+
+  reliability: {
+    reviewAgain: {
+      title: 'Please review again',
+      body: 'The chain data behind this review was out of date, or the contract details changed. Nothing was signed. Check the latest details and continue again.',
+    },
+    staleChain: {
+      title: 'Network data is out of date',
+      body: 'The latest finalized block from the network is too old to sign against. Nothing was sent and no payment was affected. Try again in a moment.',
+    },
+    clockAhead: {
+      title: 'Your device clock looks out of sync',
+      body: 'Network time and this device\'s time differ too much to sign safely. Check your clock. Nothing was sent and no payment was affected.',
     },
   },
 };

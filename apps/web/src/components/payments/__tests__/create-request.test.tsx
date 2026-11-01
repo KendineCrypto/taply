@@ -101,7 +101,10 @@ describe('create request', () => {
   });
 
   it('an unconfirmed earlier creation blocks a new one; the same terms can be resumed after the chain shows no effect', async () => {
-    const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
+    // Chain time near the wall clock: journal timestamps are wall-clock, and the
+    // resumed terms must still be fundable when they are re-signed.
+    const start = BigInt(Date.now()) * 1_000_000n;
+    const chain = installChain({ contractId: CONTRACT, blockTimestampNs: start.toString() });
     const storage = memoryStorage();
     const first = recordingWallet(CREATOR, async () => ({ kind: 'unknown' }));
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter: first.adapter, storage });
@@ -121,7 +124,7 @@ describe('create request', () => {
     cleanup();
 
     // Later, still not on chain: the SAME terms (same nonce, same id) may be re-signed.
-    chain.blockTimestampNs = (BigInt(Date.now()) * 1_000_000n + 300_000_000_000n).toString();
+    chain.blockTimestampNs = (start + 300_000_000_000n).toString();
     const third = recordingWallet(CREATOR);
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter: third.adapter, storage });
     // Reconciliation is a full finalized read per unexplained attempt.

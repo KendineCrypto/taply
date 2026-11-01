@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PaymentScreen } from '../PaymentScreen';
 import { FIXTURES, installChain, memoryStorage, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
 import { JOURNAL_STORAGE_KEY, SubmissionJournal } from '@/lib/payments/journal';
+import { inProcessJournalLock } from '@/lib/payments/journal-lock';
 import { VerifierRpcError } from '@/lib/verify/rpc';
 import type { VerifierRpc } from '@/lib/verify/rpc';
 import { hashOf } from '@/lib/verify/__tests__/fake-chain';
@@ -50,7 +51,7 @@ describe('wallet redirect recovery on /pay/[id]', () => {
     const chain = installChain({ contractId: openRestricted.terms.contractId });
     chain.requests.set(openRestricted.terms.id, openRestricted);
     const storage = memoryStorage();
-    new SubmissionJournal(storage).begin({
+    await new SubmissionJournal(storage, undefined, inProcessJournalLock()).begin({
       method: 'pay_instant_native',
       network: 'near-testnet',
       contractId: openRestricted.terms.contractId,
@@ -93,7 +94,7 @@ describe('a redirect that loses the transaction reference never resubmits', () =
     // Still OPEN and fundable on chain: the dangerous case for a blind retry.
     chain.requests.set(openRestricted.terms.id, openRestricted);
     const storage = memoryStorage();
-    new SubmissionJournal(storage).begin({
+    await new SubmissionJournal(storage, undefined, inProcessJournalLock()).begin({
       method: 'pay_instant_native',
       network: 'near-testnet',
       contractId: openRestricted.terms.contractId,

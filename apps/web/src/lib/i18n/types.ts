@@ -806,4 +806,11 @@ export interface Dictionary {
       readonly technicalProof: string;
     };
   };
+
+  /** Phase 5C: freshness and cross-tab safety states. */
+  readonly reliability: {
+    readonly reviewAgain: ErrorCopy;
+    readonly staleChain: ErrorCopy;
+    readonly clockAhead: ErrorCopy;
+  };
 }

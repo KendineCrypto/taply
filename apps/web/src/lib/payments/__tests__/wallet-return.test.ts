@@ -4,6 +4,7 @@ import { VerifierRpcError } from '@/lib/verify/rpc';
 import type { VerifierRpc } from '@/lib/verify/rpc';
 import { hashOf } from '@/lib/verify/__tests__/fake-chain';
 import { SubmissionJournal, isBlocking } from '../journal';
+import { inProcessJournalLock } from '../journal-lock';
 import { reconcile } from '../submit';
 import {
   WALLET_RETURN_MAX_ATTEMPTS,
@@ -65,11 +66,11 @@ function txRpc(
   };
 }
 
-function setup(now = clock()) {
+async function setup(now = clock()) {
   const storage = memoryStorage();
-  const journal = new SubmissionJournal(storage, now);
+  const journal = new SubmissionJournal(storage, now, inProcessJournalLock());
   const inbox = new WalletReturnInbox(storage, now);
-  const entry = journal.begin({
+  const entry = await journal.begin({
     method: 'pay_instant_native',
     network: 'near-testnet',
     contractId: CONTRACT,
@@ -106,8 +107,8 @@ describe('parsing and stripping wallet return parameters', () => {
     );
   });
 
-  it('captures into the inbox and rewrites the address bar once', () => {
-    const { inbox } = setup();
+  it('captures into the inbox and rewrites the address bar once', async () => {
+    const { inbox } = await setup();
     const replaced: string[] = [];
     const found = captureWalletReturn(
       inbox,
@@ -122,8 +123,8 @@ describe('parsing and stripping wallet return parameters', () => {
     );
   });
 
-  it('never stores errorMessage', () => {
-    const { inbox, storage } = setup();
+  it('never stores errorMessage', async () => {
+    const { inbox, storage } = await setup();
     captureWalletReturn(
       inbox,
       {
@@ -138,7 +139,7 @@ describe('parsing and stripping wallet return parameters', () => {
 
 describe('processWalletReturns', () => {
   it('success: binds the returned hash after the chain confirms signer, contract, method and request', async () => {
-    const { journal, inbox, entry } = setup();
+    const { journal, inbox, entry } = await setup();
     inbox.add({ kind: 'hashes', hashes: [TX] });
     const rpc = txRpc({ [TX]: payTx });
     const result = await processWalletReturns({ inbox, journal, rpc, now: clock(1000) });
@@ -151,15 +152,15 @@ describe('processWalletReturns', () => {
   });
 
   it('rejection: an explicit decline moves the single waiting attempt to USER_REJECTED', async () => {
-    const { journal, inbox } = setup();
+    const { journal, inbox } = await setup();
     inbox.add({ kind: 'rejected' });
     await processWalletReturns({ inbox, journal, rpc: txRpc({}), now: clock(1000) });
     expect(journal.find(ID, 'pay_instant_native', PAYER)?.phase).toBe('USER_REJECTED');
   });
 
   it('rejection cannot touch an attempt that already returned a hash or was explained', async () => {
-    const { journal, inbox } = setup();
-    journal.update(
+    const { journal, inbox } = await setup();
+    await journal.update(
       { requestId: ID, method: 'pay_instant_native', signerAccountId: PAYER },
       { phase: 'SUBMITTED', transactionHash: TX },
     );
@@ -169,7 +170,7 @@ describe('processWalletReturns', () => {
   });
 
   it('timeout: a hash the chain does not know yet keeps the attempt blocking and is retried later', async () => {
-    const { journal, inbox } = setup();
+    const { journal, inbox } = await setup();
     inbox.add({ kind: 'hashes', hashes: [TX] });
     const result = await processWalletReturns({ inbox, journal, rpc: txRpc({}), now: clock(1000) });
     expect(result.pending).toBe(1);
@@ -183,7 +184,7 @@ describe('processWalletReturns', () => {
   });
 
   it('timeout: gives up on the hash after the attempt cap, but the journal entry stays blocking', async () => {
-    const { journal, inbox, storage } = setup();
+    const { journal, inbox, storage } = await setup();
     storage.setItem(
       WALLET_RETURN_STORAGE_KEY,
       JSON.stringify({
@@ -206,7 +207,7 @@ describe('processWalletReturns', () => {
   });
 
   it('duplicate callback: the same return twice is stored once and binds once', async () => {
-    const { journal, inbox } = setup();
+    const { journal, inbox } = await setup();
     const href = `https://app.example/pay/${ID}?transactionHashes=${TX}`;
     captureWalletReturn(inbox, { href, search: `?transactionHashes=${TX}` }, () => undefined);
     captureWalletReturn(inbox, { href, search: `?transactionHashes=${TX}` }, () => undefined);
@@ -222,7 +223,7 @@ describe('processWalletReturns', () => {
   });
 
   it('stale state: a return older than 24 hours is dropped without changing the journal', async () => {
-    const { journal, inbox } = setup();
+    const { journal, inbox } = await setup();
     inbox.add({ kind: 'hashes', hashes: [TX] });
     const result = await processWalletReturns({
       inbox,
@@ -235,7 +236,7 @@ describe('processWalletReturns', () => {
   });
 
   it('stale state: a hash for a different call is never bound', async () => {
-    const { journal, inbox } = setup();
+    const { journal, inbox } = await setup();
     inbox.add({ kind: 'hashes', hashes: [OTHER_TX] });
     const rpc = txRpc({
       [OTHER_TX]: { ...payTx, args: { id: 'f'.repeat(64), expectedTermsHash: openRestricted.termsHash } },
@@ -248,7 +249,7 @@ describe('processWalletReturns', () => {
   });
 
   it('reload: the inbox and journal survive new instances over the same storage', async () => {
-    const { storage, inbox } = setup();
+    const { storage, inbox } = await setup();
     inbox.add({ kind: 'hashes', hashes: [TX] });
     // "Reload": fresh objects, same storage.
     const journal2 = new SubmissionJournal(storage, clock(5000));
@@ -259,7 +260,7 @@ describe('processWalletReturns', () => {
   });
 
   it('a lost reference never unblocks or resubmits: the entry waits for the chain to explain it', async () => {
-    const { journal, inbox, entry } = setup();
+    const { journal, inbox, entry } = await setup();
     inbox.add({ kind: 'error' });
     await processWalletReturns({ inbox, journal, rpc: txRpc({}), now: clock(1000) });
     const after = journal.find(ID, 'pay_instant_native', PAYER);
@@ -276,7 +277,7 @@ describe('processWalletReturns', () => {
   });
 
   it('without an RPC the return is kept for later and nothing is bound', async () => {
-    const { journal, inbox } = setup();
+    const { journal, inbox } = await setup();
     inbox.add({ kind: 'hashes', hashes: [TX] });
     const result = await processWalletReturns({ inbox, journal, rpc: null, now: clock(1000) });
     expect(result.pending).toBe(1);
@@ -285,7 +286,7 @@ describe('processWalletReturns', () => {
 });
 
 describe('matchTransaction', () => {
-  const entry = () => setup().entry;
+  const entry = async () => (await setup()).entry;
 
   it.each([
     ['another signer', { ...payTx, signer: 'mallory.testnet' }, 'unknown'],
@@ -295,13 +296,13 @@ describe('matchTransaction', () => {
     ['another request', { ...payTx, args: { id: '0'.repeat(64) } }, 'mismatch'],
     ['the journaled call', payTx, 'match'],
   ])('%s -> %s', async (_label, tx, expected) => {
-    expect(await matchTransaction(txRpc({ [TX]: tx }), TX, entry())).toBe(expected);
+    expect(await matchTransaction(txRpc({ [TX]: tx }), TX, await entry())).toBe(expected);
   });
 
   it('create_request matches on terms.id', async () => {
     const storage = memoryStorage();
-    const journal = new SubmissionJournal(storage, clock());
-    const created = journal.begin({
+    const journal = new SubmissionJournal(storage, clock(), inProcessJournalLock());
+    const created = await journal.begin({
       method: 'create_request',
       network: 'near-testnet',
       contractId: CONTRACT,

@@ -21,33 +21,72 @@ interface Stored {
  *   account that is no longer selected is dropped, so a slow read can never
  *   paint someone else's balance.
  * - Reads never retry automatically (near-client has no timeout retries either).
+ * - Overlapping reads for the SAME account and client are coalesced: a trigger
+ *   within JOIN_WINDOW_MS of the in-flight read joins it; a later one (e.g. a
+ *   refresh after a payment, or the resume read after an interruption) is
+ *   queued so exactly one follow-up read runs when the current one settles.
+ *   A different account or client never joins: its read starts at once and the
+ *   old result is dropped. Balances are never cached across accounts/providers.
  */
+
+/** Triggers this close to an in-flight read share its result. */
+export const JOIN_WINDOW_MS = 1_000;
+
+interface InFlight {
+  readonly client: Pick<NearTestnetClient, 'readNativeBalance'>;
+  readonly accountId: string;
+  readonly startedAt: number;
+  /** Generation it was started in; a read from an older generation is never joined. */
+  readonly ticket: number;
+  /** A trigger arrived after the join window: read once more when this settles. */
+  again: boolean;
+}
 export function useNativeBalance(
   client: Pick<NearTestnetClient, 'readNativeBalance'> | null,
   accountId: string | null,
 ): { readonly view: BalanceView; readonly refreshing: boolean; readonly refresh: () => void } {
   const [stored, setStored] = useState<Stored | null>(null);
+  /** Bumped when the account/client changes or the hook unmounts: older results are dropped. */
   const generation = useRef(0);
+  const inFlight = useRef<InFlight | null>(null);
 
-  /** Performs a read. Only touches state after the await, never synchronously. */
+  /** Performs (or joins) a read. Only touches state after the await, never synchronously. */
   const read = useCallback(async () => {
     if (client === null || accountId === null) return;
-    const ticket = ++generation.current;
-    let result: Awaited<ReturnType<NearTestnetClient['readNativeBalance']>> | null = null;
-    try {
-      result = await client.readNativeBalance(accountId);
-    } catch {
-      // near-client returns errors as values; a throw is unexpected. Fail closed.
+    const running = inFlight.current;
+    if (
+      running !== null &&
+      running.client === client &&
+      running.accountId === accountId &&
+      running.ticket === generation.current
+    ) {
+      if (Date.now() - running.startedAt > JOIN_WINDOW_MS) running.again = true;
+      return;
     }
-    if (ticket !== generation.current) return;
-    setStored((prev) => {
-      const previous = prev !== null && prev.accountId === accountId ? prev.view : ({ kind: 'loading' } as const);
-      const view: BalanceView =
-        result === null
-          ? { kind: 'error', errorCode: 'RPC_MALFORMED_RESPONSE' }
-          : nextBalanceView(previous, accountId, result);
-      return { accountId, view, refreshing: false };
-    });
+    const ticket = generation.current;
+    const run = async (): Promise<void> => {
+      const mine: InFlight = { client, accountId, startedAt: Date.now(), ticket, again: false };
+      inFlight.current = mine;
+      let result: Awaited<ReturnType<NearTestnetClient['readNativeBalance']>> | null = null;
+      try {
+        result = await client.readNativeBalance(accountId);
+      } catch {
+        // near-client returns errors as values; a throw is unexpected. Fail closed.
+      }
+      if (inFlight.current === mine) inFlight.current = null;
+      // Account or client changed (or unmounted) meanwhile: not ours to show.
+      if (ticket !== generation.current) return;
+      setStored((prev) => {
+        const previous = prev !== null && prev.accountId === accountId ? prev.view : ({ kind: 'loading' } as const);
+        const view: BalanceView =
+          result === null
+            ? { kind: 'error', errorCode: 'RPC_MALFORMED_RESPONSE' }
+            : nextBalanceView(previous, accountId, result);
+        return { accountId, view, refreshing: mine.again };
+      });
+      if (mine.again) await run();
+    };
+    await run();
   }, [client, accountId]);
 
   /** User-initiated refresh: shows the spinner immediately, keeps the current value visible. */

@@ -38,11 +38,13 @@ export async function submitCall(input: {
   const { journal, call, signerAccountId } = input;
   // Without a journal an unknown outcome could not survive a reload, so the
   // duplicate brake would not work. Refuse rather than sign unprotected.
-  if (journal === null || !journal.isReadable()) return { kind: 'no_journal' };
+  if (journal === null || !journal.isReadable() || !journal.canBegin()) return { kind: 'no_journal' };
 
   const target = { requestId: input.requestId, method: call.methodName as JournalMethod, signerAccountId };
   try {
-    journal.begin({
+    // Under the cross-tab journal lock: a concurrent attempt in another tab is
+    // seen here and blocks this one before any wallet prompt.
+    await journal.begin({
       ...target,
       network: 'near-testnet',
       contractId: call.receiverId,
@@ -61,23 +63,39 @@ export async function submitCall(input: {
   } catch (error) {
     const kind = error instanceof WalletError ? error.kind : classifyWalletError(error);
     if (kind === 'cancelled') {
-      journal.update(target, { phase: 'USER_REJECTED' });
+      await record(journal, target, { phase: 'USER_REJECTED' });
       return { kind: 'rejected' };
     }
     if (kind === 'no_account') {
-      journal.update(target, { phase: 'USER_REJECTED' });
+      await record(journal, target, { phase: 'USER_REJECTED' });
       return { kind: 'wrong_account' };
     }
-    journal.update(target, { phase: 'OUTCOME_UNKNOWN' });
+    await record(journal, target, { phase: 'OUTCOME_UNKNOWN' });
     return { kind: 'unknown' };
   }
 
   if (outcome.kind === 'submitted') {
-    journal.update(target, { phase: 'SUBMITTED', transactionHash: outcome.transactionHash });
-    return outcome;
+    // If the hash cannot be recorded, the entry stays AWAITING_SIGNATURE (blocking);
+    // report the outcome as unknown rather than as a clean submission.
+    const saved = await record(journal, target, { phase: 'SUBMITTED', transactionHash: outcome.transactionHash });
+    return saved ? outcome : { kind: 'unknown', transactionHash: outcome.transactionHash };
   }
-  journal.update(target, { phase: 'OUTCOME_UNKNOWN', ...(outcome.transactionHash ? { transactionHash: outcome.transactionHash } : {}) });
+  await record(journal, target, { phase: 'OUTCOME_UNKNOWN', ...(outcome.transactionHash ? { transactionHash: outcome.transactionHash } : {}) });
   return outcome;
+}
+
+/** Records an outcome. A failed write leaves the earlier blocking phase in place. */
+async function record(
+  journal: SubmissionJournal,
+  target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'>,
+  change: Parameters<SubmissionJournal['update']>[1],
+): Promise<boolean> {
+  try {
+    await journal.update(target, change);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** How long a hash-less unknown attempt blocks a new one, measured in chain time. */

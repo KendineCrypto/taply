@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from 'react';
 import { prepareCancelUnfunded, preparePayInstantNative, prepareRetryNativeTransfer } from '@taply/near-client';
-import type { PreparedContractCall } from '@taply/near-client';
+import type { ContractConfig, PreparedContractCall } from '@taply/near-client';
 import { AccountId } from '@/components/primitives/Amount';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Card, DetailRow } from '@/components/primitives/Surface';
@@ -16,6 +16,7 @@ import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/Wall
 import { useT } from '@/lib/i18n/provider';
 import { payLink } from '@/lib/payments/create';
 import { usePayments } from '@/lib/payments/context';
+import { chainFreshness, sameContractConfig } from '@/lib/payments/freshness';
 import type { PaymentView } from '@/lib/payments/intent';
 import { isBlocking } from '@/lib/payments/journal';
 import type { JournalEntry, JournalMethod } from '@/lib/payments/journal';
@@ -88,14 +89,15 @@ function PaymentLive({ id }: { readonly id: string }) {
   // so this effect never cascades renders) to stop polling for it.
   useEffect(() => {
     if (journal === null) return;
-    let changed = false;
-    for (const { entry, state } of attempts) {
-      if (state === 'resolved' && isBlocking(entry)) {
-        journal.update(entry, { phase: 'RESOLVED' });
-        changed = true;
-      }
-    }
-    if (changed) queueMicrotask(() => setJournalTick((n) => n + 1));
+    const explained = attempts.filter(({ entry, state }) => state === 'resolved' && isBlocking(entry));
+    if (explained.length === 0) return;
+    let active = true;
+    void Promise.allSettled(explained.map(({ entry }) => journal.update(entry, { phase: 'RESOLVED' }))).then(() => {
+      if (active) setJournalTick((n) => n + 1);
+    });
+    return () => {
+      active = false;
+    };
   }, [attempts, journal]);
 
   const run = async (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => {
@@ -125,9 +127,13 @@ function PaymentLive({ id }: { readonly id: string }) {
     const attempt = attempts.find((a) => a.entry.method === method && a.state === 'may_reattempt');
     if (attempt === undefined || journal === null) return;
     // An explicit human decision after the chain showed no effect for 2+ minutes.
-    journal.update(attempt.entry, { phase: 'RESOLVED' });
-    setResult(null);
-    setJournalTick((n) => n + 1);
+    void journal.update(attempt.entry, { phase: 'RESOLVED' }).then(
+      () => {
+        setResult(null);
+        setJournalTick((n) => n + 1);
+      },
+      () => undefined,
+    );
   };
 
   return (
@@ -142,6 +148,7 @@ function PaymentLive({ id }: { readonly id: string }) {
         submitting={submitting}
         onRun={run}
         onReattempt={allowReattempt}
+        onRefresh={refresh}
       />
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         {view !== null && <Provenance block={block} checkedAt={checkedAt} />}
@@ -193,6 +200,7 @@ function ViewBody({
   submitting,
   onRun,
   onReattempt,
+  onRefresh,
 }: {
   readonly id: string;
   readonly view: PaymentView | null;
@@ -202,6 +210,7 @@ function ViewBody({
   readonly submitting: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
   readonly onReattempt: (method: JournalMethod) => void;
+  readonly onRefresh: () => void;
 }) {
   const t = useT();
   if (view === null) {
@@ -244,6 +253,7 @@ function ViewBody({
           submitting={submitting}
           onRun={onRun}
           onReattempt={onReattempt}
+          onRefresh={onRefresh}
         />
       );
   }
@@ -258,6 +268,7 @@ function RequestView({
   submitting,
   onRun,
   onReattempt,
+  onRefresh,
 }: {
   readonly id: string;
   readonly view: Extract<PaymentView, { kind: 'ok' }>;
@@ -267,9 +278,10 @@ function RequestView({
   readonly submitting: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
   readonly onReattempt: (method: JournalMethod) => void;
+  readonly onRefresh: () => void;
 }) {
   const t = useT();
-  const { setup, check, signingBlock } = usePayments();
+  const { setup, check, signingBlock, ensureFreshCheck, now } = usePayments();
   const { request, response, observedAtNs } = view;
   const input: MapInput = {
     state: request.status,
@@ -300,18 +312,44 @@ function RequestView({
   const config = check.status === 'verified' ? check.config : null;
   const contractId = setup.status === 'ready' ? setup.contractId : '';
   const [refused, setRefused] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  // Bumped when a review went stale, so the pay review (and its checkbox) starts over.
+  const [reviewGeneration, setReviewGeneration] = useState(0);
 
-  // near-client refuses (throws) to describe a call the contract would reject.
-  // Fail closed: show why, ask the wallet for nothing.
-  const attempt = (make: () => PreparedContractCall, operationNonce?: string) => {
+  // Before any wallet prompt: the request read behind this screen must come from
+  // a fresh final block, and the contract must verify again at a fresh block with
+  // the same configuration the person saw. Otherwise re-read and ask for a new
+  // review; never sign from an old observation.
+  // near-client also refuses (throws) to describe a call the contract would reject.
+  const attempt = async (make: (verified: ContractConfig) => PreparedContractCall, operationNonce?: string) => {
+    if (verifying) return;
+    setRefused(false);
+    setStale(false);
+    const reviewStale = () => {
+      setStale(true);
+      setReviewGeneration((g) => g + 1);
+      onRefresh();
+    };
+    if (chainFreshness(observedAtNs, now()) !== 'fresh') {
+      reviewStale();
+      return;
+    }
+    setVerifying(true);
+    const shown = config;
+    const fresh = await ensureFreshCheck();
+    setVerifying(false);
+    if (fresh === null || shown === null || !sameContractConfig(fresh.config, shown)) {
+      reviewStale();
+      return;
+    }
     let call: PreparedContractCall;
     try {
-      call = make();
+      call = make(fresh.config);
     } catch {
       setRefused(true);
       return;
     }
-    setRefused(false);
     void onRun(call, request, operationNonce);
   };
 
@@ -359,20 +397,24 @@ function RequestView({
 
       {result !== null && <SubmitResultNotice result={result} />}
       {refused && <InlineNotice copy={t.payment.status.inconsistent} tone="danger" />}
+      {stale && <InlineNotice copy={t.reliability.reviewAgain} live="assertive" />}
 
       {ctaKinds.has('share_request') && link !== null && <ShareRequest link={link} request={request} />}
 
       {ctaKinds.has('review_and_pay') && (
         <PayReview
+          key={reviewGeneration}
           request={request}
           observedAtNs={observedAtNs}
           accountId={accountId}
           blocking={blockingFor('pay_instant_native')}
-          busy={submitting}
+          busy={submitting || verifying}
           onReattempt={() => onReattempt('pay_instant_native')}
           onPay={(signer) => {
             if (config === null) return;
-            attempt(() => preparePayInstantNative({ contractId, config, request, signerAccountId: signer, observedAtNs }));
+            void attempt((verified) =>
+              preparePayInstantNative({ contractId, config: verified, request, signerAccountId: signer, observedAtNs }),
+            );
           }}
         />
       )}
@@ -383,11 +425,14 @@ function RequestView({
           note={t.payment.status.retryNote}
           blocking={blockingFor('retry_native_transfer')}
           signingBlock={signingBlock}
-          busy={submitting}
+          busy={submitting || verifying}
           onReattempt={() => onReattempt('retry_native_transfer')}
           onConfirm={() => {
             if (config === null) return;
-            attempt(() => prepareRetryNativeTransfer({ contractId, config, request, signerAccountId: accountId }), op.nonce);
+            void attempt(
+              (verified) => prepareRetryNativeTransfer({ contractId, config: verified, request, signerAccountId: accountId }),
+              op.nonce,
+            );
           }}
         />
       )}
@@ -399,11 +444,11 @@ function RequestView({
           confirmLabel={t.payment.status.cancelConfirm}
           blocking={blockingFor('cancel_unfunded')}
           signingBlock={signingBlock}
-          busy={submitting}
+          busy={submitting || verifying}
           onReattempt={() => onReattempt('cancel_unfunded')}
           onConfirm={() => {
             if (config === null) return;
-            attempt(() => prepareCancelUnfunded({ contractId, config, request, signerAccountId: accountId }));
+            void attempt((verified) => prepareCancelUnfunded({ contractId, config: verified, request, signerAccountId: accountId }));
           }}
         />
       )}

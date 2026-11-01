@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { contractConfigProblems } from '@taply/near-client';
 import type { ContractConfig, ContractConfigProblem, NearTestnetClient, RpcErrorCode } from '@taply/near-client';
@@ -9,8 +9,12 @@ import { getNearClient } from '@/lib/near/client';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { createFetchVerifierRpc } from '@/lib/verify/rpc';
 import type { VerifierRpc } from '@/lib/verify/rpc';
-import { SubmissionJournal } from './journal';
+import { chainFreshness } from './freshness';
+import type { ChainFreshness } from './freshness';
+import { JOURNAL_STORAGE_KEY, SubmissionJournal } from './journal';
 import type { JournalStorage } from './journal';
+import { browserJournalLock } from './journal-lock';
+import type { JournalLock } from './journal-lock';
 import { WalletReturnInbox, captureWalletReturn, processWalletReturns } from './wallet-return';
 
 /**
@@ -45,12 +49,26 @@ export type PaymentsSetup =
       readonly verifierRpc: VerifierRpc | null;
     };
 
+export type VerifiedCheck = {
+  readonly status: 'verified';
+  readonly config: ContractConfig;
+  /** Chain time of the final block that verified the contract. */
+  readonly observedAtNs: string;
+  /** Device time (ms) when that read completed; used only to decide when to re-read. */
+  readonly checkedAtMs: number;
+};
+
 export type ContractCheck =
   | { readonly status: 'idle' }
   | { readonly status: 'checking' }
-  | { readonly status: 'verified'; readonly config: ContractConfig; readonly observedAtNs: string }
+  | VerifiedCheck
   | { readonly status: 'rejected'; readonly problems: ReadonlyArray<ContractConfigProblem> }
-  | { readonly status: 'unreachable'; readonly error: RpcErrorCode | null };
+  | { readonly status: 'unreachable'; readonly error: RpcErrorCode | null }
+  /** The final block was too old or ahead of this device's clock. Signing pauses. */
+  | { readonly status: 'stale_chain'; readonly freshness: Exclude<ChainFreshness, 'fresh'> };
+
+/** A verified check is reused for at most this long before a financial action re-reads it. */
+export const CHECK_REUSE_MS = 30_000;
 
 /** Why signing is unavailable, in the order a person would need to fix it. */
 export type SigningBlock =
@@ -65,6 +83,15 @@ interface PaymentsValue {
   readonly setup: PaymentsSetup;
   readonly check: ContractCheck;
   readonly recheck: () => void;
+  /**
+   * Call right before building new terms or authorizing a payment. Returns a
+   * verified check whose final block is fresh (re-reading get_config when the
+   * current one is older than CHECK_REUSE_MS), or null (the check state then
+   * explains why). Never signs anything.
+   */
+  readonly ensureFreshCheck: () => Promise<VerifiedCheck | null>;
+  /** Device clock in ms; injectable so tests can pin chain time. */
+  readonly now: () => number;
   /** null when signing is allowed; otherwise the first unmet condition. */
   readonly signingBlock: SigningBlock | null;
   readonly journal: SubmissionJournal | null;
@@ -115,16 +142,23 @@ export function PaymentsProvider({
   children,
   setup: injected,
   storage: injectedStorage,
+  journalLock: injectedLock,
+  now: injectedNow,
 }: {
   readonly children: ReactNode;
   /** Tests inject a setup with a deterministic reader. */
   readonly setup?: PaymentsSetup;
   readonly storage?: JournalStorage | null;
+  /** Default: browser Web Locks; null when unavailable (new attempts then refuse). */
+  readonly journalLock?: JournalLock | null;
+  readonly now?: () => number;
 }) {
   const [setup] = useState<PaymentsSetup>(() => injected ?? defaultSetup());
+  const [now] = useState<() => number>(() => injectedNow ?? (() => Date.now()));
   const [journal] = useState<SubmissionJournal | null>(() => {
     const storage = injectedStorage === undefined ? browserStorage() : injectedStorage;
-    return storage === null ? null : new SubmissionJournal(storage);
+    const lock = injectedLock === undefined ? browserJournalLock() : injectedLock;
+    return storage === null ? null : new SubmissionJournal(storage, () => new Date(), lock);
   });
   const [check, setCheck] = useState<ContractCheck>(() =>
     setup.status === 'ready' ? { status: 'checking' } : { status: 'idle' },
@@ -162,47 +196,100 @@ export function PaymentsProvider({
     };
   }, [inbox, journal, setup]);
 
+  // Another tab changed the journal: let screens re-read it (and show its brakes).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === JOURNAL_STORAGE_KEY || event.key === null) setJournalVersion((v) => v + 1);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  /** One get_config read at a final block, judged for approval and freshness. */
+  const readCheck = useCallback(async (): Promise<ContractCheck> => {
+    if (setup.status !== 'ready') return { status: 'idle' };
+    try {
+      const { observation, error } = await setup.reader.readContractConfig();
+      const config = observation.data;
+      const block = observation.observedBlock;
+      if (error !== null || config === null || block === null) return { status: 'unreachable', error: error?.code ?? null };
+      // Only a live, final RPC read can verify the contract for signing.
+      if (observation.source !== 'rpc' || observation.assurance !== 'verified_final') return { status: 'unreachable', error: null };
+      const problems = contractConfigProblems(config, setup.contractId);
+      if (problems.length > 0) return { status: 'rejected', problems };
+      const freshness = chainFreshness(block.timestampNs, now());
+      if (freshness !== 'fresh') return { status: 'stale_chain', freshness };
+      return { status: 'verified', config, observedAtNs: block.timestampNs, checkedAtMs: now() };
+    } catch {
+      return { status: 'unreachable', error: null };
+    }
+  }, [setup, now]);
+
+  // Mount, and every explicit recheck.
   useEffect(() => {
     if (setup.status !== 'ready') return;
     let active = true;
-    setup.reader.readContractConfig().then(
-      ({ observation, error }) => {
-        if (!active) return;
-        const config = observation.data;
-        const block = observation.observedBlock;
-        if (error !== null || config === null || block === null) {
-          setCheck({ status: 'unreachable', error: error?.code ?? null });
-          return;
-        }
-        // Only a live, final RPC read can verify the contract for signing.
-        if (observation.source !== 'rpc' || observation.assurance !== 'verified_final') {
-          setCheck({ status: 'unreachable', error: null });
-          return;
-        }
-        const problems = contractConfigProblems(config, setup.contractId);
-        setCheck(
-          problems.length > 0
-            ? { status: 'rejected', problems }
-            : { status: 'verified', config, observedAtNs: block.timestampNs },
-        );
-      },
-      () => {
-        if (active) setCheck({ status: 'unreachable', error: null });
-      },
-    );
+    void readCheck().then((next) => {
+      if (active) setCheck(next);
+    });
     return () => {
       active = false;
     };
-  }, [setup, generation]);
+  }, [setup, readCheck, generation]);
 
   const recheck = useCallback(() => {
     setCheck({ status: 'checking' });
     setGeneration((g) => g + 1);
   }, []);
 
+  const checkRef = useRef(check);
+  useEffect(() => {
+    checkRef.current = check;
+  }, [check]);
+
+  // Back from the background: an aged capability check is refreshed, so the
+  // screen does not keep offering signing on an old verification.
+  useEffect(() => {
+    if (setup.status !== 'ready' || typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const current = checkRef.current;
+      if (current.status === 'verified' && now() - current.checkedAtMs <= CHECK_REUSE_MS) return;
+      if (current.status === 'checking') return;
+      recheck();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [setup, now, recheck]);
+
+  const ensureFreshCheck = useCallback(async (): Promise<VerifiedCheck | null> => {
+    const current = checkRef.current;
+    if (
+      current.status === 'verified' &&
+      now() - current.checkedAtMs <= CHECK_REUSE_MS &&
+      chainFreshness(current.observedAtNs, now()) === 'fresh'
+    ) {
+      return current;
+    }
+    const next = await readCheck();
+    checkRef.current = next;
+    setCheck(next);
+    return next.status === 'verified' ? next : null;
+  }, [now, readCheck]);
+
   const value = useMemo<PaymentsValue>(
-    () => ({ setup, check, recheck, signingBlock: signingBlockFor(setup, check), journal, journalVersion }),
-    [setup, check, recheck, journal, journalVersion],
+    () => ({
+      setup,
+      check,
+      recheck,
+      ensureFreshCheck,
+      now,
+      signingBlock: signingBlockFor(setup, check),
+      journal,
+      journalVersion,
+    }),
+    [setup, check, recheck, ensureFreshCheck, now, journal, journalVersion],
   );
 
   return <PaymentsContext.Provider value={value}>{children}</PaymentsContext.Provider>;

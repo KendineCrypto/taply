@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AccountIdSchema, HashHexSchema, IntentTermsSchema } from '@/lib/protocol';
+import type { JournalLock } from './journal-lock';
 
 /**
  * Local submission journal (freeze section 9, API.md "Journal creation nonce,
@@ -67,10 +68,21 @@ function keyOf(entry: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccount
 }
 
 export class SubmissionJournal {
+  /**
+   * `lock` serialises writes across tabs (see journal-lock.ts). Without one,
+   * `begin` refuses (no new wallet prompt) and `update` writes unlocked so an
+   * outcome is never lost.
+   */
   constructor(
     private readonly storage: JournalStorage,
     private readonly now: () => Date = () => new Date(),
+    private readonly lock: JournalLock | null = null,
   ) {}
+
+  /** True when new attempts can be recorded safely (a cross-tab lock exists). */
+  canBegin(): boolean {
+    return this.lock !== null;
+  }
 
   /**
    * Reads every valid entry. A corrupted store is treated as "unknown" by the
@@ -107,10 +119,19 @@ export class SubmissionJournal {
   /**
    * Records the intent to sign. Refuses while an earlier attempt for the same
    * request/method/signer is still unexplained: that is the duplicate brake.
+   *
+   * Runs under the journal lock and re-reads storage inside it, so another tab
+   * that began the same attempt a moment earlier is seen and this one is
+   * blocked before any wallet opens.
    */
-  begin(
+  async begin(
     entry: Omit<JournalEntry, 'phase' | 'transactionHash' | 'startedAt' | 'updatedAt'>,
-  ): JournalEntry {
+  ): Promise<JournalEntry> {
+    if (this.lock === null) throw new JournalUnavailableError();
+    return this.lock.run(() => this.beginLocked(entry));
+  }
+
+  private beginLocked(entry: Omit<JournalEntry, 'phase' | 'transactionHash' | 'startedAt' | 'updatedAt'>): JournalEntry {
     const existing = this.find(entry.requestId, entry.method, entry.signerAccountId);
     if (existing !== null && isBlocking(existing)) throw new JournalBlockedError(existing);
     const at = this.now().toISOString();
@@ -125,7 +146,16 @@ export class SubmissionJournal {
     return next;
   }
 
-  update(
+  /** Changes one entry. Re-reads storage under the lock so other tabs' entries survive. */
+  async update(
+    target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'>,
+    change: { readonly phase: JournalPhase; readonly transactionHash?: string | null },
+  ): Promise<JournalEntry> {
+    if (this.lock === null) return this.updateLocked(target, change);
+    return this.lock.run(() => this.updateLocked(target, change));
+  }
+
+  private updateLocked(
     target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'>,
     change: { readonly phase: JournalPhase; readonly transactionHash?: string | null },
   ): JournalEntry {
@@ -165,6 +195,14 @@ export class JournalBlockedError extends Error {
   constructor(readonly entry: JournalEntry) {
     super('journal:blocked');
     this.name = 'JournalBlockedError';
+  }
+}
+
+/** No cross-tab lock: a new attempt cannot be recorded safely. Nothing was sent. */
+export class JournalUnavailableError extends Error {
+  constructor() {
+    super('journal:unavailable');
+    this.name = 'JournalUnavailableError';
   }
 }
 

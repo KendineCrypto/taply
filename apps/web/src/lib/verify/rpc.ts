@@ -68,41 +68,25 @@ export function createFetchVerifierRpc(input: {
   readonly rpcUrl: string;
   readonly providerId: string;
   readonly timeoutMs?: number;
+  readonly maxResponseBytes?: number;
   readonly fetcher?: typeof fetch;
 }): VerifierRpc {
   const fetcher = input.fetcher ?? ((url, init) => globalThis.fetch(url, init));
   const timeoutMs = input.timeoutMs ?? 15_000;
+  const maxBytes = input.maxResponseBytes ?? MAX_RESPONSE_BYTES;
   let nextId = 0;
   return {
     providerId: input.providerId,
     async call(method, params) {
       if (!VERIFIER_METHODS.includes(method)) throw new VerifierRpcError('RPC_ERROR');
       const id = `taply-verify-${++nextId}`;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      let text: string;
-      try {
-        const response = await fetcher(input.rpcUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-          signal: controller.signal,
-          cache: 'no-store',
-          credentials: 'omit',
-          redirect: 'error',
-        });
-        if (!response.ok) throw new VerifierRpcError('RPC_UNAVAILABLE');
-        text = await response.text();
-      } catch (error) {
-        if (error instanceof VerifierRpcError) throw error;
-        throw new VerifierRpcError('RPC_UNAVAILABLE');
-      } finally {
-        clearTimeout(timer);
-      }
-      if (text.length > MAX_RESPONSE_BYTES) throw new VerifierRpcError('MALFORMED');
+      const text = await fetchBoundedText({
+        fetcher,
+        url: input.rpcUrl,
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+        timeoutMs,
+        maxBytes,
+      });
       let envelope: unknown;
       try {
         envelope = parseRpcJsonWithIntegers(text);
@@ -121,6 +105,110 @@ export function createFetchVerifierRpc(input: {
       return result;
     },
   };
+}
+
+/**
+ * POSTs and reads the response body with hard limits, mirroring near-client's
+ * read transport:
+ *  - one wall-clock timeout covers headers AND the whole body; it aborts the
+ *    request and cancels the body reader, and is raced so a fetch that ignores
+ *    the abort signal still cannot hang the verifier;
+ *  - a declared Content-Length over the limit is refused before reading;
+ *  - the body is streamed and counted in BYTES (not UTF-16 characters), and
+ *    reading stops as soon as the limit is crossed;
+ *  - invalid UTF-8 is malformed, never silently replaced.
+ * Network/HTTP/timeout problems are RPC_UNAVAILABLE; size and encoding are MALFORMED.
+ */
+async function fetchBoundedText(input: {
+  readonly fetcher: typeof fetch;
+  readonly url: string;
+  readonly body: string;
+  readonly timeoutMs: number;
+  readonly maxBytes: number;
+}): Promise<string> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new VerifierRpcError('RPC_UNAVAILABLE'));
+    }, input.timeoutMs);
+  });
+
+  const work = async (): Promise<string> => {
+    const response = await input.fetcher(input.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: input.body,
+      signal: controller.signal,
+      cache: 'no-store',
+      credentials: 'omit',
+      redirect: 'error',
+    });
+    if (!response.ok) {
+      void response.body?.cancel().catch(() => undefined);
+      throw new VerifierRpcError('RPC_UNAVAILABLE');
+    }
+    const length = response.headers.get('content-length');
+    if (length !== null && /^\d+$/.test(length) && BigInt(length) > BigInt(input.maxBytes)) {
+      void response.body?.cancel().catch(() => undefined);
+      throw new VerifierRpcError('MALFORMED');
+    }
+    if (response.body === null) throw new VerifierRpcError('MALFORMED');
+    const reader = response.body.getReader();
+    const cancelReader = () => {
+      void reader.cancel().catch(() => undefined);
+    };
+    controller.signal.addEventListener('abort', cancelReader, { once: true });
+    const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+    let bytes = 0;
+    let text = '';
+    // Decoding errors are MALFORMED; anything else while reading (connection
+    // drop, abort) is RPC_UNAVAILABLE, which the verifier treats as transient.
+    const decode = (bytesIn?: Uint8Array): string => {
+      try {
+        return bytesIn === undefined ? decoder.decode() : decoder.decode(bytesIn, { stream: true });
+      } catch {
+        throw new VerifierRpcError('MALFORMED');
+      }
+    };
+    try {
+      for (;;) {
+        let chunk: ReadableStreamReadResult<Uint8Array>;
+        try {
+          chunk = await reader.read();
+        } catch {
+          throw new VerifierRpcError('RPC_UNAVAILABLE');
+        }
+        if (chunk.done) break;
+        bytes += chunk.value.byteLength;
+        if (bytes > input.maxBytes) throw new VerifierRpcError('MALFORMED');
+        text += decode(chunk.value);
+      }
+      text += decode();
+    } catch (error) {
+      cancelReader();
+      if (error instanceof VerifierRpcError) throw error;
+      throw new VerifierRpcError('RPC_UNAVAILABLE');
+    } finally {
+      controller.signal.removeEventListener('abort', cancelReader);
+      try {
+        reader.releaseLock();
+      } catch {
+        // Already released by cancel in some engines.
+      }
+    }
+    return text;
+  };
+
+  try {
+    return await Promise.race([work(), timeout]);
+  } catch (error) {
+    if (error instanceof VerifierRpcError) throw error;
+    throw new VerifierRpcError('RPC_UNAVAILABLE');
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function classifyRpcError(error: unknown): VerifierRpcErrorCode {

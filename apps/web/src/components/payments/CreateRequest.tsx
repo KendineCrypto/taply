@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { CreateQuote, PreparedContractCall } from '@taply/near-client';
+import type { ContractConfig, CreateQuote, PreparedContractCall } from '@taply/near-client';
 import { prepareCreateRequest } from '@taply/near-client';
 import { AccountId, Amount } from '@/components/primitives/Amount';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
@@ -17,6 +17,7 @@ import { useT } from '@/lib/i18n/provider';
 import { FUNDING_LIFETIMES, buildInstantTerms, newCreationNonce, validateRequestForm } from '@/lib/payments/create';
 import type { FundingLifetime, RequestFormError } from '@/lib/payments/create';
 import { usePayments } from '@/lib/payments/context';
+import { chainFreshness, sameContractConfig } from '@/lib/payments/freshness';
 import { buildPaymentView } from '@/lib/payments/intent';
 import { isBlocking } from '@/lib/payments/journal';
 import type { JournalEntry } from '@/lib/payments/journal';
@@ -30,8 +31,8 @@ import { ChainTime, PaymentsSetupNotice, RequestTermsPreview, SigningBlockNotice
 type Step =
   | { readonly kind: 'form' }
   | { readonly kind: 'quoting' }
-  | { readonly kind: 'review'; readonly terms: IntentTerms; readonly termsHash: string; readonly quote: CreateQuote }
-  | { readonly kind: 'signing'; readonly terms: IntentTerms; readonly termsHash: string; readonly quote: CreateQuote };
+  | { readonly kind: 'review'; readonly terms: IntentTerms; readonly termsHash: string; readonly quote: CreateQuote; readonly config: ContractConfig }
+  | { readonly kind: 'signing'; readonly terms: IntentTerms; readonly termsHash: string; readonly quote: CreateQuote; readonly config: ContractConfig };
 
 /**
  * Create an Instant Pay request (UX_FLOWS screen 06). The connected account is
@@ -43,7 +44,7 @@ export function CreateRequest() {
   const t = useT();
   const router = useRouter();
   const { state: wallet, signAndSend } = useWallet();
-  const { setup, check, signingBlock, journal, journalVersion } = usePayments();
+  const { setup, check, signingBlock, journal, journalVersion, ensureFreshCheck, now } = usePayments();
   const ids = { amount: useId(), memo: useId(), payer: useId(), expiry: useId(), options: useId() };
 
   const [amount, setAmount] = useState('');
@@ -53,7 +54,7 @@ export function CreateRequest() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [errors, setErrors] = useState<ReadonlyArray<RequestFormError>>([]);
   const [step, setStep] = useState<Step>({ kind: 'form' });
-  const [quoteError, setQuoteError] = useState<'failed' | 'nonce_consumed' | null>(null);
+  const [quoteError, setQuoteError] = useState<'failed' | 'nonce_consumed' | 'stale' | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [pending, setPending] = useState<ReadonlyArray<{ entry: JournalEntry; state: Reconciliation }>>([]);
 
@@ -74,7 +75,7 @@ export function CreateRequest() {
         const read = await setup.reader.readPaymentRequest(entry.requestId);
         const view = buildPaymentView({ read, expectedContractId: setup.contractId, accountId: creator });
         const state = reconcile(entry, view, dateToNs(entry.startedAt));
-        if (state === 'resolved') journal.update(entry, { phase: 'RESOLVED' });
+        if (state === 'resolved') await journal.update(entry, { phase: 'RESOLVED' }).catch(() => undefined);
         return { entry, state };
       }),
     ).then((all) => {
@@ -99,17 +100,24 @@ export function CreateRequest() {
   const setupNotice = <PaymentsSetupNotice />;
   if (setup.status !== 'ready') return setupNotice;
 
-  const requestQuote = async (terms: IntentTerms, termsHash: string) => {
+  const requestQuote = async (terms: IntentTerms, termsHash: string, config: ContractConfig) => {
     setQuoteError(null);
     setStep({ kind: 'quoting' });
     const read = await setup.reader.quoteCreateRequest(terms);
     const quote = read.observation.data;
+    const block = read.observation.observedBlock;
     if (read.error !== null || quote === null || read.observation.assurance !== 'verified_final' || read.observation.source !== 'rpc') {
       setQuoteError(read.error?.contractCode === 'NONCE_CONSUMED' ? 'nonce_consumed' : 'failed');
       setStep({ kind: 'form' });
       return;
     }
-    setStep({ kind: 'review', terms, termsHash, quote });
+    // A quote from an old final block is not a basis for signing.
+    if (block === null || chainFreshness(block.timestampNs, now()) !== 'fresh') {
+      setQuoteError('stale');
+      setStep({ kind: 'form' });
+      return;
+    }
+    setStep({ kind: 'review', terms, termsHash, quote, config });
   };
 
   const onReview = async () => {
@@ -122,40 +130,82 @@ export function CreateRequest() {
       return;
     }
     setErrors([]);
-    // Expiry is anchored to the chain time of the verified config read, never the browser clock.
+    setQuoteError(null);
+    // Re-verify the contract at a FRESH final block first: a long-open tab must
+    // not anchor new terms (expiry) or capabilities to an old observation.
+    setStep({ kind: 'quoting' });
+    const fresh = await ensureFreshCheck();
+    if (fresh === null) {
+      setQuoteError('stale');
+      setStep({ kind: 'form' });
+      return;
+    }
+    // Expiry is anchored to the chain time of that verified read, never the browser clock.
     const { terms, termsHash } = buildInstantTerms({
       contractId: setup.contractId,
       creatorAccountId: creator,
       creationNonce: newCreationNonce(),
       form: validation.value,
-      chainNowNs: check.observedAtNs,
+      chainNowNs: fresh.observedAtNs,
       lifetime,
     });
-    await requestQuote(terms, termsHash);
+    await requestQuote(terms, termsHash, fresh.config);
   };
 
   const onResume = async (entry: JournalEntry) => {
     if (entry.terms === null || journal === null) return;
     // The person chose to re-sign the SAME terms after the chain showed no effect.
-    journal.update(entry, { phase: 'RESOLVED' });
+    try {
+      await journal.update(entry, { phase: 'RESOLVED' });
+    } catch {
+      return;
+    }
     setPending((list) => list.filter((p) => p.entry.requestId !== entry.requestId));
-    await requestQuote(entry.terms, entry.termsHash);
+    const fresh = await ensureFreshCheck();
+    if (fresh === null) {
+      setQuoteError('stale');
+      return;
+    }
+    // The SAME journaled terms and nonce, never re-minted.
+    await requestQuote(entry.terms, entry.termsHash, fresh.config);
   };
 
-  const onDiscard = (entry: JournalEntry) => {
-    journal?.update(entry, { phase: 'RESOLVED' });
+  const onDiscard = async (entry: JournalEntry) => {
+    if (journal === null) return;
+    try {
+      await journal.update(entry, { phase: 'RESOLVED' });
+    } catch {
+      return;
+    }
     setPending((list) => list.filter((p) => p.entry.requestId !== entry.requestId));
   };
 
   const onSign = async () => {
     if (step.kind !== 'review' || check.status !== 'verified' || creator === null || signingBlock !== null) return;
+    const reviewed = step;
+    // Before the wallet opens: the contract must still verify at a fresh final
+    // block, with the same config the quote was reviewed against, and the
+    // reviewed terms must still be fundable. Otherwise the reviewed terms are
+    // dropped (never edited) and a new explicit review is required.
+    setStep({ ...reviewed, kind: 'signing' });
+    const fresh = await ensureFreshCheck();
+    if (
+      fresh === null ||
+      !sameContractConfig(fresh.config, reviewed.config) ||
+      BigInt(fresh.observedAtNs) >= BigInt(reviewed.terms.fundingExpiresAtNs)
+    ) {
+      setResult(null);
+      setQuoteError('stale');
+      setStep({ kind: 'form' });
+      return;
+    }
     let call: PreparedContractCall;
     try {
       call = prepareCreateRequest({
         contractId: setup.contractId,
-        config: check.config,
-        terms: step.terms,
-        quote: step.quote,
+        config: fresh.config,
+        terms: reviewed.terms,
+        quote: reviewed.quote,
         signerAccountId: creator,
       });
     } catch {
@@ -164,23 +214,22 @@ export function CreateRequest() {
       setStep({ kind: 'form' });
       return;
     }
-    setStep({ ...step, kind: 'signing' });
     const outcome = await submitCall({
       journal,
       call,
       signerAccountId: creator,
-      requestId: step.terms.id,
-      termsHash: step.termsHash,
-      terms: step.terms,
+      requestId: reviewed.terms.id,
+      termsHash: reviewed.termsHash,
+      terms: reviewed.terms,
       signAndSend,
     });
     setResult(outcome);
     if (outcome.kind === 'submitted' || outcome.kind === 'unknown') {
       // The status page reads the chain and reconciles the journal entry.
-      router.push(`/pay/${step.terms.id}`);
+      router.push(`/pay/${reviewed.terms.id}`);
       return;
     }
-    setStep({ ...step, kind: 'review' });
+    setStep({ ...reviewed, kind: 'review' });
   };
 
   const blockingDrafts = pending.filter((p) => p.state === 'pending' || p.state === 'may_reattempt');
@@ -212,7 +261,7 @@ export function CreateRequest() {
                   <Button variant="secondary" onClick={() => void onResume(entry)}>
                     {t.payment.create.resumeDraft}
                   </Button>
-                  <Button variant="ghost" onClick={() => onDiscard(entry)}>
+                  <Button variant="ghost" onClick={() => void onDiscard(entry)}>
                     {t.payment.create.discardDraft}
                   </Button>
                 </>
@@ -307,7 +356,15 @@ export function CreateRequest() {
           </div>
 
           {quoteError !== null && (
-            <InlineNotice copy={quoteError === 'nonce_consumed' ? t.payment.create.nonceConsumed : t.payment.create.quoteFailed} />
+            <InlineNotice
+              copy={
+                quoteError === 'nonce_consumed'
+                  ? t.payment.create.nonceConsumed
+                  : quoteError === 'stale'
+                    ? t.reliability.reviewAgain
+                    : t.payment.create.quoteFailed
+              }
+            />
           )}
           <Button type="submit" size="lg" block disabled={!ready || step.kind === 'quoting' || blockingDrafts.length > 0}>
             {step.kind === 'quoting' ? (

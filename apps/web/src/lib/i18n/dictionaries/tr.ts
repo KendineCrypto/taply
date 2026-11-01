@@ -639,7 +639,7 @@ export const tr: Dictionary = {
       },
       noJournal: {
         title: 'Bu tarayıcı güvenlik kaydı tutamıyor',
-        body: 'Yerel depolama kullanılamıyor; yarıda kalan bir ödeme takip edilemez. Burada imzalama kapalı.',
+        body: 'Yerel depolama ya da sekmeler arası kilit kullanılamıyor; yarıda kalan bir ödeme güvenle takip edilemez. Hiçbir şey gönderilmedi. Burada imzalama kapalı.',
       },
       wrongAccount: {
         title: 'Farklı cüzdan hesabı',
@@ -1307,6 +1307,21 @@ export const tr: Dictionary = {
     },
     receipt: {
       technicalProof: 'Teknik kanıt',
+    },
+  },
+
+  reliability: {
+    reviewAgain: {
+      title: 'Lütfen yeniden incele',
+      body: 'Bu incelemenin dayandığı zincir verisi eskimiş ya da sözleşme ayrıntıları değişmiş. Hiçbir şey imzalanmadı. Güncel ayrıntıları kontrol edip yeniden devam et.',
+    },
+    staleChain: {
+      title: 'Ağ verisi güncel değil',
+      body: 'Ağdan gelen son kesinleşmiş blok, imzalamak için fazla eski. Hiçbir şey gönderilmedi ve hiçbir ödeme etkilenmedi. Birazdan yeniden dene.',
+    },
+    clockAhead: {
+      title: 'Cihaz saatin uyumsuz görünüyor',
+      body: 'Ağ saati ile bu cihazın saati, güvenle imzalamak için fazla farklı. Saatini kontrol et. Hiçbir şey gönderilmedi ve hiçbir ödeme etkilenmedi.',
     },
   },
 };

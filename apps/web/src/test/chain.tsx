@@ -10,6 +10,8 @@ import type { Locale } from '@/lib/i18n';
 import { PaymentsProvider } from '@/lib/payments/context';
 import type { PaymentsSetup } from '@/lib/payments/context';
 import type { JournalStorage } from '@/lib/payments/journal';
+import { inProcessJournalLock } from '@/lib/payments/journal-lock';
+import type { JournalLock } from '@/lib/payments/journal-lock';
 import type { VerifierRpc } from '@/lib/verify/rpc';
 import type { SignOutcome, WalletAdapter, WalletCall, WalletSession } from '@/lib/wallet/adapter';
 import { WalletProvider } from '@/lib/wallet/provider';
@@ -176,7 +178,7 @@ export function readySetup(
   expectedCodeHash = CODE_HASH,
   verifierRpc: VerifierRpc | null = null,
 ): PaymentsSetup {
-  return {
+  const setup: PaymentsSetup = {
     verifierRpc,
     status: 'ready',
     contractId: chain.contractId,
@@ -190,6 +192,17 @@ export function readySetup(
       contract: { accountId: chain.contractId, expectedCodeHash },
     }),
   };
+  CHAIN_OF.set(setup, chain);
+  return setup;
+}
+
+/** Which fake chain a setup reads, so the device clock can follow its block time. */
+const CHAIN_OF = new WeakMap<PaymentsSetup, ChainState>();
+
+/** Device time pinned to the fake chain's latest final block (so its blocks are "fresh"). */
+export function chainClock(chain: ChainState): () => number {
+  // Whole milliseconds (a clock, not an amount): well inside the safe integer range.
+  return () => Number.parseInt((BigInt(chain.blockTimestampNs) / 1_000_000n).toString(), 10);
 }
 
 export function memoryStorage(): JournalStorage & { readonly data: Map<string, string> } {
@@ -235,12 +248,19 @@ export function renderWithChain(
     locale?: Locale;
     /** Taply Wallet controller factory. Default: none (the provider reports "unavailable"). */
     taply?: () => TaplyWalletController | null;
+    /** Default: an in-process mutex (jsdom has no Web Locks). Pass null to test the fail-closed path. */
+    journalLock?: JournalLock | null;
+    /** Device clock. Default: the fake chain's block time, so reads are fresh. */
+    now?: () => number;
   },
 ) {
+  const chain = CHAIN_OF.get(options.setup);
+  const now = options.now ?? (chain === undefined ? () => Date.now() : chainClock(chain));
+  const journalLock = options.journalLock === undefined ? inProcessJournalLock() : options.journalLock;
   return render(
     <I18nProvider locale={options.locale ?? 'en'}>
       <WalletProvider adapter={options.adapter}>
-        <PaymentsProvider setup={options.setup} storage={options.storage ?? memoryStorage()}>
+        <PaymentsProvider setup={options.setup} storage={options.storage ?? memoryStorage()} journalLock={journalLock} now={now}>
           <TaplyWalletProvider factory={options.taply ?? noTaplyWallet}>{ui}</TaplyWalletProvider>
         </PaymentsProvider>
       </WalletProvider>
