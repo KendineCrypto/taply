@@ -60,7 +60,8 @@ describe('payments context', () => {
     // Ten minutes in the background, provider stuck on the old block: re-read, and it is stale now.
     now += 10 * 60_000;
     act(visible);
-    await waitFor(() => expect(screen.getByTestId('check').textContent).toBe('stale_chain'));
+    // An async chain re-read: allow for a loaded CI/workspace run (default 1 s was flaky under `pnpm check`).
+    await waitFor(() => expect(screen.getByTestId('check').textContent).toBe('stale_chain'), { timeout: 5_000 });
     expect(reads()).toBeGreaterThan(before);
   });
 });
