@@ -2,7 +2,7 @@
 
 ## Phase 4A public read-only deployment verification — 2026-11-01
 
-**Deployment is verified; payment is not. No actual Taply payment has happened.**
+**Historical Phase 4A read-only snapshot:** Deployment was verified and no payment had happened at the time of this check. The later live-payment proof is recorded below.
 The agent performed public reads only. It did not create/import an account,
 deploy, enable signing or move funds. No private key, credential, local env or
 private wallet journal is included here.
@@ -52,21 +52,38 @@ State reads are pinned to the same final block, not mixed optimistic queries.
 Trust model is configured RPC, not a light client or security audit. Retained
 upgrade authority and callback-stall limitations still apply.
 
+## First live native Instant Pay — 2026-11-01
+
+**Observed user-run Testnet pilot: FINAL_PAID and Verified Paid in Taply's independent receipt verifier.** The operator supplied Taply's public `Copy receipt evidence (JSON)` output and screenshots. The verifier reported `verified_final` via the configured `fastnear-testnet` RPC at `2026-11-01T15:36:30.100Z`. The evidence was captured from the app; this documentation update did **not** independently re-query the chain or perform another signing operation.
+
+- Request ID: `9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502`; immutable terms hash: `11903572703c42b9b2f0b110f861a83eed84d3cdeac955027b2bc241836888f3`.
+- Contract: `taply-pay-pilot-1.testnet`; approved code hash `BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B`.
+- Payer: `taply-pilot-funder-1101.testnet` (NEAR CLI); recipient: `taplytest.testnet`; exact amount: **0.1 Testnet NEAR** (`100000000000000000000000` yoctoNEAR).
+- Funding transaction: [`CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su`](https://testnet.nearblocks.io/txns/CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su); signing account matches payer; `operationNonce = 1` (no retry).
+- Funding receipt: `Zyj9hfcEsqZQ4DiDDqyZaVYsEqCkv4ppkshVms9Y1uJ`, executor contract, **SUCCESS**, block `275767733`.
+- Native transfer receipt: `3kLbAxp9Q4XC1DCr7BNF6Vcy6XPYmNJyTHADA9R9MTv4`, executor recipient, **SUCCESS**, block `275767734`.
+- Callback receipt: `3FZ4Eu6JYy9LHikK42hx5E6ZAsrTgcnZ3i4CN7hQgvJp`, executor contract, **SUCCESS**, block `275767735`.
+- Observed finalized contract state block: `275768214` (`Ex5DkzLb7M7hrhEEhAW7VQVtmM4Nhsz8j4CH3nUkS9US`); final status `FINAL_PAID`.
+- Exact verifier output, including hashes, block timestamps and `configured-rpc` trust metadata: [`docs/evidence/instant-pay-2026-11-01-receipt.json`](evidence/instant-pay-2026-11-01-receipt.json).
+- To reproduce via the client verifier on a locally running Taply build configured for this contract and a compatible CORS-enabled Testnet RPC: `/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su`. This URL path is local to the build; no public HTTPS pilot has been proven.
+
+**Boundaries:** Successful CLI-initiated Testnet payment + independently checked receipt do **not** demonstrate mobile wallet redirect, Taply-native wallet signing, second-RPC-provider replication, the full multi-device pilot or a public beta. The native wallet signing gate remains OFF. The configured RPC is trusted (not light-client verification or an external security audit); retained FullAccess authority and callback-stall risks remain. No Mainnet funds involved.
+
 ## Feature ledger
 
 | Feature | Status | Contract/tx link | Test command/output | Known gaps |
 |---|---|---|---|---|
-| Instant contract deployment/config/accounting | TESTNET VERIFIED | Contract and deploy tx above | Read-only preflight 11/11 PASS | No payment; retained FullAccess authority |
-| External wallet Testnet connect and balance | RESEARCH ONLY | No new wallet signature in this phase | Existing adapter preserved; user reports frontend reads work | No new browser/Meteor acceptance claimed here |
-| Taply-local encrypted vault/identity/recovery | DISABLED | No on-chain local-wallet account | Local Web Crypto/security tests; see wallet technical guide | No SDK transaction backend; no production UI integration/signing |
-| Native send review/receive QR | DISABLED | — | Exact amount/address/balance/storage/gas tests | Preparation only; no actual native send |
-| Signed on-chain request creation | DISABLED | — | Existing contract + frontend tests | Instant Pay signing remains OFF |
-| Instant Pay payout finality | NOT IMPLEMENTED | — | — | — |
+| Instant contract deployment/config/accounting | TESTNET VERIFIED | Contract and deploy tx above | Read-only preflight 11/11 PASS | Retained FullAccess authority and callback-stall risk |
+| External wallet Testnet connect and balance | TESTNET VERIFIED | User-run Meteor wallet flow and Testnet request | Operator observed real balance and signed request | Physical mobile redirect not yet tested |
+| Taply-local encrypted vault/identity/recovery | DISABLED | No on-chain native Taply wallet account | Local Web Crypto/vault/UI tests; reviewed SDK signer code built | Signing gate off; live account/transfer and security acceptance pending |
+| Native send review/receive QR | DISABLED | — | Exact amount/address/balance/storage/gas + SDK signer tests | No independently signed Taply-native transfer; gate off |
+| Signed on-chain request creation | TESTNET VERIFIED | Request ID and subsequent [funding transaction](https://testnet.nearblocks.io/txns/CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) | Operator created request via Meteor; chain later returned FINAL_PAID for same request | Original creation tx hash not independently archived here |
+| Instant Pay payout finality | TESTNET VERIFIED | [Funding/payout tx](https://testnet.nearblocks.io/txns/CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) | User-provided receipt: FINAL, transfer SUCCESS, callback SUCCESS, FINAL_PAID | Configured-RPC trust; cross-provider replay pending |
 | Static merchant checkout intent | NOT IMPLEMENTED | — | — | — |
 | Handshake 2-device live session | NOT IMPLEMENTED | — | — | — |
 | Protected lock -> refund | NOT IMPLEMENTED | — | — | — |
 | Protected lock -> release payout | NOT IMPLEMENTED | — | — | — |
-| Verified receipt (funding+payout/refund) | NOT IMPLEMENTED | — | — | — |
+| Verified receipt (Instant native payout) | TESTNET VERIFIED | [Receipt evidence](evidence/instant-pay-2026-11-01-receipt.json) | Taply displayed Verified Paid; verified_final via fastnear-testnet | Native refund/protected-mode verification not implemented; third-device check pending |
 | Invisible Wallet genuinely on Testnet | RESEARCH ONLY | — | — | provider compatibility not yet verified |
 | Sponsored gas | RESEARCH ONLY | — | — | — |
 
