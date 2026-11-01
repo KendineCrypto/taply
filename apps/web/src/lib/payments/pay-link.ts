@@ -1,4 +1,5 @@
 import { HashHexSchema } from '@/lib/protocol';
+import { CHECKOUT_PATH, checkMerchantAccount } from '@/lib/merchant/discovery';
 
 /**
  * Reads what a person pasted or a camera decoded: a Taply pay link
@@ -51,4 +52,39 @@ export function parsePayInput(input: string, approvedOrigins: ReadonlyArray<stri
   if (id === undefined || !HashHexSchema.safeParse(id).success) return { kind: 'invalid' };
   if (!approvedOrigins.includes(url.origin)) return { kind: 'other_site', host: url.host };
   return { kind: 'request', id };
+}
+
+/**
+ * Everything the scanner and the paste field accept: a pay request (as above)
+ * or a merchant discovery link `https://<approved origin>/checkout/<accountId>`.
+ *
+ * A discovery link only ever opens this app's own read-only checkout page for
+ * that account. Its query and fragment are dropped, so a sticker cannot
+ * substitute a recipient, an amount or a wallet action. A bare account ID is
+ * NOT accepted here: typed text is ambiguous, and a QR must say what it is.
+ */
+export type ScanInput =
+  | PayInput
+  | { readonly kind: 'merchant'; readonly accountId: string }
+  | { readonly kind: 'invalid_merchant'; readonly reason: 'syntax' | 'not_testnet' };
+
+export function parseScanInput(input: string, approvedOrigins: ReadonlyArray<string>): ScanInput {
+  const pay = parsePayInput(input, approvedOrigins);
+  if (pay.kind !== 'invalid') return pay;
+  const text = input.trim();
+  if (input.length > MAX_PAY_INPUT_LENGTH || text === '' || hasInvisible(text)) return pay;
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return pay;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return pay;
+  if (url.username !== '' || url.password !== '') return pay;
+  const raw = CHECKOUT_PATH.exec(url.pathname)?.[1];
+  if (raw === undefined) return pay;
+  if (!approvedOrigins.includes(url.origin)) return { kind: 'other_site', host: url.host };
+  const checked = checkMerchantAccount(raw);
+  if (!checked.ok) return { kind: 'invalid_merchant', reason: checked.reason };
+  return { kind: 'merchant', accountId: checked.accountId };
 }

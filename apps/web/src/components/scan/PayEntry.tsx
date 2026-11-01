@@ -5,8 +5,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '@/components/shell/Icons';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
-import { parsePayInput } from '@/lib/payments/pay-link';
-import type { PayInput } from '@/lib/payments/pay-link';
+import { parseScanInput } from '@/lib/payments/pay-link';
+import type { ScanInput } from '@/lib/payments/pay-link';
 import { approvedPayOrigins } from '@/lib/share/origin';
 
 /**
@@ -69,17 +69,20 @@ function ChoiceTile({
 export function PayLinkForm({
   onBack,
   onOpen,
+  onMerchant,
   approvedOrigins,
 }: {
   readonly onBack?: () => void;
   readonly onOpen: (id: string) => void;
+  /** Opens this app's read-only checkout page for a validated merchant discovery link. */
+  readonly onMerchant?: (accountId: string) => void;
   readonly approvedOrigins?: ReadonlyArray<string>;
 }) {
   const t = useT();
   const p = t.oneTap.payLink;
   const inputId = useId();
   const [value, setValue] = useState('');
-  const [problem, setProblem] = useState<Exclude<PayInput, { kind: 'request' }> | null>(null);
+  const [problem, setProblem] = useState<Exclude<ScanInput, { kind: 'request' } | { kind: 'merchant' }> | { kind: 'invalid' } | null>(null);
 
   return (
     <form
@@ -87,12 +90,17 @@ export function PayLinkForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        const parsed = parsePayInput(value, approvedOrigins ?? approvedPayOrigins(window.location.origin));
-        if (parsed.kind !== 'request') {
-          setProblem(parsed);
+        const parsed = parseScanInput(value, approvedOrigins ?? approvedPayOrigins(window.location.origin));
+        if (parsed.kind === 'request') {
+          onOpen(parsed.id);
           return;
         }
-        onOpen(parsed.id);
+        if (parsed.kind === 'merchant') {
+          if (onMerchant !== undefined) onMerchant(parsed.accountId);
+          else setProblem({ kind: 'invalid' });
+          return;
+        }
+        setProblem(parsed);
       }}
     >
       <label htmlFor={inputId} className="text-sm font-medium">
@@ -118,7 +126,15 @@ export function PayLinkForm({
         autoFocus
       />
       <p id={`${inputId}-error`} role={problem !== null ? 'alert' : undefined} className="min-h-5 text-sm text-[var(--tone-danger-fg)]">
-        {problem === null ? '' : problem.kind === 'other_site' ? fill(p.otherSite, { host: problem.host }) : p.invalid}
+        {problem === null
+          ? ''
+          : problem.kind === 'other_site'
+            ? fill(p.otherSite, { host: problem.host })
+            : problem.kind === 'invalid_merchant'
+              ? problem.reason === 'not_testnet'
+                ? t.commerce.scan.notTestnetMerchant
+                : t.commerce.scan.invalidMerchant
+              : p.invalid}
       </p>
       <button
         type="submit"

@@ -228,6 +228,35 @@ describe('QrScanner', () => {
     await waitFor(() => expect(onRequest).toHaveBeenCalledWith(ID));
   });
 
+  it('a merchant discovery QR opens only that account’s checkout, ignoring any query', async () => {
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    dec.queue.push(`${ORIGIN}/checkout/shop.testnet?recipient=evil.testnet&amount=5#pay`);
+    const onMerchant = vi.fn();
+    const { onRequest } = renderScanner({ media: cam.media, createDecoder: dec.factory, onMerchant });
+    await waitFor(() => expect(onMerchant).toHaveBeenCalledWith('shop.testnet'));
+    expect(onMerchant).toHaveBeenCalledTimes(1);
+    expect(onRequest).not.toHaveBeenCalled();
+    expect(cam.tracks[0]?.stop).toHaveBeenCalled();
+    expect(status()).toBe('Opening merchant…');
+  });
+
+  it('merchant QRs are rejected where merchant navigation is not offered, and invalid ones explain why', async () => {
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    dec.queue.push(`${ORIGIN}/checkout/shop.testnet`);
+    const { onRequest } = renderScanner({ media: cam.media, createDecoder: dec.factory });
+    await waitFor(() => expect(status()).toBe('That QR code is not a Taply payment request.'));
+    dec.queue.push(`${ORIGIN}/checkout/shop.near`);
+    await waitFor(() => expect(status()).toBe('That merchant QR is not for NEAR Testnet.'));
+    dec.queue.push(`${ORIGIN}/checkout/Shop%2Etestnet`);
+    await waitFor(() => expect(status()).toBe('That merchant QR has an invalid account.'));
+    dec.queue.push('https://taply-pay.evil.example/checkout/shop.testnet');
+    await waitFor(() => expect(status()).toBe('That QR code points to taply-pay.evil.example, not to this Taply app.'));
+    expect(onRequest).not.toHaveBeenCalled();
+    expect(cam.tracks[0]?.stop).not.toHaveBeenCalled();
+  });
+
   it('permission denied explains how to fix it and keeps "Paste a link" available', async () => {
     const media = {
       getUserMedia: vi.fn<GetUserMedia>(async () => {

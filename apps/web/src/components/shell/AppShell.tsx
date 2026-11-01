@@ -18,6 +18,7 @@ import { useLocale, useT } from '@/lib/i18n/provider';
 import { LOCALES, DICTIONARIES } from '@/lib/i18n';
 import type { Locale } from '@/lib/i18n';
 import { useWallet } from '@/lib/wallet/provider';
+import { merchantCheckoutPath } from '@/lib/merchant/discovery';
 
 /**
  * Mobile-first shell (docs/UX_ONE_TAP_REDESIGN.md).
@@ -292,6 +293,10 @@ function BottomNav() {
             setScanning(false);
             router.push(`/pay/${id}`);
           }}
+          onMerchant={(accountId) => {
+            setScanning(false);
+            router.push(merchantCheckoutPath(accountId));
+          }}
           onPasteLink={() => {
             setScanning(false);
             setView('link');
@@ -393,6 +398,10 @@ function TapSheet({
           onOpen={(id) => {
             onClose();
             router.push(`/pay/${id}`);
+          }}
+          onMerchant={(accountId) => {
+            onClose();
+            router.push(merchantCheckoutPath(accountId));
           }}
         />
       )}

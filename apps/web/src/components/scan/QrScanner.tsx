@@ -6,7 +6,7 @@ import { Icon } from '@/components/shell/Icons';
 import { usePrefersReducedMotion } from '@/lib/hooks/browser';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
-import { parsePayInput } from '@/lib/payments/pay-link';
+import { parseScanInput } from '@/lib/payments/pay-link';
 import { CameraError, openCamera, stopStream } from '@/lib/qr/camera';
 import type { CameraProblem, MediaDevicesLike } from '@/lib/qr/camera';
 import { createFrameDecoder } from '@/lib/qr/decoder';
@@ -40,14 +40,23 @@ type Phase =
   | { readonly kind: 'scanning' }
   | { readonly kind: 'paused' }
   | { readonly kind: 'problem'; readonly problem: CameraProblem }
-  | { readonly kind: 'success' };
+  | { readonly kind: 'success'; readonly target: 'request' | 'merchant' };
 
-type Hint = { readonly kind: 'not_taply' } | { readonly kind: 'other_site'; readonly host: string };
+type Hint =
+  | { readonly kind: 'not_taply' }
+  | { readonly kind: 'other_site'; readonly host: string }
+  | { readonly kind: 'invalid_merchant'; readonly reason: 'syntax' | 'not_testnet' };
 
 export interface QrScannerProps {
   readonly onClose: () => void;
   /** Called once with a validated request ID. The caller navigates to /pay/<id>. */
   readonly onRequest: (id: string) => void;
+  /**
+   * Called once with a validated Testnet merchant account from an approved
+   * discovery link. The caller opens this app's own read-only /checkout page.
+   * Without it, merchant codes are rejected like any other non-payment QR.
+   */
+  readonly onMerchant?: (accountId: string) => void;
   readonly onPasteLink: () => void;
   /** Tests inject these; the defaults are the real browser APIs. */
   readonly media?: MediaDevicesLike | null;
@@ -59,6 +68,7 @@ export interface QrScannerProps {
 export function QrScanner({
   onClose,
   onRequest,
+  onMerchant,
   onPasteLink,
   media,
   secureContext,
@@ -81,9 +91,9 @@ export function QrScanner({
   const openedPath = useRef(pathname);
 
   // Latest values for the long-running scan loop, without restarting the camera.
-  const latest = useRef({ onRequest, approvedOrigins, reduced, createDecoder });
+  const latest = useRef({ onRequest, onMerchant, approvedOrigins, reduced, createDecoder });
   useEffect(() => {
-    latest.current = { onRequest, approvedOrigins, reduced, createDecoder };
+    latest.current = { onRequest, onMerchant, approvedOrigins, reduced, createDecoder };
   });
 
   // A success that is still showing its animation must not navigate after a close.
@@ -181,13 +191,16 @@ export function QrScanner({
     }
 
     const handle = (text: string): boolean => {
-      const parsed = parsePayInput(text, latest.current.approvedOrigins ?? approvedPayOrigins(window.location.origin));
-      if (parsed.kind === 'request') {
+      const parsed = parseScanInput(text, latest.current.approvedOrigins ?? approvedPayOrigins(window.location.origin));
+      const onMerchantNow = latest.current.onMerchant;
+      if (parsed.kind === 'request' || (parsed.kind === 'merchant' && onMerchantNow !== undefined)) {
         stop();
         setHint(null);
-        setPhase({ kind: 'success' });
+        setPhase({ kind: 'success', target: parsed.kind });
         const hold = latest.current.reduced ? 0 : SUCCESS_HOLD_MS;
-        const go = () => latest.current.onRequest(parsed.id);
+        // Navigation only. Nothing is signed, created or funded from a scan.
+        const go =
+          parsed.kind === 'request' ? () => latest.current.onRequest(parsed.id) : () => onMerchantNow?.(parsed.accountId);
         if (hold === 0) go();
         else navTimer.current = setTimeout(go, hold);
         return true;
@@ -195,7 +208,13 @@ export function QrScanner({
       const now = Date.now();
       if (lastRejected !== null && lastRejected.text === text && now - lastRejected.at < HINT_MS) return false;
       lastRejected = { text, at: now };
-      setHint(parsed.kind === 'other_site' ? { kind: 'other_site', host: parsed.host } : { kind: 'not_taply' });
+      setHint(
+        parsed.kind === 'other_site'
+          ? { kind: 'other_site', host: parsed.host }
+          : parsed.kind === 'invalid_merchant'
+            ? { kind: 'invalid_merchant', reason: parsed.reason }
+            : { kind: 'not_taply' },
+      );
       clearTimeout(hintTimer);
       hintTimer = setTimeout(() => {
         if (active) setHint(null);
@@ -284,7 +303,9 @@ export function QrScanner({
 
   const status =
     phase.kind === 'success'
-      ? sc.found
+      ? phase.target === 'merchant'
+        ? t.commerce.scan.merchantFound
+        : sc.found
       : phase.kind === 'paused'
         ? sc.paused
         : phase.kind === 'starting'
@@ -295,7 +316,11 @@ export function QrScanner({
               ? sc.scanning
               : hint.kind === 'other_site'
                 ? fill(sc.otherSite, { host: hint.host })
-                : sc.notTaply;
+                : hint.kind === 'invalid_merchant'
+                  ? hint.reason === 'not_testnet'
+                    ? t.commerce.scan.notTestnetMerchant
+                    : t.commerce.scan.invalidMerchant
+                  : sc.notTaply;
   const tone =
     phase.kind === 'problem' || hint !== null ? 'warn' : phase.kind === 'scanning' || phase.kind === 'success' ? 'live' : 'idle';
 
