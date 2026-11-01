@@ -1,5 +1,12 @@
 # Phase 7 bounded implementation handoff
 
+> Current Phase 7C handoff: use [PHASE_7C_SERVICE.md](PHASE_7C_SERVICE.md) for exact
+> HTTP schemas and security prerequisites. New handlers and durable authentication
+> are locally tested with real off-chain cryptography and synthetic RPC evidence.
+> Production factory refuses authentication and protected service access pending
+> wallet capability acceptance. Signed merchant profiles and live bindings remain
+> disabled. All older status descriptions below are historical.
+
 > Continuation update: the original snapshot below is historical. The isolated
 > Handshake engine and read-only pilot adapter are now implemented and tested.
 > See PHASE_7_SESSION_ENGINE.md for the current integration contract. Public

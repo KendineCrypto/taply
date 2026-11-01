@@ -1,5 +1,11 @@
 # Phase 7 Handshake engine integration contract
 
+> Phase 7C supersedes the storage/auth/HTTP limitations in the historical snapshot
+> below. Cryptographic NEP-413 verification, encrypted SQLite persistence and gated
+> HTTP handlers now pass local tests. Production authentication remains disabled;
+> live bound Handshake remains impossible on the approved pilot. Current endpoint
+> schemas, guarantees and evidence: [PHASE_7C_SERVICE.md](PHASE_7C_SERVICE.md).
+
 Implemented and locally tested, 2026-11-01. Offline integration GO for an explicitly
 labelled test harness using synthetic auth/chain fixtures. Public HTTP integration
 NO-GO; actual G2 Testnet pilot NO-GO. No new chain evidence was collected.

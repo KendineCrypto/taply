@@ -1,5 +1,13 @@
 # API security foundation (disabled)
 
+Phase 7C: see `docs/PHASE_7C_SERVICE.md`. `src/service.mts` now composes encrypted
+SQLite persistence, real NEP-413 verification and HTTP handlers. It starts no
+listener and keeps production authentication/protected routes disabled. Local
+two-client integration tests use synthetic finalized key/request evidence with
+real cryptography. Signed merchant profiles and live Handshake are unavailable.
+The earlier six-test/refusal-only descriptions below are historical; the full
+API suite now contains 35 tests. Run `node --test apps/api/test/*.test.mts`.
+
 The isolated session engine in `src/sessions.mts` now implements coordination;
 `src/pilot-reader.mts` reads canonical pilot requests with finalized provenance
 but always refuses Handshake binding. See `docs/PHASE_7_SESSION_ENGINE.md`.
