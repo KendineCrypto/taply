@@ -9,6 +9,22 @@ code and evidence against it and lists what a deployment would need.
 local evidence are complete for native Instant Pay. Five items need human
 decisions or real-wallet evidence first (section 7).
 
+## Phase 2D update (2026-11-01)
+
+Still **NOT READY / NOT AUTHORIZED**. Nothing was deployed, signed or funded.
+Changes since this review was written:
+
+| Item | Status now | Where |
+|---|---|---|
+| Independent receipt verifier | **Implemented** (read-only, fail-closed). Verified Paid is reachable only from its result. Validated against synthetic receipt graphs shaped like the sandbox pay graph; **not yet against a real Testnet transaction** | `src/lib/verify/`, `/receipt/[id]` |
+| Wallet redirect hash recovery | **Implemented**: `?transactionHashes=` / `?errorCode=` captured, stripped, bound to the journal only after an on-chain match; never resubmits. **Untested with real redirect wallets** | `src/lib/payments/wallet-return.ts` |
+| Key policy | **Changed by the lead:** the pilot retains one FullAccess key. Section 5's `DeleteKey` step is superseded | `docs/TESTNET_DEPLOYMENT_DRY_RUN.md` |
+| Deployment procedure | Reviewed dry run + read-only preflight script; not executed | `docs/TESTNET_DEPLOYMENT_DRY_RUN.md`, `scripts/deploy-preflight.mjs` |
+| `contracts/payments/VALIDATION.md` | Added (documentation only) | `contracts/payments/VALIDATION.md` |
+
+The rest of this document is the Phase 2C review, unchanged except where a row
+below says otherwise.
+
 ## 1. Evidence on this branch
 
 | Check | Result | Where |
@@ -89,7 +105,7 @@ NEAR at the same price (exact value comes from `quote_create_request`).
 Unused prepaid gas is refunded by NEAR. Measurements are sandbox values; repeat
 them on Testnet as part of the first-payment evidence.
 
-## 5. Account permissions and deployment procedure (proposal for review)
+## 5. Account permissions and deployment procedure (SUPERSEDED in Phase 2D — see `TESTNET_DEPLOYMENT_DRY_RUN.md`; the pilot keeps the FullAccess key)
 
 `new()` is `#[private]` and checks `predecessor == current account`, so it must
 be called by the contract account itself. A batch transaction signed by a parent
@@ -149,18 +165,16 @@ a swap between the last read and a signed call cannot be excluded.
 | Gas measured | **met in sandbox**; repeat on Testnet |
 | Protected, Handshake, tokens, upgrades absent | **met**: export check (12 methods), `get_config` capabilities |
 | **Callback-stall limitation accepted** | **OPEN — human decision** (section 8) |
-| **External receipt verifier** | **OPEN** (section 8); the frontend shows "Paid per contract", never Verified Paid |
-| **Wallet integration on real Testnet wallets** (`signAndSendTransaction` with a deposit, redirect wallets) | **OPEN**: built and tested only against a recording fake wallet |
-| **Deployment authority / key policy** (section 5) | **OPEN — human decision** |
+| **External receipt verifier** | **IMPLEMENTED (Phase 2D), validation OPEN**: needs one real Testnet payment to confirm the RPC receipt format |
+| **Wallet integration on real Testnet wallets** (`signAndSendTransaction` with a deposit, redirect wallets) | **OPEN**: built and tested only against a recording fake wallet; redirect recovery implemented (Phase 2D) but untested on real wallets |
+| **Deployment authority / key policy** (section 5) | **DECIDED for the pilot: retain one FullAccess key**; risks documented in `TESTNET_DEPLOYMENT_DRY_RUN.md` section 3, acceptance to be recorded at approval |
 | **Explicit approval of deployment, signing and fund movement** | **OPEN** |
 
 Additional findings from this review:
 
-- `contracts/payments/README.md` links a `VALIDATION.md` that does not exist.
-  The evidence currently lives in CI logs and in this document.
-- After a mobile wallet *redirect*, the app does not read the transaction hash
-  from the return URL. Status still reconciles from finalized contract reads, but
-  the explorer link is missing for that attempt.
+- ~~`contracts/payments/README.md` links a `VALIDATION.md` that does not exist.~~ Added in Phase 2D.
+- ~~After a mobile wallet *redirect*, the app does not read the transaction hash
+  from the return URL.~~ Fixed in Phase 2D (`wallet-return.ts`).
 - The unknown-attempt hold (2 minutes) compares the browser's clock with chain
   time. A device clock that is ahead only lengthens the hold. One that is far
   behind shortens it, but re-attempting still needs a deliberate human action,
@@ -185,7 +199,11 @@ cost of possibly stuck records.
 code hash at the state block; the funding transaction signed by the payer with
 exactly the principal attached; the transfer receipt executed by the recipient
 with exactly that amount; and the successful callback receipt, all at FINAL. Its
-trust model is the configured RPC. near-client currently observes outcomes but
-not action payloads, so this verifier does not exist yet. Until it does, the
-frontend's `mapChainState` cannot render the Verified Paid ribbon
-(`settlementProof: 'verified_receipt'` is never produced).
+trust model is the configured RPC.
+
+*Phase 2D:* implemented in `src/lib/verify/instant-receipt.ts` with its own
+read-only RPC transport (near-client drops action payloads). It also checks the
+code hash at every block where contract code ran and that the contract account's
+access keys did not change during the payment, because the pilot retains a
+FullAccess key. `settlementProof: 'verified_receipt'` is produced only from its
+`verified` result. Validation against a real Testnet transaction is still open.
