@@ -24,7 +24,24 @@ and [pinned release](https://github.com/near/near-cli-rs/releases/tag/v0.30.1).
 The Windows release archive was also checked against its published SHA-256:
 `f5927854d916a6464e0092b379a6e96d54e40bee91e0dbc483786a6f680b4cbc`.
 
-Build the approved contract, unchanged, with the pinned Linux toolchain:
+The shortest path is to download `instant-pay-approved-wasm` from a **successful**
+`instant-pay-sandbox` run on this technical branch. The binary is published only
+after the approved-hash gate, all Rust/sandbox tests and wire validation pass.
+Use the observed run ID reported by `gh run list`, not an invented ID:
+
+```powershell
+gh run list --repo KendineCrypto/taply --branch feature/pilot-core --workflow instant-pay-sandbox.yml --status success
+$runId = '<observed-successful-run-id>'
+gh run download $runId --repo KendineCrypto/taply --name instant-pay-approved-wasm --dir contracts/payments/artifacts/approved-download
+if ($LASTEXITCODE -ne 0) { throw 'Artifact download failed: STOP' }
+node apps/web/scripts/deploy-preflight.mjs wasm contracts/payments/artifacts/approved-download/payments.wasm
+if ($LASTEXITCODE -ne 0) { throw 'Unapproved artifact: STOP' }
+Copy-Item -LiteralPath contracts/payments/artifacts/approved-download/payments.wasm -Destination contracts/payments/artifacts/payments.wasm
+```
+
+Use a new download directory if one already exists. Independently verify the pin
+after download; an artifact name alone is not evidence. For source reproduction,
+build the approved contract, unchanged, with the pinned Linux toolchain:
 
 ```sh
 bash contracts/payments/scripts/build.sh
@@ -50,7 +67,8 @@ fault WASM. Do not update the pin to make a different artifact pass.
 SHA-256 `15328bc17b0c1cc0c21cf9eb5c13bf01a6d736fd833d1cf5f1755fc4b167c9f1`).
 Its preflight fails. It was not modified or approved. Cargo is absent and the
 Docker engine is stopped here, so the approved build must be reproduced on the
-operator's build machine. CI uploads logs/hashes, **not WASM binaries**.
+operator's build machine or downloaded from the newly validated CI artifact.
+Historical runs before this Phase 3A packaging change upload logs/hashes only.
 
 Check browser CORS without connecting a wallet:
 

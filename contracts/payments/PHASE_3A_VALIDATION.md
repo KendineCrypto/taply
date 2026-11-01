@@ -78,7 +78,10 @@ methods, wrong network, wrong code, unanchored state and non-FINAL references.
 
 ## Remaining gates
 
-Reproduce the approved 345,541-byte WASM on the pinned build machine. The existing
+Obtain the approved 345,541-byte WASM from the successful Phase 3A CI production
+artifact (published only after the full suite and pinned check), or reproduce it
+on the pinned build machine. The artifact packaging change does not change any
+build flags, contract source, dependency or approved hash. The existing
 local ignored artifact has SHA-256
 `15328bc17b0c1cc0c21cf9eb5c13bf01a6d736fd833d1cf5f1755fc4b167c9f1`
 and is **not deployable under this approval**. The approved pin stays
