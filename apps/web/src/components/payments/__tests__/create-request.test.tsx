@@ -100,7 +100,7 @@ describe('create request', () => {
     expect(chain.calls.some((c) => c.methodName === 'quote_create_request')).toBe(false);
   });
 
-  it('an unconfirmed earlier creation blocks a new one; the same terms can be resumed after the chain shows no effect', async () => {
+  it('reload after two minutes keeps an unknown creation blocked with status only', async () => {
     // Chain time near the wall clock: journal timestamps are wall-clock, and the
     // resumed terms must still be fundable when they are re-signed.
     const start = BigInt(Date.now()) * 1_000_000n;
@@ -112,7 +112,7 @@ describe('create request', () => {
     await act(async () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Create request in wallet' }));
     });
-    const original = (must(first.signed[0], 'a first signature').call.args as { terms: IntentTerms }).terms;
+    expect(first.signed).toHaveLength(1);
     cleanup();
 
     // Same chain time: the attempt is too recent to conclude anything.
@@ -123,19 +123,17 @@ describe('create request', () => {
     expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
     cleanup();
 
-    // Later, still not on chain: the SAME terms (same nonce, same id) may be re-signed.
+    // Five minutes and a reload do not prove a lost wallet operation failed.
     chain.blockTimestampNs = (start + 300_000_000_000n).toString();
     const third = recordingWallet(CREATOR);
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter: third.adapter, storage });
-    // Reconciliation is a full finalized read per unexplained attempt.
-    const resume = await screen.findByRole('button', { name: 'Resume this request' }, { timeout: 4000 });
-    await act(async () => {
-      fireEvent.click(resume);
-    });
-    await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Create request in wallet' }));
-    });
-    expect((must(third.signed[0], 'a resumed signature').call.args as { terms: IntentTerms }).terms).toEqual(original);
+    await screen.findByText('A request you started is still unconfirmed');
+    expect(screen.queryByRole('button', { name: 'Resume this request' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Discard and start over' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Check chain status' })).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(third.signed).toHaveLength(0);
+    expect(JSON.parse(must(storage.data.get(JOURNAL_STORAGE_KEY), 'journal')).entries[0].phase).toBe('OUTCOME_UNKNOWN');
   });
 
   it('asks a disconnected visitor to connect, and never signs with the gate off', async () => {

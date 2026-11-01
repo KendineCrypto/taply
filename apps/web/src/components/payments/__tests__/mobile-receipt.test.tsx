@@ -44,7 +44,10 @@ afterEach(() => {
  * the hash-less attempt. This is the order of events that lost the hash.
  */
 function paidWorld(notIndexedYet = false) {
-  const chain = installChain({ contractId: paidRestricted.terms.contractId });
+  // The final observation must follow this test's recent journal attempt.
+  // The immutable sandbox state remains historical; observation time is current.
+  const chain = installChain({ contractId: paidRestricted.terms.contractId,
+    blockTimestampNs: (BigInt(Date.now()) * 1_000_000n + 10_000_000_000n).toString() });
   chain.requests.set(ID, paidRestricted);
   const verifierChain = buildPaidChain(paidRestricted);
   verifierChain.chain.defaultCodeHash = CODE_HASH;

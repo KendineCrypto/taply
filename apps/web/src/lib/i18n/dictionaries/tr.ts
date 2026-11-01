@@ -713,7 +713,7 @@ export const tr: Dictionary = {
       },
       pendingDraft: {
         title: 'Başlattığın bir talep henüz doğrulanmadı',
-        body: 'Cüzdanın önceki bir talebi onaylamadı. Aynı koşullarla devam et; bu talep açıklığa kavuşmadan yenisi oluşturulmaz.',
+        body: 'Cüzdanın önceki talebin sonucunu doğrulamadı. Zincir durumunu kontrol et. Sonuç belirsizken tekrar imzalama veya yeni talep başlatma.',
       },
       resumeDraft: 'Bu talebe devam et',
       discardDraft: 'Vazgeç ve baştan başla',

@@ -182,9 +182,9 @@ describe('journal and submission', () => {
     const at = (seconds: bigint) => (startedNs + seconds * 1_000_000_000n).toString();
     // 24 h funding window, so it is still fundable at these chain times.
     const openView = (ns: string) => buildPaymentView({ read: read(openRestricted, ns), expectedContractId: openRestricted.terms.contractId, accountId: 'payer.testnet' });
-    // OPEN shortly after: unexplained. OPEN 2+ minutes later: a person may deliberately re-review.
+    // OPEN remains unexplained even after two minutes.
     expect(reconcile(entry, openView(at(10n)), startedNs)).toBe('pending');
-    expect(reconcile(entry, openView(at(130n)), startedNs)).toBe('may_reattempt');
+    expect(reconcile(entry, openView(at(130n)), startedNs)).toBe('pending');
     // Funded or cancelled by anyone: resolved (the contract accepts one funding).
     const funded = buildPaymentView({ read: read(paidRestricted, at(10n)), expectedContractId: paidRestricted.terms.contractId, accountId: null });
     expect(reconcile({ ...entry, requestId: paidRestricted.terms.id }, funded, startedNs)).toBe('resolved');
@@ -202,6 +202,24 @@ describe('journal and submission', () => {
     const stillFailed = buildPaymentView({ read: read(failed, at(10n)), expectedContractId: failed.terms.contractId, accountId: null });
     expect(reconcile(retryEntry, stillFailed, startedNs)).toBe('pending');
     expect(reconcile({ ...retryEntry, operationNonce: '7' }, stillFailed, startedNs)).toBe('resolved');
+  });
+
+  it.each([
+    { stale: true },
+    { rpcAvailable: false },
+    { assurance: 'pending_finality' as const },
+  ])('an uncertain observation cannot resolve a journaled creation: %j', overrides => {
+    const entry = { ...base, method: 'create_request' as const, phase: 'OUTCOME_UNKNOWN' as const,
+      transactionHash: null, startedAt: '2026-10-31T21:00:00.000Z', updatedAt: '2026-10-31T21:00:00.000Z' };
+    const view = buildPaymentView({ read: read(open, '1793476890000000000', overrides), expectedContractId: open.terms.contractId, accountId: null });
+    expect(reconcile(entry, view, BigInt(Date.parse(entry.startedAt)) * 1_000_000n)).toBe('pending');
+  });
+
+  it('a finalized observation older than the signing attempt cannot resolve it', () => {
+    const entry = { ...base, method: 'create_request' as const, phase: 'OUTCOME_UNKNOWN' as const,
+      transactionHash: null, startedAt: '2026-11-02T00:00:00.000Z', updatedAt: '2026-11-02T00:00:00.000Z' };
+    const view = buildPaymentView({ read: read(open, '1793476890000000000'), expectedContractId: open.terms.contractId, accountId: null });
+    expect(reconcile(entry, view, BigInt(Date.parse(entry.startedAt)) * 1_000_000n)).toBe('pending');
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FIXTURES, memoryStorage } from '@/test/chain';
+import { FIXTURES, memoryStorage, installChain, readySetup } from '@/test/chain';
+import { buildPaymentView } from '../intent';
 import { VerifierRpcError } from '@/lib/verify/rpc';
 import type { VerifierRpc } from '@/lib/verify/rpc';
 import { hashOf } from '@/lib/verify/__tests__/fake-chain';
@@ -335,12 +336,12 @@ describe('processWalletReturns', () => {
     expect(after?.phase).toBe('OUTCOME_UNKNOWN');
     expect(after !== null && isBlocking(after)).toBe(true);
     // Still OPEN at a final block one minute later: not explained, re-attempt not offered.
-    const view = {
-      kind: 'ok' as const,
-      request: openRestricted,
-      response: {} as never,
-      observedAtNs: (BigInt(Date.parse(entry.startedAt)) * 1_000_000n + 60_000_000_000n).toString(),
-    };
+    const chain = installChain({ contractId: CONTRACT,
+      blockTimestampNs: (BigInt(Date.parse(entry.startedAt)) * 1_000_000n + 60_000_000_000n).toString() });
+    chain.requests.set(ID, openRestricted);
+    const ready = readySetup(chain, true);
+    if (ready.status !== 'ready') throw new Error('test setup unavailable');
+    const view = buildPaymentView({ read: await ready.reader.readPaymentRequest(ID), expectedContractId: CONTRACT, accountId: PAYER });
     expect(after !== null && reconcile(after, view, BigInt(Date.parse(entry.startedAt)) * 1_000_000n)).toBe('pending');
   });
 

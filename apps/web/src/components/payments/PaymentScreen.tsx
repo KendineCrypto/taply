@@ -140,19 +140,6 @@ function PaymentLive({ id }: { readonly id: string }) {
     }
   };
 
-  const allowReattempt = (method: JournalMethod) => {
-    const attempt = attempts.find((a) => a.entry.method === method && a.state === 'may_reattempt');
-    if (attempt === undefined || journal === null) return;
-    // An explicit human decision after the chain showed no effect for 2+ minutes.
-    void journal.update(attempt.entry, { phase: 'RESOLVED' }).then(
-      () => {
-        setResult(null);
-        setJournalTick((n) => n + 1);
-      },
-      () => undefined,
-    );
-  };
-
   return (
     <div className="flex flex-col gap-4">
       <PaymentsSetupNotice />
@@ -164,7 +151,6 @@ function PaymentLive({ id }: { readonly id: string }) {
         result={result}
         submitting={submitting}
         onRun={run}
-        onReattempt={allowReattempt}
         onRefresh={refresh}
       />
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -216,7 +202,6 @@ function ViewBody({
   result,
   submitting,
   onRun,
-  onReattempt,
   onRefresh,
 }: {
   readonly id: string;
@@ -226,7 +211,6 @@ function ViewBody({
   readonly result: SubmitResult | null;
   readonly submitting: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
-  readonly onReattempt: (method: JournalMethod) => void;
   readonly onRefresh: () => void;
 }) {
   const t = useT();
@@ -269,7 +253,6 @@ function ViewBody({
           result={result}
           submitting={submitting}
           onRun={onRun}
-          onReattempt={onReattempt}
           onRefresh={onRefresh}
         />
       );
@@ -284,7 +267,6 @@ function RequestView({
   result,
   submitting,
   onRun,
-  onReattempt,
   onRefresh,
 }: {
   readonly id: string;
@@ -294,7 +276,6 @@ function RequestView({
   readonly result: SubmitResult | null;
   readonly submitting: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
-  readonly onReattempt: (method: JournalMethod) => void;
   readonly onRefresh: () => void;
 }) {
   const t = useT();
@@ -429,7 +410,6 @@ function RequestView({
           accountId={accountId}
           blocking={blockingFor('pay_instant_native')}
           busy={submitting || verifying}
-          onReattempt={() => onReattempt('pay_instant_native')}
           onPay={(signer) => {
             if (config === null) return;
             void attempt((verified) =>
@@ -446,7 +426,6 @@ function RequestView({
           blocking={blockingFor('retry_native_transfer')}
           signingBlock={signingBlock}
           busy={submitting || verifying}
-          onReattempt={() => onReattempt('retry_native_transfer')}
           onConfirm={() => {
             if (config === null) return;
             void attempt(
@@ -465,7 +444,6 @@ function RequestView({
           blocking={blockingFor('cancel_unfunded')}
           signingBlock={signingBlock}
           busy={submitting || verifying}
-          onReattempt={() => onReattempt('cancel_unfunded')}
           onConfirm={() => {
             if (config === null) return;
             void attempt((verified) => prepareCancelUnfunded({ contractId, config: verified, request, signerAccountId: accountId }));
@@ -519,22 +497,9 @@ function safePayLink(origin: string, id: string): string | null {
 }
 
 /** Attempt guard shared by every signing control. */
-function AttemptGuard({ blocking, onReattempt }: { readonly blocking: Attempt | undefined; readonly onReattempt: () => void }) {
+function AttemptGuard({ blocking }: { readonly blocking: Attempt | undefined }) {
   const t = useT();
-  if (blocking === undefined) return null;
-  if (blocking.state === 'may_reattempt') {
-    return (
-      <InlineNotice
-        copy={t.payment.signing.mayReattempt}
-        action={
-          <Button variant="secondary" onClick={onReattempt}>
-            {t.payment.signing.reattempt}
-          </Button>
-        }
-      />
-    );
-  }
-  return <InlineNotice copy={t.payment.signing.blocked} />;
+  return blocking === undefined ? null : <InlineNotice copy={t.payment.signing.blocked} />;
 }
 
 function PayReview({
@@ -543,7 +508,6 @@ function PayReview({
   accountId,
   blocking,
   busy,
-  onReattempt,
   onPay,
 }: {
   readonly request: ContractRequest;
@@ -551,7 +515,6 @@ function PayReview({
   readonly accountId: string | null;
   readonly blocking: Attempt | undefined;
   readonly busy: boolean;
-  readonly onReattempt: () => void;
   readonly onPay: (signer: string) => void;
 }) {
   const t = useT();
@@ -606,7 +569,7 @@ function PayReview({
       ) : (
         <>
           {low && <InlineNotice copy={t.payment.review.balanceLow} />}
-          <AttemptGuard blocking={blocking} onReattempt={onReattempt} />
+          <AttemptGuard blocking={blocking} />
           {signingBlock !== null ? (
             <SigningBlockNotice block={signingBlock} />
           ) : (
@@ -653,7 +616,6 @@ function OwnerAction({
   blocking,
   signingBlock,
   busy,
-  onReattempt,
   onConfirm,
 }: {
   readonly title: string;
@@ -662,7 +624,6 @@ function OwnerAction({
   readonly blocking: Attempt | undefined;
   readonly signingBlock: ReturnType<typeof usePayments>['signingBlock'];
   readonly busy: boolean;
-  readonly onReattempt: () => void;
   readonly onConfirm: () => void;
 }) {
   const t = useT();
@@ -670,7 +631,7 @@ function OwnerAction({
   return (
     <Card as="section" className="flex flex-col gap-3">
       <p className="text-sm text-[var(--text-secondary)]">{note}</p>
-      <AttemptGuard blocking={blocking} onReattempt={onReattempt} />
+      <AttemptGuard blocking={blocking} />
       {signingBlock !== null ? (
         <SigningBlockNotice block={signingBlock} />
       ) : blocking === undefined ? (

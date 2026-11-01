@@ -110,6 +110,7 @@ describe('merchant POS (sale register)', () => {
   });
 
   it('the block is account-scoped, explains the pending sale, and lifts by itself once the chain confirms it (no reload)', async () => {
+    const CHAIN_NOW = (BigInt(Date.now()) * 1_000_000n + 10_000_000_000n).toString();
     const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
     const { adapter, signed } = recordingWallet(MERCHANT);
     const storage = memoryStorage();
@@ -142,7 +143,16 @@ describe('merchant POS (sale register)', () => {
     expect(screen.queryByText('Waiting for the previous sale')).toBeNull();
     fireEvent.change(screen.getByLabelText('Amount (NEAR)'), { target: { value: '2' } });
     await waitFor(() => expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(false));
-    expect(signed).toHaveLength(1);
+    // The second sale uses the SAME durable journal, after confirmed creation.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByText('Check before you sign');
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Create request in wallet' })));
+    expect(signed).toHaveLength(2);
+    const secondTerms = (must(signed[1], 'second sale').call.args as { terms: IntentTerms }).terms;
+    expect(secondTerms.id).not.toBe(terms.id);
+    expect(secondTerms.creationNonce).not.toBe(terms.creationNonce);
+    expect(secondTerms.creatorAccountId).toBe(MERCHANT);
+    expect(JSON.parse(must(storage.data.get(JOURNAL_STORAGE_KEY), 'journal')).entries).toHaveLength(2);
     cleanup();
 
     // Another account on the same device is not blocked by this account's sales.

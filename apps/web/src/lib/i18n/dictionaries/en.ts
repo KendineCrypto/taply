@@ -715,7 +715,7 @@ export const en: Dictionary = {
       },
       pendingDraft: {
         title: 'A request you started is still unconfirmed',
-        body: 'Your wallet did not confirm an earlier request. Resume it with the same terms; no new request is created while this one is unexplained.',
+        body: 'Your wallet did not confirm an earlier request. Check its chain status. Do not sign again or start a new request while the outcome is unknown.',
       },
       resumeDraft: 'Resume this request',
       discardDraft: 'Discard and start over',

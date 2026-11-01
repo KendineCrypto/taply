@@ -50,6 +50,20 @@ function tabs(lock: JournalLock = inProcessJournalLock()) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('journal lock', () => {
+  it('serializes distinct sale creations across tabs until chain reconciliation, with account isolation', async () => {
+    const { one, two } = tabs();
+    const create = (id: string) => ({ ...entry(id), method: 'create_request' as const });
+    const results = await Promise.allSettled([one.begin(create(A)), two.begin(create(B))]);
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find(r => r.status === 'rejected');
+    expect(rejected?.status === 'rejected' && rejected.reason).toBeInstanceOf(JournalBlockedError);
+    await expect(two.begin({ ...create(B), signerAccountId: 'other.testnet' })).resolves.toMatchObject({ signerAccountId: 'other.testnet' });
+    const first = one.entries().find(e => e.signerAccountId === 'payer.testnet');
+    if (!first) throw new Error('missing first sale');
+    await one.update(first, { phase: 'RESOLVED' });
+    await expect(two.begin(create(B))).resolves.toMatchObject({ requestId: B });
+  });
+
   it('late work for a replaced attempt cannot resolve or attach a hash to the new attempt', async () => {
     const storage = memory();
     const journal = new SubmissionJournal(storage, () => new Date('2026-11-01T10:00:00Z'), inProcessJournalLock());

@@ -40,7 +40,7 @@ export const JournalEntrySchema = z.strictObject({
   requestId: HashHexSchema,
   termsHash: HashHexSchema,
   signerAccountId: AccountIdSchema,
-  /** create_request keeps the full terms so the SAME nonce can be re-signed, never a new one. */
+  /** Public immutable terms retained for reconciliation after redirect/reload. */
   terms: IntentTermsSchema.nullable(),
   /** retry_native_transfer: the recorded failure nonce it targeted. */
   operationNonce: z.string().regex(/^[1-9][0-9]{0,19}$/).nullable(),
@@ -132,6 +132,15 @@ export class SubmissionJournal {
   }
 
   private beginLocked(entry: Omit<JournalEntry, 'phase' | 'transactionHash' | 'startedAt' | 'updatedAt'>): JournalEntry {
+    // The creation gate is account-wide, including a second tab that prepared a
+    // different nonce before the first wallet answered. Enforce it under the
+    // same lock as the write, not only in asynchronous screen state.
+    if (entry.method === 'create_request') {
+      const unexplained = this.entries().find(e => e.method === 'create_request' &&
+        e.network === entry.network && e.contractId === entry.contractId &&
+        e.signerAccountId === entry.signerAccountId && isBlocking(e));
+      if (unexplained) throw new JournalBlockedError(unexplained);
+    }
     const existing = this.find(entry.requestId, entry.method, entry.signerAccountId);
     if (existing !== null && isBlocking(existing)) throw new JournalBlockedError(existing);
     // startedAt also identifies this attempt. Two consecutive attempts in the

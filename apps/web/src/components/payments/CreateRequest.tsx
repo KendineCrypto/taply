@@ -162,6 +162,9 @@ export function CreateRequest({
 
   const onReview = async () => {
     if (check.status !== 'verified' || creator === null) return;
+    // Read the current journal before allocating any new nonce. Another tab or
+    // an in-progress reconciliation may be ahead of the rendered pending list.
+    if (journal === null || !journal.isReadable() || blockingCreations(journal.entries(), creator, setup.contractId).length > 0) return;
     const validation = validateRequestForm({ amount, memo, payer }, creator);
     if (!validation.ok) {
       setErrors(validation.errors);
@@ -190,34 +193,6 @@ export function CreateRequest({
       lifetime,
     });
     await requestQuote(terms, termsHash, fresh.config);
-  };
-
-  const onResume = async (entry: JournalEntry) => {
-    if (entry.terms === null || journal === null) return;
-    // The person chose to re-sign the SAME terms after the chain showed no effect.
-    try {
-      await journal.update(entry, { phase: 'RESOLVED' });
-    } catch {
-      return;
-    }
-    setPending((list) => list.filter((p) => p.entry.requestId !== entry.requestId));
-    const fresh = await ensureFreshCheck();
-    if (fresh === null) {
-      setQuoteError('stale');
-      return;
-    }
-    // The SAME journaled terms and nonce, never re-minted.
-    await requestQuote(entry.terms, entry.termsHash, fresh.config);
-  };
-
-  const onDiscard = async (entry: JournalEntry) => {
-    if (journal === null) return;
-    try {
-      await journal.update(entry, { phase: 'RESOLVED' });
-    } catch {
-      return;
-    }
-    setPending((list) => list.filter((p) => p.entry.requestId !== entry.requestId));
   };
 
   const onSign = async () => {
@@ -293,7 +268,7 @@ export function CreateRequest({
 
   // Only this account on this contract: another account's draft never blocks this one.
   const blockingDrafts = pending.filter(
-    (p) => p.entry.signerAccountId === creator && p.entry.contractId === contractId && (p.state === 'pending' || p.state === 'may_reattempt'),
+    (p) => p.entry.signerAccountId === creator && p.entry.contractId === contractId && p.state === 'pending',
   );
   const saleLabel = (terms: IntentTerms) => {
     const amount = `${formatBaseUnits(terms.amountBaseUnits, NEAR_NATIVE.decimals, { locale, maxFractionDigits: 24 }).exact} ${NEAR_NATIVE.symbol}`;
@@ -330,29 +305,17 @@ export function CreateRequest({
         />
       )}
 
-      {blockingDrafts.map(({ entry, state }) => (
+      {blockingDrafts.map(({ entry }) => (
         <InlineNotice
           key={entry.requestId}
           copy={
             !sale || entry.terms === null
               ? t.payment.create.pendingDraft
-              : state === 'may_reattempt'
-                ? { title: c.sale.pendingStale.title, body: fill(c.sale.pendingStale.body, { sale: saleLabel(entry.terms) }) }
-                : { title: c.sale.pending.title, body: `${fill(c.sale.pending.body, { sale: saleLabel(entry.terms) })} ${c.sale.autoRecheck}` }
+              : { title: c.sale.pending.title, body: `${fill(c.sale.pending.body, { sale: saleLabel(entry.terms) })} ${c.sale.autoRecheck}` }
           }
           action={
             <div className="flex flex-wrap gap-2">
               <ButtonLink href={`/pay/${entry.requestId}`}>{t.payment.status.refresh}</ButtonLink>
-              {state === 'may_reattempt' && entry.terms !== null && (
-                <>
-                  <Button variant="secondary" onClick={() => void onResume(entry)}>
-                    {t.payment.create.resumeDraft}
-                  </Button>
-                  <Button variant="ghost" onClick={() => void onDiscard(entry)}>
-                    {t.payment.create.discardDraft}
-                  </Button>
-                </>
-              )}
             </div>
           }
         />

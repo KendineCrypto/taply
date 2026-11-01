@@ -99,21 +99,11 @@ async function record(
   }
 }
 
-/** How long a hash-less unknown attempt blocks a new one, measured in chain time. */
-export const UNKNOWN_ATTEMPT_HOLD_NS = 120_000_000_000n; // 2 minutes
-
 export type Reconciliation =
   /** The chain explains the attempt. It no longer blocks anything. */
   | 'resolved'
   /** Not explained yet. New attempts stay blocked. */
-  | 'pending'
-  /**
-   * Still unexplained, but long enough ago that a person may deliberately review
-   * and try again. Safe because the contract accepts one funding, consumes each
-   * creation nonce once and checks the retry nonce: a late duplicate is rejected
-   * on chain and NEAR refunds its deposit (sandbox-verified). It is never automatic.
-   */
-  | 'may_reattempt';
+  | 'pending';
 
 /**
  * Decides what a finalized read says about an earlier attempt.
@@ -126,11 +116,15 @@ export function reconcile(entry: JournalEntry, view: PaymentView, startedAtNs: b
   if (!isBlocking(entry)) return 'resolved';
   if (view.kind !== 'ok' && view.kind !== 'not_found') return 'pending';
   const observedAtNs = BigInt(view.observedAtNs);
-  const waitedLongEnough = observedAtNs - startedAtNs >= UNKNOWN_ATTEMPT_HOLD_NS;
+  if (observedAtNs < startedAtNs) return 'pending';
+  if (view.kind === 'ok') {
+    const observation = view.response.observation;
+    if (observation.source !== 'rpc' || observation.assurance !== 'verified_final' || observation.stale || !observation.rpcAvailable) return 'pending';
+  }
 
   if (entry.method === 'create_request') {
     if (view.kind === 'ok') return 'resolved';
-    return waitedLongEnough ? 'may_reattempt' : 'pending';
+    return 'pending';
   }
 
   if (view.kind !== 'ok') return 'pending';
@@ -143,18 +137,18 @@ export function reconcile(entry: JournalEntry, view: PaymentView, startedAtNs: b
       // Still OPEN at a final block at/after expiry: no funding can ever succeed,
       // so the attempt provably had no effect (the contract refunds a late deposit).
       if (observedAtNs >= BigInt(request.terms.fundingExpiresAtNs)) return 'resolved';
-      return waitedLongEnough ? 'may_reattempt' : 'pending';
+      return 'pending';
     case 'cancel_unfunded':
       // An expired OPEN request can still be cancelled, so only a state change explains this.
       if (request.status !== 'OPEN') return 'resolved';
-      return waitedLongEnough ? 'may_reattempt' : 'pending';
+      return 'pending';
     case 'retry_native_transfer': {
       const op = request.latestOperation;
       // A newer operation, or no longer failed: the retry was used or superseded.
       if (request.status !== 'PAYOUT_FAILED_RECOVERABLE' || op === null || op.nonce !== entry.operationNonce) {
         return 'resolved';
       }
-      return waitedLongEnough ? 'may_reattempt' : 'pending';
+      return 'pending';
     }
     default:
       return 'pending';
