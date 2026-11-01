@@ -8,8 +8,8 @@ export const same = (a: string, b: string): boolean => {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length > 256 || b.length > 256) return false;
   const l = Buffer.from(a), r = Buffer.from(b); return l.length === r.length && timingSafeEqual(l,r);
 };
-type AuthSession = { identity: VerifiedIdentity; csrf: string; expires: number };
-export type AuthDatabase = { challenges: Map<string,{ challenge: Challenge; browserHash: string }>;
+type AuthSession = { identity: VerifiedIdentity; csrf: string; expires: number; origin: string; contractId: string };
+export type AuthDatabase = { challenges: Map<string,{ challenge: Challenge; browserHash: string; consumed: boolean; initiatorHash: string | null }>;
   sessions: Map<string,AuthSession>; rates: Map<string,{ count: number; until: number }> };
 export const emptyAuth = (): AuthDatabase => ({ challenges:new Map(), sessions:new Map(), rates:new Map() });
 export class DurableAuth {
@@ -33,37 +33,51 @@ export class DurableAuth {
       db.rates.set(id,{count:(old?.count??0)+1,until:old?.until??this.#now()+60000});
     });
   }
-  challenge(accountId: string, browserToken?: string): { challenge: Challenge; browserToken: string } {
+  challenge(accountId: string, browserToken?: string, sessionToken?: string): { challenge: Challenge; browserToken: string } {
     this.cleanup(); this.rate(`challenge:${accountId}`,5);
     const token = browserToken && /^[A-Za-z0-9_-]{43}$/.test(browserToken) ? browserToken : secret();
     const challenge = new Challenges(this.#origin,this.#contract,this.#now).issue(accountId);
     this.#store.transaction(db => {
       if (db.challenges.size >= 1000) throw Error('RATE_LIMITED');
-      db.challenges.set(challenge.id,{challenge,browserHash:hash(token)});
+      db.challenges.set(challenge.id,{challenge,browserHash:hash(token),consumed:false,
+        initiatorHash:sessionToken?hash(sessionToken):null});
     }); return { challenge,browserToken:token };
   }
-  async verify(id: string, browserToken: string, signed: unknown): Promise<{ token: string; csrf: string; identity: VerifiedIdentity }> {
+  async verify(id: string, browserToken: string, signed: unknown, replaceToken?: string): Promise<{ token: string; csrf: string; identity: VerifiedIdentity }> {
     // Durable commit before awaiting any crypto/RPC; failed verification burns challenge.
     const challenge = this.#store.transaction(db => {
-      const item=db.challenges.get(id); if (!item) throw Error('AUTH_CHALLENGE_USED');
+      const item=db.challenges.get(id); if (!item || item.consumed) throw Error('AUTH_CHALLENGE_USED');
       if (!same(item.browserHash,hash(browserToken))) throw Error('CSRF_REJECTED');
-      db.challenges.delete(id); return item.challenge;
+      item.consumed=true; return item.challenge;
     });
     if (this.#now() >= challenge.expiresAtMs) throw Error('AUTH_CHALLENGE_EXPIRED');
     const identity = await this.#verifier.verify(challenge,signed);
     if (this.#now() >= challenge.expiresAtMs) throw Error('AUTH_CHALLENGE_EXPIRED');
     const token=secret(), csrf=secret();
     this.#store.transaction(db => {
+      // Logout removes pending authority too. Never create a session after that
+      // invalidation, even if the signature/RPC work began before logout.
+      const pending=db.challenges.get(id);
+      if (!pending?.consumed) throw Error('AUTH_CHALLENGE_USED');
+      if (pending.challenge.origin!==this.#origin) throw Error('NOT_AUTHORIZED');
       for (const [id,s] of db.sessions) if (s.expires <= this.#now()) db.sessions.delete(id);
       if (db.sessions.size >= 1000) throw Error('RATE_LIMITED');
-      db.sessions.set(hash(token),{identity,csrf,expires:this.#now()+900000});
+      db.challenges.delete(id);
+      if (replaceToken) db.sessions.delete(hash(replaceToken));
+      db.sessions.set(hash(token),{identity,csrf,expires:this.#now()+900000,origin:this.#origin,contractId:this.#contract});
     }); return { token,csrf,identity };
   }
   session(token: string): AuthSession {
     if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw Error('AUTH_REQUIRED');
     return this.#store.transaction(db => {
-      const s=db.sessions.get(hash(token)); if (!s || s.expires <= this.#now()) throw Error('AUTH_EXPIRED'); return s;
+      const s=db.sessions.get(hash(token)); if (!s || s.expires <= this.#now()) throw Error('AUTH_EXPIRED');
+      if (s.origin!==this.#origin || s.contractId!==this.#contract) throw Error('AUTH_EXPIRED'); return s;
     });
   }
-  logout(token: string): void { this.#store.transaction(db => { db.sessions.delete(hash(token)); }); }
+  logout(token: string): void { this.#store.transaction(db => {
+    const current=db.sessions.get(hash(token));
+    if(current) for(const [id,c] of db.challenges)
+      if(c.challenge.accountId===current.identity.accountId || c.initiatorHash===hash(token)) db.challenges.delete(id);
+    db.sessions.delete(hash(token));
+  }); }
 }

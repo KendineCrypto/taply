@@ -53,7 +53,7 @@ export function createCommerceHandler(deps: CommerceHttpDependencies) {
       if(path==='/api/v1/auth/challenges' && request.method==='POST') {
         if(!deps.authenticationAccepted) throw Error('VERIFICATION_UNAVAILABLE');
         const input=await body(request); fields(input,['accountId']); const account=AccountIdSchema.parse(input.accountId);
-        const result=deps.auth.challenge(account,jar.get('__Host-taply-browser'));
+        const result=deps.auth.challenge(account,jar.get('__Host-taply-browser'),token);
         headers.append('Set-Cookie',cookie('__Host-taply-browser',result.browserToken,120)); return json(result.challenge);
       }
       if(path==='/api/v1/auth/verify' && request.method==='POST') {
@@ -61,7 +61,7 @@ export function createCommerceHandler(deps: CommerceHttpDependencies) {
         const input=await body(request); fields(input,['challengeId','signed']);
         if(typeof input.challengeId!=='string' || !/^[A-Za-z0-9_-]{43}$/.test(input.challengeId)) throw Error('INVALID_ARGUMENT');
         const browser=jar.get('__Host-taply-browser'); if(!browser) throw Error('CSRF_REJECTED');
-        const login=await deps.auth.verify(input.challengeId,browser,input.signed);
+        const login=await deps.auth.verify(input.challengeId,browser,input.signed,token);
         headers.append('Set-Cookie',cookie('__Host-taply-session',login.token,900));
         headers.append('Set-Cookie',cookie('__Host-taply-browser','',0));
         return json({accountId:login.identity.accountId,csrfToken:login.csrf,network:'near-testnet'});
