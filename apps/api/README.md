@@ -1,0 +1,28 @@
+# API security foundation (disabled)
+
+No HTTP server is started. `src/http.mts` is a refusal-only Fetch handler:
+auth/me returns 401; every other request returns 503 VERIFICATION_UNAVAILABLE.
+No cookies, signatures, bearer sessions, merchant profiles or payment claims are
+issued. Bodies are never read, logged or parsed. There is no CORS allowance.
+
+`Challenges` is a bounded single-process isolated primitive, not a public auth
+service. It implements random scope-bound challenges, expiry and atomic local
+consumption. `Nep413Verifier` intentionally has no success path. Crypto signature
+verification and finalized Testnet FullAccess key association are unimplemented.
+No account ownership is inferred from supplied account strings.
+
+Run from root (Node 24.22.2):
+
+```
+pnpm --filter @taply/shared build
+node --test apps/api/test/*.test.mts
+```
+
+No dependencies or lockfile changes. Native Node TypeScript stripping runs these
+isolated tests; these files are not yet integrated into recursive workspace check.
+Before serving: implement/test crypto and finalized RPC verification, actual
+wallet support, durable CAS storage, HTTPS __Host- Secure HttpOnly SameSite=Strict
+cookies, browser-bound state and CSRF, exact Origin validation, per-account/IP
+rate limits, bounded strict request schemas and timeout/resource limits. Do not
+wire the primitive into routes until those gates pass. Process restart invalidates
+all local challenges; multi-process operation is unsupported.
