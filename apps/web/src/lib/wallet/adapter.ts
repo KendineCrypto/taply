@@ -63,7 +63,7 @@ export interface WalletCall {
  */
 export type SignOutcome =
   | { readonly kind: 'submitted'; readonly transactionHash: string }
-  | { readonly kind: 'unknown' };
+  | { readonly kind: 'unknown'; readonly transactionHash?: string };
 
 const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 

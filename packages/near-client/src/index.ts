@@ -14,6 +14,8 @@ export { WalletAttemptJournal } from "./wallet-journal.js";
 export type { WalletAttempt } from "./wallet-journal.js";
 export { WalletEngineError, nativeNearToYocto, prepareNativeNearTransfer, spendingBudget, walletAccountId } from "./wallet-transfer.js";
 export type { WalletBalanceSnapshot } from "./wallet-transfer.js";
+export { createReviewedWalletBackend, WALLET_REVIEW_TTL_MS } from "./wallet-backend.js";
+export type { ReviewedWalletBackend, WalletTransactionReview, WalletSubmission, WalletBackendPolicy } from "./wallet-backend.js";
 export type * from "./types.js";
 export {
   ABI_MINIMUM_GAS, CONTRACT_ERROR_CODES, ContractConfigSchema, CreateQuoteSchema, TerminalFactsSchema,

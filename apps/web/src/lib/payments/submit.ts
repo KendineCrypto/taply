@@ -15,7 +15,7 @@ import type { PaymentView } from './intent';
 export type SubmitResult =
   | { readonly kind: 'submitted'; readonly transactionHash: string }
   /** Possibly broadcast. Reconcile with the chain; never retry blindly. */
-  | { readonly kind: 'unknown' }
+  | { readonly kind: 'unknown'; readonly transactionHash?: string }
   /** The person declined in the wallet. Nothing was sent. */
   | { readonly kind: 'rejected' }
   /** The wallet is connected as a different account. Nothing was sent. */
@@ -76,8 +76,8 @@ export async function submitCall(input: {
     journal.update(target, { phase: 'SUBMITTED', transactionHash: outcome.transactionHash });
     return outcome;
   }
-  journal.update(target, { phase: 'OUTCOME_UNKNOWN' });
-  return { kind: 'unknown' };
+  journal.update(target, { phase: 'OUTCOME_UNKNOWN', ...(outcome.transactionHash ? { transactionHash: outcome.transactionHash } : {}) });
+  return outcome;
 }
 
 /** How long a hash-less unknown attempt blocks a new one, measured in chain time. */

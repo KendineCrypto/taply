@@ -7,6 +7,9 @@ const KEY = "taply.testnet-wallet-attempt.v1";
 const Attempt = z.strictObject({
   version: z.literal(1), network: z.literal("near-testnet"), accountId: AccountIdSchema,
   reviewId: z.string().uuid(), transactionHash: ChainHashSchema.nullable(),
+  // Public unsigned transaction bytes bind reload reconciliation to the exact
+  // reviewed action/amount/nonce. Never private keys, passphrases or signed bytes.
+  unsignedTransaction: z.string().max(24_000).regex(/^[A-Za-z0-9+/]+={0,2}$/).optional(),
   phase: z.enum(["RESERVED", "UNKNOWN", "SUBMITTED", "FINAL_SUCCEEDED", "FINAL_FAILED", "NOT_SENT"]),
 });
 export type WalletAttempt = z.infer<typeof Attempt>;
@@ -38,7 +41,7 @@ export class WalletAttemptJournal {
     this.assertClear();
     this.write({ version: 1, network: "near-testnet", accountId, reviewId, phase: "RESERVED", transactionHash: null });
   }
-  update(reviewId: string, phase: WalletAttempt["phase"], transactionHash?: string): void {
+  update(reviewId: string, phase: WalletAttempt["phase"], transactionHash?: string, unsignedTransaction?: string): void {
     const attempt = this.read();
     if (!attempt || attempt.reviewId !== reviewId) throw new WalletEngineError("OUTCOME_UNRESOLVED");
     const allowed: Record<WalletAttempt["phase"], readonly WalletAttempt["phase"][]> = {
@@ -49,8 +52,10 @@ export class WalletAttemptJournal {
     const hash = transactionHash ?? attempt.transactionHash;
     if (!allowed[attempt.phase].includes(phase) ||
       (attempt.transactionHash !== null && hash !== attempt.transactionHash) ||
+      (attempt.unsignedTransaction !== undefined && unsignedTransaction !== undefined && attempt.unsignedTransaction !== unsignedTransaction) ||
       (["SUBMITTED", "FINAL_SUCCEEDED", "FINAL_FAILED"].includes(phase) && hash === null))
       throw new WalletEngineError("OUTCOME_UNRESOLVED");
-    this.write({ ...attempt, phase, transactionHash: transactionHash ?? attempt.transactionHash });
+    this.write({ ...attempt, phase, transactionHash: transactionHash ?? attempt.transactionHash,
+      ...(unsignedTransaction === undefined ? {} : { unsignedTransaction }) });
   }
 }

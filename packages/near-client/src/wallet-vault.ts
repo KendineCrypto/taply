@@ -1,5 +1,16 @@
 import { z } from "zod";
 import { isWellFormedUnicode, parseStrictJson } from "@taply/shared";
+import { PublicKey, Signer, encodeTransaction, decodeSignedTransaction } from "near-api-js";
+import type { Transaction, SignedTransaction } from "near-api-js";
+
+// Internal bridge, deliberately not re-exported from the package entrypoint.
+// No CryptoKey, private bytes, or general raw-message signer leaves the vault.
+const transactionSigners = new WeakMap<EncryptedTestnetVault, (tx: Transaction) => Promise<{ txHash: Uint8Array; signedTransaction: SignedTransaction; assertActive(): void }>>();
+export async function signVaultTransaction(vault: EncryptedTestnetVault, tx: Transaction) {
+  const sign = transactionSigners.get(vault);
+  if (!sign) throw new VaultError("LOCKED");
+  return sign(tx);
+}
 
 export const VAULT_STORAGE_KEY = "taply.testnet-vault.v1";
 export const VAULT_UNLOCK_MS = 5 * 60 * 1000;
@@ -74,7 +85,9 @@ export class EncryptedTestnetVault {
   #listeners = new Set<() => void>();
   constructor(private readonly storage: VaultStorage, private readonly options: {
     crypto?: Crypto; now?: () => number;
-  } = {}) {}
+  } = {}) {
+    transactionSigners.set(this, (tx) => this.#signTransaction(tx));
+  }
   private get crypto(): Crypto {
     const value = this.options.crypto ?? globalThis.crypto;
     if (!value?.subtle) throw new VaultError("CRYPTO_UNAVAILABLE");
@@ -166,5 +179,38 @@ export class EncryptedTestnetVault {
     const { record } = await this.decrypt(raw, password);
     if (generation !== this.#generation || this.raw() !== null) throw new VaultError("CANCELLED");
     this.persist(JSON.stringify(record)); return identity(record); // recovery always locked
+  }
+  async #signTransaction(tx: Transaction) {
+    if (!this.unlocked || this.#key === null || this.#key.extractable) throw new VaultError("LOCKED");
+    const owner = this;
+    const generation = this.#generation;
+    const local = this.getIdentity();
+    if (!local || tx.signerId !== local.accountId || tx.publicKey.keyType !== 0 ||
+      hex(tx.publicKey.data) !== local.publicKeyHex) throw new VaultError("INVALID_RECORD");
+    const publicKey = PublicKey.from(tx.publicKey.toString());
+    const signer = new class extends Signer {
+      async getPublicKey() { return publicKey; }
+      protected async signBytes(bytes: Uint8Array): Promise<Uint8Array> {
+        if (!owner.unlocked || owner.#key === null || generation !== owner.#generation) throw new VaultError("CANCELLED");
+        return new Uint8Array(await owner.crypto.subtle.sign("Ed25519", owner.#key, new Uint8Array(bytes)));
+      }
+    }();
+    const result = await signer.signTransaction(tx);
+    const serialized = new Uint8Array(encodeTransaction(tx));
+    const localHash = new Uint8Array(await this.crypto.subtle.digest("SHA-256", serialized));
+    const publicCryptoKey = await this.crypto.subtle.importKey("raw", unhex(local.publicKeyHex), "Ed25519", false, ["verify"]);
+    const decoded = decodeSignedTransaction(encodeTransaction(result.signedTransaction));
+    if (!this.unlocked || generation !== this.#generation ||
+      hex(localHash) !== hex(result.txHash) ||
+      hex(new Uint8Array(encodeTransaction(decoded.transaction))) !== hex(serialized) ||
+      !decoded.signature.ed25519Signature ||
+      hex(decoded.signature.ed25519Signature.data) !== hex(result.signedTransaction.signature.data) ||
+      !publicKey.verify(localHash, result.signedTransaction.signature.data) ||
+      !await this.crypto.subtle.verify("Ed25519", publicCryptoKey, new Uint8Array(result.signedTransaction.signature.data), localHash))
+      throw new VaultError("CANCELLED");
+    if (!this.unlocked || generation !== this.#generation) throw new VaultError("CANCELLED");
+    return { ...result, assertActive: () => {
+      if (!this.unlocked || generation !== this.#generation) throw new VaultError("CANCELLED");
+    } };
   }
 }
