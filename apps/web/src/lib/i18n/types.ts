@@ -1,3 +1,4 @@
+import type { CommerceCopy } from './commerce-types';
 import type { Assurance, ChainState, ErrorCode, LocalPhase, SessionState } from '@/lib/protocol';
 
 export const LOCALES = ['en', 'tr'] as const;
@@ -46,6 +47,8 @@ export interface ErrorCopy {
  */
 export interface Dictionary {
   readonly locale: Locale;
+  /** Phase 7 merchant POS, checkout and Handshake copy. */
+  readonly commerce: CommerceCopy;
   readonly localeName: string;
 
   readonly app: {

@@ -1,4 +1,5 @@
 import type { Dictionary } from '../types';
+import { commerceTr } from './commerce-tr';
 
 /**
  * Turkish (secondary locale).
@@ -10,6 +11,7 @@ import type { Dictionary } from '../types';
  * Codex stops this file compiling until it is translated.
  */
 export const tr: Dictionary = {
+  commerce: commerceTr,
   locale: 'tr',
   localeName: 'Türkçe',
 

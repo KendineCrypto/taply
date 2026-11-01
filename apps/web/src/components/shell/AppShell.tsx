@@ -90,7 +90,7 @@ export function NetworkBadge() {
 }
 
 interface MenuLink {
-  readonly href: '/wallet' | '/receive' | '/settings' | '/demo';
+  readonly href: '/wallet' | '/receive' | '/merchant' | '/settings' | '/demo';
   readonly icon: IconName;
   readonly label: string;
   readonly body?: string;
@@ -109,6 +109,7 @@ function AccountMenu() {
   const links: ReadonlyArray<MenuLink> = [
     { href: '/wallet', icon: 'wallet', label: m.wallet },
     { href: '/receive', icon: 'receive', label: m.receive },
+    { href: '/merchant', icon: 'pay', label: t.commerce.merchant.title, body: t.commerce.merchant.menuBody },
     { href: '/settings', icon: 'settings', label: m.settings },
     { href: '/demo', icon: 'shield', label: m.help, body: m.helpBody },
   ];

@@ -40,8 +40,17 @@ type Step =
  * the chain shows no effect, it can be re-signed with its ORIGINAL nonce and
  * terms, never re-minted.
  */
-export function CreateRequest() {
+export function CreateRequest({
+  variant = 'request',
+  onStepChange,
+}: {
+  readonly variant?: 'request' | 'sale';
+  /** Informational only (0 = amount, 1 = review): lets a wrapper show progress. */
+  readonly onStepChange?: (step: 0 | 1) => void;
+} = {}) {
   const t = useT();
+  const c = t.commerce;
+  const sale = variant === 'sale';
   const router = useRouter();
   const { state: wallet, signAndSend } = useWallet();
   const { setup, check, signingBlock, journal, journalVersion, ensureFreshCheck, now } = usePayments();
@@ -57,6 +66,11 @@ export function CreateRequest() {
   const [quoteError, setQuoteError] = useState<'failed' | 'nonce_consumed' | 'stale' | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [pending, setPending] = useState<ReadonlyArray<{ entry: JournalEntry; state: Reconciliation }>>([]);
+
+  const reviewing = step.kind === 'review' || step.kind === 'signing';
+  useEffect(() => {
+    onStepChange?.(reviewing ? 1 : 0);
+  }, [reviewing, onStepChange]);
 
   const creator = wallet.status === 'connected' ? wallet.session.accountId : null;
   const ready = setup.status === 'ready' && check.status === 'verified';
@@ -232,11 +246,31 @@ export function CreateRequest() {
     setStep({ ...reviewed, kind: 'review' });
   };
 
+  const memoField = (
+    <Field
+      id={ids.memo}
+      label={sale ? c.sale.referenceLabel : t.payment.create.memoLabel}
+      hint={sale ? c.sale.referenceHint : t.payment.create.memoHint}
+      error={errorFor(errors, ['memo_too_long'], t.payment.create.errors)}
+    >
+      <textarea
+        id={ids.memo}
+        value={memo}
+        rows={sale ? 1 : 2}
+        onChange={(e) => setMemo(e.target.value)}
+        className="taply-input"
+        aria-describedby={`${ids.memo}-hint ${ids.memo}-error`}
+        aria-invalid={errors.includes('memo_too_long') || undefined}
+      />
+    </Field>
+  );
+
   const blockingDrafts = pending.filter((p) => p.state === 'pending' || p.state === 'may_reattempt');
+  const summaryMemo = sale ? '' : memo;
   const optionsSummary =
-    payer.trim() === '' && memo === ''
+    payer.trim() === '' && summaryMemo === ''
       ? fill(t.oneTap.request.defaults, { expiry: t.payment.create.expiry[lifetime] })
-      : [payer.trim() === '' ? t.oneTap.request.anyoneMayPay : payer.trim(), t.payment.create.expiry[lifetime], memo === '' ? null : `“${memo}”`]
+      : [payer.trim() === '' ? t.oneTap.request.anyoneMayPay : payer.trim(), t.payment.create.expiry[lifetime], summaryMemo === '' ? null : `“${summaryMemo}”`]
           .filter((part) => part !== null)
           .join(' · ');
 
@@ -290,11 +324,13 @@ export function CreateRequest() {
           {/* The recipient is always the connected account; it is never edited here. */}
           <p className="mx-auto flex max-w-full items-center gap-2 rounded-full bg-[var(--tone-neutral-bg)] py-1.5 pl-1.5 pr-3.5 text-sm">
             <Monogram accountId={creator ?? ''} size={26} />
-            <span className="shrink-0 text-[var(--text-muted)]">{t.oneTap.request.toYou}</span>
+            <span className="shrink-0 text-[var(--text-muted)]">{sale ? c.sale.receivingLabel : t.oneTap.request.toYou}</span>
             <span className="chain-id truncate font-medium" title={creator ?? ''}>
               {creator}
             </span>
           </p>
+
+          {sale && memoField}
 
           <div className="rounded-[var(--radius-card)] border border-[var(--border-subtle)]">
             <button
@@ -312,17 +348,7 @@ export function CreateRequest() {
             </button>
             {optionsOpen && (
               <div id={ids.options} className="animate-page flex flex-col gap-4 border-t border-[var(--border-subtle)] px-4 pb-4 pt-4">
-                <Field id={ids.memo} label={t.payment.create.memoLabel} hint={t.payment.create.memoHint} error={errorFor(errors, ['memo_too_long'], t.payment.create.errors)}>
-                  <textarea
-                    id={ids.memo}
-                    value={memo}
-                    rows={2}
-                    onChange={(e) => setMemo(e.target.value)}
-                    className="taply-input"
-                    aria-describedby={`${ids.memo}-hint ${ids.memo}-error`}
-                    aria-invalid={errors.includes('memo_too_long') || undefined}
-                  />
-                </Field>
+                {!sale && memoField}
                 <Field id={ids.payer} label={t.payment.create.payerLabel} hint={t.payment.create.payerHint} error={errorFor(errors, ['payer_invalid', 'payer_is_recipient'], t.payment.create.errors)}>
                   <input
                     id={ids.payer}
@@ -434,6 +460,13 @@ export function CreateRequest() {
               <RequestTermsPreview terms={step.terms} />
             </div>
           </details>
+
+          {sale && (
+            <div className="flex flex-col gap-2" data-testid="sale-unbound">
+              <InlineNotice copy={c.unbound} tone="neutral" />
+              <p className="px-1 text-xs text-[var(--text-muted)]">{c.sale.uniqueNote}</p>
+            </div>
+          )}
 
           {result !== null && <SubmitResultNotice result={result} />}
           <div className="flex flex-col gap-1">

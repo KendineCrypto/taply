@@ -1,4 +1,5 @@
 import type { Dictionary } from '../types';
+import { commerceEn } from './commerce-en';
 
 /**
  * English (default locale).
@@ -12,6 +13,7 @@ import type { Dictionary } from '../types';
  * code and a messageKey; all display prose is owned here (freeze section 8).
  */
 export const en: Dictionary = {
+  commerce: commerceEn,
   locale: 'en',
   localeName: 'English',
 

@@ -1,17 +1,8 @@
 'use client';
 
-import { ComingSoon } from '@/components/shell/ComingSoon';
-import { useT } from '@/lib/i18n/provider';
+import { MerchantHome } from '@/components/merchant/MerchantScreens';
 
-/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
+/** Merchant hub: receiving account, new sale, store QR. Merchant-bound features stay flagged off. */
 export default function Page() {
-  const t = useT();
-  return (
-    <ComingSoon
-      title={t.screens.merchant}
-      summary={t.routes.merchant}
-      flag="merchantCheckout"
-      icon="pay"
-    />
-  );
+  return <MerchantHome />;
 }

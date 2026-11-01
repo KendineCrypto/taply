@@ -1,17 +1,8 @@
 'use client';
 
-import { ComingSoon } from '@/components/shell/ComingSoon';
-import { useT } from '@/lib/i18n/provider';
+import { SaleRegister } from '@/components/merchant/MerchantScreens';
 
-/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
+/** POS: one uniquely signed Instant request per sale, through the existing creation flow. */
 export default function Page() {
-  const t = useT();
-  return (
-    <ComingSoon
-      title={t.screens.merchantRegister}
-      summary={t.routes.merchantRegister}
-      flag="merchantCheckout"
-      icon="pay"
-    />
-  );
+  return <SaleRegister />;
 }

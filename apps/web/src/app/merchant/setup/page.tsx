@@ -1,17 +1,8 @@
 'use client';
 
-import { ComingSoon } from '@/components/shell/ComingSoon';
-import { useT } from '@/lib/i18n/provider';
+import { MerchantSetup } from '@/components/merchant/MerchantScreens';
 
-/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
+/** Permanent merchant discovery QR. Discovery only: it is never a payable invoice. */
 export default function Page() {
-  const t = useT();
-  return (
-    <ComingSoon
-      title={t.screens.merchantSetup}
-      summary={t.routes.merchantSetup}
-      flag="merchantCheckout"
-      icon="settings"
-    />
-  );
+  return <MerchantSetup />;
 }
