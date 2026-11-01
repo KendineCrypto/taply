@@ -127,11 +127,4 @@ export function buildInstantTerms(input: {
   return { terms, termsHash: calculateTermsHash(terms) };
 }
 
-/** The canonical share link. The QR code encodes exactly this string. */
-export function payLink(origin: string, requestId: string): string {
-  const url = new URL(origin);
-  if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
-    throw new Error('share links must use https');
-  }
-  return `${url.origin}/pay/${requestId}`;
-}
+/* The canonical share link lives in lib/share/origin.ts (canonicalPayUrl). */

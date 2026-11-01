@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from '../AppShell';
 import { I18nProvider } from '@/lib/i18n/provider';
@@ -120,19 +120,61 @@ describe('Tap sheet', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it('Pay offers exactly two choices: Pay with link and Scan QR', () => {
+    renderShell();
+    const sheet = openTap();
+    fireEvent.click(within(sheet).getByText('Pay'));
+    const choices = within(sheet).getByRole('group', { name: 'Ways to open a payment' });
+    expect(within(choices).getAllByRole('button').map((b) => within(b).getAllByText(/./)[0]?.textContent)).toEqual([
+      'Pay with link',
+      'Scan QR',
+    ]);
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it('opens a pasted payment link on this app’s own /pay page, never the pasted host', () => {
     renderShell();
     const sheet = openTap();
     fireEvent.click(within(sheet).getByText('Pay'));
-    const field = screen.getByLabelText('Payment link');
+    fireEvent.click(within(sheet).getByText('Pay with link'));
+    const field = screen.getByLabelText('Payment link or request ID');
     fireEvent.change(field, { target: { value: 'https://example.org/not-a-payment' } });
     fireEvent.click(screen.getByRole('button', { name: 'Open payment' }));
     expect(screen.getByRole('alert').textContent).toBe('This is not a Taply payment link.');
     expect(push).not.toHaveBeenCalled();
 
+    // A pay link for another site is named, not opened.
     fireEvent.change(field, { target: { value: `https://elsewhere.example/pay/${ID}` } });
     fireEvent.click(screen.getByRole('button', { name: 'Open payment' }));
+    expect(screen.getByRole('alert').textContent).toBe(
+      'This link points to elsewhere.example, not to this Taply app, so it was not opened.',
+    );
+    expect(push).not.toHaveBeenCalled();
+
+    fireEvent.change(field, { target: { value: `${window.location.origin}/pay/${ID}?amount=1` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open payment' }));
     expect(push).toHaveBeenCalledWith(`/pay/${ID}`);
+    // Opening closes the sheet.
+    expect(screen.queryByRole('button', { name: 'Open payment' })).toBeNull();
+  });
+
+  it('the camera is requested only after choosing Scan QR; "Paste a link" leads back to the link form', async () => {
+    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: vi.fn() }] }) as unknown as MediaStream);
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia } });
+    try {
+      renderShell();
+      const sheet = openTap();
+      fireEvent.click(within(sheet).getByText('Pay'));
+      expect(getUserMedia).not.toHaveBeenCalled();
+      fireEvent.click(within(sheet).getByText('Scan QR'));
+      expect(await screen.findByRole('dialog', { name: 'Scan to pay', hidden: true })).toBeTruthy();
+      await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
+      fireEvent.click(screen.getByRole('button', { name: 'Paste a link instead', hidden: true }));
+      expect(screen.queryByRole('dialog', { name: 'Scan to pay', hidden: true })).toBeNull();
+      expect(await screen.findByLabelText('Payment link or request ID')).toBeTruthy();
+    } finally {
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined });
+    }
   });
 });
 

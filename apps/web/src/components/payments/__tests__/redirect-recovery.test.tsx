@@ -13,6 +13,8 @@ import { hashOf } from '@/lib/verify/__tests__/fake-chain';
  * only the journal (written before the wallet opened) and the return URL remain.
  */
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 const { openRestricted } = FIXTURES;
 const PAYER = openRestricted.terms.permittedPayerAccountId ?? 'payer.testnet';
 const TX = hashOf('redirect-screen-tx');

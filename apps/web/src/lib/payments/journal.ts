@@ -165,7 +165,10 @@ export class SubmissionJournal {
     if (current === undefined) throw new Error('journal entry missing');
     const next = JournalEntrySchema.parse({
       ...current,
-      phase: change.phase,
+      // Once a finalized read explained an attempt it stays explained: a late
+      // wallet outcome or redirect only attaches its hash (Phase 6A). Only a new
+      // `begin` replaces a RESOLVED entry.
+      phase: current.phase === 'RESOLVED' ? 'RESOLVED' : change.phase,
       // A known hash is never forgotten by a later update.
       transactionHash: change.transactionHash ?? current.transactionHash,
       updatedAt: this.now().toISOString(),

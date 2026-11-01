@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { prepareCancelUnfunded, preparePayInstantNative, prepareRetryNativeTransfer } from '@taply/near-client';
 import type { ContractConfig, PreparedContractCall } from '@taply/near-client';
 import { AccountId } from '@/components/primitives/Amount';
@@ -14,7 +15,6 @@ import { ReviewSummary } from '@/components/experience/ReviewSummary';
 import { Icon } from '@/components/shell/Icons';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { useT } from '@/lib/i18n/provider';
-import { payLink } from '@/lib/payments/create';
 import { usePayments } from '@/lib/payments/context';
 import { chainFreshness, sameContractConfig } from '@/lib/payments/freshness';
 import type { PaymentView } from '@/lib/payments/intent';
@@ -22,7 +22,10 @@ import { isBlocking } from '@/lib/payments/journal';
 import type { JournalEntry, JournalMethod } from '@/lib/payments/journal';
 import { mapChainState } from '@/lib/payments/map-chain-state';
 import type { MapInput } from '@/lib/payments/map-chain-state';
+import { claimFollowUp, ownFundingAttempt, receiptPath, sessionFollowUpStorage } from '@/lib/payments/follow-up';
 import { dateToNs, reconcile, submitCall } from '@/lib/payments/submit';
+import { canonicalPayUrl } from '@/lib/share/origin';
+import { useShareOrigin } from '@/lib/share/use-share-origin';
 import type { Reconciliation, SubmitResult } from '@/lib/payments/submit';
 import { usePaymentRequest } from '@/lib/payments/use-payment-request';
 import { HashHexSchema } from '@/lib/protocol';
@@ -36,6 +39,7 @@ import {
   Provenance,
   RequestTerms,
   ShareRequest,
+  ShareUnavailable,
   SigningBlockNotice,
   SubmitResultNotice,
   TransactionLink,
@@ -63,7 +67,7 @@ export function PaymentScreen({ id }: { readonly id: string }) {
 
 function PaymentLive({ id }: { readonly id: string }) {
   const t = useT();
-  const { setup, check, journal, journalVersion } = usePayments();
+  const { setup, check, journal, journalVersion, walletReturnsPending } = usePayments();
   const { state: wallet, signAndSend } = useWallet();
   const accountId = wallet.status === 'connected' ? wallet.session.accountId : null;
   const [result, setResult] = useState<SubmitResult | null>(null);
@@ -99,6 +103,19 @@ function PaymentLive({ id }: { readonly id: string }) {
       active = false;
     };
   }, [attempts, journal]);
+
+  // This device's own payment just became FINAL_PAID: open the receipt once,
+  // with the funding hash it holds as a hint, so verification starts by itself.
+  const router = useRouter();
+  // A wallet-returned hash still being matched on chain is waited for, so it
+  // travels with the receipt link.
+  const matchingReturn = walletReturnsPending > 0 && setup.status === 'ready' && setup.verifierRpc !== null;
+  useEffect(() => {
+    if (view?.kind !== 'ok' || matchingReturn) return;
+    const own = ownFundingAttempt(view.request, entries, Date.now());
+    if (own === null || !claimFollowUp(sessionFollowUpStorage(), own)) return;
+    router.push(receiptPath(view.request, entries));
+  }, [view, entries, router, matchingReturn]);
 
   const run = async (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => {
     if (accountId === null || submitting) return;
@@ -308,7 +325,9 @@ function RequestView({
   const blockingFor = (method: JournalMethod) =>
     attempts.find((a) => a.entry.method === method && a.entry.signerAccountId === accountId && a.state !== 'resolved');
 
-  const link = typeof window === 'undefined' ? null : safePayLink(window.location.origin, id);
+  // One canonical URL for QR, copy and share, on a public HTTPS origin only.
+  const share = useShareOrigin();
+  const link = share?.kind === 'ok' ? safePayLink(share.origin, id) : null;
   const config = check.status === 'verified' ? check.config : null;
   const contractId = setup.status === 'ready' ? setup.contractId : '';
   const [refused, setRefused] = useState(false);
@@ -400,6 +419,7 @@ function RequestView({
       {stale && <InlineNotice copy={t.reliability.reviewAgain} live="assertive" />}
 
       {ctaKinds.has('share_request') && link !== null && <ShareRequest link={link} request={request} />}
+      {ctaKinds.has('share_request') && share?.kind === 'unavailable' && <ShareUnavailable reason={share.reason} requestId={id} />}
 
       {ctaKinds.has('review_and_pay') && (
         <PayReview
@@ -454,7 +474,7 @@ function RequestView({
       )}
 
       {ctaKinds.has('view_receipt') && (
-        <ButtonLink href={`/receipt/${id}`} variant="primary" size="lg" block>
+        <ButtonLink href={receiptPath(request, attempts.map((a) => a.entry))} variant="primary" size="lg" block>
           {t.common.viewReceipt}
         </ButtonLink>
       )}
@@ -492,7 +512,7 @@ function RequestView({
 
 function safePayLink(origin: string, id: string): string | null {
   try {
-    return payLink(origin, id);
+    return canonicalPayUrl(origin, id);
   } catch {
     return null;
   }

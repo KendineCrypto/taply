@@ -285,6 +285,52 @@ describe('processWalletReturns', () => {
   });
 });
 
+describe('Phase 6A: mobile redirect race', () => {
+  it('a hash returned after the screen already RESOLVED the attempt is still attached; the entry stays RESOLVED', async () => {
+    const { journal, inbox } = await setup();
+    // The payment screen saw FINAL_PAID first and resolved the hash-less attempt.
+    await journal.update({ requestId: ID, method: 'pay_instant_native', signerAccountId: PAYER }, { phase: 'RESOLVED' });
+    inbox.add({ kind: 'hashes', hashes: [TX] });
+    const result = await processWalletReturns({ inbox, journal, rpc: txRpc({ [TX]: payTx }), now: clock(1000) });
+    expect(result).toEqual({ journalChanged: true, pending: 0 });
+    const after = journal.find(ID, 'pay_instant_native', PAYER);
+    expect(after).toMatchObject({ phase: 'RESOLVED', transactionHash: TX });
+    expect(after !== null && isBlocking(after)).toBe(false);
+  });
+
+  it('a hash that does not match on chain is never attached to a resolved attempt', async () => {
+    const { journal, inbox } = await setup();
+    await journal.update({ requestId: ID, method: 'pay_instant_native', signerAccountId: PAYER }, { phase: 'RESOLVED' });
+    inbox.add({ kind: 'hashes', hashes: [OTHER_TX] });
+    await processWalletReturns({
+      inbox,
+      journal,
+      rpc: txRpc({ [OTHER_TX]: { ...payTx, args: { id: '0'.repeat(64) } } }),
+      now: clock(1000),
+    });
+    expect(journal.find(ID, 'pay_instant_native', PAYER)).toMatchObject({ phase: 'RESOLVED', transactionHash: null });
+  });
+
+  it('a late outcome cannot re-block an explained attempt (RESOLVED is sticky); a new begin still replaces it', async () => {
+    const { journal } = await setup();
+    const target = { requestId: ID, method: 'pay_instant_native' as const, signerAccountId: PAYER };
+    await journal.update(target, { phase: 'RESOLVED' });
+    await journal.update(target, { phase: 'OUTCOME_UNKNOWN' });
+    expect(journal.find(ID, 'pay_instant_native', PAYER)?.phase).toBe('RESOLVED');
+    await journal.update(target, { phase: 'SUBMITTED', transactionHash: TX });
+    expect(journal.find(ID, 'pay_instant_native', PAYER)).toMatchObject({ phase: 'RESOLVED', transactionHash: TX });
+    const again = await journal.begin({
+      ...target,
+      network: 'near-testnet',
+      contractId: CONTRACT,
+      termsHash: openRestricted.termsHash,
+      terms: null,
+      operationNonce: null,
+    });
+    expect(again).toMatchObject({ phase: 'AWAITING_SIGNATURE', transactionHash: null });
+  });
+});
+
 describe('matchTransaction', () => {
   const entry = async () => (await setup()).entry;
 

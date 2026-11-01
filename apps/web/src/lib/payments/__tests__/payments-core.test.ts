@@ -7,7 +7,8 @@ import { calculateRequestId, calculateTermsHash } from '@/lib/protocol';
 import type { ContractRequest } from '@/lib/protocol';
 import { WalletError } from '@/lib/wallet/adapter';
 import { transactionHashOf } from '@/lib/wallet/adapter';
-import { buildInstantTerms, newCreationNonce, payLink, validateRequestForm } from '../create';
+import { buildInstantTerms, newCreationNonce, validateRequestForm } from '../create';
+import { canonicalPayUrl } from '@/lib/share/origin';
 import { buildPaymentView, callerRoleFor, IN_FLIGHT_INCIDENT_AFTER_NS } from '../intent';
 import { JournalBlockedError, SubmissionJournal } from '../journal';
 import { inProcessJournalLock } from '../journal-lock';
@@ -238,10 +239,11 @@ describe('request creation', () => {
     expect(terms.fundingExpiresAtNs).toBe((1000n + 3_600_000_000_000n).toString());
   });
 
-  it('share links are https (or local dev) and contain only the request id', () => {
-    expect(payLink('https://taply.app', open.terms.id)).toBe(`https://taply.app/pay/${open.terms.id}`);
-    expect(payLink('http://localhost:3000', open.terms.id)).toBe(`http://localhost:3000/pay/${open.terms.id}`);
-    expect(() => payLink('http://evil.example', open.terms.id)).toThrow();
+  it('share links are public https and contain only the request id', () => {
+    expect(canonicalPayUrl('https://taply.app', open.terms.id)).toBe(`https://taply.app/pay/${open.terms.id}`);
+    // Local dev addresses never become a share link (Phase 6A).
+    expect(() => canonicalPayUrl('http://localhost:3000', open.terms.id)).toThrow();
+    expect(() => canonicalPayUrl('http://evil.example', open.terms.id)).toThrow();
   });
 });
 

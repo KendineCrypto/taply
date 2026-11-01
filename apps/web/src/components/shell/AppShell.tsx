@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { TaplyWordmark } from '@/components/brand/TaplyIcon';
 import { Monogram } from '@/components/experience/Basics';
 import { Icon } from '@/components/shell/Icons';
 import type { IconName } from '@/components/shell/Icons';
+import { PayChoices, PayLinkForm } from '@/components/scan/PayEntry';
+import { QrScanner } from '@/components/scan/QrScanner';
 import { Sheet, SheetAction } from '@/components/shell/Sheet';
 import { WalletKindBadge } from '@/components/wallet/WalletKind';
 import { useWalletMode } from '@/components/wallet/taply/mode';
@@ -15,7 +17,6 @@ import { useOnline } from '@/lib/hooks/browser';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { LOCALES, DICTIONARIES } from '@/lib/i18n';
 import type { Locale } from '@/lib/i18n';
-import { requestIdFromPayLink } from '@/lib/payments/pay-link';
 import { useWallet } from '@/lib/wallet/provider';
 
 /**
@@ -237,7 +238,10 @@ export function LocaleSwitch() {
 function BottomNav() {
   const t = useT();
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<TapView>('menu');
+  const [scanning, setScanning] = useState(false);
 
   return (
     <nav
@@ -251,7 +255,10 @@ function BottomNav() {
         <li className="flex justify-center">
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              setView('menu');
+              setOpen(true);
+            }}
             aria-haspopup="dialog"
             aria-expanded={open}
             className="pressable group -mt-5 flex flex-col items-center gap-1 pb-2 text-[11px] font-semibold text-[var(--text-primary)] lg:-mt-4"
@@ -266,7 +273,31 @@ function BottomNav() {
           <NavLink href="/activity" icon="activity" label={t.oneTap.nav.activity} active={pathname.startsWith('/activity')} />
         </li>
       </ul>
-      <TapSheet open={open} onClose={() => setOpen(false)} />
+      <TapSheet
+        open={open}
+        view={view}
+        onView={setView}
+        onClose={() => setOpen(false)}
+        onScan={() => {
+          // The camera is requested only now, by an explicit choice.
+          setOpen(false);
+          setScanning(true);
+        }}
+      />
+      {scanning && (
+        <QrScanner
+          onClose={() => setScanning(false)}
+          onRequest={(id) => {
+            setScanning(false);
+            router.push(`/pay/${id}`);
+          }}
+          onPasteLink={() => {
+            setScanning(false);
+            setView('link');
+            setOpen(true);
+          }}
+        />
+      )}
     </nav>
   );
 }
@@ -313,42 +344,53 @@ function TapGlyph() {
   );
 }
 
-/** The Tap sheet: Request (primary), Pay (paste/scan link), Send (honestly labelled preview). */
-function TapSheet({ open, onClose }: { readonly open: boolean; readonly onClose: () => void }) {
+type TapView = 'menu' | 'pay' | 'link';
+
+/** The Tap sheet: Request (primary), Pay (link or QR), Send (honestly labelled preview). */
+function TapSheet({
+  open,
+  view,
+  onView,
+  onClose,
+  onScan,
+}: {
+  readonly open: boolean;
+  readonly view: TapView;
+  readonly onView: (view: TapView) => void;
+  readonly onClose: () => void;
+  readonly onScan: () => void;
+}) {
   const t = useT();
   const s = t.oneTap.sheet;
   const router = useRouter();
-  const [view, setView] = useState<'menu' | 'pay'>('menu');
 
-  const close = () => {
-    onClose();
-    // Reset after the slide-out so the next open starts at the menu.
-    window.setTimeout(() => setView('menu'), 260);
-  };
   const go = (href: '/request/new' | '/send') => {
-    close();
+    onClose();
     router.push(href);
   };
+  const title = view === 'menu' ? s.title : view === 'pay' ? t.oneTap.payEntry.title : t.oneTap.payLink.title;
+  const description = view === 'menu' ? s.description : view === 'pay' ? t.oneTap.payEntry.body : t.oneTap.payLink.body;
 
   return (
-    <Sheet
-      open={open}
-      onClose={close}
-      title={view === 'menu' ? s.title : t.oneTap.payLink.title}
-      description={view === 'menu' ? s.description : t.oneTap.payLink.body}
-      closeLabel={s.close}
-    >
-      {view === 'menu' ? (
+    <Sheet open={open} onClose={onClose} title={title} description={description} closeLabel={s.close}>
+      {view === 'menu' && (
         <div className="flex flex-col gap-1">
           <SheetAction index={0} primary icon={<Icon name="request" size={22} />} label={s.request.label} body={s.request.body} onSelect={() => go('/request/new')} />
-          <SheetAction index={1} icon={<Icon name="scan" size={22} />} label={s.pay.label} body={s.pay.body} onSelect={() => setView('pay')} />
+          <SheetAction index={1} icon={<Icon name="scan" size={22} />} label={s.pay.label} body={s.pay.body} onSelect={() => onView('pay')} />
           <SheetAction index={2} icon={<Icon name="send" size={22} />} label={s.send.label} body={s.send.body} onSelect={() => go('/send')} />
         </div>
-      ) : (
+      )}
+      {view === 'pay' && (
+        <div className="animate-page flex flex-col gap-3">
+          <PayChoices onLink={() => onView('link')} onScan={onScan} />
+          <BackButton label={t.oneTap.payLink.back} onBack={() => onView('menu')} />
+        </div>
+      )}
+      {view === 'link' && (
         <PayLinkForm
-          onBack={() => setView('menu')}
+          onBack={() => onView('pay')}
           onOpen={(id) => {
-            close();
+            onClose();
             router.push(`/pay/${id}`);
           }}
         />
@@ -357,68 +399,15 @@ function TapSheet({ open, onClose }: { readonly open: boolean; readonly onClose:
   );
 }
 
-function PayLinkForm({ onBack, onOpen }: { readonly onBack: () => void; readonly onOpen: (id: string) => void }) {
-  const t = useT();
-  const p = t.oneTap.payLink;
-  const inputId = useId();
-  const [value, setValue] = useState('');
-  const [invalid, setInvalid] = useState(false);
-
+function BackButton({ label, onBack }: { readonly label: string; readonly onBack: () => void }) {
   return (
-    <form
-      className="animate-page flex flex-col gap-3"
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        const id = requestIdFromPayLink(value);
-        if (id === null) {
-          setInvalid(true);
-          return;
-        }
-        onOpen(id);
-      }}
+    <button
+      type="button"
+      onClick={onBack}
+      className="tap-target inline-flex items-center justify-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
     >
-      <label htmlFor={inputId} className="text-sm font-medium">
-        {p.label}
-      </label>
-      <input
-        id={inputId}
-        type="url"
-        inputMode="url"
-        autoComplete="off"
-        autoCapitalize="none"
-        spellCheck={false}
-        placeholder={p.placeholder}
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          setInvalid(false);
-        }}
-        aria-invalid={invalid || undefined}
-        aria-describedby={`${inputId}-error`}
-        className="taply-input chain-id"
-        // Opened by an explicit tap on Pay; focusing the only field is expected.
-        autoFocus
-      />
-      <p id={`${inputId}-error`} role={invalid ? 'alert' : undefined} className="min-h-5 text-sm text-[var(--tone-danger-fg)]">
-        {invalid ? p.invalid : ''}
-      </p>
-      <button
-        type="submit"
-        disabled={value.trim() === ''}
-        className="pressable inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--taply-lime)] px-5 text-base font-semibold text-[var(--taply-night)] disabled:cursor-not-allowed disabled:bg-[rgb(199_252_117/0.35)]"
-      >
-        {p.open}
-        <Icon name="arrow-right" size={18} />
-      </button>
-      <button
-        type="button"
-        onClick={onBack}
-        className="tap-target inline-flex items-center justify-center gap-1.5 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-      >
-        <Icon name="arrow-left" size={16} />
-        {p.back}
-      </button>
-    </form>
+      <Icon name="arrow-left" size={16} />
+      {label}
+    </button>
   );
 }

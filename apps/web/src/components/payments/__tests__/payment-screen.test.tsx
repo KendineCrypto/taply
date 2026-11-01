@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PaymentScreen } from '../PaymentScreen';
 import { ReceiptScreen } from '../ReceiptScreen';
-import { FIXTURES, OTHER_CODE_HASH, must, configFor, installChain, memoryStorage, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
+import { BLOCK_HASH, FIXTURES, OTHER_CODE_HASH, must, configFor, installChain, memoryStorage, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
 import { JOURNAL_STORAGE_KEY } from '@/lib/payments/journal';
 import type { ContractRequest } from '@/lib/protocol';
 
@@ -13,6 +13,9 @@ import type { ContractRequest } from '@/lib/protocol';
  * asked when any gate is closed.
  */
 
+const push = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
+
 const { openRestricted, paidRestricted, open, cancelled, failed, paidAfterRetry, inFlight } = FIXTURES;
 const PAYER = must(openRestricted.terms.permittedPayerAccountId, 'a payer restriction');
 const RECIPIENT = openRestricted.recipientAccountId;
@@ -20,6 +23,9 @@ const RECIPIENT = openRestricted.recipientAccountId;
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  push.mockReset();
+  window.sessionStorage.clear();
 });
 
 function chainWith(request: ContractRequest, blockTimestampNs?: string) {
@@ -70,7 +76,12 @@ describe('payer review and wallet approval', () => {
     expect(await screen.findAllByText('Paid per contract')).not.toHaveLength(0);
     expect(screen.queryByText('Verified')).toBeNull();
     expect(screen.getByText(/Open the receipt to check them/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'View receipt' })).toBeTruthy();
+    // Phase 6A: the receipt opens once by itself, carrying this device's funding hash,
+    // so the independent verifier starts without the person doing anything.
+    const receipt = `/receipt/${openRestricted.terms.id}?ftx=${BLOCK_HASH}`;
+    expect(screen.getByRole('link', { name: 'View receipt' }).getAttribute('href')).toBe(receipt);
+    await waitFor(() => expect(push).toHaveBeenCalledWith(receipt));
+    expect(push).toHaveBeenCalledTimes(1);
   });
 
   it('with the signing gate off: full review, no approve control, the wallet is never asked', async () => {
@@ -134,9 +145,11 @@ describe('recipient view', () => {
   it('OPEN: share link and scannable QR of the same link, plus creator-only cancel', async () => {
     const chain = chainWith(open);
     const { adapter, signed } = recordingWallet(open.recipientAccountId);
+    // The page runs on http://localhost (jsdom); the operator set a public HTTPS share origin.
+    vi.stubEnv('NEXT_PUBLIC_TAPLY_SHARE_ORIGIN', 'https://pilot.taply.app');
     renderWithChain(<PaymentScreen id={open.terms.id} />, { setup: readySetup(chain, true), adapter });
     const link = await screen.findByTestId('pay-link');
-    expect(link.textContent).toBe(`${window.location.origin}/pay/${open.terms.id}`);
+    expect(link.textContent).toBe(`https://pilot.taply.app/pay/${open.terms.id}`);
     expect(screen.getByRole('img', { name: `QR code for the payment link: ${link.textContent}` })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Review payment' })).toBeNull();
 

@@ -492,3 +492,254 @@ html:has(.taply-sheet[open]) {
 .disclosure-chevron {
   transition: transform 0.2s var(--ease-out);
 }
+
+/* ------------------------------------------------------------------------ */
+/* Phase 6A QR scanner                                                       */
+/* Full-screen top-layer <dialog>. Night background, one lime accent, a     */
+/* quiet beam and glow. Reduced motion: no beam travel, no glow pulse, no    */
+/* fade (plus the global rule above).                                        */
+/* ------------------------------------------------------------------------ */
+
+@keyframes taply-scan-beam {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes taply-scan-glow {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes taply-scan-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.taply-scanner {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background:
+    radial-gradient(120% 70% at 50% 38%, rgb(32 50 38 / 0.55), transparent 70%),
+    var(--taply-night);
+  color: var(--text-primary);
+  opacity: 0;
+  transition:
+    opacity 0.24s var(--ease-out),
+    overlay 0.24s allow-discrete,
+    display 0.24s allow-discrete;
+}
+.taply-scanner[open] {
+  opacity: 1;
+}
+@starting-style {
+  .taply-scanner[open] {
+    opacity: 0;
+  }
+}
+.taply-scanner::backdrop {
+  background: var(--taply-night);
+}
+
+.scan-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  margin: 0 auto;
+  max-width: 480px;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+}
+
+.scan-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-top: 1.75rem;
+}
+
+.scan-glow {
+  position: absolute;
+  width: min(92vw, 400px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(199 252 117 / 0.1), transparent 75%);
+  filter: blur(8px);
+  animation: taply-scan-glow 3.2s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.scan-viewport {
+  position: relative;
+  width: min(78vw, 340px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 32px;
+  background: rgb(5 9 7 / 0.8);
+  box-shadow:
+    0 0 0 1px rgb(244 243 232 / 0.08),
+    0 30px 80px -30px rgb(0 0 0 / 0.9);
+}
+
+.scan-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+}
+.scan-video.is-live {
+  opacity: 1;
+}
+.scan-viewport.is-success .scan-video {
+  opacity: 0.45;
+  filter: saturate(0.6);
+}
+
+.scan-corner {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border: 0 solid var(--taply-lime);
+  transition: transform 0.26s var(--ease-spring);
+  filter: drop-shadow(0 0 6px rgb(199 252 117 / 0.25));
+}
+.scan-corner[data-pos='tl'] {
+  top: 16px;
+  left: 16px;
+  border-top-width: 3px;
+  border-left-width: 3px;
+  border-top-left-radius: 16px;
+}
+.scan-corner[data-pos='tr'] {
+  top: 16px;
+  right: 16px;
+  border-top-width: 3px;
+  border-right-width: 3px;
+  border-top-right-radius: 16px;
+}
+.scan-corner[data-pos='bl'] {
+  bottom: 16px;
+  left: 16px;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+  border-bottom-left-radius: 16px;
+}
+.scan-corner[data-pos='br'] {
+  bottom: 16px;
+  right: 16px;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+  border-bottom-right-radius: 16px;
+}
+.scan-viewport.is-success .scan-corner[data-pos='tl'] {
+  transform: translate(10px, 10px);
+}
+.scan-viewport.is-success .scan-corner[data-pos='tr'] {
+  transform: translate(-10px, 10px);
+}
+.scan-viewport.is-success .scan-corner[data-pos='bl'] {
+  transform: translate(10px, -10px);
+}
+.scan-viewport.is-success .scan-corner[data-pos='br'] {
+  transform: translate(-10px, -10px);
+}
+
+/* The wrapper travels its own height; the line is its top edge. */
+.scan-beam {
+  position: absolute;
+  inset-inline: 12%;
+  top: 12%;
+  height: 76%;
+  pointer-events: none;
+  animation: taply-scan-beam 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+.scan-beam::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgb(199 252 117 / 0.9), transparent);
+  box-shadow: 0 0 14px 2px rgb(199 252 117 / 0.22);
+}
+
+.scan-success {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.scan-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.5rem auto 0;
+  max-width: 340px;
+  min-height: 2.25rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  background: rgb(244 243 232 / 0.05);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  font-size: 0.8125rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.scan-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.scan-status[data-tone='live'] .scan-dot {
+  background: var(--taply-lime);
+  animation: taply-scan-dot 1.6s ease-in-out infinite;
+}
+.scan-status[data-tone='warn'] {
+  color: var(--text-primary);
+}
+.scan-status[data-tone='warn'] .scan-dot {
+  background: var(--tone-danger-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .taply-scanner,
+  .scan-video,
+  .scan-corner {
+    transition: none;
+  }
+  .scan-glow,
+  .scan-status[data-tone='live'] .scan-dot {
+    animation: none;
+  }
+  /* A still line across the middle instead of a moving beam. */
+  .scan-beam {
+    animation: none;
+    transform: translateY(50%);
+    opacity: 0.6;
+  }
+}

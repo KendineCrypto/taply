@@ -16,8 +16,10 @@ import { callerRoleFor } from '@/lib/payments/intent';
 import { mapChainState } from '@/lib/payments/map-chain-state';
 import { HashHexSchema } from '@/lib/protocol';
 import type { ContractRequest, VerifiedReceipt } from '@/lib/protocol';
+import type { JournalEntry } from '@/lib/payments/journal';
 import { collectReferences, parseLinkHints, verificationLink } from '@/lib/verify/references';
 import type { LinkHints } from '@/lib/verify/references';
+import { useShareOrigin } from '@/lib/share/use-share-origin';
 import { useReceiptVerification } from '@/lib/verify/use-receipt-verification';
 import type { VerificationView } from '@/lib/verify/use-receipt-verification';
 import { useAccountId } from '@/lib/wallet/provider';
@@ -44,7 +46,7 @@ import {
  */
 export function ReceiptScreen({ id }: { readonly id: string }) {
   const t = useT();
-  const { setup, journal } = usePayments();
+  const { setup, journal, walletReturnsPending } = usePayments();
   const accountId = useAccountId();
   const [read, setRead] = useState<ReadResult<TerminalFactsRead> | null>(null);
   // The server renders without the query string; the client reads it after hydration.
@@ -180,7 +182,13 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           actions={showVerified && verified !== null ? <ShareVerification id={id} receipt={verified} /> : undefined}
         />
       </div>
-      {!showVerified && paid && <VerificationNotice view={verification} onRetry={() => setGeneration((g) => g + 1)} />}
+      {!showVerified && paid && (
+        <VerificationNotice
+          view={verification}
+          missing={missingEvidence(request, entries, walletReturnsPending)}
+          onRetry={() => setGeneration((g) => g + 1)}
+        />
+      )}
       {!showVerified && paid && (
         <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>
       )}
@@ -242,7 +250,39 @@ function matches(receipt: VerifiedReceipt, request: ContractRequest): boolean {
   );
 }
 
-function VerificationNotice({ view, onRetry }: { readonly view: VerificationView; readonly onRetry: () => void }) {
+/**
+ * Why the funding hash is missing (Phase 6A), so the screen can be specific:
+ *  - `matching`: a wallet-returned hash is still being matched on chain;
+ *  - `wallet_no_reference`: this device paid, but its wallet never returned a hash;
+ *  - `elsewhere`: this device did not pay (another device or wallet did).
+ */
+type MissingEvidence = 'matching' | 'wallet_no_reference' | 'elsewhere';
+
+function missingEvidence(
+  request: ContractRequest,
+  entries: ReadonlyArray<JournalEntry>,
+  walletReturnsPending: number,
+): MissingEvidence {
+  const own = entries.some(
+    (e) =>
+      e.method === 'pay_instant_native' &&
+      e.signerAccountId === request.payerAccountId &&
+      e.transactionHash === null &&
+      e.phase !== 'USER_REJECTED',
+  );
+  if (!own) return 'elsewhere';
+  return walletReturnsPending > 0 ? 'matching' : 'wallet_no_reference';
+}
+
+function VerificationNotice({
+  view,
+  missing,
+  onRetry,
+}: {
+  readonly view: VerificationView;
+  readonly missing: MissingEvidence;
+  readonly onRetry: () => void;
+}) {
   const t = useT();
   const v = t.payment.verification;
   switch (view.kind) {
@@ -258,7 +298,19 @@ function VerificationNotice({ view, onRetry }: { readonly view: VerificationView
     case 'unavailable':
       return <InlineNotice copy={v.unavailable} tone="neutral" />;
     case 'missing_reference':
-      return <InlineNotice copy={v.missingReference} tone="neutral" />;
+      if (missing === 'matching') {
+        return (
+          <p className="flex items-center gap-2 px-1 text-sm text-[var(--text-secondary)]" role="status">
+            <Spinner /> {t.oneTap.receiptEvidence.matching}
+          </p>
+        );
+      }
+      return (
+        <InlineNotice
+          copy={missing === 'wallet_no_reference' ? t.oneTap.receiptEvidence.walletNoReference : v.missingReference}
+          tone="neutral"
+        />
+      );
     case 'failed': {
       const copy = view.transient
         ? v.failedTransient
@@ -284,11 +336,13 @@ function VerificationNotice({ view, onRetry }: { readonly view: VerificationView
 function ShareVerification({ id, receipt }: { readonly id: string; readonly receipt: VerifiedReceipt }) {
   const t = useT();
   const { status, copy } = useCopy();
-  if (typeof window === 'undefined') return null;
+  const share = useShareOrigin();
+  // Only a public HTTPS origin makes a link another device can open (Phase 6A).
+  if (share?.kind !== 'ok') return null;
   const retries = receipt.operationNonce === '1' ? [] : [receipt.settlementTransaction];
   // More than one retry: this device cannot list every hash, so it offers no link.
   if (BigInt(receipt.operationNonce) > 2n) return null;
-  const link = verificationLink(window.location.origin, id, {
+  const link = verificationLink(share.origin, id, {
     funding: receipt.fundingTransaction,
     retries,
   });

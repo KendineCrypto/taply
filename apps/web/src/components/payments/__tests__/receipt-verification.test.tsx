@@ -26,6 +26,7 @@ const { paidRestricted, paidAfterRetry } = FIXTURES;
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   window.history.replaceState(null, '', '/');
 });
 
@@ -77,6 +78,7 @@ describe('receipt verification on /receipt/[id]', () => {
   it('shows Verified Paid only after the verifier confirms the receipts (journal hash)', async () => {
     const { setup, verifierChain } = setupFor(paidRestricted);
     const storage = journalWith(paidRestricted, verifierChain.input.fundingTransaction.hash);
+    vi.stubEnv('NEXT_PUBLIC_TAPLY_SHARE_ORIGIN', 'https://pilot.taply.app');
     renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, {
       setup,
       adapter: recordingWallet(null).adapter,

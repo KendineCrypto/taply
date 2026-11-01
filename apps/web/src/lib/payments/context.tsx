@@ -15,7 +15,7 @@ import { JOURNAL_STORAGE_KEY, SubmissionJournal } from './journal';
 import type { JournalStorage } from './journal';
 import { browserJournalLock } from './journal-lock';
 import type { JournalLock } from './journal-lock';
-import { WalletReturnInbox, captureWalletReturn, processWalletReturns } from './wallet-return';
+import { WalletReturnInbox, captureWalletReturn, parseWalletReturn, processWalletReturns } from './wallet-return';
 
 /**
  * Payments gate.
@@ -97,6 +97,8 @@ interface PaymentsValue {
   readonly journal: SubmissionJournal | null;
   /** Increments whenever something outside a screen (wallet redirect recovery) changed the journal. */
   readonly journalVersion: number;
+  /** Wallet-returned transaction hashes still waiting to be matched on chain (Phase 6A). */
+  readonly walletReturnsPending: number;
 }
 
 const PaymentsContext = createContext<PaymentsValue | null>(null);
@@ -169,6 +171,12 @@ export function PaymentsProvider({
     const storage = injectedStorage === undefined ? browserStorage() : injectedStorage;
     return storage === null ? null : new WalletReturnInbox(storage);
   });
+  // Known before the first pass finishes, so screens can wait for a returned hash.
+  const [walletReturnsPending, setWalletReturnsPending] = useState<number>(() => {
+    if (inbox === null || typeof window === 'undefined') return 0;
+    const inUrl = parseWalletReturn(window.location.search)?.kind === 'hashes' ? 1 : 0;
+    return inbox.items().filter((i) => i.kind === 'hashes').length + inUrl;
+  });
 
   // Wallet redirect recovery: capture `?transactionHashes=` / `?errorCode=` once,
   // strip them from the address bar, then bind hashes to journal entries only
@@ -183,6 +191,7 @@ export function PaymentsProvider({
       void processWalletReturns({ inbox, journal, rpc }).then(
         ({ journalChanged, pending }) => {
           if (!active) return;
+          setWalletReturnsPending(pending);
           if (journalChanged) setJournalVersion((v) => v + 1);
           if (pending > 0) timer = setTimeout(pass, 5_000);
         },
@@ -288,8 +297,9 @@ export function PaymentsProvider({
       signingBlock: signingBlockFor(setup, check),
       journal,
       journalVersion,
+      walletReturnsPending,
     }),
-    [setup, check, recheck, ensureFreshCheck, now, journal, journalVersion],
+    [setup, check, recheck, ensureFreshCheck, now, journal, journalVersion, walletReturnsPending],
   );
 
   return <PaymentsContext.Provider value={value}>{children}</PaymentsContext.Provider>;

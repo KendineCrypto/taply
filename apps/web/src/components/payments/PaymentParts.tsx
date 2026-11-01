@@ -228,6 +228,39 @@ export function ShareRequest({ link, request }: { readonly link: string; readonl
   );
 }
 
+/**
+ * Phase 6A: this page runs on an address other phones cannot open (localhost,
+ * a private IP, plain HTTP) and no public share origin is configured. No QR is
+ * shown; the bare request ID still works with "Pay with link".
+ */
+export function ShareUnavailable({
+  reason,
+  requestId,
+}: {
+  readonly reason: 'local_only' | 'invalid_config';
+  readonly requestId: string;
+}) {
+  const t = useT();
+  const so = t.oneTap.shareOrigin;
+  const { status, copy } = useCopy();
+  return (
+    <section className="flex flex-col gap-3" data-testid="share-unavailable">
+      <InlineNotice copy={reason === 'invalid_config' ? so.invalidConfig : so.localOnly} tone="neutral" />
+      <div className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4">
+        <p className="eyebrow text-[var(--text-muted)]">{so.requestIdLabel}</p>
+        <p className="chain-id mt-2 break-all text-sm">{requestId}</p>
+        <Button className="mt-3" block variant="secondary" onClick={() => copy(requestId)}>
+          <Icon name={status === 'copied' ? 'check' : 'copy'} size={18} />
+          {status === 'copied' ? so.idCopied : so.copyId}
+        </Button>
+        <span className="sr-only" role="status">
+          {status === 'copied' ? so.idCopied : ''}
+        </span>
+      </div>
+    </section>
+  );
+}
+
 const noSubscription = () => () => undefined;
 
 /** Copy + native share for a payment link. Used by the real share screen and the demo tour. */

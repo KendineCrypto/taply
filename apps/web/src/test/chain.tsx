@@ -57,7 +57,7 @@ export function must<T>(value: T | null | undefined, what: string): T {
 /** 32 zero bytes in base58: a syntactically valid code hash for the pin. */
 export const CODE_HASH = '11111111111111111111111111111111';
 export const OTHER_CODE_HASH = '11111111111111111111111111111112';
-const BLOCK_HASH = '11111111111111111111111111111113';
+export const BLOCK_HASH = '11111111111111111111111111111113';
 
 export function configFor(contractId: string, overrides: Partial<ContractConfig> = {}): ContractConfig {
   return {

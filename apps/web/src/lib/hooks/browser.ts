@@ -52,3 +52,19 @@ export function useCopy(): { readonly status: CopyStatus; readonly copy: (text: 
 
   return { status, copy };
 }
+
+function subscribeReducedMotion(callback: () => void): () => void {
+  if (typeof window.matchMedia !== 'function') return () => undefined;
+  const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+  query.addEventListener('change', callback);
+  return () => query.removeEventListener('change', callback);
+}
+
+/** The person asked for reduced motion. False during the server render. */
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    () => false,
+  );
+}

@@ -69,6 +69,8 @@ const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 /** Pulls a transaction hash out of a wallet's (untyped) final outcome, or null. */
 export function transactionHashOf(outcome: unknown): string | null {
+  // Some wallets answer a single-transaction request with a one-item list.
+  if (Array.isArray(outcome)) return outcome.length === 1 ? transactionHashOf(outcome[0]) : null;
   if (typeof outcome !== 'object' || outcome === null) return null;
   const record = outcome as Record<string, unknown>;
   const tx = record['transaction'];

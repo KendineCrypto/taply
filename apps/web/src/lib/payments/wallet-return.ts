@@ -221,6 +221,24 @@ function candidates(journal: SubmissionJournal, now: Date): JournalEntry[] {
     );
 }
 
+/**
+ * Entries a returned HASH may be bound to. Besides the unexplained ones, this
+ * includes hash-less entries a finalized read already RESOLVED: on a mobile
+ * redirect the payment screen often sees the request paid (and resolves the
+ * attempt) before the returned hash is matched on chain. Binding then only
+ * attaches the hash, for the receipt verifier; the entry stays RESOLVED.
+ */
+function hashCandidates(journal: SubmissionJournal, now: Date): JournalEntry[] {
+  return journal
+    .entries()
+    .filter(
+      (e) =>
+        (e.phase === 'AWAITING_SIGNATURE' || e.phase === 'OUTCOME_UNKNOWN' || e.phase === 'RESOLVED') &&
+        e.transactionHash === null &&
+        now.getTime() - Date.parse(e.startedAt) <= ENTRY_MATCH_WINDOW_MS,
+    );
+}
+
 export interface ProcessResult {
   /** True when the journal changed and screens should re-read it. */
   readonly journalChanged: boolean;
@@ -286,9 +304,10 @@ export async function processWalletReturns(input: {
     for (const hash of item.hashes) {
       let bound = false;
       let undecided = false;
-      for (const entry of candidates(journal, now)) {
+      for (const entry of hashCandidates(journal, now)) {
         const verdict = await matchTransaction(rpc, hash, entry);
         if (verdict === 'match') {
+          // The journal keeps a RESOLVED entry RESOLVED (journal.ts); otherwise SUBMITTED.
           await journal.update(entry, { phase: 'SUBMITTED', transactionHash: hash });
           journalChanged = true;
           bound = true;

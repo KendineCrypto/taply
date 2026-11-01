@@ -763,7 +763,51 @@ export interface Dictionary {
       readonly placeholder: string;
       readonly open: string;
       readonly invalid: string;
+      readonly otherSite: string;
       readonly back: string;
+    };
+    /** Phase 6A: the two ways to open a request (link or QR). */
+    readonly payEntry: {
+      readonly title: string;
+      readonly body: string;
+      readonly choicesLabel: string;
+      readonly link: { readonly label: string; readonly body: string };
+      readonly scan: { readonly label: string; readonly body: string };
+    };
+    readonly scanner: {
+      readonly title: string;
+      readonly hint: string;
+      readonly close: string;
+      readonly starting: string;
+      readonly scanning: string;
+      readonly found: string;
+      readonly notTaply: string;
+      readonly otherSite: string;
+      readonly paused: string;
+      readonly resume: string;
+      readonly retry: string;
+      readonly pasteLink: string;
+      readonly privacy: string;
+      readonly problems: {
+        readonly denied: ErrorCopy;
+        readonly no_camera: ErrorCopy;
+        readonly busy: ErrorCopy;
+        readonly insecure: ErrorCopy;
+        readonly unsupported: ErrorCopy;
+      };
+    };
+    /** Phase 6A: share links and QR codes only on a public HTTPS origin. */
+    readonly shareOrigin: {
+      readonly localOnly: ErrorCopy;
+      readonly invalidConfig: ErrorCopy;
+      readonly requestIdLabel: string;
+      readonly copyId: string;
+      readonly idCopied: string;
+    };
+    /** Phase 6A: why this device can or cannot verify a receipt. */
+    readonly receiptEvidence: {
+      readonly matching: string;
+      readonly walletNoReference: ErrorCopy;
     };
     readonly menu: {
       readonly open: string;

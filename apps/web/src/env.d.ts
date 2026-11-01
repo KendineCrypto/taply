@@ -29,6 +29,11 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_RPC_URL?: string;
     /** Label recorded on every observation so provenance is visible. */
     readonly NEXT_PUBLIC_TAPLY_RPC_PROVIDER_ID?: string;
+    /**
+     * Optional public HTTPS origin for share links and payment QR codes (local
+     * pilots behind an HTTPS tunnel). Validated in lib/share/origin.ts.
+     */
+    readonly NEXT_PUBLIC_TAPLY_SHARE_ORIGIN?: string;
 
     readonly NEXT_PUBLIC_TAPLY_FLAG_WALLET?: string;
     /** Instant Pay signing gate. Off unless a human turns it on after Testnet review. */
