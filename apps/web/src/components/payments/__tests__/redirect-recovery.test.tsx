@@ -82,3 +82,61 @@ describe('wallet redirect recovery on /pay/[id]', () => {
     expect(await screen.findByText(TX)).toBeTruthy();
   });
 });
+
+describe('a redirect that loses the transaction reference never resubmits', () => {
+  it.each([
+    ['wallet error code', '?errorCode=Error&errorMessage=Something'],
+    ['hash the chain does not know yet', `?transactionHashes=${hashOf('not-yet-indexed')}`],
+    ['no parameters at all (wallet returned nothing)', ''],
+  ])('%s: attempt stays blocked, no wallet request is made', async (_label, search) => {
+    const chain = installChain({ contractId: openRestricted.terms.contractId });
+    // Still OPEN and fundable on chain: the dangerous case for a blind retry.
+    chain.requests.set(openRestricted.terms.id, openRestricted);
+    const storage = memoryStorage();
+    new SubmissionJournal(storage).begin({
+      method: 'pay_instant_native',
+      network: 'near-testnet',
+      contractId: openRestricted.terms.contractId,
+      requestId: openRestricted.terms.id,
+      termsHash: openRestricted.termsHash,
+      signerAccountId: PAYER,
+      terms: null,
+      operationNonce: null,
+    });
+    window.history.replaceState(null, '', `/pay/${openRestricted.terms.id}${search}`);
+    const { adapter, signed } = recordingWallet(PAYER);
+
+    renderWithChain(<PaymentScreen id={openRestricted.terms.id} />, {
+      setup: readySetup(chain, true, undefined, knownTx()),
+      adapter,
+      storage,
+    });
+
+    // The previous attempt is shown as unresolved...
+    expect(await screen.findByText('Your attempts from this browser')).toBeTruthy();
+    await waitFor(() => expect(window.location.search).toBe(''));
+    // ...and no enabled approve control exists while it is unexplained.
+    const approve = screen.queryByRole('button', { name: 'Approve in wallet' }) as HTMLButtonElement | null;
+    expect(approve === null || approve.disabled).toBe(true);
+    for (const button of screen.queryAllByRole('button')) {
+      if (!(button as HTMLButtonElement).disabled) button.click();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(signed).toEqual([]);
+    const journal = JSON.parse(storage.data.get(JOURNAL_STORAGE_KEY) ?? '{}') as { entries: Array<{ phase: string }> };
+    expect(journal.entries[0]?.phase).not.toBe('USER_REJECTED');
+    expect(journal.entries[0]?.phase).not.toBe('RESOLVED');
+  });
+});
+
+describe('static guard: redirect recovery cannot sign', () => {
+  it('wallet-return.ts has no access to any signing API', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(`${process.cwd()}/src/lib/payments/wallet-return.ts`, 'utf8');
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/signAndSend|WalletAdapter|near-connect|submitCall|broadcast_tx|send_tx/);
+    // Only these modules are imported: schemas, read-only RPC types, the journal.
+    const imports = [...code.matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort();
+    expect(imports).toEqual(['./journal', '@/lib/verify/rpc', '@/lib/verify/rpc', 'zod']);
+  });
+});

@@ -344,11 +344,9 @@ describe('verifyInstantReceipt — transfer receipt', () => {
       const tx = fundingTx(ctx);
       const t = byKind(tx, 'transfer');
       const extraId = hashOf('sneaky');
-      receipts(tx).push({
-        ...structuredClone(t.receipt),
-        receipt_id: extraId,
-        predecessor_id: 'mallory.testnet',
-      });
+      const clone = structuredClone(t.receipt);
+      actionOf(clone)['output_data_receivers'] = [];
+      receipts(tx).push({ ...clone, receipt_id: extraId, predecessor_id: 'mallory.testnet' });
       outcomes(tx).push({
         ...structuredClone(t.outcome),
         id: extraId,
@@ -357,6 +355,22 @@ describe('verifyInstantReceipt — transfer receipt', () => {
       (t.inner['receipt_ids'] as string[]).push(extraId);
     });
     expect(reason(result)).toBe('EVIDENCE_INCONSISTENT');
+  });
+
+  it('refuses a second receipt claiming to produce the callback input (ambiguous promise result)', async () => {
+    const result = await mutated((ctx) => {
+      const tx = fundingTx(ctx);
+      const t = byKind(tx, 'transfer');
+      const extraId = hashOf('second-producer');
+      receipts(tx).push({ ...structuredClone(t.receipt), receipt_id: extraId, predecessor_id: 'mallory.testnet' });
+      outcomes(tx).push({
+        ...structuredClone(t.outcome),
+        id: extraId,
+        outcome: { ...structuredClone(t.inner), receipt_ids: [] },
+      });
+      (t.inner['receipt_ids'] as string[]).push(extraId);
+    });
+    expect(reason(result)).toBe('CALLBACK_MISMATCH');
   });
 });
 

@@ -415,6 +415,110 @@ async function rpcCall(rpc: VerifierRpc, method: Parameters<VerifierRpc['call']>
   }
 }
 
+export type TxStatus = z.infer<typeof TxStatusSchema>;
+
+/**
+ * Protocol-agnostic step 1: an `EXPERIMENTAL_tx_status` result at FINAL, parsed
+ * into the fields the verifier relies on. Exported for RPC-compatibility tests
+ * against genuine Testnet responses (src/lib/verify/__tests__/fixtures/testnet).
+ */
+export function parseTxStatus(raw: unknown, label = 'transaction'): TxStatus {
+  if (
+    typeof raw === 'object' &&
+    raw !== null &&
+    (raw as Record<string, unknown>)['final_execution_status'] !== 'FINAL'
+  ) {
+    fail('NOT_FINAL', `${label} not final`);
+  }
+  const value = parse(TxStatusSchema, raw, 'EVIDENCE_INCONSISTENT', label);
+  check(value.final_execution_status === 'FINAL', 'NOT_FINAL', `${label} not final`);
+  return value;
+}
+
+export interface TxGraph {
+  /** The outcome of the single receipt the transaction converted into. */
+  readonly first: Outcome;
+  /** Its payload when the node lists it (most do); otherwise null and derived from the transaction. */
+  readonly firstPayload: Receipt | null;
+  readonly outcomes: ReadonlyMap<string, Outcome>;
+  /** Action receipts only; Data and other non-Action receipts are skipped. */
+  readonly receipts: ReadonlyMap<string, Receipt>;
+}
+
+/**
+ * Protocol-agnostic step 2: the receipt outcomes must form one complete tree
+ * rooted at the transaction, every outcome executed, and the first receipt (if
+ * listed) must be exactly the signed call. Exported for compatibility tests.
+ */
+export function buildTxGraph(value: TxStatus, tx: TxRef): TxGraph {
+  const t = value.transaction;
+  check(t.hash === tx.hash, 'EVIDENCE_INCONSISTENT', 'transaction hash differs');
+  const root = value.transaction_outcome;
+  check(root.id === tx.hash && root.executor === tx.signerAccountId, 'EVIDENCE_INCONSISTENT', 'root outcome differs');
+  const outcomes = new Map<string, Outcome>();
+  for (const o of value.receipts_outcome) {
+    check(!outcomes.has(o.id) && o.id !== root.id, 'EVIDENCE_INCONSISTENT', 'duplicate outcome');
+    outcomes.set(o.id, o);
+  }
+  const visited = new Set<string>();
+  const stack = [...root.receiptIds];
+  while (stack.length > 0) {
+    const id = stack.pop() as string;
+    check(!visited.has(id), 'EVIDENCE_INCONSISTENT', 'receipt graph is not a tree');
+    visited.add(id);
+    const o = outcomes.get(id);
+    check(o !== undefined, 'EVIDENCE_INCOMPLETE', 'receipt outcome missing');
+    check(o.status.kind !== 'unknown', 'NOT_FINAL', 'receipt outcome not executed');
+    stack.push(...o.receiptIds);
+  }
+  check(visited.size === outcomes.size, 'EVIDENCE_INCONSISTENT', 'outcome outside the transaction graph');
+
+  const receipts = new Map<string, Receipt>();
+  for (const r of value.receipts) {
+    // Non-Action receipts (e.g. promise Data receipts) carry no actions and have no
+    // outcome of their own. They are skipped; any receipt a later check needs
+    // must still be present as an Action receipt, or the result is EVIDENCE_INCOMPLETE.
+    if (!isActionReceipt(r)) continue;
+    const parsed = parse(ReceiptSchema, r, 'EVIDENCE_INCONSISTENT', 'receipt');
+    check(!receipts.has(parsed.id), 'EVIDENCE_INCONSISTENT', 'duplicate receipt');
+    receipts.set(parsed.id, parsed);
+  }
+
+  const [firstId, ...rootExtra] = root.receiptIds;
+  check(
+    firstId !== undefined && rootExtra.length === 0,
+    'EVIDENCE_INCONSISTENT',
+    'transaction must create one receipt',
+  );
+  const first = outcomes.get(firstId) as Outcome;
+  const firstPayload = receipts.get(firstId) ?? null;
+  if (firstPayload !== null) {
+    // Observed on Testnet: most responses list it, some do not. If present it must be
+    // the same call (the transaction-to-receipt conversion is protocol-defined).
+    check(
+      firstPayload.predecessor === tx.signerAccountId &&
+        firstPayload.receiver === t.receiver_id &&
+        firstPayload.signer === tx.signerAccountId &&
+        JSON.stringify(firstPayload.actions) === JSON.stringify(t.actions),
+      'EVIDENCE_INCONSISTENT',
+      'first receipt differs from the signed transaction',
+    );
+  }
+  return { first, firstPayload, outcomes, receipts };
+}
+
+/** The receipt whose result a callback consumes: its single input data id must be an output of exactly one receipt. */
+export function promiseResultProducer(graph: TxGraph, callback: Receipt): Receipt | null {
+  if (callback.inputDataIds.length !== 1) return null;
+  const [dataId] = callback.inputDataIds;
+  const producers = [...graph.receipts.values()].filter((r) =>
+    r.outputReceivers.some((o) => o.dataId === dataId && o.receiver === callback.receiver),
+  );
+  return producers.length === 1 ? (producers[0] as Receipt) : null;
+}
+
+export type { Outcome as TxOutcome, Receipt as TxReceipt };
+
 /**
  * Reads one transaction at FINAL and checks one funding/retry attempt in it.
  * `kind` decides the top-level call it must contain; `nonce` is the operation
@@ -436,15 +540,7 @@ async function verifyAttempt(
     sender_account_id: tx.signerAccountId,
     wait_until: 'FINAL',
   });
-  if (
-    typeof raw === 'object' &&
-    raw !== null &&
-    (raw as Record<string, unknown>)['final_execution_status'] !== 'FINAL'
-  ) {
-    fail('NOT_FINAL', `${kind} transaction not final`);
-  }
-  const value = parse(TxStatusSchema, raw, 'EVIDENCE_INCONSISTENT', `${kind} transaction`);
-  check(value.final_execution_status === 'FINAL', 'NOT_FINAL', `${kind} transaction not final`);
+  const value = parseTxStatus(raw, kind);
 
   // --- The signed transaction itself.
   const t = value.transaction;
@@ -481,58 +577,9 @@ async function verifyAttempt(
     );
   }
 
-  // --- Outcome graph: complete, rooted, final.
-  const root = value.transaction_outcome;
-  check(root.id === tx.hash && root.executor === tx.signerAccountId, 'EVIDENCE_INCONSISTENT', 'root outcome differs');
-  const outcomes = new Map<string, Outcome>();
-  for (const o of value.receipts_outcome) {
-    check(!outcomes.has(o.id) && o.id !== root.id, 'EVIDENCE_INCONSISTENT', 'duplicate outcome');
-    outcomes.set(o.id, o);
-  }
-  const visited = new Set<string>();
-  const stack = [...root.receiptIds];
-  while (stack.length > 0) {
-    const id = stack.pop() as string;
-    check(!visited.has(id), 'EVIDENCE_INCONSISTENT', 'receipt graph is not a tree');
-    visited.add(id);
-    const o = outcomes.get(id);
-    check(o !== undefined, 'EVIDENCE_INCOMPLETE', 'receipt outcome missing');
-    check(o.status.kind !== 'unknown', 'NOT_FINAL', 'receipt outcome not executed');
-    stack.push(...o.receiptIds);
-  }
-  check(visited.size === outcomes.size, 'EVIDENCE_INCONSISTENT', 'outcome outside the transaction graph');
-
-  const receipts = new Map<string, Receipt>();
-  for (const r of value.receipts) {
-    // Non-Action receipts (e.g. promise Data receipts) carry no actions and have no
-    // outcome of their own. They are skipped; any receipt the checks below need
-    // must still be present as an Action receipt, or the result is EVIDENCE_INCOMPLETE.
-    if (!isActionReceipt(r)) continue;
-    const parsed = parse(ReceiptSchema, r, 'EVIDENCE_INCONSISTENT', 'receipt');
-    check(!receipts.has(parsed.id), 'EVIDENCE_INCONSISTENT', 'duplicate receipt');
-    receipts.set(parsed.id, parsed);
-  }
-
-  // --- First receipt: the transaction converted into a call on the contract.
-  const [firstId, ...rootExtra] = root.receiptIds;
-  check(
-    firstId !== undefined && rootExtra.length === 0,
-    'EVIDENCE_INCONSISTENT',
-    'transaction must create one receipt',
-  );
-  const first = outcomes.get(firstId) as Outcome;
-  const firstPayload = receipts.get(firstId);
-  if (firstPayload !== undefined) {
-    // Some nodes list it; if present it must be the same call (protocol-defined conversion).
-    check(
-      firstPayload.predecessor === tx.signerAccountId &&
-        firstPayload.receiver === contractId &&
-        firstPayload.signer === tx.signerAccountId &&
-        JSON.stringify(firstPayload.actions) === JSON.stringify(t.actions),
-      'EVIDENCE_INCONSISTENT',
-      'first receipt differs from the signed transaction',
-    );
-  }
+  // --- Outcome graph: complete, rooted, final; first receipt = the signed call.
+  const graph = buildTxGraph(value, tx);
+  const { first, outcomes, receipts } = graph;
   check(first.executor === contractId, where, 'contract did not execute the call');
 
   // --- Its children: exactly one Transfer + one callback from the contract.
@@ -608,7 +655,9 @@ async function verifyAttempt(
     'callback arguments do not match',
   );
   check(
-    callback.inputDataIds.length === 1 && callback.inputDataIds[0] === output.dataId,
+    callback.inputDataIds.length === 1 &&
+      callback.inputDataIds[0] === output.dataId &&
+      promiseResultProducer(graph, callback)?.id === transfer.id,
     'CALLBACK_MISMATCH',
     'callback does not consume the transfer result',
   );
@@ -688,7 +737,7 @@ function isActionReceipt(value: unknown): boolean {
   return typeof inner === 'object' && inner !== null && Object.hasOwn(inner, 'Action');
 }
 
-function isRefund(receipt: Receipt, allowedReceivers: ReadonlyArray<string>): boolean {
+export function isRefund(receipt: Receipt, allowedReceivers: ReadonlyArray<string>): boolean {
   return (
     receipt.predecessor === 'system' &&
     allowedReceivers.includes(receipt.receiver) &&

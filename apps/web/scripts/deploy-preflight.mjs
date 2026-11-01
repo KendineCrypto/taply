@@ -31,8 +31,10 @@ export const TESTNET_GENESIS_HASH = 'FWJ9kR6KFWoyMoNjpLXXGHeuiy7tEY6GmoFeCA5yuc6
 export const EMPTY_CODE_HASH = '11111111111111111111111111111111';
 /** Base state + account + one access key, rounded up (readiness review section 4). */
 export const BASE_STATE_ALLOWANCE_BYTES = 300n;
-/** Operating margin on top of computed storage (0.5 NEAR). */
-export const MARGIN_YOCTO = 500_000_000_000_000_000_000_000n;
+/** Default buffer on top of the computed minimum (0.03 NEAR: gas-price drift, state estimate). */
+export const MARGIN_YOCTO = 30_000_000_000_000_000_000_000n;
+/** Prepaid gas for the `new({})` init call in the deploy transaction. */
+export const INIT_PREPAID_GAS = 30_000_000_000_000n;
 export const DEFAULT_RPC = 'https://rpc.testnet.near.org';
 
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -79,19 +81,73 @@ const yoctoToNear = (y) => {
   return `${whole}.${frac} NEAR`;
 };
 
+/** Dedicated pilot accounts are named Testnet accounts: `<name>.testnet` (never implicit, never mainnet). */
+export function isNamedTestnetAccount(accountId) {
+  return (
+    typeof accountId === 'string' &&
+    accountId.length <= 64 &&
+    /^(?:[a-z\d]+[-_])*[a-z\d]+(?:\.(?:[a-z\d]+[-_])*[a-z\d]+)*\.testnet$/.test(accountId)
+  );
+}
+
+const sum2 = (cost) => BigInt(cost.send_sir) + BigInt(cost.execution);
+
+/**
+ * Upper bound of gas bought by the single deploy+init transaction (signer = receiver):
+ * receipt creation + DeployContract (fixed + per byte) + FunctionCall `new` (fixed +
+ * per byte of method name and args) + the whole prepaid init gas. Unused prepaid gas
+ * is refunded only AFTER execution, so the account must hold it during the storage check.
+ */
+export function deployGasUpperBound(transactionCosts, wasmBytes, prepaidGas = INIT_PREPAID_GAS) {
+  const ac = transactionCosts.action_creation_config;
+  const callBytes = BigInt('new'.length + '{}'.length);
+  return (
+    sum2(transactionCosts.action_receipt_creation_config) +
+    sum2(ac.deploy_contract_cost) +
+    sum2(ac.deploy_contract_cost_per_byte) * BigInt(wasmBytes) +
+    sum2(ac.function_call_cost) +
+    sum2(ac.function_call_cost_per_byte) * callBytes +
+    prepaidGas
+  );
+}
+
+/** Minimum balance before deploying: storage after deploy + every unit of gas bought up front. */
+export function minimumFunding({ wasmBytes, storageUsage, storageByteCostYocto, gasUnits, gasPriceYocto }) {
+  const storageBytes = BigInt(wasmBytes) + BigInt(storageUsage) + BASE_STATE_ALLOWANCE_BYTES;
+  const storageYocto = storageBytes * BigInt(storageByteCostYocto);
+  const gasYocto = BigInt(gasUnits) * BigInt(gasPriceYocto);
+  return { storageBytes, storageYocto, gasYocto, totalYocto: storageYocto + gasYocto };
+}
+
 /** Pre-deployment: dedicated, empty, single-key, sufficiently funded account. */
-export function evaluateAccount({ account, keys, storageByteCostYocto, wasmBytes }) {
+export function evaluateAccount({
+  accountId = null,
+  account,
+  keys,
+  storageByteCostYocto,
+  wasmBytes,
+  gasUnits = 0n,
+  gasPriceYocto = '0',
+  marginYocto = MARGIN_YOCTO,
+}) {
+  const named =
+    accountId === null ? [] : [check('named .testnet account', isNamedTestnetAccount(accountId), accountId)];
   if (account === null) {
-    return [check('account exists', false, 'not found: create the dedicated account first (human step)')];
+    return [...named, check('account exists', false, 'not found: create the dedicated account first (human step)')];
   }
   const balance = BigInt(account.amount);
-  const usage = BigInt(account.storage_usage);
-  const byteCost = BigInt(storageByteCostYocto);
-  const storageBytes = BigInt(wasmBytes) + usage + BASE_STATE_ALLOWANCE_BYTES;
-  const required = storageBytes * byteCost;
-  const recommended = required + MARGIN_YOCTO;
+  const min = minimumFunding({
+    wasmBytes,
+    storageUsage: account.storage_usage,
+    storageByteCostYocto,
+    gasUnits,
+    gasPriceYocto,
+  });
+  const required = min.totalYocto;
+  const recommended = required + BigInt(marginYocto);
   const fullAccess = keys.filter((k) => k.access_key.permission === 'FullAccess');
   return [
+    ...named,
     check('account has no contract yet', account.code_hash === EMPTY_CODE_HASH, account.code_hash),
     check('exactly one access key', keys.length === 1, `${keys.length} keys`),
     check(
@@ -100,26 +156,31 @@ export function evaluateAccount({ account, keys, storageByteCostYocto, wasmBytes
       'pilot key policy',
     ),
     check(
-      'balance covers code + state storage',
+      'balance covers the minimum (storage after deploy + up-front deploy gas)',
       balance >= required,
-      `${yoctoToNear(balance)} >= ${yoctoToNear(required)} (${storageBytes} bytes x ${byteCost} yocto/byte)`,
+      `${yoctoToNear(balance)} >= ${yoctoToNear(required)} = storage ${yoctoToNear(min.storageYocto)} (${min.storageBytes} bytes) + gas ${yoctoToNear(min.gasYocto)}`,
     ),
     check(
-      'balance covers storage + 0.5 NEAR margin',
+      'balance covers the minimum + buffer',
       balance >= recommended,
-      `recommended ${yoctoToNear(recommended)}`,
+      `recommended ${yoctoToNear(recommended)} (buffer ${yoctoToNear(BigInt(marginYocto))})`,
     ),
   ];
 }
 
-/** Post-deployment, all reads at one final block. */
-export function evaluatePostDeploy({ accountId, account, keys, config, accounting }) {
+/**
+ * Post-deployment, all reads at one final block. `fresh` adds the "no requests yet"
+ * check for the first run; `expectKey` ("<public key>:<nonce>") pins the retained
+ * key so monitoring detects any use of it.
+ */
+export function evaluatePostDeploy({ accountId, account, keys, config, accounting, fresh = false, expectKey = null }) {
   const fullAccess = keys.filter((k) => k.access_key.permission === 'FullAccess');
   const caps = config?.capabilities ?? {};
   const onlyInstant =
     caps.instantNative === true &&
     ['protectedPay', 'handshake', 'merchantProfiles', 'nep141', 'sponsoredGas'].every((c) => caps[c] === false);
   const results = [
+    check('named .testnet account', isNamedTestnetAccount(accountId), accountId),
     check('code hash equals the approved pin', account?.code_hash === APPROVED.codeHash, account?.code_hash),
     check(
       'one retained FullAccess key, nothing else',
@@ -132,6 +193,16 @@ export function evaluatePostDeploy({ accountId, account, keys, config, accountin
     check('only instantNative capability', onlyInstant, JSON.stringify(caps)),
     check('quote version 1', config?.quoteVersion === '1', config?.quoteVersion),
   ];
+  if (expectKey !== null) {
+    const actual = keys.map((k) => `${k.public_key}:${k.access_key.nonce}`);
+    results.push(
+      check(
+        'retained key unchanged since baseline (unused)',
+        actual.length === 1 && actual[0] === expectKey,
+        `${actual.join(', ') || 'no keys'} vs ${expectKey}`,
+      ),
+    );
+  }
   if (accounting) {
     const received = BigInt(accounting.receivedPrincipalYocto);
     const sum =
@@ -149,12 +220,16 @@ export function evaluatePostDeploy({ accountId, account, keys, config, accountin
         received === sum,
         `${received} = ${sum}`,
       ),
-      check(
-        'fresh deployment holds no principal',
-        received === 0n && accounting.requestCount === '0',
-        `requests ${accounting.requestCount}`,
-      ),
     );
+    if (fresh) {
+      results.push(
+        check(
+          'fresh deployment holds no principal',
+          received === 0n && accounting.requestCount === '0',
+          `requests ${accounting.requestCount}`,
+        ),
+      );
+    }
   } else {
     results.push(check('get_accounting readable', false, 'no response'));
   }
@@ -162,7 +237,7 @@ export function evaluatePostDeploy({ accountId, account, keys, config, accountin
 }
 
 // --- Read-only RPC ----------------------------------------------------------
-const READ_METHODS = new Set(['status', 'block', 'query', 'EXPERIMENTAL_protocol_config']);
+const READ_METHODS = new Set(['status', 'block', 'query', 'EXPERIMENTAL_protocol_config', 'gas_price']);
 const READ_QUERIES = new Set(['view_account', 'view_access_key_list', 'call_function']);
 const VIEW_METHODS = new Set(['get_config', 'get_accounting']);
 
@@ -178,13 +253,16 @@ export function createRpc(url, fetcher = globalThis.fetch) {
         throw new Error(`refusing call_function ${params.method_name}`);
       }
     }
+    const requestId = `preflight-${++id}`;
     const response = await fetcher(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: `preflight-${++id}`, method, params }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: requestId, method, params }),
+      redirect: 'error',
     });
     if (!response.ok) throw new Error(`RPC HTTP ${response.status}`);
     const body = await response.json();
+    if (body.jsonrpc !== '2.0' || body.id !== requestId) throw new Error('RPC response id mismatch');
     if (body.error) {
       const name = body.error.cause?.name ?? body.error.name ?? 'RPC_ERROR';
       const error = new Error(`RPC error ${name}`);
@@ -200,21 +278,33 @@ async function finalContext(rpc) {
   if (status.chain_id !== 'testnet' || status.genesis_hash !== TESTNET_GENESIS_HASH) {
     throw new Error(`not NEAR Testnet (chain ${status.chain_id})`);
   }
+  if (status.sync_info?.syncing !== false) throw new Error('RPC node is syncing');
   const block = await rpc('block', { finality: 'final' });
   return block.header.hash;
 }
 
+/** Every query result must name the block it was asked for. */
+export function anchored(result, blockId) {
+  if (result?.block_hash !== blockId) throw new Error('RPC result not anchored to the requested block');
+  return result;
+}
+
 async function viewAccount(rpc, accountId, blockId) {
+  let result;
   try {
-    return await rpc('query', { request_type: 'view_account', account_id: accountId, block_id: blockId });
+    result = await rpc('query', { request_type: 'view_account', account_id: accountId, block_id: blockId });
   } catch (error) {
     if (error.rpcName === 'UNKNOWN_ACCOUNT') return null;
     throw error;
   }
+  return anchored(result, blockId);
 }
 
 async function accessKeys(rpc, accountId, blockId) {
-  const list = await rpc('query', { request_type: 'view_access_key_list', account_id: accountId, block_id: blockId });
+  const list = anchored(
+    await rpc('query', { request_type: 'view_access_key_list', account_id: accountId, block_id: blockId }),
+    blockId,
+  );
   return list.keys;
 }
 
@@ -227,7 +317,7 @@ async function callView(rpc, accountId, method, blockId) {
       args_base64: Buffer.from('{}').toString('base64'),
       block_id: blockId,
     });
-    return JSON.parse(Buffer.from(result.result).toString('utf8'));
+    return JSON.parse(Buffer.from(anchored(result, blockId).result).toString('utf8'));
   } catch {
     return null;
   }
@@ -262,6 +352,13 @@ function report(title, results) {
   return failed === 0 ? 0 : 1;
 }
 
+/** "3.5" -> yoctoNEAR, exact decimal arithmetic (no floating point). */
+export function nearToYocto(text) {
+  const match = /^(\d+)(?:\.(\d{1,24}))?$/.exec(text);
+  if (match === null) throw new Error(`invalid NEAR amount ${text}`);
+  return BigInt(match[1]) * 10n ** 24n + BigInt((match[2] ?? '').padEnd(24, '0'));
+}
+
 function option(args, name) {
   const index = args.indexOf(name);
   return index >= 0 ? args[index + 1] : undefined;
@@ -283,9 +380,25 @@ export async function main(argv) {
       const keys = account === null ? [] : await accessKeys(rpc, target, blockId);
       const protocol = await rpc('EXPERIMENTAL_protocol_config', { block_id: blockId });
       const storageByteCostYocto = protocol.runtime_config.storage_amount_per_byte;
+      const gasUnits = deployGasUpperBound(protocol.runtime_config.transaction_costs, wasmBytes);
+      const { gas_price: gasPriceYocto } = await rpc('gas_price', [blockId]);
+      const bufferNear = option(rest, '--buffer-near');
+      const marginYocto = bufferNear === undefined ? MARGIN_YOCTO : nearToYocto(bufferNear);
+      console.log(
+        `live: ${storageByteCostYocto} yocto/byte, gas price ${gasPriceYocto} yocto/gas, deploy+init gas upper bound ${gasUnits}`,
+      );
       return report(
         `Pre-deployment account ${target} @ final block ${blockId}`,
-        evaluateAccount({ account, keys, storageByteCostYocto, wasmBytes }),
+        evaluateAccount({
+          accountId: target,
+          account,
+          keys,
+          storageByteCostYocto,
+          wasmBytes,
+          gasUnits,
+          gasPriceYocto,
+          marginYocto,
+        }),
       );
     }
     if (command === 'post' && target) {
@@ -295,9 +408,20 @@ export async function main(argv) {
       const keys = account === null ? [] : await accessKeys(rpc, target, blockId);
       const config = await callView(rpc, target, 'get_config', blockId);
       const accounting = await callView(rpc, target, 'get_accounting', blockId);
+      for (const k of keys) {
+        console.log(`key: ${k.public_key}:${k.access_key.nonce} ${JSON.stringify(k.access_key.permission)}`);
+      }
       return report(
         `Post-deployment ${target} @ final block ${blockId}`,
-        evaluatePostDeploy({ accountId: target, account, keys, config, accounting }),
+        evaluatePostDeploy({
+          accountId: target,
+          account,
+          keys,
+          config,
+          accounting,
+          fresh: rest.includes('--fresh'),
+          expectKey: option(rest, '--expect-key') ?? null,
+        }),
       );
     }
   } catch (error) {
@@ -305,7 +429,7 @@ export async function main(argv) {
     return 2;
   }
   console.error(
-    'usage: deploy-preflight.mjs wasm <file> | account <id> [--wasm <file>] [--rpc <url>] | post <id> [--rpc <url>]',
+    'usage: deploy-preflight.mjs wasm <file> | account <id> [--wasm <file>] [--buffer-near <n>] [--rpc <url>] | post <id> [--fresh] [--expect-key <pk>:<nonce>] [--rpc <url>]',
   );
   return 2;
 }
