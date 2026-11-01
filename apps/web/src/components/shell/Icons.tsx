@@ -23,7 +23,14 @@ export type IconName =
   | 'check'
   | 'alert'
   | 'chevron'
-  | 'logout';
+  | 'logout'
+  | 'shield'
+  | 'share'
+  | 'clock'
+  | 'arrow-left'
+  | 'arrow-right'
+  | 'link'
+  | 'x';
 
 const PATHS: Readonly<Record<IconName, ReactNode>> = {
   home: <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />,
@@ -76,6 +83,28 @@ const PATHS: Readonly<Record<IconName, ReactNode>> = {
   ),
   chevron: <path d="m9 6 6 6-6 6" />,
   logout: <path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14M10 16l-4-4 4-4M6 12h10" />,
+  shield: (
+    <>
+      <path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </>
+  ),
+  share: (
+    <>
+      <path d="M12 15V4M8 8l4-4 4 4" />
+      <path d="M6 12v6.5A1.5 1.5 0 0 0 7.5 20h9a1.5 1.5 0 0 0 1.5-1.5V12" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4.5l3 1.5" />
+    </>
+  ),
+  'arrow-left': <path d="M19 12H5m6-6-6 6 6 6" />,
+  'arrow-right': <path d="M5 12h14m-6-6 6 6-6 6" />,
+  link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  x: <path d="M6 6l12 12M18 6 6 18" />,
 };
 
 export function Icon({

@@ -3,11 +3,14 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { prepareCancelUnfunded, preparePayInstantNative, prepareRetryNativeTransfer } from '@taply/near-client';
 import type { PreparedContractCall } from '@taply/near-client';
-import { AccountId, Amount } from '@/components/primitives/Amount';
+import { AccountId } from '@/components/primitives/Amount';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Card, DetailRow } from '@/components/primitives/Surface';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { StatusBadge } from '@/components/status/StatusBadge';
+import { PaymentProgress } from '@/components/experience/PaymentProgress';
+import { progressStageFor } from '@/components/experience/progress';
+import { ReviewSummary } from '@/components/experience/ReviewSummary';
 import { Icon } from '@/components/shell/Icons';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { useT } from '@/lib/i18n/provider';
@@ -21,7 +24,7 @@ import type { MapInput } from '@/lib/payments/map-chain-state';
 import { dateToNs, reconcile, submitCall } from '@/lib/payments/submit';
 import type { Reconciliation, SubmitResult } from '@/lib/payments/submit';
 import { usePaymentRequest } from '@/lib/payments/use-payment-request';
-import { HashHexSchema, NEAR_NATIVE } from '@/lib/protocol';
+import { HashHexSchema } from '@/lib/protocol';
 import type { ContractRequest } from '@/lib/protocol';
 import { useNativeBalance } from '@/lib/near/use-native-balance';
 import { displayableBalance } from '@/lib/near/balance';
@@ -275,6 +278,13 @@ function RequestView({
   const presentation = mapChainState(input);
   const copy = presentation.contractReportsPaid ? t.payment.contractPaid : t.status[request.status];
   const ctaKinds = new Set(presentation.ctas.map((c) => c.kind));
+  // Contract state only on this screen: the receipt verifier runs on /receipt/[id].
+  const stage = progressStageFor({
+    state: request.status,
+    incident: response.incident !== null,
+    walletPending: submitting,
+    verified: false,
+  });
   const op = request.latestOperation;
   const role = response.derived.callerRole;
 
@@ -302,16 +312,36 @@ function RequestView({
 
   return (
     <>
-      <Card className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <StatusBadge {...input} />
-          <span className="text-xs text-[var(--text-muted)]">{t.mode.instant}</span>
-        </div>
-        <p className="text-sm text-[var(--text-secondary)]">{presentation.audience === 'recipient' ? copy.recipient : copy.payer}</p>
-        {presentation.contractReportsPaid && <p className="text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>}
-      </Card>
+      {stage !== null ? (
+        <PaymentProgress
+          stage={stage}
+          audienceNote={
+            stage === 'contract_paid'
+              ? t.payment.settlementProofPending
+              : stage === 'unresolved'
+                ? t.payment.status.unresolved.body
+                : undefined
+          }
+          footer={
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3">
+              <span className="text-xs text-[var(--text-muted)]">{t.experience.progress.contractStatus}</span>
+              <StatusBadge {...input} />
+            </div>
+          }
+        />
+      ) : (
+        <Card className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <StatusBadge {...input} />
+            <span className="text-xs text-[var(--text-muted)]">{t.mode.instant}</span>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)]">{presentation.audience === 'recipient' ? copy.recipient : copy.payer}</p>
+          {presentation.contractReportsPaid && <p className="text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>}
+        </Card>
+      )}
 
-      {response.incident !== null && <InlineNotice copy={t.payment.status.unresolved} live="assertive" />}
+      {/* The progress hero carries the unresolved state; the notice is the fallback for other modes. */}
+      {response.incident !== null && stage === null && <InlineNotice copy={t.payment.status.unresolved} live="assertive" />}
       {request.status === 'PAYOUT_IN_FLIGHT' && response.incident === null && (
         <p className="px-1 text-sm text-[var(--tone-caution-fg)]">{t.payment.status.inFlightNote}</p>
       )}
@@ -345,7 +375,7 @@ function RequestView({
       {result !== null && <SubmitResultNotice result={result} />}
       {refused && <InlineNotice copy={t.payment.status.inconsistent} tone="danger" />}
 
-      {ctaKinds.has('share_request') && link !== null && <ShareRequest link={link} />}
+      {ctaKinds.has('share_request') && link !== null && <ShareRequest link={link} request={request} />}
 
       {ctaKinds.has('review_and_pay') && (
         <PayReview
@@ -464,22 +494,22 @@ function PayReview({
   const payGas = check.status === 'verified' ? check.config.gas.payInstantNative : null;
 
   return (
-    <Card as="section" className="flex flex-col gap-3">
+    <Card as="section" className="flex flex-col gap-4 p-5">
       <h2 className="text-lg font-semibold">{t.payment.review.title}</h2>
       <p className="text-sm text-[var(--text-secondary)]">{t.payment.review.intro}</p>
-      <dl>
-        <DetailRow label={t.payment.review.recipient} emphasis>
-          <AccountId accountId={request.recipientAccountId} />
-        </DetailRow>
-        <DetailRow label={t.payment.review.amount} emphasis>
-          <Amount baseUnits={request.terms.amountBaseUnits} asset={NEAR_NATIVE} className="text-xl" />
-        </DetailRow>
-        {payGas !== null && (
+      <ReviewSummary
+        recipientAccountId={request.recipientAccountId}
+        amountBaseUnits={request.terms.amountBaseUnits}
+        contractId={request.terms.contractId}
+        memo={request.terms.memo}
+      />
+      {payGas !== null && (
+        <dl>
           <DetailRow label={t.payment.review.gasSeparate}>
             <span className="chain-id">{(BigInt(payGas) / 1_000_000_000_000n).toString()} Tgas</span>
           </DetailRow>
-        )}
-      </dl>
+        </dl>
+      )}
       <p className="text-xs text-[var(--text-muted)]">{t.payment.review.attachExactly}</p>
 
       {wallet.status !== 'connected' ? (

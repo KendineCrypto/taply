@@ -33,13 +33,8 @@ export function BalanceCard() {
   return (
     <section
       aria-labelledby="balance-title"
-      className="relative overflow-hidden rounded-[24px] border border-[var(--border-subtle)] bg-[linear-gradient(155deg,#24392b_0%,var(--taply-forest)_58%,#0e1812_100%)] p-5 shadow-[0_24px_48px_-24px_rgb(0_0_0/0.8)]"
+      className="surface-hero animate-rise p-5 pb-6"
     >
-      {/* Soft brand-lime light in the corner; decorative only. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-[radial-gradient(circle,rgb(199_252_117/0.16)_0%,transparent_70%)]"
-      />
       <div className="relative">
         {state.status === 'connected' ? (
           <ConnectedBalance accountId={state.session.accountId} walletName={state.session.walletName} />

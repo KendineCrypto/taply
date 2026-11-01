@@ -187,11 +187,17 @@ describe('home - connected', () => {
 });
 
 describe('home - quick actions and activity', () => {
-  it('marks Send and Request as coming soon while payments are not verified', async () => {
+  it('Send says Soon while signing is off; Request opens the real create flow (which explains the gate)', async () => {
     renderHome(fakeAdapter());
     expect(await screen.findByRole('link', { name: 'Send, Soon' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Request, Soon' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Request' }).getAttribute('href')).toBe('/request/new');
     expect(screen.getByRole('link', { name: 'Receive' })).toBeTruthy();
+  });
+
+  it('offers the product tour, clearly as a tour', async () => {
+    renderHome(fakeAdapter());
+    const tour = await screen.findByRole('link', { name: /See a full payment in 60 seconds/ });
+    expect(tour.getAttribute('href')).toBe('/demo');
   });
 
   it('shows an honest empty activity state instead of invented rows', async () => {

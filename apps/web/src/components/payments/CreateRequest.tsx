@@ -211,7 +211,7 @@ export function CreateRequest() {
       ))}
 
       {(step.kind === 'form' || step.kind === 'quoting') && (
-        <Card as="section">
+        <Card as="section" className="p-5">
           <form
             className="flex flex-col gap-4"
             noValidate
@@ -221,17 +221,24 @@ export function CreateRequest() {
             }}
           >
             <Field id={ids.amount} label={t.payment.create.amountLabel} hint={t.payment.create.amountHint} error={errorFor(errors, ['amount_required', 'amount_invalid', 'amount_zero'], t.payment.create.errors)}>
-              <input
-                id={ids.amount}
-                inputMode="decimal"
-                autoComplete="off"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="taply-input"
-                aria-describedby={`${ids.amount}-hint ${ids.amount}-error`}
-                aria-invalid={errors.some((e) => e.startsWith('amount')) || undefined}
-              />
+              <div className="flex items-baseline gap-2 border-b-2 border-[var(--border-strong)] pb-2 focus-within:border-[var(--taply-lime)]">
+                <input
+                  id={ids.amount}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder={t.experience.create.amountPlaceholder}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="display-amount min-h-[64px] w-full min-w-0 bg-transparent text-[3rem] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none"
+                  aria-describedby={`${ids.amount}-hint ${ids.amount}-error`}
+                  aria-invalid={errors.some((e) => e.startsWith('amount')) || undefined}
+                />
+                <span aria-hidden="true" className="text-xl font-semibold text-[var(--text-secondary)]">
+                  NEAR
+                </span>
+              </div>
             </Field>
+            <p className="eyebrow mt-2 text-[var(--text-muted)]">{t.experience.create.options}</p>
             <Field id={ids.memo} label={t.payment.create.memoLabel} hint={t.payment.create.memoHint} error={errorFor(errors, ['memo_too_long'], t.payment.create.errors)}>
               <textarea
                 id={ids.memo}

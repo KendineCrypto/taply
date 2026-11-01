@@ -12,11 +12,9 @@ export function Card({
   readonly className?: string;
   readonly as?: 'div' | 'section' | 'article' | 'li';
 }) {
-  const bg = level === 1 ? 'bg-[var(--surface-1)]' : 'bg-[var(--surface-2)]';
+  const surface = level === 1 ? 'surface-card' : 'rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--surface-2)]';
   return (
-    <Tag
-      className={`rounded-[var(--radius-card)] border border-[var(--border-subtle)] ${bg} p-4 ${className ?? ''}`}
-    >
+    <Tag className={`${surface} p-4 ${className ?? ''}`}>
       {children}
     </Tag>
   );

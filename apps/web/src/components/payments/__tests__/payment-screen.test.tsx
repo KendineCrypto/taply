@@ -152,7 +152,8 @@ describe('recipient view', () => {
       gas: '15000000000000',
       depositYocto: '1',
     });
-    expect(await screen.findByText('Cancelled')).toBeTruthy();
+    // Shown by the progress hero and by the contract-status chip.
+    expect((await screen.findAllByText('Cancelled')).length).toBeGreaterThan(0);
   });
 
   it('PAYOUT_FAILED_RECOVERABLE: only the recipient gets a same-nonce retry', async () => {

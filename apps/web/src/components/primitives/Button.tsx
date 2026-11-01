@@ -7,7 +7,7 @@ type Size = 'md' | 'lg';
 const VARIANTS: Readonly<Record<Variant, string>> = {
   // Lime is reserved for the key action on a screen (brand guidelines).
   primary:
-    'bg-[var(--taply-lime)] text-[var(--taply-night)] hover:bg-[#d4fd92] active:bg-[#b8ef63] disabled:bg-[rgb(199_252_117/0.35)]',
+    'bg-[var(--taply-lime)] text-[var(--taply-night)] shadow-[0_10px_24px_-12px_rgb(199_252_117/0.55)] hover:bg-[#d4fd92] active:bg-[#b8ef63] disabled:bg-[rgb(199_252_117/0.35)] disabled:shadow-none',
   secondary:
     'bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] disabled:opacity-50',
   ghost: 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--tone-neutral-bg)] disabled:opacity-50',
@@ -21,7 +21,7 @@ const SIZES: Readonly<Record<Size, string>> = {
 function classes(variant: Variant, size: Size, block: boolean, extra?: string): string {
   return [
     'inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] font-semibold',
-    'transition-colors disabled:cursor-not-allowed',
+    'pressable disabled:cursor-not-allowed',
     VARIANTS[variant],
     SIZES[size],
     block ? 'w-full' : '',

@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { Amount, AccountId } from '@/components/primitives/Amount';
 import { Button, ButtonLink } from '@/components/primitives/Button';
@@ -16,7 +17,7 @@ import type { SigningBlock } from '@/lib/payments/context';
 import type { SubmitResult } from '@/lib/payments/submit';
 import { NEAR_NATIVE } from '@/lib/protocol';
 import type { BlockRef, ContractRequest, IntentTerms } from '@/lib/protocol';
-import { QrCode } from './QrCode';
+import { RequestTicket } from '@/components/experience/RequestTicket';
 
 /** Contract configuration problems that stop every payment screen. Null when reads may proceed. */
 export function PaymentsSetupNotice() {
@@ -201,45 +202,58 @@ export function Provenance({ block, checkedAt }: { readonly block: BlockRef | nu
 }
 
 /** Share link + copy + native share + QR of exactly the same link (UX_FLOWS screen 07). */
-export function ShareRequest({ link }: { readonly link: string }) {
+export function ShareRequest({ link, request }: { readonly link: string; readonly request: ContractRequest }) {
+  return (
+    <RequestTicket
+      link={link}
+      recipientAccountId={request.recipientAccountId}
+      amountBaseUnits={request.terms.amountBaseUnits}
+      memo={request.terms.memo}
+      expiresAtNs={request.status === 'OPEN' ? request.terms.fundingExpiresAtNs : null}
+      permittedPayerAccountId={request.terms.permittedPayerAccountId}
+      actions={<ShareActions link={link} />}
+    />
+  );
+}
+
+const noSubscription = () => () => undefined;
+
+/** Copy + native share for a payment link. Used by the real share screen and the demo tour. */
+export function ShareActions({ link }: { readonly link: string }) {
   const t = useT();
   const { status, copy } = useCopy();
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  // Read after hydration: the server cannot know, and a mismatch would break hydration.
+  const canShare = useSyncExternalStore(
+    noSubscription,
+    () => typeof navigator.share === 'function',
+    () => false,
+  );
   return (
-    <Card className="flex flex-col items-center gap-4">
-      <div className="w-full">
-        <h2 className="text-base font-semibold">{t.payment.share.title}</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">{t.payment.share.body}</p>
-      </div>
-      <QrCode value={link} label={t.payment.share.qrLabel} />
-      <p className="text-center text-xs text-[var(--text-muted)]">{t.payment.share.qrNote}</p>
-      <div className="w-full">
-        <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">{t.payment.share.linkLabel}</p>
-        <p className="chain-id mt-1 break-all" data-testid="pay-link">
-          {link}
-        </p>
-      </div>
-      <div className="flex w-full flex-col gap-2 sm:flex-row">
-        <Button block variant="primary" onClick={() => copy(link)}>
-          <Icon name="copy" size={16} />
+    <div className="flex flex-col gap-2">
+      <div className={`grid grid-cols-1 gap-2 ${canShare ? 'min-[380px]:grid-cols-2' : ''}`}>
+        <Button block size="lg" variant="primary" onClick={() => copy(link)}>
+          <Icon name={status === 'copied' ? 'check' : 'copy'} size={18} />
           {status === 'copied' ? t.payment.share.linkCopied : t.payment.share.copyLink}
         </Button>
         {canShare && (
           <Button
             block
+            size="lg"
             variant="secondary"
             onClick={() => {
               void navigator.share({ url: link }).catch(() => undefined);
             }}
           >
+            <Icon name="share" size={18} />
             {t.payment.share.share}
           </Button>
         )}
       </div>
+      <p className="px-1 text-center text-xs text-[var(--text-muted)]">{t.payment.share.body}</p>
       <span className="sr-only" role="status">
         {status === 'copied' ? t.payment.share.linkCopied : ''}
       </span>
-    </Card>
+    </div>
   );
 }
 

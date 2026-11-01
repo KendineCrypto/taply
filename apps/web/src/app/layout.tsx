@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import './globals.css';
 import { AppShell } from '@/components/shell/AppShell';
@@ -6,6 +7,10 @@ import { I18nProvider } from '@/lib/i18n/provider';
 import { WalletProvider } from '@/lib/wallet/provider';
 import { PaymentsProvider } from '@/lib/payments/context';
 import { LOCALE_COOKIE, getDictionary, resolveLocale } from '@/lib/i18n';
+
+// Self-hosted at build time by next/font (no runtime request to Google).
+// latin-ext covers Turkish (ğ, ş, ı, İ).
+const inter = Inter({ subsets: ['latin', 'latin-ext'], display: 'swap', variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'Taply — NEAR Testnet payments',
@@ -48,7 +53,7 @@ export default async function RootLayout({ children }: { readonly children: Reac
   const dictionary = getDictionary(locale);
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={inter.variable}>
       <body>
         <I18nProvider locale={locale}>
           <WalletProvider>

@@ -4,66 +4,60 @@ import Link from 'next/link';
 import { Icon } from '@/components/shell/Icons';
 import type { IconName } from '@/components/shell/Icons';
 import { FLAGS } from '@/lib/flags/features';
-import type { FeatureFlag } from '@/lib/flags/features';
 import { useT } from '@/lib/i18n/provider';
 
-interface Action {
-  readonly href: '/send' | '/receive' | '/request/new';
-  readonly icon: IconName;
-  readonly label: 'send' | 'receive' | 'request';
-  /** null = available whenever a wallet is connected (read-only). */
-  readonly flag: FeatureFlag | null;
-}
-
 /**
- * Send and Request move or request money, so they wait for the deployed
- * contract / verified Instant Pay (brief item 8) and say "Soon" until then.
- * Receive only shows the connected account ID, so it is live now.
+ * Home actions. Request and Send are the two things people do most, so they
+ * are the two large buttons; Receive and Scan sit underneath.
+ *
+ * Request opens the real create flow even while signing is switched off: that
+ * screen explains the gate itself, and everything before the wallet step works.
+ * Send has no screen yet and says "Soon" until the Instant Pay flag is on.
  */
-const ACTIONS: ReadonlyArray<Action> = [
-  { href: '/send', icon: 'send', label: 'send', flag: 'instantPay' },
-  { href: '/receive', icon: 'receive', label: 'receive', flag: null },
-  { href: '/request/new', icon: 'request', label: 'request', flag: 'instantPay' },
-];
-
 export function QuickActions() {
   const t = useT();
+  const sendSoon = !FLAGS.instantPay.enabled;
 
   return (
-    <nav aria-label={t.home.quickActionsLabel}>
-      <ul className="grid grid-cols-3 gap-3">
-        {ACTIONS.map((action) => {
-          const soon = action.flag !== null && !FLAGS[action.flag].enabled;
-          const label = t.home[action.label];
-          return (
-            <li key={action.href}>
-              <Link
-                href={action.href}
-                aria-label={soon ? `${label}, ${t.home.soon}` : label}
-                className="group flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2 py-3 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)]"
-              >
-                <span
-                  className={`grid size-11 place-items-center rounded-full ${
-                    soon
-                      ? 'bg-[var(--tone-neutral-bg)] text-[var(--text-secondary)]'
-                      : 'bg-[var(--taply-lime)] text-[var(--taply-night)]'
-                  }`}
-                >
-                  <Icon name={action.icon} size={20} />
-                </span>
-                <span className="flex flex-col items-center leading-tight" aria-hidden="true">
-                  <span className="text-sm font-semibold">{label}</span>
-                  {soon && (
-                    <span className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                      {t.home.soon}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+    <nav aria-label={t.home.quickActionsLabel} className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          href="/request/new"
+          className="pressable group flex min-h-[64px] items-center justify-center gap-2.5 rounded-[var(--radius-card)] bg-[var(--taply-lime)] px-4 text-base font-semibold text-[var(--taply-night)] shadow-[0_14px_30px_-14px_rgb(199_252_117/0.6)] hover:bg-[#d4fd92]"
+        >
+          <Icon name="request" size={20} />
+          {t.home.request}
+        </Link>
+        <Link
+          href="/send"
+          aria-label={sendSoon ? `${t.home.send}, ${t.home.soon}` : t.home.send}
+          className="pressable flex min-h-[64px] items-center justify-center gap-2.5 rounded-[var(--radius-card)] border border-[var(--border-strong)] bg-[rgb(244_243_232/0.04)] px-4 text-base font-semibold text-[var(--text-primary)] hover:border-[var(--text-secondary)]"
+        >
+          <Icon name="send" size={20} />
+          <span aria-hidden="true">{t.home.send}</span>
+          {sendSoon && (
+            <span aria-hidden="true" className="eyebrow rounded-full bg-[var(--tone-neutral-bg)] px-1.5 py-1 text-[10px] text-[var(--text-muted)]">
+              {t.home.soon}
+            </span>
+          )}
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <SmallAction href="/receive" icon="receive" label={t.home.receive} />
+        <SmallAction href="/scan" icon="scan" label={t.experience.home.scan} />
+      </div>
     </nav>
+  );
+}
+
+function SmallAction({ href, icon, label }: { readonly href: string; readonly icon: IconName; readonly label: string }) {
+  return (
+    <Link
+      href={href as '/receive'}
+      className="surface-card pressable flex min-h-[52px] items-center justify-center gap-2 px-3 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+    >
+      <Icon name={icon} size={18} />
+      {label}
+    </Link>
   );
 }

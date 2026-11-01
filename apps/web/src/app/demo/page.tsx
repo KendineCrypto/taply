@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button, Spinner } from '@/components/primitives/Button';
+import { DemoTour } from '@/components/demo/DemoTour';
 import { FEATURE_FLAGS, FLAGS } from '@/lib/flags/features';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { getNearClient } from '@/lib/near/client';
@@ -40,6 +41,33 @@ import {
  * would present.
  */
 export default function DemoPage() {
+  const t = useT();
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  return (
+    <>
+      <DemoTour />
+      <section className="surface-card mt-8 p-4" aria-labelledby="reviewer-title">
+        <h2 id="reviewer-title" className="font-semibold">
+          {t.experience.demo.reviewerTitle}
+        </h2>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">{t.experience.demo.reviewerBody}</p>
+        <Button variant="secondary" className="mt-3" aria-expanded={matrixOpen} onClick={() => setMatrixOpen((o) => !o)}>
+          {matrixOpen ? t.experience.demo.reviewerHide : t.experience.demo.reviewerShow}
+        </Button>
+      </section>
+      {matrixOpen && (
+        <div className="mt-6">
+          <StatusMatrix />
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * Developer/reviewer view: every ChainState x role x assurance x source.
+ */
+function StatusMatrix() {
   const t = useT();
   const [role, setRole] = useState<CallerRole>('payer');
   const [assurance, setAssurance] = useState<Assurance>('verified_final');

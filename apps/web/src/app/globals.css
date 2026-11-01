@@ -26,7 +26,7 @@
   --color-gold: #c9ae62;
   --color-clay: #c9736b;
 
-  --font-sans: Inter, 'Inter Display', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: var(--font-inter), Inter, 'Inter Display', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
 }
 
@@ -81,8 +81,27 @@
   /* Minimum interactive target (UX_FLOWS.md: >= 44px). */
   --tap-target: 44px;
 
-  --radius-card: 16px;
-  --radius-control: 12px;
+  --radius-card: 18px;
+  --radius-control: 14px;
+  --radius-hero: 28px;
+
+  /**
+   * Paper: the warm cream ground used for things a person keeps or shows -
+   * request tickets and receipts. Ink is Night on that ground (>= 15:1).
+   */
+  --paper: var(--taply-cream);
+  --paper-shade: #e9e7d6;
+  --ink: var(--taply-night);
+  --ink-secondary: rgb(11 18 14 / 0.7);
+  --ink-muted: rgb(11 18 14 / 0.56);
+  --ink-line: rgb(11 18 14 / 0.12);
+
+  /* Depth: one consistent floating shadow, plus a 1px top highlight on dark cards. */
+  --shadow-float: 0 28px 56px -28px rgb(0 0 0 / 0.85);
+  --shadow-paper: 0 30px 60px -30px rgb(0 0 0 / 0.9), 0 2px 0 0 rgb(255 255 255 / 0.5) inset;
+  --highlight-top: inset 0 1px 0 0 rgb(244 243 232 / 0.06);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {
@@ -211,5 +230,123 @@ body {
   }
   &[aria-invalid='true'] {
     border-color: var(--tone-danger-border);
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* Phase 3B experience layer                                                 */
+/* ------------------------------------------------------------------------ */
+
+@keyframes taply-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Gentle "something is happening" halo for pending states (gold, never lime). */
+@keyframes taply-halo {
+  0% {
+    box-shadow: 0 0 0 0 rgb(201 174 98 / 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 16px rgb(201 174 98 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(201 174 98 / 0);
+  }
+}
+
+/* The verified check is drawn once, on arrival. */
+@keyframes taply-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes taply-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@utility animate-rise {
+  animation: taply-rise 0.55s var(--ease-out) both;
+}
+
+@utility animate-halo {
+  animation: taply-halo 2.2s var(--ease-out) infinite;
+}
+
+@utility animate-draw {
+  stroke-dasharray: 24;
+  animation: taply-draw 0.7s 0.15s var(--ease-out) both;
+}
+
+/** Hero surface: deep forest with a soft lime light source in the corner. */
+@utility surface-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-hero);
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgb(199 252 117 / 0.13) 0%, transparent 55%),
+    linear-gradient(160deg, #213628 0%, var(--taply-forest) 55%, #0d1611 100%);
+  box-shadow: var(--shadow-float), var(--highlight-top);
+}
+
+/** Standard elevated dark card. */
+@utility surface-card {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, rgb(32 50 38 / 0.55) 0%, var(--taply-forest) 100%);
+  box-shadow: var(--highlight-top);
+}
+
+/** Cream paper ticket (requests, receipts). */
+@utility paper {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: var(--radius-hero);
+  box-shadow: var(--shadow-paper);
+}
+
+/** Large money figures: tabular, tight, confident. */
+@utility display-amount {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv11', 'ss01';
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  font-weight: 650;
+}
+
+/** Small uppercase labels ("eyebrows"). */
+@utility eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/** Press feedback for primary controls (disabled automatically by reduced motion). */
+@utility pressable {
+  transition:
+    transform 0.15s var(--ease-out),
+    background-color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+  &:active:not(:disabled) {
+    transform: scale(0.98);
   }
 }

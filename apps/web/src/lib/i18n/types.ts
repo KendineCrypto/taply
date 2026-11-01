@@ -449,6 +449,94 @@ export interface Dictionary {
     };
   };
 
+  /** Phase 3B: shared experience components and the /demo product tour. */
+  readonly experience: {
+    readonly paymentRequest: string;
+    readonly requesting: string;
+    readonly youArePaying: string;
+    readonly to: string;
+    readonly from: string;
+    readonly scanToPay: string;
+    readonly validUntil: string;
+    readonly testFunds: string;
+    readonly instantPay: string;
+    readonly yourAccount: string;
+    readonly progress: {
+      readonly title: string;
+      readonly stages: Readonly<
+        Record<
+          'awaiting' | 'wallet' | 'transfer' | 'contract_paid' | 'verified' | 'failed' | 'unresolved' | 'cancelled',
+          ErrorCopy
+        >
+      >;
+      readonly steps: Readonly<Record<'created' | 'approved' | 'transfer' | 'contract' | 'verified', string>>;
+      readonly stepState: Readonly<Record<'done' | 'current' | 'todo' | 'failed', string>>;
+      readonly observedNote: string;
+      readonly openReceipt: string;
+      readonly contractStatus: string;
+    };
+    readonly receipt: {
+      readonly verified: string;
+      readonly verifiedSub: string;
+      readonly contractPaid: string;
+      readonly contractPaidSub: string;
+      readonly cancelled: string;
+      readonly cancelledSub: string;
+      readonly paidTo: string;
+      readonly paidBy: string;
+      readonly settledAt: string;
+      readonly memo: string;
+      readonly references: string;
+      readonly checkedBy: string;
+    };
+    readonly review: {
+      readonly networkFee: string;
+      readonly networkFeeValue: string;
+      readonly walletAction: string;
+      readonly walletActionValue: string;
+      readonly contract: string;
+    };
+    readonly create: {
+      readonly amountPlaceholder: string;
+      readonly options: string;
+    };
+    readonly home: {
+      readonly tourEyebrow: string;
+      readonly tourTitle: string;
+      readonly tourBody: string;
+      readonly tourCta: string;
+      readonly scan: string;
+    };
+    readonly demo: {
+      readonly badge: string;
+      readonly title: string;
+      readonly intro: string;
+      readonly synthetic: string;
+      readonly stepOf: string;
+      readonly progressLabel: string;
+      readonly steps: Readonly<
+        Record<'home' | 'create' | 'share' | 'review' | 'progress' | 'receipt', { readonly title: string; readonly caption: string }>
+      >;
+      readonly next: string;
+      readonly back: string;
+      readonly restart: string;
+      readonly approveDemo: string;
+      readonly createDemo: string;
+      readonly approveNote: string;
+      readonly play: string;
+      readonly pause: string;
+      readonly showState: string;
+      readonly explorerNote: string;
+      readonly evidenceNote: string;
+      readonly balanceLabel: string;
+      readonly reviewerTitle: string;
+      readonly reviewerBody: string;
+      readonly reviewerShow: string;
+      readonly reviewerHide: string;
+      readonly openOnPhone: string;
+    };
+  };
+
   readonly screens: {
     readonly home: string;
     readonly send: string;

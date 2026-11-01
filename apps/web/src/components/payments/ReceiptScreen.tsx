@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ReadResult, TerminalFactsRead } from '@taply/near-client';
 import { AccountId } from '@/components/primitives/Amount';
 import { Button, Spinner } from '@/components/primitives/Button';
-import { Card, DetailRow } from '@/components/primitives/Surface';
+import { DetailRow } from '@/components/primitives/Surface';
+import { ReceiptTicket } from '@/components/experience/ReceiptTicket';
+import type { ReceiptReference } from '@/components/experience/ReceiptTicket';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
-import { VerifiedPaidRibbon } from '@/components/status/StatusBadge';
 import { Icon } from '@/components/shell/Icons';
 import { useCopy } from '@/lib/hooks/browser';
 import { useT } from '@/lib/i18n/provider';
@@ -26,7 +27,6 @@ import {
   PaymentsSetupNotice,
   Provenance,
   RequestTerms,
-  TransactionLink,
 } from './PaymentParts';
 
 /**
@@ -133,64 +133,92 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
     e.transactionHash === null ? [] : [{ method: e.method, hash: e.transactionHash }],
   );
 
+  const showVerified = presentation.verifiedRibbon && verified !== null;
+  const status = showVerified ? 'verified' : paid ? 'contract_paid' : 'cancelled';
+  const v = t.payment.verification;
+  const ticketReferences: ReceiptReference[] =
+    showVerified && verified !== null
+      ? [
+          { label: v.fundingTx, value: verified.fundingTransaction.hash, transaction: true },
+          ...(verified.settlementTransaction.hash !== verified.fundingTransaction.hash
+            ? [{ label: v.settlementTx, value: verified.settlementTransaction.hash, transaction: true }]
+            : []),
+          { label: v.transferReceipt, value: verified.transferReceipt.receiptId },
+          { label: v.callbackReceipt, value: verified.callbackReceipt.receiptId },
+          { label: v.stateBlock, value: `#${verified.contractStateBlock.height}` },
+        ]
+      : hashes.map(({ method, hash }) => ({
+          label:
+            method === 'pay_instant_native'
+              ? v.fundingTx
+              : method === 'retry_native_transfer'
+                ? v.settlementTx
+                : t.payment.signing.viewTransaction,
+          value: hash,
+          transaction: true,
+        }));
+
   return (
     <div className="flex flex-col gap-4">
-      {presentation.verifiedRibbon && verified !== null ? (
-        <>
-          <VerifiedPaidRibbon presentation={presentation} />
-          <VerifiedEvidence receipt={verified} explorerBaseUrl={setup.explorerBaseUrl} />
-          <ShareVerification id={id} receipt={verified} />
-        </>
-      ) : (
-        <>
-          <Card className="flex flex-col gap-2">
-            <p className="font-semibold">{paid ? t.payment.contractPaid.label : t.status.CANCELLED_UNFUNDED.label}</p>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {paid ? t.payment.receipt.payoutConfirmedByContract : t.payment.receipt.cancelledNothingPaid}
-            </p>
-          </Card>
-          {paid && <VerificationNotice view={verification} onRetry={() => setGeneration((g) => g + 1)} />}
-        </>
+      <div data-testid={showVerified ? 'verified-evidence' : undefined}>
+        <ReceiptTicket
+          status={status}
+          amountBaseUnits={request.terms.amountBaseUnits}
+          recipientAccountId={request.recipientAccountId}
+          payerAccountId={request.payerAccountId}
+          memo={request.terms.memo}
+          settledAtNs={showVerified && verified !== null ? verified.callbackReceipt.block.timestampNs : facts.terminalAtNs}
+          references={ticketReferences}
+          explorerBaseUrl={setup.explorerBaseUrl}
+          {...(showVerified && verified !== null ? { checkedVia: verified.verification.rpcProviderId } : {})}
+          actions={showVerified && verified !== null ? <ShareVerification id={id} receipt={verified} /> : undefined}
+        />
+      </div>
+      {showVerified && verified !== null && (
+        <p className="px-1 text-sm leading-relaxed text-[var(--text-secondary)]">{v.verifiedNote}</p>
       )}
-      <InlineNotice
-        copy={{
-          title: t.payment.receipt.factsTitle,
-          body: t.payment.receipt.factsNote,
-        }}
-        tone="neutral"
-      />
-      <RequestTerms request={request}>
-        {request.payerAccountId !== null && (
-          <DetailRow label={t.payment.status.payerLabel}>
-            <AccountId accountId={request.payerAccountId} />
-          </DetailRow>
-        )}
-        {request.fundedAtNs !== null && (
-          <DetailRow label={t.payment.status.fundedAt}>
-            <ChainTime ns={request.fundedAtNs} />
-          </DetailRow>
-        )}
-        {request.latestOperation !== null && (
-          <DetailRow label={t.payment.status.operationLabel}>
-            <span className="chain-id">
-              #{request.latestOperation.nonce} · {t.payment.status.operationStatus[request.latestOperation.status]}
-            </span>
-          </DetailRow>
-        )}
-        <DetailRow label={t.payment.receipt.terminalBlock}>
-          <span className="chain-id">#{facts.terminalBlockHeight}</span>
-        </DetailRow>
-        <DetailRow label={t.payment.receipt.terminalAt}>
-          <ChainTime ns={facts.terminalAtNs} />
-        </DetailRow>
-      </RequestTerms>
-      {paid && verified === null && (
+      {!showVerified && paid && <VerificationNotice view={verification} onRetry={() => setGeneration((g) => g + 1)} />}
+      {!showVerified && paid && (
         <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>
       )}
-      {verified === null &&
-        hashes.map(({ method, hash }) => (
-          <TransactionLink key={method} explorerBaseUrl={setup.explorerBaseUrl} hash={hash} />
-        ))}
+
+      <details className="surface-card group p-4">
+        <summary className="flex min-h-[var(--tap-target)] cursor-pointer list-none items-center justify-between gap-3 font-medium">
+          {t.payment.receipt.factsTitle}
+          <Icon name="chevron" size={18} className="shrink-0 transition-transform group-open:rotate-90" />
+        </summary>
+        <div className="mt-2 flex flex-col gap-3">
+          <p className="text-sm text-[var(--text-secondary)]">{t.payment.receipt.factsNote}</p>
+          <p className="text-sm">
+            {paid ? t.payment.receipt.payoutConfirmedByContract : t.payment.receipt.cancelledNothingPaid}
+          </p>
+          <RequestTerms request={request}>
+            {request.payerAccountId !== null && (
+              <DetailRow label={t.payment.status.payerLabel}>
+                <AccountId accountId={request.payerAccountId} />
+              </DetailRow>
+            )}
+            {request.fundedAtNs !== null && (
+              <DetailRow label={t.payment.status.fundedAt}>
+                <ChainTime ns={request.fundedAtNs} />
+              </DetailRow>
+            )}
+            {request.latestOperation !== null && (
+              <DetailRow label={t.payment.status.operationLabel}>
+                <span className="chain-id">
+                  #{request.latestOperation.nonce} · {t.payment.status.operationStatus[request.latestOperation.status]}
+                </span>
+              </DetailRow>
+            )}
+            <DetailRow label={t.payment.receipt.terminalBlock}>
+              <span className="chain-id">#{facts.terminalBlockHeight}</span>
+            </DetailRow>
+            <DetailRow label={t.payment.receipt.terminalAt}>
+              <ChainTime ns={facts.terminalAtNs} />
+            </DetailRow>
+          </RequestTerms>
+        </div>
+      </details>
       <Provenance block={observation.observedBlock} checkedAt={observation.checkedAt} />
       <BackToPayment id={id} />
     </div>
@@ -248,45 +276,6 @@ function VerificationNotice({ view, onRetry }: { readonly view: VerificationView
       );
     }
   }
-}
-
-function VerifiedEvidence({
-  receipt,
-  explorerBaseUrl,
-}: {
-  readonly receipt: VerifiedReceipt;
-  readonly explorerBaseUrl: string;
-}) {
-  const t = useT();
-  const v = t.payment.verification;
-  const sameTx = receipt.settlementTransaction.hash === receipt.fundingTransaction.hash;
-  return (
-    <div data-testid="verified-evidence">
-      <Card className="flex flex-col gap-2">
-        <p className="text-sm text-[var(--text-secondary)]">{v.verifiedNote}</p>
-        <DetailRow label={v.fundingTx}>
-          <TransactionLink explorerBaseUrl={explorerBaseUrl} hash={receipt.fundingTransaction.hash} />
-        </DetailRow>
-        {!sameTx && (
-          <DetailRow label={v.settlementTx}>
-            <TransactionLink explorerBaseUrl={explorerBaseUrl} hash={receipt.settlementTransaction.hash} />
-          </DetailRow>
-        )}
-        <DetailRow label={v.transferReceipt}>
-          <span className="chain-id break-all">{receipt.transferReceipt.receiptId}</span>
-        </DetailRow>
-        <DetailRow label={v.callbackReceipt}>
-          <span className="chain-id break-all">{receipt.callbackReceipt.receiptId}</span>
-        </DetailRow>
-        <DetailRow label={v.stateBlock}>
-          <span className="chain-id">#{receipt.contractStateBlock.height}</span>
-        </DetailRow>
-        <DetailRow label={v.provider}>
-          <span className="chain-id">{receipt.verification.rpcProviderId}</span>
-        </DetailRow>
-      </Card>
-    </div>
-  );
 }
 
 function ShareVerification({ id, receipt }: { readonly id: string; readonly receipt: VerifiedReceipt }) {

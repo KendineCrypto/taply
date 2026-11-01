@@ -84,8 +84,8 @@ describe('receipt verification on /receipt/[id]', () => {
     });
 
     expect(await screen.findByTestId('verified-evidence')).toBeTruthy();
-    expect(screen.getByText('Payment verified. It reached the recipient.')).toBeTruthy();
-    expect(screen.getByText('Verified')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Verified Paid' })).toBeTruthy();
+    expect(document.querySelector('[data-receipt-status="verified"]')).not.toBeNull();
     expect(screen.queryByText('Paid per contract')).toBeNull();
     expect(screen.getByRole('button', { name: 'Copy verification link' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Copy receipt evidence (JSON)' })).toBeTruthy();
@@ -119,7 +119,8 @@ describe('receipt verification on /receipt/[id]', () => {
     expect(await screen.findByText('Settlement proof not available on this device')).toBeTruthy();
     expect(screen.getByText('Paid per contract')).toBeTruthy();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
-    expect(screen.queryByText('Payment verified. It reached the recipient.')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
+    expect(document.querySelector('[data-receipt-status="contract_paid"]')).not.toBeNull();
   });
 
   it('a tampered receipt graph shows a mismatch warning, not Verified Paid', async () => {
@@ -141,6 +142,7 @@ describe('receipt verification on /receipt/[id]', () => {
 
     expect(await screen.findByText('Receipt evidence does not match')).toBeTruthy();
     expect(screen.getByText('TRANSFER_MISMATCH')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
     expect(screen.getByText('Paid per contract')).toBeTruthy();
   });
