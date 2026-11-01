@@ -1,5 +1,10 @@
 # Phase 7 bounded implementation handoff
 
+> Phase 7C.1: Claude's Merchant Hub/POS/Checkout/scanner integration should use
+> [PHASE_7C_POS_INTEGRATION.md](PHASE_7C_POS_INTEGRATION.md). No new frontend files
+> are assumed present here. Review [security gates](PHASE_7C_SECURITY_REVIEW.md)
+> before local network testing; production authentication and live G2 stay closed.
+
 > Current Phase 7C handoff: use [PHASE_7C_SERVICE.md](PHASE_7C_SERVICE.md) for exact
 > HTTP schemas and security prerequisites. New handlers and durable authentication
 > are locally tested with real off-chain cryptography and synthetic RPC evidence.

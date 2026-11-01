@@ -1,5 +1,11 @@
 # Phase 7 Handshake engine integration contract
 
+> Phase 7C.1 security review reproduces valid-backup join/auth replay and session
+> resurrection; encryption is not rollback resistance. See
+> [PHASE_7C_SECURITY_REVIEW.md](PHASE_7C_SECURITY_REVIEW.md) for fixes, storage v2
+> incompatibility/recovery requirements and current tests, and
+> [POS guide](PHASE_7C_POS_INTEGRATION.md) for HTTP integration.
+
 > Phase 7C supersedes the storage/auth/HTTP limitations in the historical snapshot
 > below. Cryptographic NEP-413 verification, encrypted SQLite persistence and gated
 > HTTP handlers now pass local tests. Production authentication remains disabled;

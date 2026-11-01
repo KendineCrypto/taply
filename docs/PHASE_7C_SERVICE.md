@@ -1,5 +1,16 @@
 # Phase 7C commerce service handoff
 
+Phase 7C.1 update (2026-11-02): see
+[security review](PHASE_7C_SECURITY_REVIEW.md) and
+[exact POS integration guide](PHASE_7C_POS_INTEGRATION.md). Storage now requires
+an authenticated taply.storage.v2 envelope; old Phase 7C snapshots refuse without
+automatic migration. Logout fences pending verifications, reauth rotates the old
+token, and stored sessions bind exact origin/contract. Valid-backup rollback is
+demonstrably still vulnerable. Production gates remain closed. Current validation:
+API 42 passed/1 skipped (POSIX permissions on Windows), strict typecheck/lint and
+full pnpm check passed; 807 passed total across commands. Historical 7C test counts
+below are retained as prior evidence, not the current result.
+
 Status: offline backend integration GO; production auth and actual G2 pilot NO-GO.
 No deployment, listener, wallet operation, chain transaction or live G2 evidence.
 No dependencies, root manifests, lockfile, shared schemas, frontend or pilot

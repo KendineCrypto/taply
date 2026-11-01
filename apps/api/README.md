@@ -1,4 +1,18 @@
-# API security foundation (disabled)
+# API service (production gates closed)
+
+Current Phase 7C.1: read `docs/PHASE_7C_SECURITY_REVIEW.md` and
+`docs/PHASE_7C_POS_INTEGRATION.md` before integration. API suite: 42 passed,
+1 POSIX-only test skipped on Windows. Strict typecheck/lint and full pnpm check
+passed. All existing reproduction commands below still apply.
+
+Auth scope/rotation/logout-race and storage-format/corruption hardening are now
+implemented. Authenticated storage format v2 rejects prior v1 snapshots; there is
+no migration runner. Valid backup rollback STILL resurrects auth/join authority:
+external freshness or reviewed invalidating recovery remains necessary. Windows
+ACLs, physical wallet capability and local HTTPS/network hosting are unproven.
+No live auth/commerce/Handshake flags or production capability gate was enabled.
+
+## Historical implementation notes
 
 Phase 7C: see `docs/PHASE_7C_SERVICE.md`. `src/service.mts` now composes encrypted
 SQLite persistence, real NEP-413 verification and HTTP handlers. It starts no
