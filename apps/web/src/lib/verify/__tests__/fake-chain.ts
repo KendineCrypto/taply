@@ -232,7 +232,17 @@ function attemptTx(request: ContractRequest, spec: AttemptSpec): { hash: string;
     operationNonce: String(spec.nonce),
   };
   const ok = spec.succeeded;
-  const transferChildren = ok ? [] : [refund];
+  // Topology mirrors the near-workspaces pay receipt graph (CI run 41244144449):
+  // the contract receipt, the transfer and the callback each spawn a gas refund to
+  // the signer (predecessor "system"). A failed transfer also refunds its deposit
+  // to the contract.
+  const gasRefund = (label: string) => hashOf(`${spec.label}:gas-refund:${label}`);
+  const refundR0 = gasRefund('r0');
+  const refundT = gasRefund('transfer');
+  const refundC = gasRefund('callback');
+  const transferChildren = ok ? [refundT] : [refundT, refund];
+  const systemTransfer = (id: string, to: string, deposit: string) =>
+    receipt(id, 'system', to, 'system', [{ Transfer: { deposit } }]);
   const receipts: Json[] = [
     receipt(r0, spec.signer, contract, spec.signer, [call]),
     receipt(t, contract, recipient, spec.signer, [{ Transfer: { deposit: request.terms.amountBaseUnits } }], {
@@ -255,14 +265,16 @@ function attemptTx(request: ContractRequest, spec: AttemptSpec): { hash: string;
       ],
       { input_data_ids: [data] },
     ),
+    systemTransfer(refundR0, spec.signer, '21000000000000000000'),
+    systemTransfer(refundT, spec.signer, '2000000000000000000'),
+    systemTransfer(refundC, spec.signer, '1200000000000000000'),
   ];
-  if (!ok)
-    receipts.push(
-      receipt(refund, 'system', contract, 'system', [{ Transfer: { deposit: request.terms.amountBaseUnits } }]),
-    );
+  if (!ok) receipts.push(systemTransfer(refund, contract, request.terms.amountBaseUnits));
   const result = b64(ok ? 'true' : 'false');
+  const refundOutcome = (id: string, blockHash: string, executor: string) =>
+    outcome(id, blockHash, executor, [], { SuccessValue: '' });
   const outcomes: Json[] = [
-    outcome(r0, spec.blocks.first.hash, contract, [t, c], { SuccessReceiptId: c }, [
+    outcome(r0, spec.blocks.first.hash, contract, [t, c, refundR0], { SuccessReceiptId: c }, [
       event('payout_started', request, 'PAYOUT_IN_FLIGHT', spec.nonce, spec.nonce * 2),
     ]),
     outcome(
@@ -270,15 +282,9 @@ function attemptTx(request: ContractRequest, spec: AttemptSpec): { hash: string;
       spec.blocks.transfer.hash,
       recipient,
       transferChildren,
-      ok
-        ? { SuccessValue: '' }
-        : {
-            Failure: {
-              ActionError: { index: 0, kind: { LackBalanceForState: {} } },
-            },
-          },
+      ok ? { SuccessValue: '' } : { Failure: { ActionError: { index: 0, kind: { LackBalanceForState: {} } } } },
     ),
-    outcome(c, spec.blocks.callback.hash, contract, [], { SuccessValue: result }, [
+    outcome(c, spec.blocks.callback.hash, contract, [refundC], { SuccessValue: result }, [
       event(
         ok ? 'payout_succeeded' : 'payout_failed',
         request,
@@ -287,13 +293,11 @@ function attemptTx(request: ContractRequest, spec: AttemptSpec): { hash: string;
         spec.nonce * 2 + 1,
       ),
     ]),
+    refundOutcome(refundR0, spec.blocks.transfer.hash, spec.signer),
+    refundOutcome(refundT, spec.blocks.callback.hash, spec.signer),
+    refundOutcome(refundC, spec.blocks.callback.hash, spec.signer),
   ];
-  if (!ok)
-    outcomes.push(
-      outcome(refund, spec.blocks.callback.hash, contract, [], {
-        SuccessValue: '',
-      }),
-    );
+  if (!ok) outcomes.push(refundOutcome(refund, spec.blocks.callback.hash, contract));
   return {
     hash,
     json: {

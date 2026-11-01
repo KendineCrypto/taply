@@ -315,7 +315,11 @@ describe('verifyInstantReceipt — transfer receipt', () => {
       const first = byKind(tx, 'first');
       const extraId = hashOf('extra-transfer');
       receipts(tx).push({ ...structuredClone(t.receipt), receipt_id: extraId });
-      outcomes(tx).push({ ...structuredClone(t.outcome), id: extraId });
+      outcomes(tx).push({
+        ...structuredClone(t.outcome),
+        id: extraId,
+        outcome: { ...structuredClone(t.inner), receipt_ids: [] },
+      });
       (first.inner['receipt_ids'] as string[]).push(extraId);
     });
     expect(reason(result)).toBe('TRANSFER_MISMATCH');
@@ -351,6 +355,19 @@ describe('verifyInstantReceipt — transfer receipt', () => {
         outcome: { ...structuredClone(t.inner), receipt_ids: [] },
       });
       (t.inner['receipt_ids'] as string[]).push(extraId);
+    });
+    expect(reason(result)).toBe('EVIDENCE_INCONSISTENT');
+  });
+});
+
+describe('verifyInstantReceipt — protocol refunds', () => {
+  it('accepts gas refunds to the signer (sandbox topology) but refuses a "refund" to a third account', async () => {
+    expect(reason(await mutated(() => undefined))).toBe('verified');
+    const result = await mutated((ctx) => {
+      const tx = fundingTx(ctx);
+      const refund = receipts(tx).find((r) => r['predecessor_id'] === 'system');
+      if (refund === undefined) throw new Error('fixture has no refund');
+      refund['receiver_id'] = 'mallory.testnet';
     });
     expect(reason(result)).toBe('EVIDENCE_INCONSISTENT');
   });
