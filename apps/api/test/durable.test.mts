@@ -9,6 +9,24 @@ import { DurableAuth, emptyAuth } from '../src/durable-auth.mts';
 import { createNep413Verifier } from '../src/nep413.mts';
 import { testSigner } from './signer-fixture.mts';
 import { SessionEngine } from '../src/sessions.mts';
+import { Worker } from 'node:worker_threads';
+
+test('independent worker connections serialize concurrent encrypted mutations without lost updates', async () => {
+  const dir=mkdtempSync(join(tmpdir(),'taply-workers-')),path=join(dir,'test.db'),key=randomBytes(32);
+  const store=new DurableStore(path,key,'counter',()=>({n:0}),true);
+  try {
+    const source=`const {workerData,parentPort}=require('node:worker_threads');
+      import(workerData.module).then(({DurableStore})=>{
+        const db=new DurableStore(workerData.path,workerData.key,'counter',()=>({n:0}));
+        for(let i=0;i<30;i++) db.transaction(s=>{s.n++;}); db.close();parentPort.postMessage('done');
+      }).catch(e=>{throw e;});`;
+    await Promise.all([1,2].map(()=>new Promise<void>((resolve,reject)=>{
+      const worker=new Worker(source,{eval:true,workerData:{path,key,module:new URL('../src/storage.mts',import.meta.url).href}});
+      worker.once('error',reject);worker.once('exit',code=>code===0?resolve():reject(Error('worker failed')));
+    })));
+    assert.equal(store.transaction(s=>s.n),60);
+  } finally {store.close();rmSync(dir,{recursive:true,force:true});}
+});
 
 test('SQLite survives restart, serializes separate connections, rolls back exceptions and refuses wrong key/missing DB', () => {
   const dir=mkdtempSync(join(tmpdir(),'taply-storage-')), path=join(dir,'test.db'), key=randomBytes(32);

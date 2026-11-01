@@ -31,9 +31,9 @@ function publicBytes(key: string): Buffer {
   return bytes;
 }
 export type KeyAssociation = (account: string, publicKey: string) => Promise<VerifiedIdentity>;
-export function finalizedTestnetKeys(): KeyAssociation {
+export function finalizedTestnetKeys(fetcher?: (url: string, init: RequestInit) => Promise<Response>): KeyAssociation {
   const chain = createWalletChain({ network: 'near-testnet', rpcUrl: 'https://rpc.testnet.near.org',
-    rpcProviderId: 'near-public-testnet', contract: null, timeoutMs: 10000, maxResponseBytes: 65536 });
+    rpcProviderId: 'near-public-testnet', contract: null, timeoutMs: 10000, maxResponseBytes: 65536 }, fetcher);
   return async (accountId, publicKey) => {
     // Existing reader checks Testnet genesis, finalized block, exact account/key,
     // FullAccess permission and matching block hash/height. No mainnet fallback.

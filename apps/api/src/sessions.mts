@@ -115,6 +115,8 @@ export class SessionEngine {
     this.#store.transaction(db => { const e = this.#entry(db, id); this.#live(e);
       if (actor !== e.snapshot.merchantAccountId) fail('NOT_AUTHORIZED'); });
     const request = ContractRequestSchema.parse(await this.#deps.readCanonicalRequest(input.intentId));
+    // A logout during RPC must revoke the pending bind before its commit.
+    if (await this.#actor(credential) !== actor) fail('NOT_AUTHORIZED');
     return this.#store.transaction(db => {
       const e = this.#entry(db, id); this.#live(e); const s = e.snapshot;
       if (actor !== s.merchantAccountId) fail('NOT_AUTHORIZED');
