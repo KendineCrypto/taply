@@ -1,17 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, sign, createHash } from 'node:crypto';
 import { Challenges } from '../src/auth.mts';
 import { createNep413Verifier, nep413Payload } from '../src/nep413.mts';
-import { ed25519PublicKeyFromHex } from '../../../packages/near-client/dist/wallet-chain.js';
-
-// Disposable off-chain test key; never a wallet key and never persisted.
-export function testSigner() {
-  const keys = generateKeyPairSync('ed25519');
-  const publicKey = ed25519PublicKeyFromHex(keys.publicKey.export({ type: 'spki', format: 'der' }).subarray(-32).toString('hex'));
-  return (c: import('../src/auth.mts').Challenge) => ({ accountId: c.accountId, state: c.state, publicKey,
-    signature: sign(null, createHash('sha256').update(nep413Payload(c.message, c.nonceBase64, c.recipient, c.callbackUrl)).digest(), keys.privateKey).toString('base64') });
-}
+import { testSigner } from './signer-fixture.mts';
 test('NEP-413 published example encodes exact independent Borsh bytes', () => {
   const expected = '9d010080020000006869' + Buffer.from(Array.from({length:32}, (_,i)=>i)).toString('hex')
     + '090000006d796170702e636f6d01120000006d796170702e636f6d2f63616c6c6261636b';
