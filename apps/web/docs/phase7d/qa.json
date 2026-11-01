@@ -1,0 +1,210 @@
+{
+  "results": [
+    {
+      "name": "disconnected-merchant-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-register-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-setup-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-register-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-setup-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-register-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-setup-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-register-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "disconnected-merchant-setup-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-hub-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-discovery-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-pos-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-checkout-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-hub-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-discovery-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-pos-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "long-account-checkout-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "large-amount-form-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "tiny-amount-review-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "scanner-dialog",
+      "focusInside": true,
+      "liveTracksWhileOpen": 1,
+      "closedByEscape": true,
+      "focusReturnedTo": "Scan sale QR"
+    },
+    {
+      "name": "tr-merchant-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "tr-merchant-register-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "tr-merchant-setup-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "tr-checkout-cafe.testnet-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    },
+    {
+      "name": "tr-demo-handshake-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": []
+    }
+  ],
+  "failures": [],
+  "rpcMethods": [
+    "status",
+    "block",
+    "query:view_account:",
+    "query:call_function:get_config",
+    "query:call_function:quote_create_request"
+  ],
+  "broadcastAttempted": false,
+  "pageErrors": []
+}

@@ -209,3 +209,10 @@ describe('create request', () => {
     expect(chain.calls.some((c) => c.methodName === 'quote_create_request')).toBe(false);
   });
 });
+
+describe('amount field sizing', () => {
+  it('steps the font down as the typed amount grows, so every digit stays visible', async () => {
+    const { amountSizeStep } = await import('../CreateRequest');
+    expect([1, 7, 8, 11, 12, 18, 19, 34].map(amountSizeStep)).toEqual(['hero', 'hero', 'large', 'large', 'medium', 'medium', 'small', 'small']);
+  });
+});
