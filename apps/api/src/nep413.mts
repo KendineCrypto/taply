@@ -31,7 +31,7 @@ function publicBytes(key: string): Buffer {
   return bytes;
 }
 export type KeyAssociation = (account: string, publicKey: string) => Promise<VerifiedIdentity>;
-export function finalizedTestnetKeys(fetcher?: (url: string, init: RequestInit) => Promise<Response>): KeyAssociation {
+export function finalizedTestnetKeys(fetcher?: (url: string, init: RequestInit) => Promise<Response>, now = Date.now): KeyAssociation {
   const chain = createWalletChain({ network: 'near-testnet', rpcUrl: 'https://rpc.testnet.near.org',
     rpcProviderId: 'near-public-testnet', contract: null, timeoutMs: 10000, maxResponseBytes: 65536 }, fetcher);
   return async (accountId, publicKey) => {
@@ -39,6 +39,8 @@ export function finalizedTestnetKeys(fetcher?: (url: string, init: RequestInit) 
     // FullAccess permission and matching block hash/height. No mainnet fallback.
     const value = await chain.snapshot(accountId, publicKey);
     if (!value) throw Error('VERIFICATION_UNAVAILABLE');
+    const age = BigInt(now()) * 1000000n - BigInt(value.blockTimestampNs);
+    if (age < -30000000000n || age > 120000000000n) throw Error('VERIFICATION_UNAVAILABLE');
     return { accountId, publicKey, blockHash: value.blockHash, blockHeight: value.blockHeight };
   };
 }

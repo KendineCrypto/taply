@@ -58,10 +58,26 @@ test('durable challenge replay and auth sessions survive restart; logout and exp
     assert.equal(service().session(login.value.token).identity.accountId,'merchant.testnet');
     await assert.rejects(service().verify(c.challenge.id,c.browserToken,signed),/USED/);
     service().logout(login.value.token); assert.throws(()=>service().session(login.value.token),/EXPIRED/);
+    const expiring=service().challenge('expiring.testnet');
+    const expiresLogin=await service().verify(expiring.challenge.id,expiring.browserToken,testSigner()(expiring.challenge));
+    now+=900000; assert.throws(()=>service().session(expiresLogin.token),/EXPIRED/);
     const expired=service().challenge('payer.testnet'); now+=120000;
     await assert.rejects(service().verify(expired.challenge.id,expired.browserToken,testSigner()(expired.challenge)),/EXPIRED/);
     service().cleanup();
   } finally { store.close(); rmSync(dir,{recursive:true,force:true}); }
+});
+test('failed verification consumption survives reopen and browser mismatch cannot steal a challenge', async () => {
+  const dir=mkdtempSync(join(tmpdir(),'taply-burn-')),path=join(dir,'test.db'),key=randomBytes(32);
+  let store=new DurableStore(path,key,'auth',emptyAuth,true);
+  const verifier={async verify(): Promise<never>{throw Error('RPC_UNAVAILABLE');}};
+  const service=()=>new DurableAuth(store,'https://taply.example','pilot.testnet',verifier);
+  try {
+    const c=service().challenge('merchant.testnet');
+    await assert.rejects(service().verify(c.challenge.id,'wrong',{}),/CSRF_REJECTED/);
+    await assert.rejects(service().verify(c.challenge.id,c.browserToken,{}),/RPC_UNAVAILABLE/);
+    store.close();store=new DurableStore(path,key,'auth',emptyAuth);
+    await assert.rejects(service().verify(c.challenge.id,c.browserToken,{}),/USED/);
+  } finally {store.close();rmSync(dir,{recursive:true,force:true});}
 });
 test('durable Handshake draft and idempotency response persist across process store reopen', async () => {
   const dir=mkdtempSync(join(tmpdir(),'taply-session-')), path=join(dir,'test.db'), key=randomBytes(32);

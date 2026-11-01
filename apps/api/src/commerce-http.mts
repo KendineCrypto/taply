@@ -69,6 +69,8 @@ export function createCommerceHandler(deps: CommerceHttpDependencies) {
       if(/^\/api\/v1\/merchants\/[^/]+$/.test(path) && request.method==='GET') {
         AccountIdSchema.parse(path.split('/').at(-1)); throw Error('MERCHANT_NOT_FOUND');
       }
+      // Do not revive stored credentials through production before capability acceptance.
+      if(!deps.authenticationAccepted) throw Error('VERIFICATION_UNAVAILABLE');
       const session=deps.auth.session(token);
       deps.auth.rate(`account:${session.identity.accountId}`);
       if(request.method==='POST' && !same(request.headers.get('x-csrf-token')??'',session.csrf)) throw Error('CSRF_REJECTED');
@@ -100,7 +102,8 @@ export function createCommerceHandler(deps: CommerceHttpDependencies) {
         error instanceof Error && error.name==='ZodError'?'INVALID_ARGUMENT':'VERIFICATION_UNAVAILABLE';
       const status=code==='RATE_LIMITED'?429:code.startsWith('AUTH_')?401:code==='CSRF_REJECTED'||code==='NOT_AUTHORIZED'?403:
         code==='VERIFICATION_UNAVAILABLE'?503:code.endsWith('NOT_FOUND')?404:400;
-      return json(ApiErrorSchema.parse({schemaVersion:'taply.api.v1',error:{code,messageKey:`errors.${code}`,requestId:randomUUID(),retryAction:'NONE',retryAfterMs:null,details:{}}}),status);
+      const retryAction=['RPC_TIMEOUT_UNKNOWN_STATUS','CALLBACK_FAILED','RECONCILIATION_REQUIRED','OPERATION_IN_FLIGHT'].includes(code)?'WAIT_AND_RECONCILE':'NONE';
+      return json(ApiErrorSchema.parse({schemaVersion:'taply.api.v1',error:{code,messageKey:`errors.${code}`,requestId:randomUUID(),retryAction,retryAfterMs:null,details:{}}}),status);
     }
   };
 }

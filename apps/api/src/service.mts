@@ -8,7 +8,9 @@ import { createCommerceHandler } from './commerce-http.mts';
 /** Production composition: no listener/deployment, no capability override. */
 export function createCommerceService(path: string, encryptionKey: Uint8Array, origin: string, initialize = false) {
   const authStore=new DurableStore(path,encryptionKey,'auth',emptyAuth,initialize);
-  const sessions=new SqliteSessionPersistence(path,encryptionKey,initialize);
+  let sessions: SqliteSessionPersistence;
+  try { sessions=new SqliteSessionPersistence(path,encryptionKey,initialize); }
+  catch(error) {authStore.close();throw error;}
   const auth=new DurableAuth(authStore,origin,PILOT_CONTRACT,createNep413Verifier(origin,PILOT_CONTRACT,finalizedTestnetKeys()));
   const engine=new SessionEngine(sessions,{contractId:PILOT_CONTRACT,
     authenticate:async credential=>auth.session(typeof credential==='string'?credential:'').identity,

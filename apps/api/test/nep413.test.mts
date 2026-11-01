@@ -37,7 +37,7 @@ test('forgery, wrong account/state/origin/recipient, nonce, payload sizes and as
 });
 test('finalized Testnet association enforces actual RPC FullAccess, network and anchored key evidence', async () => {
   const hash='1'.repeat(32),publicKey='ed25519:'+hash;
-  for(const mode of ['ok','function-call','wrong-block','mainnet','rpc-failure','ambiguous']) {
+  for(const mode of ['ok','function-call','wrong-block','mainnet','rpc-failure','ambiguous','stale']) {
     const calls: any[]=[];
     const reader=finalizedTestnetKeys(async(url,init)=>{
       assert.equal(url,'https://rpc.testnet.near.org');
@@ -54,7 +54,7 @@ test('finalized Testnet association enforces actual RPC FullAccess, network and 
           block_hash:mode==='wrong-block'?'2'.repeat(32):hash,block_height:123};
       } else result={amount:'1000000000000000000000000',locked:'0',storage_usage:100,code_hash:hash,block_hash:hash,block_height:123};
       return Response.json({jsonrpc:'2.0',id:req.id,result});
-    });
+    },()=>1793500000000+(mode==='stale'?120001:0));
     if(mode==='ok') {
       assert.equal((await reader('merchant.testnet',publicKey)).blockHash,hash);
       assert.equal(calls[1].params.finality,'final');
