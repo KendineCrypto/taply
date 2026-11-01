@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Spinner } from '@/components/primitives/Button';
+import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { DemoTour } from '@/components/demo/DemoTour';
 import { FEATURE_FLAGS, FLAGS } from '@/lib/flags/features';
 import { CHAIN_CONFIG } from '@/lib/near/config';
@@ -46,7 +46,18 @@ export default function DemoPage() {
   return (
     <>
       <DemoTour />
-      <section className="surface-card mt-8 p-4" aria-labelledby="reviewer-title">
+      <section className="surface-card mt-8 flex items-center justify-between gap-3 p-4" aria-labelledby="handshake-demo-title">
+        <div className="min-w-0">
+          <h2 id="handshake-demo-title" className="font-semibold">
+            {t.commerce.demo.title}
+          </h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">{t.commerce.demo.synthetic}</p>
+        </div>
+        <ButtonLink href="/demo/handshake" variant="secondary">
+          {t.commerce.demo.openDemo}
+        </ButtonLink>
+      </section>
+      <section className="surface-card mt-4 p-4" aria-labelledby="reviewer-title">
         <h2 id="reviewer-title" className="font-semibold">
           {t.experience.demo.reviewerTitle}
         </h2>

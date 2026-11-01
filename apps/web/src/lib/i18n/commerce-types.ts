@@ -143,6 +143,8 @@ export interface CommerceCopy {
     };
     readonly endNote: string;
     readonly walletPlaceholder: string;
+    readonly simulateMismatch: string;
+    readonly undoMismatch: string;
     readonly openDemo: string;
   };
 }

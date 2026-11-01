@@ -163,6 +163,8 @@ export const commerceEn: CommerceCopy = {
     },
     endNote: 'The demo stops here. A real payment’s status comes only from the contract, never from this screen.',
     walletPlaceholder: 'Wallet approval happens in the customer’s own wallet',
+    simulateMismatch: 'Simulate a substituted code',
+    undoMismatch: 'Restore the matching code',
     openDemo: 'See Handshake preview',
   },
 };

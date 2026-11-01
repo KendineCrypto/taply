@@ -163,6 +163,8 @@ export const commerceTr: CommerceCopy = {
     },
     endNote: 'Demo burada biter. Gerçek bir ödemenin durumu bu ekrandan değil, yalnızca kontrattan gelir.',
     walletPlaceholder: 'Cüzdan onayı müşterinin kendi cüzdanında olur',
+    simulateMismatch: 'Değiştirilmiş kodu canlandır',
+    undoMismatch: 'Eşleşen kodu geri getir',
     openDemo: 'Handshake önizlemesini gör',
   },
 };
