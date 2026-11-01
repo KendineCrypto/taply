@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { AccountIdSchema, HashHexSchema, ContractRequestSchema, HandshakeSessionSchema,
-  SessionEventSchema, calculateTermsHash, calculateSessionCommitment, comparisonCode,
+  SessionEventSchema, SessionIdSchema, calculateTermsHash, calculateSessionCommitment, comparisonCode,
   type HandshakeSession, type SessionEvent } from '../../../packages/shared/dist/index.js';
 
 type EventType = SessionEvent['type'];
@@ -73,6 +73,7 @@ export class SessionEngine {
     }
   }
   #entry(db: SessionDatabase, id: string): Entry {
+    SessionIdSchema.parse(id);
     const entry = db.entries.get(id) ?? fail('SESSION_NOT_FOUND'); this.#refresh(entry); return entry;
   }
   #live(entry: Entry): void {

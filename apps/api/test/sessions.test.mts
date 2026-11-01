@@ -2,13 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SessionEngine, MemorySessionPersistence } from '../src/sessions.mts';
 import { calculateRequestId, calculateTermsHash, calculateSessionCommitment, comparisonCode,
-  HandshakeSessionSchema, SessionEventSchema } from '../../../packages/shared/dist/index.js';
+  HandshakeSessionSchema, SessionEventSchema, type IntentTerms } from '../../../packages/shared/dist/index.js';
 
 const merchant = 'merchant.testnet', payer = 'payer.testnet', other = 'other.testnet';
 const key = (n: number) => `operation_key_${String(n).padStart(4, '0')}`;
 async function fixture() {
   let now = 1793500000000;
-  const store = new MemorySessionPersistence(); let record: any;
+  const store = new MemorySessionPersistence();
   let read: () => Promise<unknown> = async () => structuredClone(record);
   const deps = { contractId: 'next.testnet', now: () => now,
     authenticate: async (credential: unknown) => {
@@ -16,14 +16,14 @@ async function fixture() {
       return { accountId: credential as string };
     }, readCanonicalRequest: async () => read() };
   const engine = new SessionEngine(store, deps); const created = await engine.create(merchant, key(0));
-  const terms = { schemaVersion: 'taply.intent.v1', network: 'near-testnet', contractId: 'next.testnet',
+  const terms: IntentTerms = { schemaVersion: 'taply.intent.v1', network: 'near-testnet', contractId: 'next.testnet',
     creatorAccountId: merchant, creationNonce: 'a'.repeat(64), assetId: 'near:native', amountBaseUnits: '1000',
     mode: 'instant', cancelDurationNs: null, fundingExpiresAtNs: String(BigInt(now + 180000) * 1000000n),
     permittedPayerAccountId: payer, merchantAccountId: merchant, memo: '', sessionBinding: {
       id: created.session.id, nonce: created.session.nonce, expiresAtNs: created.session.expiresAtNs }, id: '' };
   terms.id = calculateRequestId({ contractId: terms.contractId, creatorAccountId: terms.creatorAccountId,
     creationNonce: terms.creationNonce, network: 'near-testnet' });
-  record = { terms, termsHash: calculateTermsHash(terms as any), sessionCommitment: calculateSessionCommitment(terms as any),
+  const record = { terms, termsHash: calculateTermsHash(terms), sessionCommitment: calculateSessionCommitment(terms),
     recipientAccountId: merchant, status: 'OPEN', revision: '1', createdAtNs: String(BigInt(now) * 1000000n),
     payerAccountId: null, fundedAtNs: null, cancelUntilNs: null, settlementBranch: null, latestOperation: null };
   const input = () => ({ intentId: record.terms.id, termsHash: record.termsHash });
@@ -78,6 +78,30 @@ test('simultaneous binds reserve once, simultaneous joins consume once', async (
   const joins = await Promise.allSettled([f.join(), f.join(payer, key(5))]);
   assert.equal(joins.filter(v => v.status === 'fulfilled').length, 1);
   assert.equal((await f.engine.events(payer, f.created.session.id)).events.filter(e => e.type === 'session.joined').length, 1);
+});
+test('two different eligible payers race for the same token; exactly one identity wins', async () => {
+  const f = await fixture(); f.record.terms.permittedPayerAccountId = null;
+  f.record.termsHash = calculateTermsHash(f.record.terms); f.record.sessionCommitment = calculateSessionCommitment(f.record.terms);
+  await f.bind(); const results = await Promise.allSettled([f.join(payer), f.join(other)]);
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  const snapshot = await f.engine.read(merchant, f.created.session.id);
+  assert.ok([payer, other].includes(snapshot.payerAccountId!));
+});
+test('approved contract substitution and mismatched requested ID are rejected', async () => {
+  const f = await fixture(); f.record.terms.contractId = 'wrong.testnet';
+  const t = f.record.terms;
+  t.id = calculateRequestId({ contractId: t.contractId, creationNonce: t.creationNonce,
+    creatorAccountId: t.creatorAccountId, network: t.network });
+  f.record.termsHash = calculateTermsHash(t); f.record.sessionCommitment = calculateSessionCommitment(t);
+  await assert.rejects(f.bind(), /MERCHANT_BINDING_INVALID/);
+  const g = await fixture();
+  await assert.rejects(g.engine.bind(merchant, g.created.session.id, key(1), { ...g.input(), intentId: '0'.repeat(64) }), /TERMS_MISMATCH/);
+});
+test('close while chain verification is pending prevents delayed bind commit', async () => {
+  const f = await fixture();
+  f.setRead(async () => { await f.engine.close(merchant, f.created.session.id); return f.record; });
+  await assert.rejects(f.bind(), /NOT_AUTHORIZED/);
+  assert.equal((await f.engine.read(merchant, f.created.session.id)).state, 'CLOSED');
 });
 test('wrong hash, receiver, binding, contract and RPC outage never open draft', async () => {
   for (const mutate of [
