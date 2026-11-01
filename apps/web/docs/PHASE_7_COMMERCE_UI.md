@@ -1,5 +1,14 @@
 # Phase 7: merchant POS, customer checkout and Handshake UX
 
+> **Phase 7D update (2026-11-02):** see [PHASE_7D_QA.md](PHASE_7D_QA.md). Fixes:
+> - The second-sale gate now re-checks by itself, is scoped to the connected account and explains what is pending.
+> - An account switch during review is never signed.
+> - "Sale ready for payment" leads back to the QR after a wallet redirect.
+> - Long amounts stay fully visible while typing.
+> - Labels changed to "Pay to" and "Payments go to this NEAR Testnet account".
+>
+> Web tests 616/616; Webpack build OK. Screenshots below were refreshed with the 7D copy.
+
 Branch `feature/frontend`, 2026-11-01. `apps/web` only. No contract, `packages/*`,
 root manifest or lockfile change. No dependency added. No transaction sent, nothing
 deployed, nothing pushed or merged. `NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE`,
@@ -11,7 +20,7 @@ Protected Pay and native Taply Wallet signing stay off.
 | --- | --- | --- |
 | Merchant hub | `/merchant` (account menu → Merchant) | Shows the exact connected Testnet account, New sale, Store QR, and a local list of requests started on this device. The list shows **no status**; status is read from the contract on `/pay/<id>`. |
 | POS sale request | `/merchant/register` | The **same `CreateRequest` flow** as personal requests, in a `sale` variant: visible sale reference (memo), Amount → Review → QR progress, and an "unverified merchant" notice at review. Same wallet signer, journal, Web Lock, nonce, quote, freshness and signing-flag gates. Terms keep `merchantAccountId: null` and `sessionBinding: null`, which the deployed contract requires. After signing it opens `/pay/<id>`, the existing QR ticket, live chain status and Verified Paid receipt. |
-| Unique sale IDs | — | Each sale uses a fresh 32-byte CSPRNG nonce, so it gets a new deterministic request ID. An unconfirmed earlier sale blocks the next one on the same device until the chain explains it (existing guard, now tested for the POS). |
+| Unique sale IDs | — | Each sale uses a fresh 32-byte CSPRNG nonce, so it gets a new deterministic request ID. An unexplained earlier sale blocks the next one on the same device until the chain explains it (usually seconds). Since 7D the screen re-checks automatically, names the pending sale and links to its status (see PHASE_7D_QA.md, Stage 2). |
 | Store (discovery) QR | `/merchant/setup` | Permanent `https://<share origin>/checkout/<account>` QR on a cream card labelled "Discovery only, not a payment". It is drawn only for a public HTTPS share origin. Copy, native share and preview are available. |
 | Customer checkout | `/checkout/[accountId]` | Discovery state only: the exact Testnet account, no display name, no amount, no wallet prompt. "Scan sale QR" / "Paste sale link", how-to-pay steps, and what the page does and does not prove. Invalid or non-Testnet accounts are refused. The merchant viewing their own page gets a New sale shortcut. |
 | Merchant QR scanning | Tap → Pay, `/scan`, checkout | `parseScanInput` accepts approved-origin `/checkout/<account>` links as well as `/pay/<id>`. Query and fragment are dropped (no recipient or amount substitution). Other hosts are named, not followed. Invalid or non-Testnet accounts get a specific message. Bare account IDs are not accepted. A merchant code only navigates; nothing is signed or created. The Phase 6B camera lifecycle is unchanged. |
@@ -54,7 +63,7 @@ NEP-413 profile, no merchant binding and no session binding.
 | --- | --- |
 | `pnpm --filter @taply/web run check` | Exit 0. Brand assets byte-identical, typecheck, lint, **563/563 tests in 45 files** (+48 since Phase 6B's 515). |
 | `pnpm --filter @taply/web exec next build --webpack` | Exit 0, 21/21 pages. |
-| `pnpm check` (root) | **Exit 1, not caused by this phase.** `@taply/shared` 92/92 passes. `@taply/near-client` fails 3/158 in `test/wallet-payment-signer.test.mjs` with `INVALID_ARGUMENT`. Its fixture `request-open.json` hard-codes `createdAtNs` (2026-10-31 21:21 UTC) while the test sets expiry from `Date.now()`, so more than 24 h later the lifetime exceeds the maximum and the guard correctly refuses. `packages/**` is identical to the Phase 6B base. **Codex must fix the fixture** (derive `createdAtNs` from the fixture clock). The web suite does not run because the root script stops at the first failure; it passes on its own (above). |
+| `pnpm check` (root) | **Exit 1 at the time, not caused by this phase** (Codex fixed it in `6a34a94` on its branch; not merged here). `@taply/shared` 92/92 passes. `@taply/near-client` fails 3/158 in `test/wallet-payment-signer.test.mjs` with `INVALID_ARGUMENT`. Its fixture `request-open.json` hard-codes `createdAtNs` (2026-10-31 21:21 UTC) while the test sets expiry from `Date.now()`, so more than 24 h later the lifetime exceeds the maximum and the guard correctly refuses. `packages/**` is identical to the Phase 6B base. **Codex must fix the fixture** (derive `createdAtNs` from the fixture clock). The web suite does not run because the root script stops at the first failure; it passes on its own (above). |
 | Flake note | One run of `context-sync.test.tsx` ("re-verifies an aged contract check") timed out under full-suite load. It passed 5/5 in isolation and in every other full run. Unchanged code; worth a longer `waitFor` later. |
 
 New tests:
@@ -96,7 +105,7 @@ Not done: no physical device was used in this phase.
 1. POS end-to-end with a real wallet: create a 0.01 NEAR sale, wallet redirect return, `/pay/<id>` QR, customer pays from a second phone, Verified Paid on both.
 2. Store QR printed or on screen → scan from the customer phone → checkout → scan the sale QR → pay.
 3. Scanner: merchant QR on iOS Safari (bundled decoder) and Android Chrome (BarcodeDetector); non-Testnet / foreign-host merchant QR messages; camera indicator off after merchant navigation.
-4. Two sales in a row on one device: the second is blocked until the first is confirmed. Confirm the blocking notice is clear at the counter.
+4. Two sales in a row on one device: "Waiting for the previous sale" should clear by itself within seconds.
 5. Safe-area insets on notched phones; VoiceOver/TalkBack reading of the comparison code; large text.
 6. Android has not been tested in any phase.
 
