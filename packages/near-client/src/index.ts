@@ -28,3 +28,4 @@ export type {
 } from "./contract.js";
 export { MERCHANT_CONTRACT_VERSION, createMerchantRequestReader, verifyMerchantObservation, matchMerchantSession } from "./merchant.js";
 export type { MerchantDeployment, MerchantSessionExpectation } from "./merchant.js";
+export { signMessageCapability, prepareWalletAuthentication } from "./wallet-auth.js";
