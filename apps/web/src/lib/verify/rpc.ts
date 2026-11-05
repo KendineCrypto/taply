@@ -64,13 +64,48 @@ export function assertSafeNumbers(value: unknown, depth = 0): void {
 
 const UNKNOWN_BLOCK_NAMES = new Set(['UNKNOWN_BLOCK', 'GARBAGE_COLLECTED_BLOCK', 'UNKNOWN_CHUNK']);
 
-export function createFetchVerifierRpc(input: {
+export interface FetchRpcInput {
   readonly rpcUrl: string;
   readonly providerId: string;
   readonly timeoutMs?: number;
   readonly maxResponseBytes?: number;
   readonly fetcher?: typeof fetch;
-}): VerifierRpc {
+}
+
+export function createFetchVerifierRpc(input: FetchRpcInput): VerifierRpc {
+  return createBoundedRpc(VERIFIER_METHODS, 'taply-verify', input);
+}
+
+/**
+ * Phase 7G: read-only transport for the funding-transaction locator
+ * (`locate-funding.ts`). Its own allowlist, `block` and `chunk` only, so the
+ * verifier's allowlist above stays exactly as reviewed. Same bounded transport.
+ */
+export const LOCATOR_METHODS = ['block', 'chunk'] as const;
+export type LocatorMethod = (typeof LOCATOR_METHODS)[number];
+
+export interface LocatorRpc {
+  readonly providerId: string;
+  call(method: LocatorMethod, params: unknown): Promise<unknown>;
+}
+
+export function createFetchLocatorRpc(input: FetchRpcInput): LocatorRpc {
+  // Some providers (e.g. FastNEAR) answer a pruned block with HTTP 422 and a
+  // JSON-RPC UNKNOWN_BLOCK body. Reading those bodies lets the locator say
+  // "history unavailable" instead of "RPC down". Only UNKNOWN_BLOCK and
+  // UNKNOWN_TRANSACTION are taken from an error status; anything else stays
+  // RPC_UNAVAILABLE. The verifier transport above is deliberately unchanged.
+  return createBoundedRpc(LOCATOR_METHODS, 'taply-locate', input, ERROR_BODY_STATUSES);
+}
+
+const ERROR_BODY_STATUSES: ReadonlySet<number> = new Set([400, 404, 422, 500]);
+
+function createBoundedRpc<M extends string>(
+  allowed: ReadonlyArray<M>,
+  idPrefix: string,
+  input: FetchRpcInput,
+  errorBodyStatuses: ReadonlySet<number> = new Set(),
+): { readonly providerId: string; call(method: M, params: unknown): Promise<unknown> } {
   const fetcher = input.fetcher ?? ((url, init) => globalThis.fetch(url, init));
   const timeoutMs = input.timeoutMs ?? 15_000;
   const maxBytes = input.maxResponseBytes ?? MAX_RESPONSE_BYTES;
@@ -78,20 +113,28 @@ export function createFetchVerifierRpc(input: {
   return {
     providerId: input.providerId,
     async call(method, params) {
-      if (!VERIFIER_METHODS.includes(method)) throw new VerifierRpcError('RPC_ERROR');
-      const id = `taply-verify-${++nextId}`;
-      const text = await fetchBoundedText({
+      if (!allowed.includes(method)) throw new VerifierRpcError('RPC_ERROR');
+      const id = `${idPrefix}-${++nextId}`;
+      const { text, httpOk } = await fetchBoundedText({
         fetcher,
         url: input.rpcUrl,
         body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
         timeoutMs,
         maxBytes,
+        errorBodyStatuses,
       });
       let envelope: unknown;
       try {
         envelope = parseRpcJsonWithIntegers(text);
       } catch {
-        throw new VerifierRpcError('MALFORMED');
+        throw new VerifierRpcError(httpOk ? 'MALFORMED' : 'RPC_UNAVAILABLE');
+      }
+      if (!httpOk) {
+        const code =
+          typeof envelope === 'object' && envelope !== null && Object.hasOwn(envelope, 'error')
+            ? classifyRpcError((envelope as Record<string, unknown>)['error'])
+            : 'RPC_UNAVAILABLE';
+        throw new VerifierRpcError(code === 'UNKNOWN_BLOCK' || code === 'UNKNOWN_TRANSACTION' ? code : 'RPC_UNAVAILABLE');
       }
       if (typeof envelope !== 'object' || envelope === null) throw new VerifierRpcError('MALFORMED');
       const record = envelope as Record<string, unknown>;
@@ -125,7 +168,9 @@ async function fetchBoundedText(input: {
   readonly body: string;
   readonly timeoutMs: number;
   readonly maxBytes: number;
-}): Promise<string> {
+  /** HTTP error statuses whose (bounded) body is still read, for JSON-RPC error classification. */
+  readonly errorBodyStatuses?: ReadonlySet<number>;
+}): Promise<{ readonly text: string; readonly httpOk: boolean }> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -135,7 +180,7 @@ async function fetchBoundedText(input: {
     }, input.timeoutMs);
   });
 
-  const work = async (): Promise<string> => {
+  const work = async (): Promise<{ readonly text: string; readonly httpOk: boolean }> => {
     const response = await input.fetcher(input.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -145,7 +190,7 @@ async function fetchBoundedText(input: {
       credentials: 'omit',
       redirect: 'error',
     });
-    if (!response.ok) {
+    if (!response.ok && !(input.errorBodyStatuses?.has(response.status) ?? false)) {
       void response.body?.cancel().catch(() => undefined);
       throw new VerifierRpcError('RPC_UNAVAILABLE');
     }
@@ -198,7 +243,7 @@ async function fetchBoundedText(input: {
         // Already released by cancel in some engines.
       }
     }
-    return text;
+    return { text, httpOk: response.ok };
   };
 
   try {
