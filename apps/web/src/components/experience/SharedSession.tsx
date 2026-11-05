@@ -293,14 +293,17 @@ export function JourneyTimeline({ stage, className = 'mt-5' }: { readonly stage:
       {/* Track sits behind the node centres (each node is 1/5 of the width). */}
       <div aria-hidden="true" className="absolute left-[10%] right-[10%] top-[9px] h-0.5 rounded-full bg-[var(--border-strong)]">
         <div
-          className={`journey-track-fill h-full rounded-full ${stage === 'verified' ? 'bg-[var(--taply-lime)]' : 'bg-[var(--text-primary)]'}`}
+          className={`journey-track-fill relative h-full overflow-hidden rounded-full ${stage === 'verified' ? 'bg-[var(--taply-lime)]' : 'bg-[var(--text-primary)]'}`}
           style={{ width: `${fillPct}%` }}
-        />
+        >
+          {/* Phase 7G: only while the chain shows the payout in flight. */}
+          {stage === 'transfer' && <span className="journey-track-pulse" data-testid="track-pulse" />}
+        </div>
       </div>
       <ol className="relative grid grid-cols-5" aria-label={t.experience.progress.title}>
         {STEP_KEYS.map((key) => (
           <li key={key} className="flex min-w-0 flex-col items-center gap-1.5 text-center" data-state={steps[key]}>
-            <Node state={steps[key]} verified={stage === 'verified' && key === 'verified'} />
+            <Node state={steps[key]} verified={stage === 'verified' && key === 'verified'} settle={stage === 'contract_paid' && key === 'contract'} />
             <span aria-hidden="true" className={`px-0.5 text-[10.5px] leading-tight ${LABEL[steps[key]]}`}>
               {t.commerce.journey.steps[VISIBLE_STEP[key]]}
             </span>
@@ -321,12 +324,13 @@ const LABEL: Readonly<Record<StepState, string>> = {
   failed: 'font-semibold text-[var(--tone-caution-fg)]',
 };
 
-function Node({ state, verified }: { readonly state: StepState; readonly verified: boolean }) {
+function Node({ state, verified, settle = false }: { readonly state: StepState; readonly verified: boolean; readonly settle?: boolean }) {
   if (state === 'done') {
     return (
       <span
         aria-hidden="true"
-        className={`journey-node grid size-[18px] place-items-center rounded-full ${verified ? 'bg-[var(--taply-lime)] text-[var(--taply-night)]' : 'bg-[var(--text-primary)] text-[var(--surface-0)]'}`}
+        data-settle={settle || undefined}
+        className={`journey-node ${settle ? 'journey-settle ' : ''}grid size-[18px] place-items-center rounded-full ${verified ? 'bg-[var(--taply-lime)] text-[var(--taply-night)]' : 'bg-[var(--text-primary)] text-[var(--surface-0)]'}`}
       >
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
           <path d="m5 12.5 4.5 4.5L19 7.5" />

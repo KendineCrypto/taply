@@ -588,6 +588,8 @@ function PayReview({
     <Card as="section" className="journey-amount-glow flex flex-col gap-4 p-5">
       <h2 className="text-lg font-semibold">{t.payment.review.title}</h2>
       <p className="text-sm text-[var(--text-secondary)]">{t.payment.review.intro}</p>
+      {/* Phase 7G: one soft sweep across the exact terms when the payer confirms them. */}
+      <div className="journey-terms rounded-[var(--radius-control)]" data-confirmed={confirmed || undefined} data-testid="reviewed-terms">
       <ReviewSummary
         recipientAccountId={request.recipientAccountId}
         amountBaseUnits={request.terms.amountBaseUnits}
@@ -597,6 +599,7 @@ function PayReview({
         permittedPayerAccountId={request.terms.permittedPayerAccountId}
         payableUntil={stillOpen ? <ChainTime ns={request.terms.fundingExpiresAtNs} /> : null}
       />
+      </div>
       {payGas !== null && (
         <dl>
           <DetailRow label={t.payment.review.gasSeparate}>
