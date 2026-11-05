@@ -63,3 +63,23 @@ test('finalized Testnet association enforces actual RPC FullAccess, network and 
     assert.ok(calls.every(c=>!c.method.includes('send')));
   }
 });
+
+test('fresh challenges reject revoked keys and accept only the newly associated FullAccess key after rotation', async () => {
+  const first = testSigner(), rotated = testSigner();
+  const store = new Challenges('https://taply.example', 'candidate.testnet');
+  const sample = store.issue('merchant.testnet');
+  const firstPublic = first(sample).publicKey, rotatedPublic = rotated(sample).publicKey;
+  let active = firstPublic;
+  const verifier = createNep413Verifier(sample.origin, 'candidate.testnet', async (accountId, publicKey) => {
+    if (publicKey !== active) throw Error('KEY_NOT_ASSOCIATED');
+    return { accountId, publicKey, blockHash: '1'.repeat(32), blockHeight: '123' };
+  });
+  const old = store.issue('merchant.testnet'); active = rotatedPublic;
+  await assert.rejects(store.consume(old.id, old.accountId, old.origin, old.state, first(old), verifier), /KEY_NOT_ASSOCIATED/);
+  active = firstPublic;
+  await assert.rejects(store.consume(old.id, old.accountId, old.origin, old.state, first(old), verifier), /USED/);
+  active = rotatedPublic;
+  const fresh = store.issue('merchant.testnet');
+  assert.equal((await store.consume(fresh.id, fresh.accountId, fresh.origin, fresh.state, rotated(fresh), verifier)).publicKey, rotatedPublic);
+  // This tests new login proof only; existing cookies have no continuous key recheck.
+});

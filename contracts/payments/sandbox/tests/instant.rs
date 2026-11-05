@@ -17,6 +17,9 @@ use sha2::{Digest, Sha256};
 
 const PRINCIPAL: u128 = 1_000_000_000_000_000_000_000_000;
 const GAS: Gas = Gas::from_tgas(50);
+fn merchant_build() -> bool {
+    std::env::var("TAPLY_SANDBOX_MERCHANT_V1").as_deref() == Ok("1")
+}
 fn digest(domain: &str, bytes: &str) -> String {
     format!("{:x}", Sha256::digest(format!("{domain}\n{bytes}")))
 }
@@ -41,21 +44,33 @@ fn hash(t: &Value) -> String {
 async fn terms(w: &Worker<Sandbox>, c: &Contract, recipient: &Account, n: u64) -> Result<Value> {
     let now = w.view_block().await?.timestamp();
     let identity = json!({"contractId": c.id(), "creationNonce": format!("{n:064x}"), "creatorAccountId": recipient.id(), "network": "near-testnet"});
-    Ok(
-        json!({"schemaVersion":"taply.intent.v1", "id":digest("taply.id.v1", &canonical(&identity)),
+    let mut t = json!({"schemaVersion":"taply.intent.v1", "id":digest("taply.id.v1", &canonical(&identity)),
         "network":"near-testnet", "contractId":c.id(), "creationNonce":format!("{n:064x}"),
         "creatorAccountId":recipient.id(), "assetId":"near:native", "amountBaseUnits":PRINCIPAL.to_string(),
         "mode":"instant", "cancelDurationNs":null, "fundingExpiresAtNs":(now + 86_000_000_000_000u64).to_string(),
-        "permittedPayerAccountId":null, "merchantAccountId":null, "memo":"", "sessionBinding":null}),
-    )
+        "permittedPayerAccountId":null, "merchantAccountId":null, "memo":"", "sessionBinding":null});
+    if merchant_build() {
+        t["merchantAccountId"] = json!(recipient.id());
+        t["sessionBinding"] = json!({"id":format!("11111111-1111-4111-8111-{n:012x}"),
+            "nonce":format!("{n:064x}"), "expiresAtNs":(now + 120_000_000_000u64).to_string()});
+    }
+    Ok(t)
 }
 async fn setup(fault: bool) -> Result<(Worker<Sandbox>, Contract, Account, Account)> {
     let w = near_workspaces::sandbox().await?;
-    let path = if fault {
-        "../artifacts/payments.callback-fault.wasm"
+    let directory = if merchant_build() {
+        "../artifacts/merchant-v1"
     } else {
-        "../artifacts/payments.wasm"
+        "../artifacts"
     };
+    let path = format!(
+        "{directory}/{}",
+        if fault {
+            "payments.callback-fault.wasm"
+        } else {
+            "payments.wasm"
+        }
+    );
     let c = w.dev_deploy(&std::fs::read(path)?).await?;
     c.call("new")
         .args_json(json!({}))
@@ -598,6 +613,9 @@ async fn expired_or_unpermitted_funding_is_refunded_and_cancel_still_works() -> 
     let now = w.view_block().await?.timestamp();
     let expiry = now + 20_000_000_000;
     short["fundingExpiresAtNs"] = json!(expiry.to_string());
+    if merchant_build() {
+        short["sessionBinding"]["expiresAtNs"] = json!(expiry.to_string());
+    }
     create(&w, &c, &merchant, &short).await?;
     while w.view_block().await?.timestamp() <= expiry {
         w.fast_forward(50).await?;
@@ -754,5 +772,93 @@ async fn failed_transfer_and_failed_callback_also_stays_unresolved() -> Result<(
     let a = accounting(&c).await?;
     assert_eq!(a["inFlightPrincipalYocto"], PRINCIPAL.to_string());
     assert_eq!(a["failedHeldPrincipalYocto"], "0");
+    Ok(())
+}
+
+#[tokio::test]
+async fn merchant_authorization_commitment_and_substitution_guards() -> Result<()> {
+    let (w, c, merchant, payer) = setup(false).await?;
+    let mut t = terms(&w, &c, &merchant, 100).await?;
+    let now = w.view_block().await?.timestamp();
+    t["merchantAccountId"] = json!(merchant.id());
+    t["sessionBinding"] = json!({"id":"11111111-1111-4111-8111-111111111111",
+        "nonce":"a".repeat(64), "expiresAtNs":(now + 120_000_000_000u64).to_string()});
+    if !merchant_build() {
+        assert!(
+            c.view("quote_create_request")
+                .args_json(json!({"terms":t}))
+                .await
+                .is_err()
+        );
+        return Ok(()); // Default artifact must continue refusing bound terms.
+    }
+    for case in ["merchant", "missing", "nonce", "uuid", "expiry"] {
+        let mut bad = t.clone();
+        match case {
+            "merchant" => bad["merchantAccountId"] = json!(payer.id()),
+            "missing" => bad["sessionBinding"] = Value::Null,
+            "nonce" => bad["sessionBinding"]["nonce"] = json!("A".repeat(64)),
+            "uuid" => bad["sessionBinding"]["id"] = json!("1".repeat(8192)),
+            _ => bad["sessionBinding"]["expiresAtNs"] = json!(now.to_string()),
+        }
+        assert!(
+            c.view("quote_create_request")
+                .args_json(json!({"terms":bad}))
+                .await
+                .is_err()
+        );
+    }
+    t["memo"] = json!("é".repeat(128));
+    let q: Value = c
+        .view("quote_create_request")
+        .args_json(json!({"terms":t}))
+        .await?
+        .json()?;
+    let deposit = NearToken::from_yoctonear(q["depositYocto"].as_str().unwrap().parse()?);
+    let forged = payer
+        .call(c.id(), "create_request")
+        .args_json(json!({"terms":t,"quoteVersion":"1"}))
+        .deposit(deposit)
+        .gas(Gas::from_tgas(30))
+        .transact()
+        .await?;
+    assert!(forged.is_failure());
+    create(&w, &c, &merchant, &t).await?;
+    let original = request(&c, &t).await?;
+    assert_eq!(
+        original["sessionCommitment"],
+        digest("taply.session.v1", &hash(&t))
+    );
+    for field in ["amount", "expiry", "session"] {
+        let mut changed = t.clone();
+        match field {
+            "amount" => changed["amountBaseUnits"] = json!("2"),
+            "expiry" => {
+                changed["fundingExpiresAtNs"] = json!((now + 500_000_000_000u64).to_string())
+            }
+            _ => changed["sessionBinding"]["nonce"] = json!("f".repeat(64)),
+        }
+        let result = payer
+            .call(c.id(), "pay_instant_native")
+            .args_json(pay_args(&changed))
+            .deposit(NearToken::from_yoctonear(PRINCIPAL))
+            .gas(GAS)
+            .transact()
+            .await?;
+        assert!(result.is_failure());
+        let replay = merchant
+            .call(c.id(), "create_request")
+            .args_json(json!({"terms":changed,"quoteVersion":"1"}))
+            .deposit(deposit)
+            .gas(Gas::from_tgas(30))
+            .transact()
+            .await?;
+        assert!(replay.is_failure());
+        assert_eq!(request(&c, &t).await?, original);
+    }
+    pay(&c, &payer, &t).await?.into_result()?;
+    let state = request(&c, &t).await?;
+    assert_eq!(state["status"], "FINAL_PAID");
+    assert_eq!(state["sessionCommitment"], original["sessionCommitment"]);
     Ok(())
 }
