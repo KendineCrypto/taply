@@ -224,7 +224,12 @@ describe('merchant home', () => {
     expect(screen.getByRole('link', { name: /Store QR/ }).getAttribute('href')).toBe('/merchant/setup');
     expect(screen.queryByRole('link', { name: /Live Handshake/ })).toBeNull();
     expect(screen.queryByRole('link', { name: /Merchant profile/ })).toBeNull();
-    expect(screen.getAllByText('Coming later')).toHaveLength(2);
+    // Phase 7G: one quiet inert row names both, with a single Coming later label.
+    expect(screen.getAllByText('Coming later')).toHaveLength(1);
+    const later = screen.getByTestId('merchant-coming-later');
+    expect(later.textContent).toContain('Live Handshake');
+    expect(later.textContent).toContain('Merchant profile');
+    expect(later.querySelector('a, button')).toBeNull();
     expect(screen.getByText('No sales yet')).toBeTruthy();
     // No status claims anywhere on the hub.
     expect(screen.queryByText(/Verified Paid/)).toBeNull();

@@ -69,7 +69,7 @@ describe('merchant phone (receiver)', () => {
     expect(getRequestReads(chain)).toBeGreaterThan(before);
     const paid = await hero();
     expect(within(paid).getByRole('heading', { name: 'Paid per contract' })).toBeTruthy();
-    expect(within(paid).getByTestId('proof-legend').textContent).toContain('Verified Paid: receipt check not run here');
+    expect(within(paid).getByTestId('proof-legend').textContent).toContain('Verified Paid: Not checked on this screen');
     expect(paid.getAttribute('data-tone')).not.toBe('success');
     expect(paid.getAttribute('data-live')).toBeNull();
     expect(within(paid).getByText(`Paid by ${CUSTOMER}`)).toBeTruthy();

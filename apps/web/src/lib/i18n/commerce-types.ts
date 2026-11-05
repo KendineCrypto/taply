@@ -1,3 +1,5 @@
+import type { JourneyStatus } from '@/lib/merchant/journey';
+
 /**
  * Copy for the merchant POS, customer checkout and Handshake screens (Phase 7).
  * Kept in its own interface so the main dictionary only gains one key.
@@ -155,6 +157,7 @@ export interface CommerceCopy {
   };
 
   readonly journey: JourneyCopy;
+  readonly phase7g: Phase7GCopy;
 }
 
 /**
@@ -220,4 +223,40 @@ export interface JourneyCopy {
     readonly reviewing: string;
     readonly yourWallet: string;
   };
+}
+
+/**
+ * Phase 7G: canonical status labels, the merchant's Verified Paid path and the
+ * gated Handshake room states. Statuses are evidence-derived (see
+ * lib/merchant/journey.ts journeyStatus); none of this copy may imply customer
+ * presence, merchant identity or payment from a session event.
+ */
+export interface Phase7GCopy {
+  readonly status: Readonly<Record<JourneyStatus, string>>;
+  readonly statusLabel: string;
+  readonly proofNext: {
+    readonly title: string;
+    readonly pending: string;
+    readonly receiverAction: string;
+    readonly payerAction: string;
+    readonly receiverNote: string;
+  };
+  readonly locate: {
+    readonly stepFind: string;
+    readonly stepCheck: string;
+    readonly searching: TitleBody;
+    readonly checking: string;
+    readonly foundNote: string;
+    readonly notFound: TitleBody;
+    readonly history: TitleBody;
+    readonly unavailable: TitleBody;
+    readonly retryNeeded: TitleBody;
+    readonly searchAgain: string;
+  };
+  readonly merchantHome: {
+    readonly comingLaterTitle: string;
+    readonly comingLaterBody: string;
+    readonly unboundShort: string;
+  };
+  readonly checkoutNote: string;
 }

@@ -6,8 +6,8 @@ import type { IconName } from '@/components/shell/Icons';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
 import type { TitleBody } from '@/lib/i18n/commerce-types';
-import { groupCode, saleCode } from '@/lib/merchant/journey';
-import type { JourneyContext, JourneySide } from '@/lib/merchant/journey';
+import { groupCode, isVerifiedStatus, journeyStatus, saleCode } from '@/lib/merchant/journey';
+import type { JourneyContext, JourneySide, JourneyStatus } from '@/lib/merchant/journey';
 import { AmountHero, Monogram } from './Basics';
 import { STAGE_TONE, STEP_KEYS, stepsFor } from './progress';
 import type { ProgressStage, StepKey, StepState } from './progress';
@@ -68,6 +68,10 @@ export interface SharedSessionProps {
   readonly live: boolean;
   readonly audienceNote?: string | undefined;
   readonly footer?: ReactNode;
+  /** Phase 7G canonical status (journeyStatus). Defaults to the stage-only mapping. */
+  readonly status?: JourneyStatus;
+  /** Phase 7G: the one next step at "Paid per contract" (open the receipt check). */
+  readonly proofAction?: ReactNode;
 }
 
 export function SharedSession({
@@ -82,6 +86,8 @@ export function SharedSession({
   live,
   audienceNote,
   footer,
+  status,
+  proofAction,
 }: SharedSessionProps) {
   const t = useT();
   const j = t.commerce.journey;
@@ -90,6 +96,9 @@ export function SharedSession({
   const code = saleCode(requestId);
   const eyebrow = side === 'receiver' ? (context === 'pos' ? j.eyebrow.pos : j.eyebrow.receiving) : context === 'checkout' ? j.eyebrow.checkout : j.eyebrow.request;
   const counterpart = counterpartLine(j, side, context, stage, payerAccountId);
+  const shown = status ?? journeyStatusFor(side, stage);
+  // Belt and braces: a non-verified stage can never print a verified status.
+  const safeStatus: JourneyStatus = isVerifiedStatus(shown) && stage !== 'verified' ? journeyStatusFor(side, stage) : shown;
 
   return (
     <section
@@ -103,6 +112,7 @@ export function SharedSession({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className="eyebrow text-[var(--text-muted)]">{eyebrow}</p>
+          <StatusChip status={safeStatus} />
           {live && <LivePill />}
         </div>
         {/* With the QR ticket below, the code is printed on the ticket instead. */}
@@ -146,7 +156,7 @@ export function SharedSession({
 
       <JourneyTimeline stage={stage} />
 
-      {stage === 'contract_paid' && <ProofLegend />}
+      {stage === 'contract_paid' && <ProofNext side={side} action={proofAction} />}
 
       {counterpart !== null && (
         <p className="mt-4 flex items-start gap-2 text-sm text-[var(--text-secondary)]" data-testid="journey-counterpart">
@@ -341,20 +351,74 @@ function Node({ state, verified }: { readonly state: StepState; readonly verifie
   return <span aria-hidden="true" className="journey-node size-[18px] rounded-full bg-[var(--surface-1)] ring-2 ring-[var(--border-strong)]" />;
 }
 
-/** "Paid per contract" is not "Verified Paid": both shown side by side, only one ticked. */
-function ProofLegend() {
+/** Stage-only status (no journal context): used when the caller passes none. */
+function journeyStatusFor(side: JourneySide, stage: ProgressStage): JourneyStatus {
+  return journeyStatus({ side, stage });
+}
+
+const STATUS_TONE: Readonly<Record<JourneyStatus, string>> = {
+  ready_for_customer: 'border-[var(--border-strong)] text-[var(--text-secondary)]',
+  ready_to_review: 'border-[var(--border-strong)] text-[var(--text-secondary)]',
+  checking_chain: 'border-[var(--tone-caution-border)] text-[var(--tone-caution-fg)]',
+  awaiting_wallet: 'border-[var(--tone-caution-border)] text-[var(--tone-caution-fg)]',
+  payment_observed: 'border-[var(--tone-caution-border)] text-[var(--tone-caution-fg)]',
+  transaction_submitted: 'border-[var(--tone-caution-border)] text-[var(--tone-caution-fg)]',
+  paid_per_contract: 'border-[var(--border-strong)] text-[var(--text-primary)]',
+  verified_receipt: 'border-transparent bg-[var(--taply-lime)] text-[var(--taply-night)]',
+  verified_paid: 'border-transparent bg-[var(--taply-lime)] text-[var(--taply-night)]',
+  needs_attention: 'border-[var(--tone-caution-border)] text-[var(--tone-caution-fg)]',
+  closed: 'border-[var(--border-subtle)] text-[var(--text-muted)]',
+};
+
+/**
+ * Phase 7G: the canonical status, printed the same way on both phones. Keyed
+ * by status so a change of state arrives with one short transition; a repeated
+ * identical update re-renders nothing visible.
+ */
+function StatusChip({ status }: { readonly status: JourneyStatus }) {
+  const t = useT();
+  const g = t.commerce.phase7g;
+  return (
+    <p
+      key={status}
+      className={`journey-status inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${STATUS_TONE[status]}`}
+      data-testid="journey-status"
+      data-status={status}
+    >
+      <span className="sr-only">{g.statusLabel}: </span>
+      {g.status[status]}
+    </p>
+  );
+}
+
+/**
+ * "Paid per contract" is not "Verified Paid": both side by side, only one
+ * ticked, and the one next step (open the receipt check) right underneath.
+ */
+function ProofNext({ side, action }: { readonly side: JourneySide; readonly action?: ReactNode }) {
   const t = useT();
   const p = t.commerce.journey.proofLegend;
+  const g = t.commerce.phase7g.proofNext;
   return (
-    <ul className="mt-4 flex flex-col gap-1.5 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[rgb(244_243_232/0.03)] p-3 text-sm" data-testid="proof-legend">
-      <li className="flex items-center gap-2">
-        <Icon name="check" size={16} className="shrink-0 text-[var(--text-primary)]" />
-        <span>{p.contract}</span>
-      </li>
-      <li className="flex items-center gap-2 text-[var(--text-muted)]">
-        <span aria-hidden="true" className="size-4 shrink-0 rounded-full border-2 border-dashed border-[var(--border-strong)]" />
-        <span>{p.verifiedPending}</span>
-      </li>
-    </ul>
+    <div className="mt-4 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[rgb(244_243_232/0.03)] p-3" data-testid="proof-legend">
+      <ul className="flex flex-col gap-1.5 text-sm">
+        <li className="flex items-center gap-2">
+          <Icon name="check" size={16} className="shrink-0 text-[var(--text-primary)]" />
+          <span>{p.contract}</span>
+        </li>
+        <li className="flex items-center gap-2 text-[var(--text-muted)]">
+          <span aria-hidden="true" className="size-4 shrink-0 rounded-full border-2 border-dashed border-[var(--border-strong)]" />
+          <span>
+            {g.title}: {g.pending}
+          </span>
+        </li>
+      </ul>
+      {action !== undefined && (
+        <div className="mt-3 flex flex-col gap-1.5">
+          {action}
+          {side === 'receiver' && <p className="text-center text-xs leading-relaxed text-[var(--text-muted)]">{g.receiverNote}</p>}
+        </div>
+      )}
+    </div>
   );
 }

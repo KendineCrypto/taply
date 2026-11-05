@@ -28,7 +28,7 @@ import { canonicalPayUrl } from '@/lib/share/origin';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
 import type { Reconciliation, SubmitResult } from '@/lib/payments/submit';
 import { usePaymentRequest } from '@/lib/payments/use-payment-request';
-import { cameFromCheckout, isPosSale, journeyContext, journeySide, localHints, sessionHints } from '@/lib/merchant/journey';
+import { cameFromCheckout, isPosSale, journeyContext, journeySide, journeyStatus, localHints, sessionHints } from '@/lib/merchant/journey';
 import { HashHexSchema } from '@/lib/protocol';
 import type { ContractRequest } from '@/lib/protocol';
 import { useNativeBalance } from '@/lib/near/use-native-balance';
@@ -318,6 +318,13 @@ function RequestView({
     fromCheckout: cameFromCheckout(sessionHints(), request.recipientAccountId, Date.now()),
   }));
   const context = journeyContext({ side, ...hints });
+  // Phase 7G: this device's own payment attempt that the chain has not explained yet
+  // (wallet returned or reloaded mid-flight). Journal-based, never time-based.
+  const ownAttemptPending = attempts.some(
+    (a) => a.entry.method === 'pay_instant_native' && a.entry.signerAccountId === accountId && a.state !== 'resolved',
+  );
+  const status = stage === null ? null : journeyStatus({ side, stage, ownAttemptPending });
+  const receiptHref = receiptPath(request, attempts.map((a) => a.entry));
 
   const blockingFor = (method: JournalMethod) =>
     attempts.find((a) => a.entry.method === method && a.entry.signerAccountId === accountId && a.state !== 'resolved');
@@ -387,18 +394,25 @@ function RequestView({
           // The QR ticket and the pay review below already show the amount large.
           showAmount={!(side === 'receiver' ? showsTicket : showsReview)}
           live={live}
-          audienceNote={
-            stage === 'contract_paid'
-              ? t.payment.settlementProofPending
-              : stage === 'unresolved'
-                ? t.payment.status.unresolved.body
-                : undefined
+          {...(status === null ? {} : { status })}
+          // The body already says what Paid per contract means; only the unresolved case adds a note.
+          audienceNote={stage === 'unresolved' ? t.payment.status.unresolved.body : undefined}
+          proofAction={
+            ctaKinds.has('view_receipt') ? (
+              <ButtonLink href={receiptHref} variant="primary" size="lg" block>
+                <Icon name="shield" size={18} />
+                {side === 'receiver' ? t.commerce.phase7g.proofNext.receiverAction : t.commerce.phase7g.proofNext.payerAction}
+              </ButtonLink>
+            ) : undefined
           }
+          // The contract badge only adds information while money moves or needs attention.
           footer={
+            stage === 'awaiting' || stage === 'wallet' || stage === 'contract_paid' ? undefined : (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3">
               <span className="text-xs text-[var(--text-muted)]">{t.experience.progress.contractStatus}</span>
               <StatusBadge {...input} />
             </div>
+            )
           }
         />
       ) : (
@@ -480,8 +494,8 @@ function RequestView({
         />
       )}
 
-      {ctaKinds.has('view_receipt') && (
-        <ButtonLink href={receiptPath(request, attempts.map((a) => a.entry))} variant="primary" size="lg" block>
+      {ctaKinds.has('view_receipt') && stage !== 'contract_paid' && (
+        <ButtonLink href={receiptHref} variant="primary" size="lg" block>
           {t.common.viewReceipt}
         </ButtonLink>
       )}

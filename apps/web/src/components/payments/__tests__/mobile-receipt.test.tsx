@@ -162,7 +162,7 @@ describe('same-device mobile redirect → receipt → Verified Paid', () => {
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
     cleanup();
     renderWithChain(<PaymentScreen id={ID} />, { setup, adapter: recordingWallet(PAYER).adapter, storage });
-    expect(await screen.findByRole('link', { name: 'View receipt' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'Check receipt' })).toBeTruthy();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(push).toHaveBeenCalledTimes(1);
   });
