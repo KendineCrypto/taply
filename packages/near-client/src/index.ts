@@ -26,3 +26,5 @@ export type {
   ContractConfig, ContractConfigProblem, ContractErrorCode, CreateQuote, PaymentRequestRead,
   PreparedContractCall, TerminalFacts, TerminalFactsRead,
 } from "./contract.js";
+export { MERCHANT_CONTRACT_VERSION, createMerchantRequestReader, verifyMerchantObservation, matchMerchantSession } from "./merchant.js";
+export type { MerchantDeployment, MerchantSessionExpectation } from "./merchant.js";
