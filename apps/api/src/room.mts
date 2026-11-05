@@ -39,6 +39,11 @@ export function roomSnapshot(session: HandshakeSession, reviews: string[], room:
  * is a complete replacement snapshot. IDs are scoped to this session only. */
 export function roomEventStream(sync: RoomSync): string {
   const frame = (event: string, id: string, data: unknown) => `id: ${id}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  return 'retry: 6000\n\n' + (sync.reset ? '' : sync.events.map(e => frame('room.changed', e.eventId, e)).join(''))
+  if (sync.events.length > 64) throw Error('RATE_LIMITED');
+  const body = 'retry: 6000\n\n' + (sync.reset ? '' : sync.events.map(e => frame('room.changed', e.eventId, e)).join(''))
     + frame(sync.reset ? 'room.reset' : 'room.snapshot', sync.cursor, sync);
+  // Finite catch-up never retains unbounded subscriber buffers. This byte budget
+  // also fences future schema growth before a slow consumer receives a batch.
+  if (new TextEncoder().encode(body).byteLength > 256 * 1024) throw Error('RATE_LIMITED');
+  return body;
 }
