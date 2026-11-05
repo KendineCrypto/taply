@@ -49,6 +49,8 @@ hash plus `get_config.contractVersion == 0.5.0-merchant.1`, not metadata alone.
 
 Current cloud candidate build SHA-256:
 `6af31a17a3c425d9a825084e2961a4bf30e22b82dc30e6fce190890871845a5c`.
+Candidate size: 347,611 bytes; NEAR code hash:
+`8CVDZRmJh9fyVmjmT6xk1erDnG1HwVuzwbzmTmCtc84j`.
 This is an **unapproved candidate**, not deployed code. Reproduction is required
 on the review host. The pre-existing local default artifact in this cloud snapshot
 is also unapproved (SHA-256 `245068f8871d419971b598fd30e0346e935b173bdab9dd547124dc470455a12c`),
