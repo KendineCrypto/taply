@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { AccountIdSchema, BlockRefSchema, ContractRequestSchema, HashHexSchema, SessionBindingSchema,
-  calculateSessionCommitment, calculateTermsHash, comparisonCode,
-  type SessionBinding } from "@taply/shared";
+  ContractMethodArgs, IntentTermsSchema, PositiveU64Schema, calculateSessionCommitment, calculateTermsHash, comparisonCode,
+  type SessionBinding, type IntentTerms } from "@taply/shared";
 import { buildClient } from "./client.js";
 import { parseConfig, type Fetch } from "./rpc.js";
 import type { NearTestnetConfig, ReadResult } from "./types.js";
-import type { PaymentRequestRead } from "./contract.js";
+import { ContractConfigSchema, CreateQuoteSchema, contractConfigProblems, type CreateQuote, type PreparedContractCall, type PaymentRequestRead } from "./contract.js";
 import { HashSchema } from "./validation.js";
 
 export const MERCHANT_CONTRACT_VERSION = "0.5.0-merchant.1";
@@ -89,4 +89,53 @@ export function createMerchantRequestReader(config: NearTestnetConfig, fetcher: 
     const pinned = structuredClone(expected);
     return matchMerchantSession(await read(pinned.requestId), pinned);
   }, async readCanonicalRequest(id: string) { return (await read(id)).request; } });
+}
+
+/** Candidate-only configuration schema; the approved pilot schema stays strict
+ * at 0.4.0. Parsing config/quotes alone does not establish trusted chain reads. */
+export const MerchantContractConfigSchema = ContractConfigSchema.extend({ contractVersion: z.literal(MERCHANT_CONTRACT_VERSION) });
+export type MerchantContractConfig = z.infer<typeof MerchantContractConfigSchema>;
+function checkedMerchantConfig(input: MerchantContractConfig, d: MerchantDeployment): MerchantContractConfig {
+  const config = MerchantContractConfigSchema.parse(input);
+  const base = { ...config, contractVersion: "0.4.0" as const, capabilities: { ...config.capabilities, handshake: false } };
+  if (!config.capabilities.handshake || contractConfigProblems(base, d.contractId).length
+    || BigInt(config.gas.callback) < 15_000_000_000_000n) throw Error("INVALID_CANDIDATE_CONFIG");
+  return config;
+}
+
+/** Pure wallet call preparation. Caller must independently verify config/quote
+ * against the reviewed deployment first; this function never invokes a wallet. */
+export function prepareMerchantCreateRequest(input: { deployment: MerchantDeployment; config: MerchantContractConfig;
+  terms: IntentTerms; quote: CreateQuote; signerAccountId: string; observedAtNs: string }): PreparedContractCall {
+  const d = deployment(input.deployment), config = checkedMerchantConfig(input.config, d);
+  const t = IntentTermsSchema.parse(input.terms), q = CreateQuoteSchema.parse(input.quote);
+  const now = BigInt(PositiveU64Schema.parse(input.observedAtNs)), session = t.sessionBinding;
+  if (t.contractId !== d.contractId || t.network !== d.network || t.mode !== "instant" || t.cancelDurationNs !== null
+    || t.merchantAccountId !== t.creatorAccountId || input.signerAccountId !== t.creatorAccountId || !session
+    || BigInt(session.expiresAtNs) <= now || BigInt(session.expiresAtNs) - now > 120_000_000_000n
+    || BigInt(t.fundingExpiresAtNs) < BigInt(session.expiresAtNs) || BigInt(t.fundingExpiresAtNs) - now > 86_400_000_000_000n
+    || q.requestId !== t.id || q.termsHash !== calculateTermsHash(t) || q.quoteVersion !== config.quoteVersion
+    || BigInt(q.depositYocto) !== BigInt(q.storageBytes) * BigInt(config.storageByteCostYocto)
+    || BigInt(q.gas) < BigInt(config.gas.createRequest)) throw Error("MERCHANT_BINDING_INVALID");
+  return { receiverId: d.contractId, methodName: "create_request", gas: q.gas, depositYocto: q.depositYocto,
+    args: ContractMethodArgs.create_request.parse({ terms: t, quoteVersion: q.quoteVersion }) };
+}
+
+/** Explicit payer preparation from independently read and matched terms. It is
+ * still only a proposal: human review and wallet approval are always required. */
+export function prepareMerchantPayInstantNative(input: { deployment: MerchantDeployment; config: MerchantContractConfig;
+  canonical: ReturnType<typeof verifyMerchantObservation>; expected: MerchantSessionExpectation; signerAccountId: string;
+  nowMs?: number }): PreparedContractCall {
+  const d = deployment(input.deployment), config = checkedMerchantConfig(input.config, d);
+  const v = matchMerchantSession(input.canonical, input.expected), p = v.provenance;
+  if (p.network !== d.network || p.contractId !== d.contractId || p.codeHash !== d.codeHash) throw Error("MERCHANT_BINDING_INVALID");
+  // Revalidate freshness and immutable data in case caller retained/mutated a read.
+  const verified = verifyMerchantObservation({ error: null, observation: { source: "rpc", assurance: "verified_final", stale: false,
+    rpcAvailable: true, data: { id: input.expected.requestId, request: v.request }, observedBlock: p.observedBlock,
+    checkedAt: p.checkedAt } }, d, input.expected.requestId, input.nowMs ?? Date.now());
+  AccountIdSchema.parse(input.signerAccountId);
+  const t = verified.request.terms;
+  if (t.permittedPayerAccountId !== null && t.permittedPayerAccountId !== input.signerAccountId) throw Error("PAYER_MISMATCH");
+  return { receiverId: d.contractId, methodName: "pay_instant_native", gas: config.gas.payInstantNative,
+    depositYocto: t.amountBaseUnits, args: ContractMethodArgs.pay_instant_native.parse({ id: t.id, expectedTermsHash: verified.request.termsHash }) };
 }

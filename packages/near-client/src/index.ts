@@ -31,3 +31,5 @@ export type { MerchantDeployment, MerchantSessionExpectation } from "./merchant.
 export { signMessageCapability, prepareWalletAuthentication } from "./wallet-auth.js";
 export { applyRoomCatchUp, RoomCatchUpSchema } from "./room-sync.js";
 export type { RoomClientScope, RoomClientState } from "./room-sync.js";
+export { MerchantContractConfigSchema, prepareMerchantCreateRequest, prepareMerchantPayInstantNative } from "./merchant.js";
+export type { MerchantContractConfig } from "./merchant.js";

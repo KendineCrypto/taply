@@ -89,3 +89,24 @@ test('observation assurance, timestamp consistency, expiry and incomplete terms 
   assert.throws(() => verifyMerchantObservation(valid, deployment, record.terms.id, NOW + 120000));
   assert.throws(() => createMerchantRequestReader({ ...config, contract: { ...config.contract, accountId: 'taply-pay-pilot-1.testnet' } }));
 });
+
+test('candidate-only preparation binds exact storage, account, immutable hash and explicit payer without signing', async () => {
+  const { MerchantContractConfigSchema, ContractConfigSchema, prepareMerchantCreateRequest, prepareMerchantPayInstantNative } = await import('../dist/index.js');
+  const r = fixture(), t = transport(r);
+  const configValue = { schemaVersion: 'taply.contract-config.v1', contractVersion: '0.5.0-merchant.1', network: 'near-testnet', contractId: deployment.contractId,
+    intentVersion: 'taply.intent.v1', eventVersion: '0.4.0', capabilities: { instantNative: true, handshake: true, protectedPay: false, merchantProfiles: false, nep141: false, sponsoredGas: false },
+    quoteVersion: '1', storageByteCostYocto: '10000000000000000000', gas: { createRequest: '30000000000000', payInstantNative: '50000000000000', retryNativeTransfer: '50000000000000', cancelUnfunded: '15000000000000', callback: '15000000000000' },
+    storageRefundPolicy: 'PERMANENT_RECORD_NO_WITHDRAWAL', unknownCallbackPolicy: 'IN_FLIGHT_NO_RETRY_NO_ADMIN_OVERRIDE', testFaultBuild: false };
+  assert.equal(ContractConfigSchema.safeParse(configValue).success, false);
+  assert.equal(MerchantContractConfigSchema.safeParse(configValue).success, true);
+  const quote = { requestId: r.terms.id, termsHash: r.termsHash, quoteVersion: '1', gas: '30000000000000', storageBytes: '800', depositYocto: '8000000000000000000000' };
+  const input = { deployment, config: configValue, terms: r.terms, quote, signerAccountId: r.terms.creatorAccountId, observedAtNs: String(BigInt(NOW) * 1000000n) };
+  assert.equal(prepareMerchantCreateRequest(input).args.terms.sessionBinding.nonce, r.terms.sessionBinding.nonce);
+  for (const patch of [{ signerAccountId: 'eve.testnet' }, { quote: { ...quote, depositYocto: '1' } }, { config: { ...configValue, testFaultBuild: true } },
+    { config: { ...configValue, contractVersion: '0.4.0' } }, { terms: { ...r.terms, merchantAccountId: null, sessionBinding: null } }]) assert.throws(() => prepareMerchantCreateRequest({ ...input, ...patch }));
+  const canonical = await createMerchantRequestReader(config, t.fetch, () => NOW).readForSession(expectation(r));
+  const pay = { deployment, config: configValue, canonical, expected: expectation(r), signerAccountId: 'payer.testnet', nowMs: NOW };
+  assert.deepEqual(prepareMerchantPayInstantNative(pay), { receiverId: deployment.contractId, methodName: 'pay_instant_native', gas: '50000000000000', depositYocto: r.terms.amountBaseUnits, args: { id: r.terms.id, expectedTermsHash: r.termsHash } });
+  assert.throws(() => prepareMerchantPayInstantNative({ ...pay, nowMs: NOW + 120000 }));
+  assert.throws(() => prepareMerchantPayInstantNative({ ...pay, expected: { ...pay.expected, permittedPayerAccountId: 'eve.testnet' } }));
+});

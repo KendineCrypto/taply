@@ -659,3 +659,48 @@ fn candidate_keeps_ordinary_instant_requests_compatible() {
     );
     assert_eq!(c.get_config()["contractVersion"], "0.5.0-merchant.1");
 }
+
+#[cfg(feature = "merchant-bound-v1")]
+#[test]
+fn maximum_bound_terms_storage_gas_and_cancelled_sale_replay() {
+    let mut c = contract();
+    let owner = "a".repeat(64);
+    let mut t = terms(103);
+    t.creator_account_id = owner.parse().unwrap();
+    t.merchant_account_id = Some(t.creator_account_id.clone());
+    t.permitted_payer_account_id = Some("b".repeat(64).parse().unwrap());
+    t.amount_base_units = u128::MAX.to_string();
+    t.memo = "é".repeat(128);
+    t.funding_expires_at_ns = (NOW + 86_400_000_000_000).to_string();
+    t.id = t.request_id();
+    context(&owner, 0, NOW, vec![]);
+    let q = c.quote_create_request(t.clone());
+    let bond = decimal128(q["depositYocto"].as_str().unwrap());
+    let mut b = VMContextBuilder::new();
+    b.current_account_id("payments.fixture.testnet".parse().unwrap())
+        .predecessor_account_id(owner.parse().unwrap())
+        .signer_account_id(owner.parse().unwrap())
+        .block_timestamp(NOW)
+        .account_balance(NearToken::from_near(1000))
+        .attached_deposit(NearToken::from_yoctonear(bond))
+        .prepaid_gas(Gas::from_tgas(29));
+    testing_env!(b.build());
+    rejects(|| {
+        c.create_request(t.clone(), "1".into());
+    });
+    assert!(read(&t.id).is_none());
+    context(&owner, bond, NOW, vec![]);
+    let before = env::storage_usage();
+    c.create_request(t.clone(), "1".into());
+    assert_eq!(
+        env::storage_usage() - before,
+        decimal64(q["storageBytes"].as_str().unwrap())
+    );
+    context(&owner, 1, NOW + 1, vec![]);
+    c.cancel_unfunded(t.id.clone(), t.terms_hash());
+    t.creation_nonce = "c".repeat(64);
+    t.id = t.request_id();
+    rejects(|| {
+        c.quote_create_request(t);
+    });
+}
