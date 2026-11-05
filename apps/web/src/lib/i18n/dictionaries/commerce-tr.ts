@@ -1,3 +1,4 @@
+import { roomTr } from './room-copy';
 import type { CommerceCopy } from '../commerce-types';
 
 export const commerceTr: CommerceCopy = {
@@ -272,5 +273,6 @@ export const commerceTr: CommerceCopy = {
       unboundShort: 'Her satış bu hesaba yapılan sıradan bir Instant ödemedir. Müşteriler doğrulanmış bir işletme adı değil, hesap kimliğinizi görür.',
     },
     checkoutNote: 'Bu sayfa yalnızca bir NEAR Testnet hesabını gösterir. Dükkân hakkında hiçbir şey kanıtlamaz, hiçbir şey imzalamaz ve satış listelemez. Hesabı satıcıyla karşılaştırın, ardından satış QR kodunu okutun.',
+    room: roomTr,
   },
 };

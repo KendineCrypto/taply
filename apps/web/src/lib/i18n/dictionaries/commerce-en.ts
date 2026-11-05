@@ -1,3 +1,4 @@
+import { roomEn } from './room-copy';
 import type { CommerceCopy } from '../commerce-types';
 
 export const commerceEn: CommerceCopy = {
@@ -272,5 +273,6 @@ export const commerceEn: CommerceCopy = {
       unboundShort: 'Each sale is an ordinary Instant payment to this account. Customers see your account ID, not a verified business name.',
     },
     checkoutNote: 'This page only names a NEAR Testnet account. It proves nothing about the shop, signs nothing and lists no sales. Compare the account with the merchant, then scan the sale QR.',
+    room: roomEn,
   },
 };
