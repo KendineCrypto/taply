@@ -1,0 +1,459 @@
+{
+  "base": "http://127.0.0.1:3207",
+  "configuredRpcHost": "test.rpc.fastnear.com",
+  "forwardedToArchival": [
+    "block",
+    "chunk",
+    "EXPERIMENTAL_tx_status",
+    "query:view_account:",
+    "query:view_access_key_list:"
+  ],
+  "results": [
+    {
+      "name": "merchant-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "customer-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "merchant-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "customer-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "merchant-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "customer-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "merchant-paid-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "customer-paid-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "merchant-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "customer-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-merchant-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-customer-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-merchant-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-customer-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-merchant-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-customer-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-merchant-paid-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-customer-paid-768",
+      "error": "TimeoutError: locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.journey-hero').first() to be visible\u001b[22m\n"
+    },
+    {
+      "name": "tr-merchant-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "tr-customer-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "merchant-locator-en-390",
+      "error": "TimeoutError: locator.waitFor: Timeout 180000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('verified-evidence') to be visible\u001b[22m\n",
+      "sawLocator": false
+    },
+    {
+      "name": "tr-merchant-receipt-verified-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified"
+    },
+    {
+      "name": "merchant-locator-tr-360",
+      "sawLocator": true,
+      "locatedNote": 1,
+      "seconds": 76
+    },
+    {
+      "name": "merchant-receipt-verified-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified"
+    },
+    {
+      "name": "merchant-locator-en-1280",
+      "sawLocator": true,
+      "locatedNote": 1,
+      "seconds": 11
+    },
+    {
+      "name": "customer-receipt-verified-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified"
+    },
+    {
+      "name": "two-phone-consistency",
+      "merchant": {
+        "code": "Sale code: K E D 5 E 9",
+        "account": "taplytest.testnet",
+        "amount": "0.1NEAR0.1 NEAR. Exact amount in base units: 100000000000000000000000",
+        "stage": "contract_paid",
+        "status": "paid_per_contract"
+      },
+      "customer": {
+        "code": "Sale code: K E D 5 E 9",
+        "account": "taplytest.testnet",
+        "amount": "0.1NEAR0.1 NEAR. Exact amount in base units: 100000000000000000000000",
+        "stage": "contract_paid",
+        "status": "paid_per_contract"
+      },
+      "consistent": true
+    },
+    {
+      "name": "merchant-home-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null
+    },
+    {
+      "name": "checkout-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null
+    },
+    {
+      "name": "stranger-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null
+    },
+    {
+      "name": "demo-room-count-360",
+      "count": 1
+    },
+    {
+      "name": "demo-handshake-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 3,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null
+    },
+    {
+      "name": "demo-room-count-1280",
+      "count": 1
+    },
+    {
+      "name": "demo-handshake-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 3,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null
+    },
+    {
+      "name": "synthetic-rpc-down-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 2,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null
+    },
+    {
+      "name": "synthetic-slow-rpc-loading-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null
+    },
+    {
+      "name": "synthetic-slow-rpc-recovers",
+      "ok": true
+    },
+    {
+      "name": "keyboard-primary-action",
+      "reached": {
+        "tabs": 4,
+        "ring": true
+      },
+      "order": [
+        "A:Skip to main content",
+        "A:",
+        "BUTTON:TA",
+        "A:Verify receipt"
+      ]
+    },
+    {
+      "name": "reduced-motion",
+      "hero": "none",
+      "heroGlow": "none",
+      "status": "none",
+      "connect": "none",
+      "settle": "none",
+      "ripple": "absent",
+      "still": true
+    }
+  ],
+  "failures": [
+    {
+      "name": "tr-customer-paid-768",
+      "error": "TimeoutError: locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.journey-hero').first() to be visible\u001b[22m\n"
+    },
+    {
+      "name": "merchant-locator-en-390",
+      "error": "TimeoutError: locator.waitFor: Timeout 180000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('verified-evidence') to be visible\u001b[22m\n",
+      "sawLocator": false
+    }
+  ],
+  "rpcMethods": [
+    "status",
+    "block",
+    "query:view_account:",
+    "query:call_function:get_config",
+    "query:call_function:get_request",
+    "query:call_function:get_receipt",
+    "chunk",
+    "EXPERIMENTAL_tx_status",
+    "query:view_access_key_list:"
+  ],
+  "broadcastAttempted": [],
+  "pageErrors": []
+}
