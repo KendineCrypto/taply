@@ -14,6 +14,8 @@ import { buildLocatorChain, fakeLocatorRpc, payCall } from '@/lib/verify/__tests
  * decides; a located hash is only a candidate. Synthetic chains only.
  */
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 const paid = FIXTURES.paidRestricted;
 
 afterEach(() => {
@@ -104,5 +106,24 @@ describe('merchant-side Verified Paid without the customer link', () => {
     expect(await screen.findByText(/Paid per contract/, {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.queryByTestId('locator-progress')).toBeNull();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
+  });
+});
+
+describe('the same paid sale under different connected accounts (account switching)', () => {
+  it('receiver: Verify receipt; payer and a stranger: Check receipt; nobody sees a verified status', async () => {
+    const { PaymentScreen } = await import('../PaymentScreen');
+    for (const [account, label, side] of [
+      [paid.recipientAccountId, 'Verify receipt', 'receiver'],
+      [paid.payerAccountId ?? '', 'Check receipt', 'payer'],
+      ['stranger.testnet', 'Check receipt', 'payer'],
+    ] as const) {
+      const { setup } = merchantSetup(paid, { locator: false });
+      renderWithChain(<PaymentScreen id={paid.terms.id} />, { setup, adapter: recordingWallet(account).adapter, storage: memoryStorage() });
+      expect(await screen.findByRole('link', { name: label }, { timeout: 5000 })).toBeTruthy();
+      const hero = document.querySelector('.journey-hero');
+      expect(hero?.getAttribute('data-side')).toBe(side);
+      expect(screen.getByTestId('journey-status').getAttribute('data-status')).toBe('paid_per_contract');
+      cleanup();
+    }
   });
 });
