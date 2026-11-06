@@ -23,7 +23,11 @@ export const IN_FLIGHT_INCIDENT_AFTER_NS = 300_000_000_000n; // 5 minutes
 
 export type PaymentView =
   | { readonly kind: 'unavailable'; readonly error: RpcErrorCode | null }
-  | { readonly kind: 'not_found'; readonly observedAtNs: string }
+  /**
+   * `verifiedFinal` is present only when the absence was observed at a verified
+   * final RPC block that is neither stale nor degraded. Absent means untrusted.
+   */
+  | { readonly kind: 'not_found'; readonly observedAtNs: string; readonly verifiedFinal?: true }
   | { readonly kind: 'wrong_contract' }
   | { readonly kind: 'inconsistent' }
   | {
@@ -58,7 +62,12 @@ export function buildPaymentView(input: {
   const block = observation.observedBlock;
   const request = observation.data.request;
   if (block === null) return { kind: 'unavailable', error: null };
-  if (request === null) return { kind: 'not_found', observedAtNs: block.timestampNs };
+  if (request === null) {
+    const verifiedFinal = observation.source === 'rpc' && observation.assurance === 'verified_final' && !observation.stale && observation.rpcAvailable;
+    return verifiedFinal
+      ? { kind: 'not_found', observedAtNs: block.timestampNs, verifiedFinal: true }
+      : { kind: 'not_found', observedAtNs: block.timestampNs };
+  }
   if (request.terms.contractId !== expectedContractId) return { kind: 'wrong_contract' };
 
   const now = BigInt(block.timestampNs);

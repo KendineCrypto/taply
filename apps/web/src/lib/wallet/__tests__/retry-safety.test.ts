@@ -147,3 +147,27 @@ it.each([new WalletError('cancelled'), new WalletError('no_account'), { kind: 'c
   expect(result).toEqual({ kind: 'unknown' });
   expect(isBlocking(store.entries()[0]!)).toBe(true);
 });
+it('a declined creation blocks until a verified final read after its expiry finds nothing, then a new sale is allowed', async () => {
+  const { reconcile, dateToNs } = await import('@/lib/payments/submit');
+  const { FIXTURES } = await import('@/test/chain');
+  const terms = FIXTURES.open.terms;
+  const expiry = BigInt(terms.fundingExpiresAtNs);
+  const storage = memory(), lock = inProcessJournalLock();
+  const store = new SubmissionJournal(storage, () => new Date(Number((expiry - 600_000_000_000n) / 1_000_000n)), lock);
+  sdk.send.mockRejectedValue(new Error('User rejected'));
+  const result = await submitCall({ journal: store, requestId: terms.id, termsHash: HASH, signerAccountId: 'payer.testnet', terms,
+    call: { receiverId: 'pay.testnet', methodName: 'create_request', args: {}, gas: '1', depositYocto: '1' },
+    signAndSend: call => adapter.signAndSendTransaction('payer.testnet', call) });
+  expect(result).toEqual({ kind: 'unknown' });
+  const entry = store.entries()[0]!;
+  // Account-wide creation gate: a different new sale is blocked too.
+  expect((await submit(store, 'create_request', 'c'.repeat(64))).kind).toBe('blocked');
+  const startedNs = dateToNs(entry.startedAt);
+  expect(reconcile(entry, { kind: 'not_found', observedAtNs: (expiry - 1n).toString(), verifiedFinal: true }, startedNs)).toBe('pending');
+  expect(reconcile(entry, { kind: 'not_found', observedAtNs: expiry.toString() }, startedNs)).toBe('pending');
+  expect(reconcile(entry, { kind: 'not_found', observedAtNs: expiry.toString(), verifiedFinal: true }, startedNs)).toBe('resolved');
+  await store.update(entry, { phase: 'RESOLVED' });
+  sdk.send.mockResolvedValue({ transaction: { hash: TX } });
+  expect(await submit(journal(storage, lock), 'create_request', 'c'.repeat(64))).toEqual({ kind: 'submitted', transactionHash: TX });
+  expect(sdk.send).toHaveBeenCalledTimes(2);
+});

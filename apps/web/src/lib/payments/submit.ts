@@ -119,6 +119,13 @@ export function reconcile(entry: JournalEntry, view: PaymentView, startedAtNs: b
 
   if (entry.method === 'create_request') {
     if (view.kind === 'ok') return 'resolved';
+    // The contract refuses a creation at or after its funding expiry
+    // (IntentTerms::validate requires expiry > block time). A verified final
+    // read at/after that expiry that still finds nothing proves this attempt
+    // can never take effect, e.g. a creation the merchant declined in the wallet.
+    const terms = entry.terms;
+    if (view.verifiedFinal === true && terms !== null && terms.id === entry.requestId &&
+      observedAtNs >= BigInt(terms.fundingExpiresAtNs)) return 'resolved';
     return 'pending';
   }
 

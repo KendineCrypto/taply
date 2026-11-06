@@ -222,6 +222,32 @@ describe('journal and submission', () => {
     expect(reconcile(entry, view, BigInt(Date.parse(entry.startedAt)) * 1_000_000n)).toBe('pending');
   });
 
+  it('an unknown creation is explained only by a verified final absence at/after its expiry (F-01)', () => {
+    const terms = open.terms;
+    const expiry = BigInt(terms.fundingExpiresAtNs);
+    const started = new Date(Number((expiry - 600_000_000_000n) / 1_000_000n)).toISOString();
+    const entry = { ...base, method: 'create_request' as const, requestId: terms.id, terms, phase: 'OUTCOME_UNKNOWN' as const,
+      transactionHash: null, startedAt: started, updatedAt: started };
+    const startedNs = BigInt(Date.parse(entry.startedAt)) * 1_000_000n;
+    const absent = (ns: bigint, overrides: Partial<ReadResult<PaymentRequestRead>['observation']> = {}) =>
+      buildPaymentView({ read: read(null, ns.toString(), overrides), expectedContractId: terms.contractId, accountId: null });
+    // Before expiry the creation could still land.
+    expect(reconcile(entry, absent(expiry - 1n), startedNs)).toBe('pending');
+    // At/after expiry the contract refuses it (INVALID_FUNDING_EXPIRY): provably no effect.
+    expect(reconcile(entry, absent(expiry), startedNs)).toBe('resolved');
+    expect(reconcile(entry, absent(expiry + 1n), startedNs)).toBe('resolved');
+    // Degraded or unmarked absence explains nothing.
+    for (const overrides of [{ stale: true }, { rpcAvailable: false }, { assurance: 'pending_finality' as const }]) {
+      expect(reconcile(entry, absent(expiry, overrides), startedNs)).toBe('pending');
+    }
+    expect(reconcile(entry, { kind: 'not_found', observedAtNs: expiry.toString() }, startedNs)).toBe('pending');
+    // Without the signed terms, or terms for another id, the expiry is unknown.
+    expect(reconcile({ ...entry, terms: null }, absent(expiry), startedNs)).toBe('pending');
+    expect(reconcile({ ...entry, requestId: 'cd'.repeat(32) }, absent(expiry), startedNs)).toBe('pending');
+    // Payments are unchanged: absence never explains a funding attempt.
+    expect(reconcile({ ...entry, method: 'pay_instant_native' }, absent(expiry), startedNs)).toBe('pending');
+  });
+
   it('a finalized observation older than the signing attempt cannot resolve it', () => {
     const entry = { ...base, method: 'create_request' as const, phase: 'OUTCOME_UNKNOWN' as const,
       transactionHash: null, startedAt: '2026-11-02T00:00:00.000Z', updatedAt: '2026-11-02T00:00:00.000Z' };
