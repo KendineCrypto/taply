@@ -1,0 +1,56 @@
+# LOCAL PREPARATION ONLY: do not push without explicit execution authorization.
+# One-time branch update from the reviewed diagnostic commit; never main or a PR event.
+name: UNAPPROVED G1 reproducibility diagnostic
+on:
+  push:
+    branches:
+      - feature/g1-wasm-repro
+    paths:
+      - .github/workflows/g1-wasm-repro.yml
+      - contracts/payments/diagnostics/rebuild.mjs
+      - contracts/payments/diagnostics/measure.mjs
+      - contracts/payments/diagnostics/measure.test.mjs
+permissions:
+  contents: read
+jobs:
+  compare:
+    if: >-
+      github.repository == 'KendineCrypto/taply' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/feature/g1-wasm-repro' &&
+      github.event.before == 'bd8a40b6dcd9864dc5bd61f0ac0d6e3337b22845' &&
+      !github.event.deleted && !github.event.forced
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      # Official release ubuntu24/20261101.360, observed 2026-11-06.
+      # A different assigned image MUST fail, never silently update this value.
+      EXPECTED_IMAGE_VERSION: '20261101.360.1'
+    steps:
+      - name: Enforce reviewed runner image before setup
+        shell: bash
+        run: |
+          test -n "$EXPECTED_IMAGE_VERSION"
+          test "${ImageVersion:-}" = "$EXPECTED_IMAGE_VERSION"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: harness
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.22.2'
+      - name: Install exact Rust
+        shell: bash
+        run: rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
+      - name: Sequential clean paired builds on this single runner
+        working-directory: harness
+        run: node contracts/payments/diagnostics/rebuild.mjs
+      - name: Upload UNAPPROVED evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: UNAPPROVED-g1-repro-${{ github.run_id }}
+          path: UNAPPROVED-diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
