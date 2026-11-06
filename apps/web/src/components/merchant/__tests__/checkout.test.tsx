@@ -24,8 +24,8 @@ describe('customer checkout (discovery)', () => {
     const { signed, chain } = renderCheckout('shop.testnet');
     expect(await screen.findByText('Waiting for a sale')).toBeTruthy();
     expect(screen.getAllByText('shop.testnet').length).toBeGreaterThan(0);
-    expect(screen.getByText('No verified name. Only the account ID is shown.')).toBeTruthy();
-    expect(screen.getByText('What this page proves')).toBeTruthy();
+    expect(screen.getByText('Business identity not verified.')).toBeTruthy();
+    expect(screen.getByText('Check the account')).toBeTruthy();
     expect(screen.queryByText(/NEAR$/)).toBeNull(); // no amount shown
     expect(screen.queryByText(/Verified|Paid/)).toBeNull();
     expect(screen.queryByText(/merchant verified/i)).toBeNull();

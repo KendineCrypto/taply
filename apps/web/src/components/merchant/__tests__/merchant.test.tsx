@@ -242,9 +242,9 @@ describe('discovery QR', () => {
     const chain = installChain({ contractId: CONTRACT });
     const { adapter } = recordingWallet(MERCHANT);
     renderWithChain(<DiscoveryQr accountId={MERCHANT} />, { setup: readySetup(chain, true), adapter });
-    const qr = await screen.findByRole('img', { name: /Merchant discovery QR/ });
-    expect(qr.getAttribute('aria-label')).toBe('Merchant discovery QR: https://taply.app/checkout/merchant.testnet');
-    expect(screen.getAllByText('Discovery only, not a payment').length).toBeGreaterThan(0);
+    const qr = await screen.findByRole('img', { name: /Store QR/ });
+    expect(qr.getAttribute('aria-label')).toBe('Store QR: https://taply.app/checkout/merchant.testnet');
+    expect(screen.getAllByText('Store page · not a payment').length).toBeGreaterThan(0);
     expect(screen.getByText('Profile not verified')).toBeTruthy();
   });
 
@@ -253,7 +253,7 @@ describe('discovery QR', () => {
     const { adapter } = recordingWallet(MERCHANT);
     renderWithChain(<DiscoveryQr accountId={MERCHANT} />, { setup: readySetup(chain, true), adapter });
     expect(await screen.findByText('No shareable link from this address')).toBeTruthy();
-    expect(screen.queryByRole('img', { name: /Merchant discovery QR/ })).toBeNull();
+    expect(screen.queryByRole('img', { name: /Store QR/ })).toBeNull();
   });
 });
 

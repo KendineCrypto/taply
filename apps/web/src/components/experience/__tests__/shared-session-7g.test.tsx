@@ -135,3 +135,24 @@ describe('status chip honesty', () => {
     }
   });
 });
+
+
+describe('Phase 7I progressive disclosure', () => {
+  it.each(['en', 'tr'] as const)('%s: keeps action and unverified warning outside collapsed details', (locale) => {
+    render(view({ stage: 'contract_paid', proofAction: <button>Verify</button> }, locale));
+    const details = screen.getByTestId('journey-details');
+    expect(details.hasAttribute('open')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Verify' }).closest('details')).toBeNull();
+    expect(document.querySelector('#journey-title')?.closest('details')).toBeNull();
+    expect(document.querySelector('#journey-title')?.parentElement?.textContent).toContain(
+      locale === 'en' ? 'not independently verified yet' : 'henüz bağımsız doğrulanmadı',
+    );
+    expect(details.querySelector('summary')?.className).toContain('min-h-[44px]');
+    expect(details.querySelector('ol')).not.toBeNull();
+  });
+
+  it('keeps the no-repeat-payment warning outside Details', () => {
+    render(view({ stage: 'transfer', side: 'payer' }));
+    expect(screen.getByText('Not final yet. Do not pay again.').closest('details')).toBeNull();
+  });
+});

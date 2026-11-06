@@ -93,7 +93,7 @@ describe('/send', () => {
     expect(screen.getByText('bob.testnet')).toBeTruthy();
     const confirm = screen.getByRole('button', { name: 'Confirm and send' }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
-    expect(screen.getByText(/Confirming is unavailable/)).toBeTruthy();
+    expect(screen.getByText(/Sending is disabled/)).toBeTruthy();
     fireEvent.click(confirm);
     expect(signed).toEqual([]);
 

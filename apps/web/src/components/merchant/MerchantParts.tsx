@@ -29,10 +29,6 @@ export function ReceivingAccountCard({ accountId, children }: { readonly account
           <AccountId accountId={accountId} className="mt-1 block break-all text-[1.0625rem] font-semibold" />
         </div>
       </div>
-      <p className="mt-4 flex items-start gap-2 text-sm leading-snug text-[var(--text-secondary)]">
-        <Icon name="shield" size={16} className="mt-0.5 shrink-0 text-[var(--taply-lime)]" />
-        {m.receivingNote}
-      </p>
       {children}
     </section>
   );

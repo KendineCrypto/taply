@@ -51,7 +51,7 @@ describe('merchant phone (receiver)', () => {
     const section = await hero();
     expect(within(section).getByText('Your sale')).toBeTruthy();
     expect(within(section).getByRole('heading', { name: 'Ready for the customer' })).toBeTruthy();
-    expect(within(section).getByText('Live')).toBeTruthy();
+    expect(within(section).getByText('Auto-updating')).toBeTruthy();
     expect(within(section).getByText('No payment on chain yet')).toBeTruthy();
     expect(within(section).getByText(/Live customer presence needs Handshake/)).toBeTruthy();
     // The QR ticket carries the amount and the code; the hero does not repeat them.
@@ -96,8 +96,8 @@ describe('customer phone (payer)', () => {
     renderWithChain(<PaymentScreen id={ID} />, { setup: readySetup(chain, true), adapter });
 
     const section = await hero();
-    expect(within(section).getByText('Live checkout')).toBeTruthy();
-    expect(within(section).getByRole('heading', { name: 'Merchant is ready' })).toBeTruthy();
+    expect(within(section).getByText('Checkout')).toBeTruthy();
+    expect(within(section).getByRole('heading', { name: 'Ready to pay' })).toBeTruthy();
     expect(within(section).getByText('Signed on chain by the receiving account')).toBeTruthy();
     expect(within(section).getByTestId('sale-code').textContent).toContain(CODE);
     expect(within(section).getByText(MERCHANT)).toBeTruthy();
@@ -114,7 +114,7 @@ describe('customer phone (payer)', () => {
     const section = await hero();
     expect(within(section).getByText('Payment request')).toBeTruthy();
     expect(within(section).getByRole('heading', { name: 'Ready to pay' })).toBeTruthy();
-    expect(within(section).queryByText('Live checkout')).toBeNull();
+    expect(within(section).queryByText('Checkout')).toBeNull();
   });
 
   it('the payer side does not live-poll an open request', async () => {

@@ -101,8 +101,8 @@ describe('shared session hero', () => {
 
   it('Turkish copy', () => {
     renderSession({ side: 'payer', context: 'checkout' }, 'tr');
-    expect(screen.getByText('Canlı ödeme')).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 2, name: 'Satıcı hazır' })).toBeTruthy();
+    expect(screen.getByText('Ödeme')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Ödemeye hazır' })).toBeTruthy();
     expect(screen.getByText('Satış kodu')).toBeTruthy();
   });
 });

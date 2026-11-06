@@ -596,7 +596,6 @@ function PayReview({
   return (
     <Card as="section" className="journey-amount-glow flex flex-col gap-4 p-5">
       <h2 className="text-lg font-semibold">{t.payment.review.title}</h2>
-      <p className="text-sm text-[var(--text-secondary)]">{t.payment.review.intro}</p>
       {/* Phase 7G: one soft sweep across the exact terms when the payer confirms them. */}
       <div className="journey-terms rounded-[var(--radius-control)]" data-confirmed={confirmed || undefined} data-testid="reviewed-terms">
       <ReviewSummary
