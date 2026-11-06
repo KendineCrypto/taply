@@ -45,6 +45,8 @@ export function publicError(error: NearClientError, providerId: string): RpcRead
   return error.contractCode === null ? base : { ...base, contractCode: error.contractCode };
 }
 type Method = "status" | "block" | "query" | "tx_status" | "EXPERIMENTAL_tx_status" | "EXPERIMENTAL_protocol_config" | "gas_price";
+// Only parse bounded JSON-RPC errors on these HTTP statuses; never accept their results.
+const ERROR_BODY_STATUSES = new Set([400, 404, 408, 422, 500]);
 const EnvelopeSchema = z.object({ jsonrpc: z.literal("2.0"), id: z.string(), result: z.unknown().optional(), error: z.unknown().optional() });
 
 export function createRpc(config: Config, fetcher: Fetch) {
@@ -62,9 +64,10 @@ export function createRpc(config: Config, fetcher: Fetch) {
         body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
         signal: controller.signal, cache: "no-store", credentials: "omit", redirect: "error",
       });
-      if (!response.ok) {
+      const httpError = response.status === 408 ? "RPC_TIMEOUT" : response.status === 429 ? "RPC_RATE_LIMITED" : "RPC_HTTP_ERROR";
+      if (!response.ok && !ERROR_BODY_STATUSES.has(response.status)) {
         await response.body?.cancel();
-        throw new NearClientError(response.status === 429 ? "RPC_RATE_LIMITED" : "RPC_HTTP_ERROR", false);
+        throw new NearClientError(httpError, false);
       }
       const length = response.headers.get("content-length");
       if (length !== null && /^\d+$/.test(length) && BigInt(length) > BigInt(config.maxResponseBytes)) {
@@ -97,24 +100,32 @@ export function createRpc(config: Config, fetcher: Fetch) {
       }
       let envelope: z.infer<typeof EnvelopeSchema>;
       try { envelope = EnvelopeSchema.parse(parseRpcJson(text)); }
-      catch { throw new NearClientError("RPC_MALFORMED_RESPONSE"); }
+      catch { throw new NearClientError(response.ok ? "RPC_MALFORMED_RESPONSE" : httpError, response.ok); }
       if (envelope.id !== id || (Object.hasOwn(envelope, "result") === Object.hasOwn(envelope, "error")))
-        throw new NearClientError("RPC_MALFORMED_RESPONSE");
+        throw new NearClientError(response.ok ? "RPC_MALFORMED_RESPONSE" : httpError, response.ok);
+      if (!response.ok && !Object.hasOwn(envelope, "error")) throw new NearClientError(httpError, false);
       if (Object.hasOwn(envelope, "error")) {
         const error = z.object({ code: z.unknown(), name: z.string().optional(),
           cause: z.object({ name: z.string() }).optional(),
         }).safeParse(envelope.error);
-        if (!error.success) throw new NearClientError("RPC_MALFORMED_RESPONSE");
+        if (!error.success) throw new NearClientError(response.ok ? "RPC_MALFORMED_RESPONSE" : httpError, response.ok);
         const { name, cause, code } = error.data;
         const codes: Record<string, RpcErrorCode> = {
           UNKNOWN_ACCOUNT: "ACCOUNT_NOT_FOUND", UNKNOWN_TRANSACTION: "TRANSACTION_UNKNOWN",
+          UNKNOWN_BLOCK: "BLOCK_UNAVAILABLE", GARBAGE_COLLECTED_BLOCK: "BLOCK_UNAVAILABLE", UNKNOWN_CHUNK: "BLOCK_UNAVAILABLE",
           TIMEOUT_ERROR: "RPC_TIMEOUT", DOES_NOT_TRACK_SHARD: "SHARD_UNAVAILABLE",
           NO_SYNCED_BLOCKS: "NODE_SYNCING", CONTRACT_EXECUTION_ERROR: "CONTRACT_VIEW_REJECTED",
         };
-        if (!isLosslessNumber(code) || !/^-?\d+$/.test(code.toString())) throw new NearClientError("RPC_MALFORMED_RESPONSE");
+        if (!isLosslessNumber(code) || !/^-?\d+$/.test(code.toString())) throw new NearClientError(response.ok ? "RPC_MALFORMED_RESPONSE" : httpError, response.ok);
         const numericCode = code.toString();
-        if (numericCode === "-32601") throw new NearClientError("RPC_METHOD_UNAVAILABLE");
+        if (response.ok && numericCode === "-32601") throw new NearClientError("RPC_METHOD_UNAVAILABLE");
         const errorName = cause?.name ?? name ?? "";
+        if (!response.ok) {
+          // A timeout does not prove pruning. Only explicit history/transaction errors
+          // refine a transport failure; no contract or method fallback on HTTP errors.
+          const allowed = ["UNKNOWN_TRANSACTION", "UNKNOWN_BLOCK", "GARBAGE_COLLECTED_BLOCK", "UNKNOWN_CHUNK", "TIMEOUT_ERROR"];
+          throw new NearClientError(allowed.includes(errorName) ? codes[errorName]! : httpError, false);
+        }
         const mapped = new NearClientError(Object.hasOwn(codes, errorName) ? codes[errorName]! : "RPC_ERROR");
         // A view panic: keep only a known ABI code token, never the provider's prose.
         if (mapped.code === "CONTRACT_VIEW_REJECTED") mapped.contractCode = extractContractErrorCode(losslessStringify(envelope.error));
