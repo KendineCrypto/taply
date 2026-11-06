@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { HandshakeSessionSchema, parseStrictJson } from '@taply/shared';
+import { applyRoomCatchUp, RoomCatchUpSchema } from '@taply/near-client';
+import type { RoomClientState } from '@taply/near-client';
+import { parseStrictJson } from '@taply/shared';
 import type { FeatureFlag, FlagState } from '@/lib/flags/features';
 import type { HandshakeSession, IntentTerms } from '@/lib/protocol';
 import { presentHandshake } from './present';
@@ -36,66 +38,41 @@ export const ROOM_VERSION = 'taply.room.v1' as const;
 export const ROOM_EVENT_VERSION = 'taply.room-event.v1' as const;
 export const ROOM_ADAPTER_VERSION = 'taply.room-adapter.v1' as const;
 
-const Cursor = z.string().regex(/^(0|[1-9][0-9]*)$/).max(20);
-const TxHash = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
-const PresenceStateSchema = z.enum(['joined', 'active', 'disconnected', 'resumed']);
+/**
+ * Phase 7H: the wire SHAPE is the near-client `RoomCatchUpSchema` itself
+ * (16-digit cursors, ISO `emittedAt`, lowercase v4 session IDs, strict
+ * objects), so the two packages cannot drift again. This file only ADDS
+ * cross-field rules on top; it never relaxes the core shape.
+ */
+export const RoomSnapshotSchema = RoomCatchUpSchema.shape.room;
+type CoreSnapshot = z.infer<typeof RoomSnapshotSchema>;
 
-const PayerProgressSchema = z
-  .strictObject({
-    phase: z.enum(['AWAITING_WALLET', 'SUBMITTED', 'OUTCOME_UNKNOWN', 'USER_REJECTED']),
-    transactionHash: TxHash.nullable(),
-  })
-  .superRefine((p, ctx) => {
-    if (p.phase === 'SUBMITTED' && p.transactionHash === null) ctx.addIssue({ code: 'custom', message: 'SUBMITTED needs a hash' });
-    if ((p.phase === 'AWAITING_WALLET' || p.phase === 'USER_REJECTED') && p.transactionHash !== null) {
-      ctx.addIssue({ code: 'custom', message: 'No hash before submission' });
-    }
-  });
+function progressIssue(p: CoreSnapshot['payerProgress']): string | null {
+  if (p === null) return null;
+  if (p.phase === 'SUBMITTED' && p.transactionHash === null) return 'SUBMITTED needs a hash';
+  if ((p.phase === 'AWAITING_WALLET' || p.phase === 'USER_REJECTED') && p.transactionHash !== null) return 'No hash before submission';
+  return null;
+}
 
-export const RoomSnapshotSchema = z.strictObject({
-  schemaVersion: z.literal(ROOM_VERSION),
-  authority: z.literal('coordination_only'),
-  session: HandshakeSessionSchema,
-  phase: z.enum(['WAITING_FOR_BIND', 'WAITING_FOR_CUSTOMER', 'WAITING_FOR_REVIEW', 'WAITING_FOR_WALLET', 'PENDING_CHAIN', 'BLOCKED', 'EXPIRED', 'CLOSED']),
-  reviews: z.strictObject({ merchant: z.boolean(), payer: z.boolean() }),
-  presence: z.strictObject({ merchant: PresenceStateSchema, payer: PresenceStateSchema.nullable() }),
-  payerProgress: PayerProgressSchema.nullable(),
+export const RoomSyncSchema = RoomCatchUpSchema.superRefine((sync, ctx) => {
+  const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
+  if (sync.room.session.id !== sync.sessionId) issue('room belongs to another session');
+  const progress = progressIssue(sync.room.payerProgress);
+  if (progress !== null) issue(progress);
+  let last = 0n;
+  for (const event of sync.events) {
+    if (event.sessionId !== sync.sessionId || event.room.session.id !== sync.sessionId) issue('event belongs to another session');
+    const eventProgress = progressIssue(event.room.payerProgress);
+    if (eventProgress !== null) issue(eventProgress);
+    const id = BigInt(event.eventId);
+    if (id <= last) issue('event IDs must increase');
+    last = id;
+  }
+  if (last > BigInt(sync.cursor)) issue('event beyond the cursor');
+  if (sync.reset && sync.events.length > 0) issue('a reset carries no partial events');
 });
 
-const RoomEventSchema = z.strictObject({
-  schemaVersion: z.literal(ROOM_EVENT_VERSION),
-  eventId: Cursor,
-  sessionId: z.uuid(),
-  emittedAt: z.string().max(64),
-  type: z.enum(['session.created', 'session.bound', 'session.joined', 'session.reviewed', 'session.presence', 'session.expired', 'session.closed', 'payer.progress']),
-  room: RoomSnapshotSchema,
-});
-
-export const RoomSyncSchema = z
-  .strictObject({
-    schemaVersion: z.literal(ROOM_SYNC_VERSION),
-    sessionId: z.uuid(),
-    cursor: Cursor,
-    reset: z.boolean(),
-    serverTimeMs: z.number().int().nonnegative(),
-    room: RoomSnapshotSchema,
-    events: z.array(RoomEventSchema).max(64),
-  })
-  .superRefine((sync, ctx) => {
-    const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
-    if (sync.room.session.id !== sync.sessionId) issue('room belongs to another session');
-    let last = 0n;
-    for (const event of sync.events) {
-      if (event.sessionId !== sync.sessionId || event.room.session.id !== sync.sessionId) issue('event belongs to another session');
-      const id = BigInt(event.eventId);
-      if (id <= last) issue('event IDs must increase');
-      last = id;
-    }
-    if (last > BigInt(sync.cursor)) issue('event beyond the cursor');
-    if (sync.reset && sync.events.length > 0) issue('a reset carries no partial events');
-  });
-
-export type RoomSnapshot = z.infer<typeof RoomSnapshotSchema>;
+export type RoomSnapshot = CoreSnapshot;
 export type RoomSync = z.infer<typeof RoomSyncSchema>;
 
 export type RoomParse =
@@ -115,8 +92,19 @@ export function parseRoomSync(raw: unknown): RoomParse {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Applying syncs: cursor-fenced, session-scoped, account-scoped             */
+/* Applying syncs: ONE reducer, owned by @taply/near-client                  */
 /* ------------------------------------------------------------------------ */
+
+/**
+ * Phase 7H: this file no longer has its own room reducer. Phase 7G found the
+ * old frontend reducer was laxer than the core `applyRoomCatchUp`: it applied
+ * event gaps, conflicting rooms at an equal cursor, a last event that
+ * disagreed with the snapshot, non-ISO timestamps, 17-20 digit cursors and
+ * rooms the signed-in account is not part of. State transitions are now
+ * delegated to `applyRoomCatchUp` unchanged, after this file's strict parse,
+ * so a sync is accepted only if BOTH rule sets accept it. The frontend can be
+ * stricter than the core, never laxer (see room-reducer-parity.test.ts).
+ */
 
 export interface RoomScope {
   readonly sessionId: string;
@@ -125,54 +113,99 @@ export interface RoomScope {
   readonly authGeneration: number;
 }
 
-export interface RoomState {
-  readonly scope: RoomScope;
-  readonly cursor: string;
-  readonly room: RoomSnapshot;
-  readonly serverTimeMs: number;
-}
+/** Exactly the near-client client state: scope fields + cursor + the atomic room. */
+export type RoomState = Readonly<RoomClientState>;
+
+/**
+ * Why a sync was refused. A refusal never changes local state.
+ *  - `invalid` / `unsupported_version`: failed the strict parse;
+ *  - `session_mismatch`: another session, or this account is not in the room;
+ *  - `cursor_invalid`: events are not contiguous or do not end at the cursor;
+ *  - `cursor_conflict`: same cursor (or last event) carries a different room;
+ *  - `refresh_required`: the events skip past this client's cursor (a gap).
+ */
+export type RoomRefusal = 'invalid' | 'unsupported_version' | 'session_mismatch' | 'cursor_invalid' | 'cursor_conflict' | 'refresh_required';
 
 export type RoomApply =
   | { readonly kind: 'applied'; readonly state: RoomState; readonly recheckChain: true }
   | {
       readonly kind: 'ignored';
       readonly state: RoomState | null;
-      readonly reason: 'other_session' | 'stale_scope' | 'older_or_duplicate';
+      readonly reason: 'stale_scope' | 'older_or_duplicate';
       readonly recheckChain: false;
+    }
+  | {
+      readonly kind: 'refused';
+      /** The last good state for the current scope, untouched. */
+      readonly state: RoomState | null;
+      readonly reason: RoomRefusal;
+      readonly recheckChain: false;
+      /** Ask again WITHOUT a cursor (a full reset) instead of applying anything. */
+      readonly refetchWithoutCursor: boolean;
     };
 
 const sameScope = (a: RoomScope, b: RoomScope) =>
   a.sessionId === b.sessionId && a.accountId === b.accountId && a.authGeneration === b.authGeneration;
 
+const priorFor = (previous: RoomState | null, current: RoomScope): RoomState | null =>
+  previous !== null && sameScope(previous, current) ? previous : null;
+
+const CORE_REFUSALS: Readonly<Record<string, RoomRefusal>> = {
+  SESSION_MISMATCH: 'session_mismatch',
+  ROOM_CURSOR_INVALID: 'cursor_invalid',
+  ROOM_CURSOR_CONFLICT: 'cursor_conflict',
+  ROOM_REFRESH_REQUIRED: 'refresh_required',
+};
+
 /**
- * Applies one validated sync (backend algorithm steps 3-5):
- *  - a response for another session, or fetched under a different account or
- *    auth generation than the current one, is discarded;
- *  - an older or equal cursor is ignored unless it is an explicit reset (a
- *    duplicate delivery changes nothing and replays no visual action);
- *  - otherwise the atomic current room replaces local state, and the caller
- *    must re-read the chain (`recheckChain`). Nothing here is payment state.
+ * Applies one UNTRUSTED sync body:
+ *  1. a response fetched under another session, account or auth generation
+ *     than the current one is discarded before it is even parsed;
+ *  2. this file's strict parse must accept it (versions, extra fields,
+ *     payer-progress consistency, event ordering);
+ *  3. near-client `applyRoomCatchUp` must accept it (account membership,
+ *     contiguous events ending at the cursor, gap and conflict detection,
+ *     no rollback to an older cursor even on reset).
+ * An older or duplicate delivery is ignored and replays nothing. Only a new
+ * cursor is `applied`, and then the caller must re-read the chain itself.
+ * Nothing here is payment state: a room can never mark anything paid.
  */
 export function applyRoomSync(input: {
   readonly previous: RoomState | null;
-  readonly sync: RoomSync;
+  /** The response body exactly as received (already JSON-parsed), not trusted. */
+  readonly untrusted: unknown;
   /** Scope captured when the request was sent. */
   readonly requested: RoomScope;
   /** Scope now, when the response arrives. */
   readonly current: RoomScope;
 }): RoomApply {
-  const { previous, sync, requested, current } = input;
-  if (!sameScope(requested, current)) return { kind: 'ignored', state: previous, reason: 'stale_scope', recheckChain: false };
-  if (sync.sessionId !== current.sessionId) return { kind: 'ignored', state: previous, reason: 'other_session', recheckChain: false };
-  const base = previous !== null && sameScope(previous.scope, current) ? previous : null;
-  if (base !== null && !sync.reset && BigInt(sync.cursor) <= BigInt(base.cursor)) {
-    return { kind: 'ignored', state: base, reason: 'older_or_duplicate', recheckChain: false };
+  const { previous, untrusted, requested, current } = input;
+  const prior = priorFor(previous, current);
+  if (!sameScope(requested, current)) return { kind: 'ignored', state: prior, reason: 'stale_scope', recheckChain: false };
+  const refuse = (reason: RoomRefusal): RoomApply => ({
+    kind: 'refused',
+    state: prior,
+    reason,
+    recheckChain: false,
+    refetchWithoutCursor: reason === 'refresh_required' || reason === 'cursor_invalid' || reason === 'cursor_conflict',
+  });
+
+  const parsed = parseRoomSync(untrusted);
+  if (!parsed.ok) return refuse(parsed.reason);
+
+  let next: RoomClientState | null;
+  try {
+    const scope = { sessionId: current.sessionId, accountId: current.accountId, authGeneration: current.authGeneration };
+    next = applyRoomCatchUp(prior, untrusted, scope, requested.authGeneration);
+  } catch (error) {
+    const code = error instanceof Error ? CORE_REFUSALS[error.message] : undefined;
+    return refuse(code ?? 'invalid');
   }
-  return {
-    kind: 'applied',
-    state: { scope: current, cursor: sync.cursor, room: sync.room, serverTimeMs: sync.serverTimeMs },
-    recheckChain: true,
-  };
+  // The core returns its `previous` argument itself for an older or equal cursor.
+  if (next === null || next === prior) {
+    return { kind: 'ignored', state: prior, reason: 'older_or_duplicate', recheckChain: false };
+  }
+  return { kind: 'applied', state: next, recheckChain: true };
 }
 
 /* ------------------------------------------------------------------------ */
@@ -336,7 +369,7 @@ export function createRoomReader(origin: string, transport: typeof fetch): RoomA
     version: ROOM_ADAPTER_VERSION,
     availability: { kind: 'available' },
     async sync(sessionId, cursor) {
-      if (!z.uuid().safeParse(sessionId).success || (cursor !== null && !Cursor.safeParse(cursor).success)) return { ok: false, error: 'invalid' };
+      if (!z.uuid().safeParse(sessionId).success || (cursor !== null && !RoomCatchUpSchema.shape.cursor.safeParse(cursor).success)) return { ok: false, error: 'invalid' };
       try {
         const response = await transport(`${origin}/api/v1/sessions/${sessionId}/room`, {
           method: 'GET',

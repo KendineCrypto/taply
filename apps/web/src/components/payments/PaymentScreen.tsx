@@ -68,7 +68,7 @@ export function PaymentScreen({ id }: { readonly id: string }) {
 
 function PaymentLive({ id }: { readonly id: string }) {
   const t = useT();
-  const { setup, check, journal, journalVersion, walletReturnsPending } = usePayments();
+  const { setup, check, recheck, journal, journalVersion, walletReturnsPending } = usePayments();
   const { state: wallet, signAndSend } = useWallet();
   const accountId = wallet.status === 'connected' ? wallet.session.accountId : null;
   const [result, setResult] = useState<SubmitResult | null>(null);
@@ -142,9 +142,18 @@ function PaymentLive({ id }: { readonly id: string }) {
     }
   };
 
+  // Phase 7H: one retry for one outage. "Check again" re-reads the request and,
+  // when the contract check is what failed, re-runs that check too. Signing
+  // stays gated on a fresh verified check either way.
+  const contractRetryable = check.status === 'stale_chain' || (check.status === 'unreachable' && check.error !== 'CONTRACT_CODE_MISMATCH');
+  const checkAgain = () => {
+    if (contractRetryable) recheck();
+    refresh();
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      <PaymentsSetupNotice />
+      <PaymentsSetupNotice retryElsewhere />
       <ViewBody
         id={id}
         view={view}
@@ -158,7 +167,7 @@ function PaymentLive({ id }: { readonly id: string }) {
       />
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         {view !== null && <Provenance block={block} checkedAt={checkedAt} />}
-        <Button variant="ghost" onClick={refresh} disabled={loading} className="-mr-2 px-2">
+        <Button variant="ghost" onClick={checkAgain} disabled={loading} className="-mr-2 px-2">
           {loading ? (
             <>
               <Spinner /> {t.payment.status.refreshing}

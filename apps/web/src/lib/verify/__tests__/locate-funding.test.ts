@@ -157,8 +157,8 @@ describe('locator transport: JSON-RPC errors sent with an HTTP error status', ()
     }
   });
 
-  it('the verifier transport is unchanged: any HTTP error status is RPC_UNAVAILABLE', async () => {
+  it('the verifier also recognizes validated HTTP missing-history evidence', async () => {
     const rpc = createFetchVerifierRpc({ rpcUrl: 'https://rpc.example.test', providerId: 'x', fetcher: answer(422, unknownBlock) });
-    expect(await codeOf(rpc.call('block', { block_id: 1 }))).toBe('RPC_UNAVAILABLE');
+    expect(await codeOf(rpc.call('block', { block_id: 1 }))).toBe('UNKNOWN_BLOCK');
   });
 });

@@ -153,6 +153,9 @@ describe('receipt verification on /receipt/[id]', () => {
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
     expect(document.querySelector('[data-receipt-status="contract_paid"]')).not.toBeNull();
+    // Phase 7H: on the receipt itself, never tell the reader to "open the receipt".
+    expect(document.body.textContent).not.toMatch(/Open the receipt/);
+    expect(screen.getByText(/which has not succeeded on this screen/)).toBeTruthy();
   });
 
   it('a tampered receipt graph shows a mismatch warning, not Verified Paid', async () => {
@@ -205,5 +208,50 @@ describe('receipt verification on /receipt/[id]', () => {
 
     expect(await screen.findByText('Verification not available')).toBeTruthy();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
+  });
+});
+
+describe('Phase 7H: receipt read failure', () => {
+  it('offers one "Check again"; a tap re-reads and shows the contract state, never Verified Paid on its own', async () => {
+    const { setup } = setupFor(paidRestricted, { verifier: false });
+    // SYNTHETIC: the first get_receipt read fails at the transport, later ones succeed.
+    const real = globalThis.fetch;
+    let failures = 1;
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { params?: { method_name?: string } };
+      if (failures > 0 && body.params?.method_name === 'get_receipt') {
+        failures -= 1;
+        throw new TypeError('Failed to fetch');
+      }
+      return real(url, init);
+    });
+    renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, { setup, adapter: recordingWallet(null).adapter });
+    expect(await screen.findByText('Could not read the request')).toBeTruthy();
+    const retry = screen.getAllByRole('button', { name: /Check again/ });
+    expect(retry).toHaveLength(1);
+    fireEvent.click(retry[0] as HTMLElement);
+    expect(await screen.findByText('Paid per contract')).toBeTruthy();
+    expect(screen.queryByText('Could not read the request')).toBeNull();
+    expect(screen.queryByTestId('verified-evidence')).toBeNull();
+  });
+});
+
+describe('Phase 7H: receipt outcome is announced to assistive technology', () => {
+  it('a persistent polite status region says contract-paid, never verified, without receipts', async () => {
+    const { setup } = setupFor(paidRestricted, { verifier: false });
+    renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, { setup, adapter: recordingWallet(null).adapter });
+    const region = await screen.findByTestId('receipt-announcement');
+    expect(region.getAttribute('role')).toBe('status');
+    expect(region.getAttribute('aria-live')).toBe('polite');
+    expect(region.textContent).toBe('Contract state says paid at a finalized block. Settlement receipt not independently verified yet.');
+    expect(region.textContent).not.toMatch(/Payment verified/);
+  });
+
+  it('switches to the verified announcement only when the verifier confirms the receipts', async () => {
+    const { setup, verifierChain } = setupFor(paidRestricted);
+    window.history.replaceState(null, '', `/receipt/${paidRestricted.terms.id}?ftx=${verifierChain.input.fundingTransaction.hash}`);
+    renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, { setup, adapter: recordingWallet(null).adapter });
+    await screen.findByTestId('verified-evidence');
+    expect(screen.getByTestId('receipt-announcement').textContent).toBe('Payment verified on chain. The funds reached the recipient.');
   });
 });

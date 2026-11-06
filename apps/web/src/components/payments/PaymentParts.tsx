@@ -20,8 +20,12 @@ import type { BlockRef, ContractRequest, IntentTerms } from '@/lib/protocol';
 import { RequestTicket } from '@/components/experience/RequestTicket';
 import { saleCode } from '@/lib/merchant/journey';
 
-/** Contract configuration problems that stop every payment screen. Null when reads may proceed. */
-export function PaymentsSetupNotice() {
+/**
+ * Contract configuration problems that stop every payment screen. Null when reads may proceed.
+ * `retryElsewhere`: the screen already has ONE "Check again" control that also
+ * re-runs this check (Phase 7H: no second retry button for the same outage).
+ */
+export function PaymentsSetupNotice({ retryElsewhere = false }: { readonly retryElsewhere?: boolean } = {}) {
   const t = useT();
   const { setup, check, recheck } = usePayments();
   if (setup.status === 'not_configured') return <InlineNotice copy={t.payment.setup.notConfigured} tone="neutral" />;
@@ -33,9 +37,11 @@ export function PaymentsSetupNotice() {
       <InlineNotice
         copy={check.freshness === 'future' ? t.reliability.clockAhead : t.reliability.staleChain}
         action={
-          <Button variant="secondary" onClick={recheck}>
-            {t.common.retry}
-          </Button>
+          retryElsewhere ? undefined : (
+            <Button variant="secondary" onClick={recheck}>
+              {t.common.retry}
+            </Button>
+          )
         }
       />
     );
@@ -47,7 +53,7 @@ export function PaymentsSetupNotice() {
         copy={copy}
         tone={check.error === 'CONTRACT_CODE_MISMATCH' ? 'danger' : 'caution'}
         action={
-          check.error === 'CONTRACT_CODE_MISMATCH' ? undefined : (
+          check.error === 'CONTRACT_CODE_MISMATCH' || retryElsewhere ? undefined : (
             <Button variant="secondary" onClick={recheck}>
               {t.common.retry}
             </Button>

@@ -297,6 +297,8 @@ export interface Dictionary {
     /** FINAL_PAID from a final contract read, without an independently verified receipt. */
     readonly contractPaid: StatusCopy;
     readonly settlementProofPending: string;
+    /** Same fact, worded for the receipt screen itself (no "open the receipt" instruction). */
+    readonly settlementProofPendingOnReceipt: string;
     readonly setup: {
       readonly notConfigured: ErrorCopy;
       readonly invalidConfig: ErrorCopy;
