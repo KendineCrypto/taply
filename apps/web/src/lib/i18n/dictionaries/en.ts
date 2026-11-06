@@ -420,7 +420,7 @@ export const en: Dictionary = {
     accountLabel: 'Account',
     walletLabel: 'Wallet',
     connectTitle: 'Connect a NEAR Testnet wallet',
-    connectBody: 'See your Testnet balance and get ready to request and pay.',
+    connectBody: "Connect your NEAR Testnet wallet.",
     noKeysNote: 'Taply never sees or stores your keys. Every transfer is approved in your own wallet.',
     reportedNotProven:
       'Your wallet shared this account ID. Nothing has been signed, and connecting cannot move funds.',
@@ -502,7 +502,7 @@ export const en: Dictionary = {
     activityEmptyTitle: 'No activity to show yet',
     activityEmptyBody:
       'Taply activity appears here once its payment history service is live. Your full Testnet history is on the explorer.',
-    activityConnectBody: 'Connect a wallet to see your activity.',
+    activityConnectBody: "Connect your wallet to see activity.",
     viewOnExplorer: 'View account on explorer',
   },
 
@@ -609,7 +609,7 @@ export const en: Dictionary = {
     setup: {
       notConfigured: {
         title: 'Payments are not set up',
-        body: 'No Taply payments contract is configured for this build, so no request can be read, created or paid.',
+        body: "Payments are unavailable in this build.",
       },
       invalidConfig: {
         title: 'Payments configuration is invalid',
@@ -626,7 +626,7 @@ export const en: Dictionary = {
       },
       unreachable: {
         title: 'Could not check the payments contract',
-        body: 'The contract configuration could not be read from a finalized block. Payments stay off until it can.',
+        body: "Could not check the contract. Signing stays off; try again.",
       },
       codeMismatch: {
         title: 'Contract code does not match',
@@ -637,7 +637,7 @@ export const en: Dictionary = {
     signing: {
       flagOff: {
         title: 'Transactions are switched off',
-        body: 'You can review everything, but signing stays off until the contract passes Testnet review. Nothing will be sent.',
+        body: "Review only; signing is disabled.",
       },
       unverified: {
         title: 'Contract not verified yet',
@@ -657,11 +657,11 @@ export const en: Dictionary = {
       },
       unknown: {
         title: 'Result unknown',
-        body: 'Your wallet did not confirm what happened. We are checking the chain before anything else can be tried. Do not pay again.',
+        body: "Checking the result. Do not pay again.",
       },
       submitted: {
         title: 'Sent to NEAR Testnet',
-        body: 'Your wallet returned a transaction. The status below comes only from the contract, read at a finalized block.',
+        body: "Checking the chain; payment is not confirmed yet.",
       },
       blocked: {
         title: 'An earlier attempt is still unexplained',
@@ -685,7 +685,7 @@ export const en: Dictionary = {
       payerLabel: 'Only this account may pay (optional)',
       payerHint: 'Leave empty to let anyone pay.',
       expiryLabel: 'Payable for',
-      expiryHint: 'Measured in chain time from the latest finalized block.',
+      expiryHint: "Based on chain time.",
       expiry: { '15m': '15 minutes', '1h': '1 hour', '12h': '12 hours' },
       recipientLabel: 'Recipient',
       recipientIsYou: 'You (the connected account)',
@@ -839,11 +839,11 @@ export const en: Dictionary = {
       },
       failedTransient: {
         title: 'Could not verify yet',
-        body: 'The receipts could not be checked right now. This does not mean the payment failed. Do not pay again.',
+        body: "Could not verify the receipt. Do not pay again.",
       },
       historyUnavailable: {
         title: 'History not available from this RPC',
-        body: 'This payment is older than the RPC keeps. Verifying it needs an archival RPC. Do not pay again.',
+        body: "Verification needs an archival RPC. Do not pay again.",
       },
       failedMismatch: {
         title: 'Receipt evidence does not match',
@@ -1000,8 +1000,8 @@ export const en: Dictionary = {
     onboarding: {
       eyebrow: 'Welcome to Taply',
       title: 'Your wallet. Your payment. One tap.',
-      subtitle: 'Connect a NEAR Testnet wallet to see your balance and to send, receive and request payments.',
-      connect: { title: 'Connect existing wallet', body: 'Use a NEAR Testnet wallet you already have. Taply never sees your keys.' },
+      subtitle: "Connect your NEAR Testnet wallet.",
+      connect: { title: 'Connect existing wallet', body: "Your keys stay in your NEAR Testnet wallet." },
       create: { title: 'Create Taply Wallet', body: 'A wallet that lives in Taply, protected on this device.' },
       restore: { title: 'Restore Taply Wallet', body: 'Bring an existing Taply Wallet to this device.' },
       unlock: { title: 'Unlock Taply Wallet', body: 'Unlock the Taply Wallet saved on this device.' },
@@ -1021,7 +1021,7 @@ export const en: Dictionary = {
       activityTitle: 'Recent activity',
       activityScope: 'Payments started in this browser. The status page shows what the chain says.',
       activityEmptyTitle: 'No payments yet',
-      activityEmptyBody: 'Requests you create and payments you approve in this browser appear here.',
+      activityEmptyBody: "Requests and payments from this device appear here.",
       explorer: 'Full history on the explorer',
     },
     activity: {
@@ -1044,7 +1044,7 @@ export const en: Dictionary = {
       subtitle: 'Send NEAR Testnet to another account.',
       preview: {
         title: 'Sending is in preview',
-        body: 'You can prepare and review a transfer. Confirming stays off until the wallet signer for direct transfers is ready and approved.',
+        body: "Review a transfer; sending is not available yet.",
       },
       recipientLabel: 'To',
       recipientPlaceholder: 'name.testnet',
@@ -1069,7 +1069,7 @@ export const en: Dictionary = {
       walletActionValue: 'Direct NEAR transfer to the recipient',
       feeValue: 'Paid as gas in your wallet. Taply adds no fee.',
       confirm: 'Confirm and send',
-      confirmUnavailable: 'Confirming is unavailable: the signer for direct transfers is not ready yet and signing is switched off. Nothing will be sent.',
+      confirmUnavailable: "Sending is disabled. Nothing will be sent.",
       connectFirst: 'Connect your Testnet wallet to send.',
       status: {
         pending: { title: 'Sending', body: 'Waiting for NEAR Testnet to finalize. Do not send again.' },
@@ -1087,9 +1087,9 @@ export const en: Dictionary = {
       share: 'Share',
       networkWarning: {
         title: 'NEAR Testnet only',
-        body: 'Only send NEAR Testnet tokens to this account. Mainnet NEAR, other networks and other tokens will not arrive here.',
+        body: "Do not send mainnet NEAR or tokens from other networks.",
       },
-      qrNote: 'This QR code contains your account ID only, never an amount.',
+      qrNote: "Account only · no amount",
       requestInstead: 'Ask for an exact amount',
     },
     demo: {
@@ -1351,7 +1351,7 @@ export const en: Dictionary = {
     },
     activity: {
       title: 'Activity',
-      scope: 'Requests and payments started in this browser. Each status page reads the chain. Your full history is on the explorer.',
+      scope: "This device only; open an item to check its chain status.",
     },
     request: {
       title: 'Request',
@@ -1367,7 +1367,7 @@ export const en: Dictionary = {
       technical: 'Technical details',
     },
     payment: {
-      details: 'Request details',
+      details: 'Details',
       from: 'From',
       refresh: 'Check again',
     },

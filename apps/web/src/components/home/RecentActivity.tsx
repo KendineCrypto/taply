@@ -67,7 +67,7 @@ export function RecentActivity({ preview = true }: { readonly preview?: boolean 
           {t.walletUx.home.activityTitle}
         </h2>
         {preview && entries.length > 0 && (
-          <Link href="/activity" className="text-sm font-medium text-[var(--taply-lime)] hover:underline">
+          <Link href="/activity" className="inline-flex min-h-[44px] items-center text-sm font-medium text-[var(--taply-lime)] hover:underline">
             {t.oneTap.home.allActivity}
           </Link>
         )}
@@ -127,7 +127,7 @@ export function RecentActivity({ preview = true }: { readonly preview?: boolean 
                 href={explorer}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)]"
+                className="inline-flex min-h-[44px] items-center gap-1 font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)]"
               >
                 {t.walletUx.home.explorer}
                 <Icon name="external" size={12} />

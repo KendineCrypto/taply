@@ -112,10 +112,11 @@ export function CheckoutView({ accountId }: { readonly accountId: string }) {
         )}
       </section>
 
-      <section aria-labelledby="checkout-how" className="px-1">
-        <h2 id="checkout-how" className="text-sm font-semibold">
+      <details className="disclosure px-1">
+        <summary className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
           {c.howTitle}
-        </h2>
+          <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
+        </summary>
         <ol className="mt-3 flex flex-col gap-3">
           {[c.step1, c.step2, c.step3].map((step, i) => (
             <li key={step} className="flex items-start gap-3 text-sm leading-snug text-[var(--text-secondary)]">
@@ -129,7 +130,7 @@ export function CheckoutView({ accountId }: { readonly accountId: string }) {
             </li>
           ))}
         </ol>
-      </section>
+      </details>
 
       {/* Phase 7G: one notice instead of three (proves, no listing, signs nothing). */}
       <InlineNotice copy={{ title: c.authenticity.title, body: t.commerce.phase7g.checkoutNote }} tone="caution" />

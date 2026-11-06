@@ -53,7 +53,7 @@ export function MerchantHome() {
   const m = t.commerce.merchant;
   return (
     <>
-      <ScreenHeader title={m.title} description={m.subtitle} />
+      <ScreenHeader title={m.title} />
       <div className="-mt-2 mb-5">
         <InstantOnlyBadge />
       </div>
@@ -65,6 +65,8 @@ export function MerchantHome() {
               <MerchantTile index={0} primary href="/merchant/register" icon="request" title={m.newSale.title} body={m.newSale.body} />
               <MerchantTile index={1} href="/merchant/setup" icon="scan" title={m.discovery.title} body={m.discovery.body} />
             </nav>
+            <details className="disclosure">
+              <summary className="flex min-h-[44px] cursor-pointer items-center text-sm text-[var(--text-secondary)]">{t.oneTap.payment.details}</summary>
             {/* Phase 7G: one quiet, inert row instead of two full disabled tiles. No session
                 backend, no on-chain binding, no profile signing: inert whatever the flags say. */}
             <section
@@ -83,6 +85,7 @@ export function MerchantHome() {
               <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{t.commerce.phase7g.merchantHome.comingLaterBody}</p>
             </section>
             <p className="-mt-2 px-1 text-xs leading-relaxed text-[var(--text-muted)]">{t.commerce.phase7g.merchantHome.unboundShort}</p>
+            </details>
             <RecentSales accountId={accountId} />
           </div>
         )}
@@ -111,7 +114,7 @@ export function SaleRegister() {
   return (
     <>
       <MerchantBack label={s.back} />
-      <ScreenHeader title={s.title} description={s.subtitle} />
+      <ScreenHeader title={s.title} />
       <div className="-mt-2 mb-5">
         <InstantOnlyBadge />
       </div>

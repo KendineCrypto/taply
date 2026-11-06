@@ -24,8 +24,8 @@ describe('customer checkout (discovery)', () => {
     const { signed, chain } = renderCheckout('shop.testnet');
     expect(await screen.findByText('Waiting for a sale')).toBeTruthy();
     expect(screen.getAllByText('shop.testnet').length).toBeGreaterThan(0);
-    expect(screen.getByText('No verified name. Only the account ID is shown.')).toBeTruthy();
-    expect(screen.getByText('What this page proves')).toBeTruthy();
+    expect(screen.getByText('Business identity not verified.')).toBeTruthy();
+    expect(screen.getByText('Check the account')).toBeTruthy();
     expect(screen.queryByText(/NEAR$/)).toBeNull(); // no amount shown
     expect(screen.queryByText(/Verified|Paid/)).toBeNull();
     expect(screen.queryByText(/merchant verified/i)).toBeNull();
@@ -73,4 +73,21 @@ describe('customer checkout (discovery)', () => {
     expect(await screen.findByText('Satış bekleniyor')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Satış QR’ını okut' })).toBeTruthy();
   });
+});
+
+
+it.each(['en', 'tr'] as const)('%s: checkout help has a labelled, visible disclosure affordance and steps', async (locale) => {
+  const chain = installChain({ contractId: CONTRACT });
+  const { adapter } = recordingWallet(null);
+  renderWithChain(<CheckoutView accountId="shop.testnet" />, { setup: readySetup(chain, true), adapter, locale });
+  const summary = (await screen.findByText(locale === 'en' ? 'How to pay' : 'Nasıl ödenir')).closest('summary');
+  expect(summary).not.toBeNull();
+  expect(summary?.className).toContain('min-h-[44px]');
+  expect(summary?.querySelector('.disclosure-chevron')?.getAttribute('aria-hidden')).toBe('true');
+  const details = summary?.closest('details');
+  expect(details?.open).toBe(false);
+  expect(details?.querySelectorAll('li')).toHaveLength(3);
+  if (summary === null) throw new Error('Missing checkout help summary');
+  fireEvent.click(summary);
+  expect(details?.open).toBe(true);
 });

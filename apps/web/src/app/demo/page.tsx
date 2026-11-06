@@ -46,6 +46,8 @@ export default function DemoPage() {
   return (
     <>
       <DemoTour />
+      <details className="disclosure mt-6">
+        <summary className="flex min-h-[44px] cursor-pointer items-center text-sm text-[var(--text-secondary)]">{t.oneTap.payment.details}</summary>
       <section className="surface-card mt-8 flex items-center justify-between gap-3 p-4" aria-labelledby="handshake-demo-title">
         <div className="min-w-0">
           <h2 id="handshake-demo-title" className="font-semibold">
@@ -71,6 +73,7 @@ export default function DemoPage() {
           <StatusMatrix />
         </div>
       )}
+      </details>
     </>
   );
 }

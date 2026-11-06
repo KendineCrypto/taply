@@ -235,14 +235,6 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           onRetry={() => setGeneration((g) => g + 1)}
         />
       )}
-      {!showVerified && paid && (
-        <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPendingOnReceipt}</p>
-      )}
-      {showVerified && candidate !== null && (
-        <p className="px-1 text-center text-xs text-[var(--text-muted)]" data-testid="located-note">
-          {t.commerce.phase7g.locate.foundNote}
-        </p>
-      )}
 
       <details className="disclosure">
         <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 px-1 text-sm font-medium text-[var(--text-secondary)]">
@@ -250,6 +242,11 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
         </summary>
         <div className="mt-2 flex flex-col gap-3">
+      {showVerified && candidate !== null && (
+        <p className="px-1 text-center text-xs text-[var(--text-muted)]" data-testid="located-note">
+          {t.commerce.phase7g.locate.foundNote}
+        </p>
+      )}
           <p className="text-sm text-[var(--text-secondary)]">{t.payment.receipt.factsNote}</p>
           <p className="text-sm">
             {paid ? t.payment.receipt.payoutConfirmedByContract : t.payment.receipt.cancelledNothingPaid}
@@ -377,9 +374,12 @@ function VerificationNotice({
       return (
         <div className="flex flex-col gap-2" data-testid="verification-failed">
           <InlineNotice copy={copy} tone={tone} />
-          <p className="px-1 text-xs text-[var(--text-muted)]">
-            {v.reasonCode}: <span className="chain-id">{view.reason}</span>
-          </p>
+          <details className="disclosure">
+            <summary className="flex min-h-[44px] cursor-pointer items-center text-sm">{t.oneTap.payment.details}</summary>
+            <p className="px-1 text-xs text-[var(--text-muted)]">
+              {v.reasonCode}: <span className="chain-id">{view.reason}</span>
+            </p>
+          </details>
           <Button variant="secondary" onClick={onRetry}>
             {v.checkAgain}
           </Button>
@@ -408,7 +408,6 @@ function ShareVerification({ id, receipt }: { readonly id: string; readonly rece
         <Icon name={status === 'copied' ? 'check' : 'link'} size={18} />
         {status === 'copied' ? t.payment.verification.linkCopied : t.payment.verification.copyLink}
       </Button>
-      <p className="px-1 text-center text-xs text-[var(--text-muted)]">{t.payment.verification.linkNote}</p>
       <span className="sr-only" role="status">
         {status === 'copied' ? t.payment.verification.linkCopied : ''}
       </span>

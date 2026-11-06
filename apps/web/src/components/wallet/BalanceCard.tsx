@@ -77,10 +77,7 @@ function Disconnected() {
           <Icon name="chevron" size={16} />
         </Link>
       </div>
-      <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-[var(--text-muted)]">
-        <Icon name="check" size={14} className="mt-0.5 shrink-0 text-[var(--taply-lime)]" />
-        {t.wallet.noKeysNote}
-      </p>
+
     </div>
   );
 }

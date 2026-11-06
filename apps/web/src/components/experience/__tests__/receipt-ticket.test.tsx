@@ -51,6 +51,8 @@ describe('receipt ticket', () => {
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Paid per contract' })).toBeTruthy();
     expect(celebrating()).toBeNull();
+    expect(document.querySelector('svg[width="28"] path')?.getAttribute('d')).toBe('M12 8v4.5l3 1.5');
+    expect(screen.getByText('Independent receipt check pending').closest('details')).toBeNull();
   });
 
   it('keeps hashes and the checking provider under a collapsed Technical proof', () => {

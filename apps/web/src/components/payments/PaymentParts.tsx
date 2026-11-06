@@ -118,10 +118,10 @@ export function TransactionLink({ explorerBaseUrl, hash }: { readonly explorerBa
       href={explorerTransactionUrl(explorerBaseUrl, hash)}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-sm underline underline-offset-2"
+      className="inline-flex min-h-[44px] min-w-0 flex-wrap items-center gap-1 text-sm underline underline-offset-2"
     >
       {t.payment.signing.viewTransaction}
-      <span className="chain-id">{hash}</span>
+      <span className="chain-id break-all">{hash}</span>
       <Icon name="external" size={14} />
     </a>
   );
@@ -301,7 +301,6 @@ export function ShareActions({ link }: { readonly link: string }) {
         <Icon name={status === 'copied' ? 'check' : 'copy'} size={18} />
         {status === 'copied' ? t.payment.share.linkCopied : t.payment.share.copyLink}
       </Button>
-      <p className="px-1 text-center text-xs text-[var(--text-muted)]">{t.payment.share.body}</p>
       <span className="sr-only" role="status">
         {status === 'copied' ? t.payment.share.linkCopied : ''}
       </span>

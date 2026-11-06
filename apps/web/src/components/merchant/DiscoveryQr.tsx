@@ -36,7 +36,7 @@ export function DiscoveryQr({ accountId }: { readonly accountId: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <InlineNotice copy={d.onlyDiscovery} tone="caution" />
+      <p className="text-sm text-[var(--text-secondary)]">{d.onlyDiscovery.body}</p>
 
       {origin === null ? null : url === null ? (
         <InlineNotice copy={d.unavailable} tone="neutral" />
@@ -96,7 +96,10 @@ export function DiscoveryQr({ accountId }: { readonly accountId: string }) {
         {d.preview}
       </ButtonLink>
 
-      <InlineNotice copy={d.profilePending} tone="neutral" />
+      <details className="disclosure">
+        <summary className="flex min-h-[44px] cursor-pointer items-center text-sm">{t.oneTap.payment.details}</summary>
+        <InlineNotice copy={d.profilePending} tone="neutral" />
+      </details>
     </div>
   );
 }

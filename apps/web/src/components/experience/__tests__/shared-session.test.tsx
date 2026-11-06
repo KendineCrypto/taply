@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { PaymentProgress } from '../PaymentProgress';
 import { SharedSession } from '../SharedSession';
 import { ReceiptTicket } from '../ReceiptTicket';
 import { HandshakeDemo } from '@/components/handshake/HandshakeDemo';
@@ -101,8 +102,8 @@ describe('shared session hero', () => {
 
   it('Turkish copy', () => {
     renderSession({ side: 'payer', context: 'checkout' }, 'tr');
-    expect(screen.getByText('Canlı ödeme')).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 2, name: 'Satıcı hazır' })).toBeTruthy();
+    expect(screen.getByText('Ödeme')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Ödemeye hazır' })).toBeTruthy();
     expect(screen.getByText('Satış kodu')).toBeTruthy();
   });
 });
@@ -161,5 +162,19 @@ describe('Handshake demo coordination (DEMO only)', () => {
     // Still stamped DEMO, and no paid state anywhere.
     expect(screen.getByText('Synthetic data · no network · no wallet')).toBeTruthy();
     expect(screen.queryByText(/Verified Paid|Paid per contract/)).toBeNull();
+  });
+});
+
+
+describe('non-final payment icon', () => {
+  it.each(['en', 'tr'] as const)('%s: contract-paid heroes use a clock, never a success check', (locale) => {
+    for (const component of [<SharedSession {...BASE} stage="contract_paid" />, <PaymentProgress stage="contract_paid" />]) {
+      const { container } = render(<I18nProvider locale={locale}>{component}</I18nProvider>);
+      const icon = container.querySelector('svg[width="24"]');
+      expect(icon?.querySelector('circle')).not.toBeNull();
+      expect(icon?.querySelector('path')?.getAttribute('d')).toBe('M12 8v4.5l3 1.5');
+      expect(container.querySelector('.animate-draw')).toBeNull();
+      cleanup();
+    }
   });
 });

@@ -31,7 +31,7 @@ const ICON: Readonly<Record<ProgressStage, IconName>> = {
   awaiting: 'clock',
   wallet: 'wallet',
   transfer: 'send',
-  contract_paid: 'check',
+  contract_paid: 'clock',
   verified: 'shield',
   failed: 'alert',
   unresolved: 'alert',
@@ -112,7 +112,7 @@ export function SharedSession({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className="eyebrow text-[var(--text-muted)]">{eyebrow}</p>
-          <StatusChip status={safeStatus} />
+          <div className={safeStatus === 'checking_chain' ? undefined : 'sr-only'}><StatusChip status={safeStatus} /></div>
           {live && <LivePill />}
         </div>
         {/* With the QR ticket below, the code is printed on the ticket instead. */}
@@ -154,23 +154,31 @@ export function SharedSession({
         </div>
       </div>
 
-      <JourneyTimeline stage={stage} />
+      {stage === 'contract_paid' && proofAction !== undefined && <div className="mt-4">{proofAction}</div>}
 
-      {stage === 'contract_paid' && <ProofNext side={side} action={proofAction} />}
+      <details className="disclosure mt-3" data-testid="journey-details">
+        <summary className="flex min-h-[44px] cursor-pointer items-center justify-between text-sm text-[var(--text-secondary)]">
+          {t.oneTap.payment.details}
+          <Icon name="chevron" size={16} className="disclosure-chevron" />
+        </summary>
+        <JourneyTimeline stage={stage} />
+        {stage === 'contract_paid' && <ProofNext side={side} />}
 
-      {counterpart !== null && (
-        <p className="mt-4 flex items-start gap-2 text-sm text-[var(--text-secondary)]" data-testid="journey-counterpart">
-          <span
-            aria-hidden="true"
-            className={`mt-1.5 size-2 shrink-0 rounded-full ${stage === 'awaiting' ? 'bg-[var(--text-muted)]' : 'bg-[var(--text-primary)]'}`}
-          />
-          <span className="min-w-0 [overflow-wrap:anywhere]">{counterpart}</span>
-        </p>
-      )}
-      {side === 'receiver' && context === 'pos' && stage === 'awaiting' && (
-        <p className="mt-1 pl-4 text-xs text-[var(--text-muted)]">{j.counterpart.presenceGated}</p>
-      )}
-      {stage === 'awaiting' && code !== null && <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">{j.saleCodeHint}</p>}
+        {counterpart !== null && (
+          <p className="mt-4 flex items-start gap-2 text-sm text-[var(--text-secondary)]" data-testid="journey-counterpart">
+            <span
+              aria-hidden="true"
+              className={`mt-1.5 size-2 shrink-0 rounded-full ${stage === 'awaiting' ? 'bg-[var(--text-muted)]' : 'bg-[var(--text-primary)]'}`}
+            />
+            <span className="min-w-0 [overflow-wrap:anywhere]">{counterpart}</span>
+          </p>
+        )}
+        {side === 'receiver' && context === 'pos' && stage === 'awaiting' && (
+          <p className="mt-1 pl-4 text-xs text-[var(--text-muted)]">{j.counterpart.presenceGated}</p>
+        )}
+        {stage === 'awaiting' && code !== null && <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">{j.saleCodeHint}</p>}
+
+      </details>
 
       {footer !== undefined && <div className="mt-4">{footer}</div>}
     </section>
@@ -417,10 +425,10 @@ function ProofNext({ side, action }: { readonly side: JourneySide; readonly acti
           </span>
         </li>
       </ul>
+      {side === 'receiver' && <p className="mt-2 text-xs text-[var(--text-muted)]">{g.receiverNote}</p>}
       {action !== undefined && (
         <div className="mt-3 flex flex-col gap-1.5">
           {action}
-          {side === 'receiver' && <p className="text-center text-xs leading-relaxed text-[var(--text-muted)]">{g.receiverNote}</p>}
         </div>
       )}
     </div>

@@ -113,9 +113,7 @@ export function DemoTour() {
           </span>
           <span className="text-sm text-[var(--text-muted)]">{d.synthetic}</span>
         </div>
-        <h1 className="text-[1.75rem] font-semibold leading-tight tracking-tight">{d.title}</h1>
-        <p className="text-lg font-semibold tracking-tight text-[var(--taply-lime)]">{t.walletUx.onboarding.title}</p>
-        <p className="text-[0.9375rem] leading-relaxed text-[var(--text-secondary)]">{d.intro}</p>
+        <h1 className="sr-only">{d.title}</h1>
       </header>
 
       <nav aria-label={d.progressLabel}>

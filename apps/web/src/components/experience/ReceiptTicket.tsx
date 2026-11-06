@@ -211,7 +211,7 @@ function Seal({ status, celebrateKey }: { readonly status: 'verified' | 'contrac
   }
   return (
     <span className="grid size-16 place-items-center rounded-full border-2 border-[var(--ink-line)] text-[var(--ink-secondary)]">
-      <Icon name={status === 'cancelled' ? 'x' : 'check'} size={28} />
+      <Icon name={status === 'cancelled' ? 'x' : 'clock'} size={28} />
     </span>
   );
 }
