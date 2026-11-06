@@ -90,21 +90,18 @@ export interface LocatorRpc {
 }
 
 export function createFetchLocatorRpc(input: FetchRpcInput): LocatorRpc {
-  // Some providers (e.g. FastNEAR) answer a pruned block with HTTP 422 and a
-  // JSON-RPC UNKNOWN_BLOCK body. Reading those bodies lets the locator say
-  // "history unavailable" instead of "RPC down". Only UNKNOWN_BLOCK and
-  // UNKNOWN_TRANSACTION are taken from an error status; anything else stays
-  // RPC_UNAVAILABLE. The verifier transport above is deliberately unchanged.
-  return createBoundedRpc(LOCATOR_METHODS, 'taply-locate', input, ERROR_BODY_STATUSES);
+  return createBoundedRpc(LOCATOR_METHODS, 'taply-locate', input);
 }
 
-const ERROR_BODY_STATUSES: ReadonlySet<number> = new Set([400, 404, 422, 500]);
+// FastNEAR can return structured missing-history errors with HTTP 422.
+// Read bounded errors for both consumers, but never accept non-2xx results.
+// HTTP 408/TIMEOUT_ERROR alone is uncertain, not evidence of pruned history.
+const ERROR_BODY_STATUSES: ReadonlySet<number> = new Set([400, 404, 408, 422, 500]);
 
 function createBoundedRpc<M extends string>(
   allowed: ReadonlyArray<M>,
   idPrefix: string,
   input: FetchRpcInput,
-  errorBodyStatuses: ReadonlySet<number> = new Set(),
 ): { readonly providerId: string; call(method: M, params: unknown): Promise<unknown> } {
   const fetcher = input.fetcher ?? ((url, init) => globalThis.fetch(url, init));
   const timeoutMs = input.timeoutMs ?? 15_000;
@@ -121,7 +118,7 @@ function createBoundedRpc<M extends string>(
         body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
         timeoutMs,
         maxBytes,
-        errorBodyStatuses,
+        errorBodyStatuses: ERROR_BODY_STATUSES,
       });
       let envelope: unknown;
       try {
@@ -129,19 +126,25 @@ function createBoundedRpc<M extends string>(
       } catch {
         throw new VerifierRpcError(httpOk ? 'MALFORMED' : 'RPC_UNAVAILABLE');
       }
-      if (!httpOk) {
-        const code =
-          typeof envelope === 'object' && envelope !== null && Object.hasOwn(envelope, 'error')
-            ? classifyRpcError((envelope as Record<string, unknown>)['error'])
-            : 'RPC_UNAVAILABLE';
-        throw new VerifierRpcError(code === 'UNKNOWN_BLOCK' || code === 'UNKNOWN_TRANSACTION' ? code : 'RPC_UNAVAILABLE');
-      }
-      if (typeof envelope !== 'object' || envelope === null) throw new VerifierRpcError('MALFORMED');
+      const invalidEnvelope = httpOk ? 'MALFORMED' : 'RPC_UNAVAILABLE';
+      if (typeof envelope !== 'object' || envelope === null || Array.isArray(envelope)) throw new VerifierRpcError(invalidEnvelope);
       const record = envelope as Record<string, unknown>;
-      if (record['jsonrpc'] !== '2.0' || record['id'] !== id) throw new VerifierRpcError('MALFORMED');
+      if (record['jsonrpc'] !== '2.0' || record['id'] !== id) throw new VerifierRpcError(invalidEnvelope);
       const hasResult = Object.hasOwn(record, 'result');
       const hasError = Object.hasOwn(record, 'error');
-      if (hasResult === hasError) throw new VerifierRpcError('MALFORMED');
+      if (hasResult === hasError) throw new VerifierRpcError(invalidEnvelope);
+      if (!httpOk) {
+        if (!hasError) throw new VerifierRpcError('RPC_UNAVAILABLE');
+        const error = record['error'];
+        if (typeof error !== 'object' || error === null || Array.isArray(error)) throw new VerifierRpcError('RPC_UNAVAILABLE');
+        const detail = error as Record<string, unknown>;
+        if (typeof detail['code'] !== 'number' || !Number.isSafeInteger(detail['code'])) throw new VerifierRpcError('RPC_UNAVAILABLE');
+        const cause = detail['cause'];
+        if (cause !== undefined && (typeof cause !== 'object' || cause === null || Array.isArray(cause)
+          || typeof (cause as Record<string, unknown>)['name'] !== 'string')) throw new VerifierRpcError('RPC_UNAVAILABLE');
+        const code = classifyRpcError(error);
+        throw new VerifierRpcError(code === 'UNKNOWN_BLOCK' || code === 'UNKNOWN_TRANSACTION' ? code : 'RPC_UNAVAILABLE');
+      }
       if (hasError) throw new VerifierRpcError(classifyRpcError(record['error']));
       const result = record['result'];
       assertSafeNumbers(result);

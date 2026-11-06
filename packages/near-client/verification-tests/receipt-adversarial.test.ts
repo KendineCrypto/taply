@@ -61,10 +61,10 @@ it('a stalled RPC is transient, not evidence of pruning or successful settlement
     fetcher: async () => new Promise<Response>(() => {}) }) });
   expect(await verifyInstantReceipt(ctx.input)).toMatchObject({ reason: 'RPC_UNAVAILABLE' });
 });
-it.each([408, 422])('documents unmodified web HTTP %s handoff: fails closed but loses classification', async status => {
+it.each([408, 422])('web HTTP %s handoff preserves uncertainty and explicit history errors', async status => {
   const ctx = buildPaidChain(request);
   Object.assign(ctx.input, { rpc: createFetchVerifierRpc({ rpcUrl: 'https://fixture.example', providerId: 'synthetic-http',
     fetcher: async (_url, init) => Response.json({ jsonrpc: '2.0', id: JSON.parse(String(init?.body)).id,
       error: { code: -32000, name: 'HANDLER_ERROR', cause: { name: status === 422 ? 'UNKNOWN_BLOCK' : 'TIMEOUT_ERROR' } } }, { status }) }) });
-  expect(await verifyInstantReceipt(ctx.input)).toMatchObject({ reason: 'RPC_UNAVAILABLE' });
+  expect(await verifyInstantReceipt(ctx.input)).toMatchObject({ reason: status === 422 ? 'HISTORY_UNAVAILABLE' : 'RPC_UNAVAILABLE' });
 });
