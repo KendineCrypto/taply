@@ -31,7 +31,7 @@ const ICON: Readonly<Record<ProgressStage, IconName>> = {
   awaiting: 'clock',
   wallet: 'wallet',
   transfer: 'send',
-  contract_paid: 'check',
+  contract_paid: 'clock',
   verified: 'shield',
   failed: 'alert',
   unresolved: 'alert',

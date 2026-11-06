@@ -113,8 +113,9 @@ export function CheckoutView({ accountId }: { readonly accountId: string }) {
       </section>
 
       <details className="disclosure px-1">
-        <summary className="flex min-h-[44px] cursor-pointer items-center text-sm font-semibold">
+        <summary className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
           {c.howTitle}
+          <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
         </summary>
         <ol className="mt-3 flex flex-col gap-3">
           {[c.step1, c.step2, c.step3].map((step, i) => (
