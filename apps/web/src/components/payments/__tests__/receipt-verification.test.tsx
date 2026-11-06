@@ -235,3 +235,23 @@ describe('Phase 7H: receipt read failure', () => {
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
   });
 });
+
+describe('Phase 7H: receipt outcome is announced to assistive technology', () => {
+  it('a persistent polite status region says contract-paid, never verified, without receipts', async () => {
+    const { setup } = setupFor(paidRestricted, { verifier: false });
+    renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, { setup, adapter: recordingWallet(null).adapter });
+    const region = await screen.findByTestId('receipt-announcement');
+    expect(region.getAttribute('role')).toBe('status');
+    expect(region.getAttribute('aria-live')).toBe('polite');
+    expect(region.textContent).toBe('Contract state says paid at a finalized block. Settlement receipt not independently verified yet.');
+    expect(region.textContent).not.toMatch(/Payment verified/);
+  });
+
+  it('switches to the verified announcement only when the verifier confirms the receipts', async () => {
+    const { setup, verifierChain } = setupFor(paidRestricted);
+    window.history.replaceState(null, '', `/receipt/${paidRestricted.terms.id}?ftx=${verifierChain.input.fundingTransaction.hash}`);
+    renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, { setup, adapter: recordingWallet(null).adapter });
+    await screen.findByTestId('verified-evidence');
+    expect(screen.getByTestId('receipt-announcement').textContent).toBe('Payment verified on chain. The funds reached the recipient.');
+  });
+});

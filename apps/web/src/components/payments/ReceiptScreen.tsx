@@ -196,8 +196,16 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           transaction: true,
         }));
 
+  // Phase 7H: one persistent live region for the receipt outcome. The progress
+  // notices (also role=status) disappear once verified, so without this the
+  // change to Verified Paid was never announced to screen-reader users.
+  const announcement = showVerified ? t.status.FINAL_PAID.announce : paid ? t.payment.contractPaid.announce : t.status[presentation.copyKey].announce;
+
   return (
     <div className="flex flex-col gap-4">
+      <p className="sr-only" role="status" aria-live="polite" data-testid="receipt-announcement">
+        {announcement}
+      </p>
       <div data-testid={showVerified ? 'verified-evidence' : undefined}>
         <ReceiptTicket
           status={status}
