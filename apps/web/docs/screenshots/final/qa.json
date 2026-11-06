@@ -1,0 +1,181 @@
+{
+  "mode": "offline production UI; DEMO and fixtures are synthetic; no signing or chain proof",
+  "results": [
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "home",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "wallet",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "activity",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "merchant",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "sale",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "checkout",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "request",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "demo-receive",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "demo-create",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "demo-share",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "demo-review",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "demo-progress",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 390,
+      "name": "demo-receipt",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "home",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "wallet",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "activity",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "merchant",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "sale",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "checkout",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "request",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "demo-receive",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "demo-create",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "demo-share",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "demo-review",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "demo-progress",
+      "overflow": 0
+    },
+    {
+      "locale": "tr",
+      "width": 390,
+      "name": "demo-receipt",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 1280,
+      "name": "home",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 1280,
+      "name": "checkout",
+      "overflow": 0
+    },
+    {
+      "locale": "en",
+      "width": 1280,
+      "name": "demo-receipt",
+      "overflow": 0
+    }
+  ],
+  "fixtureScreens": 5,
+  "errors": []
+}

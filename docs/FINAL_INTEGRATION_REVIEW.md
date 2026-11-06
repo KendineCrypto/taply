@@ -1,6 +1,6 @@
 # Final integration safety review — 2026-11-06
 
-**Recommendation: NO-GO for an all-checks-passed publication recommendation, signing, merge or release.** The cumulative inventory and risk-based assessment cover all **704 inherited changed paths**. One confirmed HIGH signing-boundary defect remains open (F-01). This review is not an independent security audit or a claim that every line or image was manually inspected. No push or PR was performed. Only documentation is changed locally.
+**Recommendation: NO-GO for an all-checks-passed publication recommendation, signing, merge or release.** The cumulative inventory and risk-based assessment cover all **704 inherited changed paths**. The confirmed HIGH signing-boundary defect F-01 is **fixed locally** (commits `9db43fb`, `24cf04a`, see F-01 below) and awaits independent review; F-02 to F-06 and the human gates remain open. This review is not an independent security audit or a claim that every line or image was manually inspected. No push or PR was performed.
 
 ## Exact scope and provenance
 
@@ -58,7 +58,7 @@ Classification is exclusive by primary type; security implications cross categor
 
 ## Findings and unresolved risks
 
-### F-01 — HIGH / OPEN: ambiguous wallet transport errors become nonblocking user rejection
+### F-01 — HIGH / FIXED LOCALLY, pending independent review: ambiguous wallet transport errors become nonblocking user rejection
 
 Evidence: `apps/web/src/lib/wallet/adapter.ts:108` (especially line 111), `apps/web/src/lib/wallet/near-connect.ts:137`, `apps/web/src/lib/payments/submit.ts:65`, `apps/web/src/lib/payments/journal.ts:62`.
 
@@ -68,7 +68,16 @@ Read-only reproduction with Node's TypeScript transform imported the actual clas
 
 Impact: an uncertain action can lose its retry brake. A user can attempt another action/new request while the original may exist. The contract still rejects duplicate funding of the same intent; this is **not** evidence of a double payout for one contract request. New-intent duplication, misleading cancellation and unnecessary transactions/gas remain plausible consequences.
 
-Required fix: accept only documented, explicit pre-broadcast user-decline signals as rejection; preserve OUTCOME_UNKNOWN for generic exceptions, aborts, closures and RPC rejection text. Add adapter-to-submit-to-journal regressions for each ambiguous message, explicit genuine decline, redirect/no-hash, account switch, storage failure and concurrent tabs. Retest workspace and wallet flows. No application code was changed in this documentation-only task.
+Required fix: accept only documented, explicit pre-broadcast user-decline signals as rejection; preserve OUTCOME_UNKNOWN for generic exceptions, aborts, closures and RPC rejection text. Add adapter-to-submit-to-journal regressions for each ambiguous message, explicit genuine decline, redirect/no-hash, account switch, storage failure and concurrent tabs. Retest workspace and wallet flows.
+
+**Fix applied locally on 2026-11-06 (not pushed):**
+
+- `9db43fb`: `@hot-labs/near-connect` 0.12.0 exposes no structured decline code (only the text `User rejected`), so **no external wallet signal is trusted as proof that nothing was sent**. Every error or malformed result after the SDK is invoked records `OUTCOME_UNKNOWN` (blocking). Only a local check before any SDK signing call (no connected wallet, or connected as another signer) throws `WalletNotDispatchedError` and records `USER_REJECTED` with `notDispatched: true`, the only nonblocking unresolved state. Legacy `USER_REJECTED` entries without that evidence are read back as `OUTCOME_UNKNOWN`, so the brake survives reloads. The redirect `errorCode=userRejected` path already recorded `OUTCOME_UNKNOWN` and is unchanged. `classifyWalletError` keeps its text matching for the connect picker only and is no longer called on the signing path.
+- `24cf04a`: with declines now blocking, a declined `create_request` locked that merchant account out of new sales on the device indefinitely (the creation gate is account-wide and a declined creation never appears on chain). The G1 contract refuses a creation at or after its funding expiry (`IntentTerms::validate`, `INVALID_FUNDING_EXPIRY`), so a not-found read at a verified final, non-stale block at or after the signed expiry now resolves it. Unmarked or degraded absence still explains nothing.
+- Regression suite `apps/web/src/lib/wallet/__tests__/retry-safety.test.ts` (70 tests) drives the real near-connect adapter through `submitCall` into the journal for all four methods: ambiguous and decline-shaped messages, strings, null/undefined, forged `WalletError`/`WalletNotDispatchedError` from the SDK, throwing getters, redirect/no-hash and malformed results, account mismatch, failed outcome and initial writes, concurrent tabs, legacy entries after reload and the creation expiry unblock. Four older tests that asserted the unsafe "decline is nonblocking" behavior were updated.
+- `pnpm check` on `24cf04a`: exit 0 (brand, build, types, lint; shared 92, near-client 207, web 927 passed, 1 opt-in live skip). No wallet, signature, network payment or key was used.
+
+Remaining consequences, disclosed rather than hidden: after a wallet decline the same payer cannot retry **that** request until a finalized read shows it funded, cancelled or expired (default sale lifetime 15 minutes; a new sale is a new request). A declined `cancel_unfunded` or `retry_native_transfer` has no comparable chain proof and stays blocked on that device until the request state changes. Real-device decline/return behavior is still unverified. Independent review of the fix is still required before signing.
 
 ### F-02 — HIGH governance / OPEN: main has no enforced protection
 
@@ -110,7 +119,7 @@ Contract review found exact-deposit and canonical-term checks, direct signer/pre
 
 ### Signing, reads and receipts
 
-Payment construction reviews full terms/deposit, fresh config and approved code hash; journals are written before wallet invocation and use cross-tab locks. Redirect hashes are hints matched to signer, contract, method, terms and nonce. F-01 is an exception to the intended unknown-outcome behavior and prevents a blanket PASS.
+Payment construction reviews full terms/deposit, fresh config and approved code hash; journals are written before wallet invocation and use cross-tab locks. Redirect hashes are hints matched to signer, contract, method, terms and nonce. F-01 was an exception to the intended unknown-outcome behavior; it is fixed locally and pending independent review.
 
 Near-client RPC reads check Testnet/genesis and final anchors with bounded transport/strict parsing. No ambiguous timeout is treated as paid or missing-account proof. Receipt verification traverses funding, recipient transfer and callback receipts, enforces amount/beneficiary/nonce, verifies code and retained-key observations, and distinguishes final contract state from independently verified receipt evidence. Locator/query/local journal hashes are untrusted candidates. UI success ribbons depend on verified evidence; room/socket hints cannot settle payments. RPC verification trusts the configured provider; it is not a light-client cryptographic proof. Historical evidence is not fresh chain acceptance.
 
@@ -178,7 +187,7 @@ Also require a dedicated independent verifier suite and secret/dependency scan a
 | --- | --- | --- | --- |
 | Exact source/base/clean tree and full inventory | Recheck refs, ancestor, all paths and documentation-only final diff | Observed for source; recheck immediately before any later push | Draft |
 | Publish authorization | Explicit later user instruction; one draft against main; normal non-force branch-only push | NOT AUTHORIZED now | Draft |
-| F-01 | Narrow decline classification; regression across real adapter, submit and journal; all uncertain errors remain blocked | HIGH OPEN | All-checks-passed Draft recommendation; signing/merge |
+| F-01 | Narrow decline classification; regression across real adapter, submit and journal; all uncertain errors remain blocked | FIXED LOCALLY (`9db43fb`, `24cf04a`); independent review and real-device decline acceptance OPEN | Signing/merge until reviewed |
 | Secrets and workflow safety | No real secret/exfiltration; #8 absent; read-only permissions; safe artifact scopes | No actual secret/dangerous workflow identified; scan limitations disclosed | Draft |
 | Full findings disclosure | Include F-01–F-06, exact SHA/base, CI/device/license limitations in draft body | Prepared here; no PR created | Draft |
 | Workspace/API/verifier/Webpack | Frozen install, types/lint/tests, explicit independent verifier, production Webpack | Local results above; final CI pending | Merge |
@@ -193,7 +202,7 @@ Also require a dedicated independent verifier suite and secret/dependency scan a
 | Media/public links/evidence | Screenshot privacy/rights, actual hosted origin if used, links/retention, historical vs synthetic labels | Automated file checks only; human acceptance OPEN | Media publication/final submission |
 | Human final security/release approval | Independent security review and explicit human approval | OPEN | Merge/release; no approval inferred |
 
-Missing local candidate WASM is not intrinsically a Draft PR blocker: normal CI is intended to build it. Lack of main protection, device acceptance and licensing do not inherently prevent a clearly labelled review-only draft, but they prevent the corresponding merge/release claims. F-01 prevents the requested all-checks-passed recommendation. Resolve it before recommending publication as checked; an owner could separately authorize a security-review draft carrying the open finding, which is not authorized in this task. Never publish if refs diverge, the inventory is incomplete, a real secret is unresolved or workflow safety is unknown.
+Missing local candidate WASM is not intrinsically a Draft PR blocker: normal CI is intended to build it. Lack of main protection, device acceptance and licensing do not inherently prevent a clearly labelled review-only draft, but they prevent the corresponding merge/release claims. F-01 is fixed locally but not yet independently reviewed, so it still prevents an all-checks-passed recommendation. Review the fix before recommending publication as checked; an owner could separately authorize a security-review draft carrying the open finding, which is not authorized in this task. Never publish if refs diverge, the inventory is incomplete, a real secret is unresolved or workflow safety is unknown.
 
 ## Documentation changes and disposition
 

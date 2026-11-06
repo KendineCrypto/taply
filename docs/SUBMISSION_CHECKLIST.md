@@ -14,6 +14,10 @@ Checked boxes below describe preparation only, not release approval.
 
 ## Engineering and review before an accepted release
 
+- [x] F-01 wallet-retry fix committed locally (`9db43fb`, `24cf04a`); `pnpm check` exit 0, 1,226 workspace tests passed, 1 opt-in skip.
+- [ ] Independent review of the F-01 fix, plus a real-device check that a wallet decline shows "Result unknown" and offers no repeat payment.
+- [x] Final-build screenshots captured offline in `apps/web/docs/screenshots/final/` (DEMO/synthetic states only).
+
 - [ ] Review the exact documentation commit and all inherited implementation.
 - [x] Normal G1 CI reproduces the unchanged approved WASM hash and size.
 - [x] Normal G1/G2 candidate Rust, WASM, Clippy/fmt, sandbox and wire-schema CI passed; exact run and artifact references recorded in release readiness.
@@ -68,6 +72,7 @@ Taply helps merchants and customers distinguish a submitted crypto payment from
 a verified recipient payout. Its NEAR Testnet Instant Pay flow uses unique sale
 requests, explicit external-wallet approval and independent funding, transfer
 and callback receipt verification. The repository contains a recorded real
-Testnet payment and a no-funds demo. Phase 7I simplifies English and Turkish
-payment screens. G1 remains conditional pending physical iPhone acceptance and
-human release review. Live G2 Handshake and Protected Pay remain disabled.
+Testnet payment and a no-funds demo. Any uncertain wallet outcome, including a
+reported decline, blocks a repeat payment until the chain explains it. G1
+remains conditional pending physical iPhone acceptance and human release
+review. Live G2 Handshake and Protected Pay remain disabled.

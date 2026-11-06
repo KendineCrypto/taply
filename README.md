@@ -13,6 +13,10 @@ and verified on NEAR Testnet (contract `taply-pay-pilot-1.testnet`). A real
 Instant Pay payment reached `FINAL_PAID` and **Verified Paid** in Taply's
 independent receipt verifier ([evidence](docs/EVIDENCE.md)). **Physical iPhone acceptance is outstanding. Normal G1 and isolated G2 candidate Rust/WASM/sandbox CI passed; G2 deployment is NOT authorized. Real G2 Handshake is NO-GO; Protected Pay is disabled.**
 Phase 7I simplifies EN/TR copy and disclosures without changing payment logic.
+The final integration review's HIGH wallet-retry finding (F-01) is fixed on the
+final branch: any wallet error after signing starts, including "declined", now
+blocks a repeat payment until the chain explains the first attempt. That fix
+awaits independent review ([details](docs/FINAL_INTEGRATION_REVIEW.md#f-01--high--fixed-locally-pending-independent-review-ambiguous-wallet-transport-errors-become-nonblocking-user-rejection)).
 Current [release readiness and exact checks](docs/RELEASE_READINESS.md),
 [no-wallet judge guide](docs/JUDGE_QUICK_START.md), and
 [submission checklist](docs/SUBMISSION_CHECKLIST.md).
@@ -23,12 +27,21 @@ Normal CI: [run 42229980978](https://github.com/KendineCrypto/taply/actions/runs
 
 | Do | See |
 | --- | --- |
-| `pnpm install --frozen-lockfile && pnpm check` | brand, build, types, lint and 1,155 workspace tests pass; 1 opt-in live skip. Install/build may need network; contract CI evidence is recorded separately |
+| `pnpm install --frozen-lockfile && pnpm check` | brand, build, types, lint and 1,226 workspace tests pass (final branch); 1 opt-in live skip. Install/build may need network; contract CI evidence is recorded separately |
 | `pnpm --filter @taply/web dev`, open `/demo` | the full payment journey, stamped **DEMO** (synthetic) |
 | Configure section B below, open `/pay/9b9a5724…4502` | the **real** pilot sale read from the Testnet contract: 0.1 NEAR, Pay to `taplytest.testnet`, sale code `KED 5E9`, **Paid per contract** |
 | Open `/receipt/9b9a5724…4502` | shows **Paid per contract** until full proof succeeds; explicit history errors and uncertain timeouts remain distinct; no Verified Paid without receipts |
 | Open [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | deploy tx, funding tx `CrzQ57Jx…` and the verifier JSON that said **Verified Paid** |
-| Read [Phase 7I screenshots](apps/web/docs/screenshots/phase7i/) and [7H evidence](apps/web/docs/screenshots/phase7h/) | 7I offline/demo captures predate final clock/chevron polish; 7H contains historical pilot reads and injected failures. Neither proves physical-device acceptance |
+| Browse [final-build screenshots](apps/web/docs/screenshots/final/) and [7H evidence](apps/web/docs/screenshots/phase7h/) | Final: offline production build, EN/TR at 390 px plus desktop, DEMO/synthetic; 7H: historical pilot reads and injected failures. Neither proves physical-device acceptance |
+
+### Screenshots
+
+Offline production build captured 2026-11-06 with every external request
+blocked. All payment states shown are **DEMO / synthetic**, not chain evidence.
+
+| Home | Payer review | Receipt | Uncertain result |
+| --- | --- | --- | --- |
+| <img src="apps/web/docs/screenshots/final/en-home-390.png" width="180" alt="Home: connect a NEAR Testnet wallet"> | <img src="apps/web/docs/screenshots/final/en-demo-review-390.png" width="180" alt="Payer review: exact amount, recipient, contract and fee before signing"> | <img src="apps/web/docs/screenshots/final/en-demo-receipt-390.png" width="180" alt="DEMO Verified Paid receipt"> | <img src="apps/web/docs/screenshots/final/en-fixture-unresolved-390.png" width="180" alt="Transfer unresolved: do not pay again"> |
 
 ## The problem
 
@@ -236,6 +249,12 @@ The current [no-funds judge walkthrough](docs/JUDGE_QUICK_START.md) and
 - **Handshake room client** now uses the same strict reducer as the core
   (`applyRoomCatchUp`) but is still not wired to any route.
 - **Activity history** is this device's local journal; there is no indexer.
+- **Declined signatures block a retry.** Wallets do not prove that a declined
+  or failed prompt sent nothing, so Taply treats it as "result unknown". The
+  same payer can retry that request only after the chain shows it funded,
+  cancelled or expired (default 15 minutes); a new sale works immediately. A
+  declined cancel or payout retry stays blocked on that device until the
+  request changes on chain.
 - **Hosting:** the pilot ran over private Tailscale HTTPS. No public hosted
   demo is claimed.
 

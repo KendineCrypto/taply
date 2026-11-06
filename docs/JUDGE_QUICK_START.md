@@ -25,9 +25,10 @@ The later safety review is on local branch `feature/final-integration-review`;
 see [FINAL_INTEGRATION_REVIEW.md](FINAL_INTEGRATION_REVIEW.md) in that checkout.
 Its report-bearing commit can be identified with
 `git log -1 --format=%H -- docs/FINAL_INTEGRATION_REVIEW.md`.
-That final branch has not been published by this review. After separately
-authorized publication, use its reviewed full SHA for final judging; do not
-claim that the older baseline contains this later safety report.
+That final branch also carries the local F-01 wallet-retry fix (`9db43fb`,
+`24cf04a`) and the final-build screenshots; it has not been published. After
+separately authorized publication, use its reviewed full SHA for final judging;
+do not claim that the older baseline contains the safety report or the fix.
 
 Open [localhost demo](http://localhost:3000/demo). Walk through review, processing
 and receipt; every scene is **DEMO / synthetic**, not a new chain payment.
@@ -71,9 +72,11 @@ another shell or env file. Production builds must be rebuilt after env changes.
 
 ## Evidence and limits
 
-[Phase 7I screenshots](../apps/web/docs/screenshots/phase7i/) show offline/demo
-UI from the initial simplification, before the final clock/chevron polish.
-Synthetic verified-state images are not blockchain evidence. [Phase 7H screenshots](../apps/web/docs/screenshots/phase7h/)
+[Final-build screenshots](../apps/web/docs/screenshots/final/) (on the final
+branch) show the offline production UI after the final polish, EN/TR at 390 px
+plus desktop; reproduce with `apps/web/scripts/final-shots.mjs`. Every payment
+state in them is DEMO/synthetic, not blockchain evidence. Older
+[Phase 7I screenshots](../apps/web/docs/screenshots/phase7i/) predate that polish. [Phase 7H screenshots](../apps/web/docs/screenshots/phase7h/)
 include historical pilot reads and labelled injected failures.
 
 [Release readiness](RELEASE_READINESS.md) records current tests, CI evidence and
