@@ -1,4 +1,4 @@
-# Judge quick start — Phase 7I
+# Judge quick start — final review branch
 
 No wallet, seed phrase or funds needed. **G1 is a conditional Testnet release
 candidate; physical iPhone acceptance remains open; normal G1/G2 contract CI passed.
@@ -13,22 +13,20 @@ except the explicitly skipped opt-in live test.
 ```powershell
 git clone https://github.com/KendineCrypto/taply.git
 cd taply
-git checkout 7443c01161fa412943140d8e52ad1de9f56ff97e # published implementation + release docs; not a release tag
+git checkout feature/final-integration-review   # final reviewed branch (Draft PR to main); not a release tag
+git rev-parse HEAD                               # record the exact commit you judged
 pnpm install --frozen-lockfile
 pnpm check
 pnpm --filter @taply/web dev
 ```
 
-This published SHA contains both the implementation baseline and the release
-preparation docs (PR #10). It is not a release tag or signing approval.
-The later safety review is on local branch `feature/final-integration-review`;
-see [FINAL_INTEGRATION_REVIEW.md](FINAL_INTEGRATION_REVIEW.md) in that checkout.
-Its report-bearing commit can be identified with
-`git log -1 --format=%H -- docs/FINAL_INTEGRATION_REVIEW.md`.
-That final branch also carries the local F-01 wallet-retry fix (`9db43fb`,
-`24cf04a`) and the final-build screenshots; it has not been published. After
-separately authorized publication, use its reviewed full SHA for final judging;
-do not claim that the older baseline contains the safety report or the fix.
+`feature/final-integration-review` contains the implementation, the release
+docs, the [final safety review](FINAL_INTEGRATION_REVIEW.md), the F-01
+wallet-retry fix (`9db43fb`, `24cf04a`) and the final-build screenshots. It is
+a review branch, not a release tag or signing approval, and it is not merged
+into `main`. If it later moves, judge the exact commit recorded in the
+submission. The older published baseline `7443c01` (PR #10) does not contain
+the safety review or the F-01 fix.
 
 Open [localhost demo](http://localhost:3000/demo). Walk through review, processing
 and receipt; every scene is **DEMO / synthetic**, not a new chain payment.

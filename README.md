@@ -124,7 +124,7 @@ A successful workspace check does not include Rust/sandbox or standalone API che
 ```sh
 git clone https://github.com/KendineCrypto/taply.git
 cd taply
-git checkout 7443c01161fa412943140d8e52ad1de9f56ff97e # published implementation + release docs; not a release tag
+git checkout feature/final-integration-review   # final reviewed branch; not a release tag
 pnpm install --frozen-lockfile
 pnpm check            # workspace checks, no funds; standalone/contract checks listed in release report
 ```
@@ -311,12 +311,15 @@ Full checklist: [`docs/SUBMISSION_CHECKLIST.md`](docs/SUBMISSION_CHECKLIST.md).
 
 - [x] Repository is public (checked 2026-11-05).
 - [ ] **LICENSE** file (Q-014 asks for one; the owner chooses the license).
-- [ ] A reviewed branch or tag for judges: `main` does not yet contain the
-      Phase 6–7I work this README describes. All commits are inside the
-      eligible window (repository starts 2026-10-29), so there is no
-      pre-hackathon baseline to separate.
+- [ ] Judged branch: `feature/final-integration-review` (Draft PR to `main`,
+      not merged). `main` does not yet contain the Phase 6–7I work this README
+      describes. Hackathon diff (Q-003):
+      [main...feature/final-integration-review](https://github.com/KendineCrypto/taply/compare/main...feature/final-integration-review).
+      All commits are inside the eligible window (repository starts
+      2026-10-29), so there is no pre-hackathon baseline to separate.
 - [ ] Public demo video and human-reviewed X post (tag @NEARProtocol and
-      #NEARHackathon); [shot list and unpublished draft](docs/RELEASE_DEMO.md).
+      #NEARHackathon). With no hosted demo, Q-012 requires a video;
+      [recording plan, screenshots and unpublished draft](docs/RELEASE_DEMO.md).
 - [ ] Optional hosted HTTPS demo (plan in the Phase 7H report, section 8).
 - [ ] Submission: only the human submits, after confirming the exact payload.
 

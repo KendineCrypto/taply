@@ -14,7 +14,9 @@ mkdirSync(out, { recursive: true });
 const routes = {
   home: '/', wallet: '/wallet', activity: '/activity', merchant: '/merchant',
   sale: '/merchant/register', checkout: '/checkout/shop.testnet', request: '/request/new',
-  ...Object.fromEntries(['receive', 'create', 'share', 'review', 'progress', 'receipt'].map(s => [`demo-${s}`, `/demo?step=${s}`])),
+  // No 'share' step: the demo share link and its QR use the page origin, which
+  // is a loopback address in offline capture and must not appear in published media.
+  ...Object.fromEntries(['receive', 'create', 'review', 'progress', 'receipt'].map(s => [`demo-${s}`, `/demo?step=${s}`])),
 };
 const shots = [
   { locale: 'en', width: 390 },

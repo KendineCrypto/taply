@@ -58,12 +58,6 @@
     {
       "locale": "en",
       "width": 390,
-      "name": "demo-share",
-      "overflow": 0
-    },
-    {
-      "locale": "en",
-      "width": 390,
       "name": "demo-review",
       "overflow": 0
     },
@@ -131,12 +125,6 @@
       "locale": "tr",
       "width": 390,
       "name": "demo-create",
-      "overflow": 0
-    },
-    {
-      "locale": "tr",
-      "width": 390,
-      "name": "demo-share",
       "overflow": 0
     },
     {
