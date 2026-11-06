@@ -83,3 +83,17 @@ test('fresh challenges reject revoked keys and accept only the newly associated 
   assert.equal((await store.consume(fresh.id, fresh.accountId, fresh.origin, fresh.state, rotated(fresh), verifier)).publicKey, rotatedPublic);
   // This tests new login proof only; existing cookies have no continuous key recheck.
 });
+
+test('NEP-413 expiry during key lookup burns the challenge and cannot be replayed', async () => {
+  const store = new Challenges('https://taply.example', 'candidate.testnet');
+  const challenge = store.issue('merchant.testnet'), signed = testSigner()(challenge);
+  let now = challenge.expiresAtMs - 1, calls = 0;
+  const verifier = createNep413Verifier(challenge.origin, 'candidate.testnet', async (accountId, publicKey) => {
+    calls++; now = challenge.expiresAtMs;
+    return { accountId, publicKey, blockHash: '1'.repeat(32), blockHeight: '123' };
+  }, () => now);
+  await assert.rejects(store.consume(challenge.id, challenge.accountId, challenge.origin, challenge.state, signed, verifier), /EXPIRED/);
+  now = challenge.expiresAtMs - 1;
+  await assert.rejects(store.consume(challenge.id, challenge.accountId, challenge.origin, challenge.state, signed, verifier), /USED/);
+  assert.equal(calls, 1);
+});
