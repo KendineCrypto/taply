@@ -602,6 +602,8 @@ export const tr: Dictionary = {
     },
     settlementProofPending:
       'Bu bilgi, kesinleşmiş bir bloktaki kontrat durumundan gelir. Doğrulanmış Ödendi makbuzu için fonlama, aktarım ve geri çağrı (callback) makbuzlarının da kontrol edilmesi gerekir. Doğrulamak için makbuzu açın.',
+    settlementProofPendingOnReceipt:
+      'Bu bilgi, kesinleşmiş bir bloktaki kontrat durumundan gelir. Doğrulanmış Ödendi için fonlama, aktarım ve geri çağrı (callback) makbuzlarının da kontrol edilmesi gerekir; bu ekranda bu kontrol henüz başarılı olmadı.',
     setup: {
       notConfigured: {
         title: 'Ödemeler kurulmamış',

@@ -127,7 +127,7 @@ export function DemoTour() {
                 onClick={() => goTo(s)}
                 aria-current={s === step ? 'step' : undefined}
                 aria-label={`${i + 1}. ${stepCopy(s).title}`}
-                className="group flex w-full flex-col items-center gap-1.5 py-1"
+                className="group flex min-h-[var(--tap-target)] w-full flex-col items-center justify-center gap-1.5 py-1"
               >
                 <span
                   className={`h-1.5 w-full rounded-full transition-colors ${
@@ -357,7 +357,7 @@ function SendStep() {
                   type="button"
                   aria-pressed={o === outcome}
                   onClick={() => setOutcome(o)}
-                  className={`min-h-[36px] rounded-full border px-3 text-xs font-medium ${
+                  className={`min-h-[var(--tap-target)] rounded-full border px-3 text-xs font-medium ${
                     o === outcome
                       ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--taply-night)]'
                       : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -369,7 +369,7 @@ function SendStep() {
               <button
                 type="button"
                 onClick={() => setOutcome(null)}
-                className="min-h-[36px] rounded-full border border-[var(--border-strong)] px-3 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                className="min-h-[var(--tap-target)] rounded-full border border-[var(--border-strong)] px-3 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
                 {t.walletUx.send.edit}
               </button>
@@ -531,7 +531,7 @@ function ProgressStep({ onDone }: { readonly onDone: () => void }) {
                 setPlaying(false);
                 setStage(s);
               }}
-              className={`min-h-[36px] rounded-full border px-3 text-xs font-medium ${
+              className={`min-h-[var(--tap-target)] rounded-full border px-3 text-xs font-medium ${
                 s === stage
                   ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--taply-night)]'
                   : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'

@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateRequest } from '../CreateRequest';
 import { PaymentScreen } from '../PaymentScreen';
-import { FIXTURES, configFor, installChain, must, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
+import { FIXTURES, OTHER_CODE_HASH, chainClock, configFor, installChain, must, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
 import { MAX_CHAIN_AGE_MS, MAX_CHAIN_FUTURE_MS, chainFreshness } from '@/lib/payments/freshness';
 import { CHECK_REUSE_MS } from '@/lib/payments/context';
 
@@ -161,5 +161,53 @@ describe('payment authorization refuses stale chain data', () => {
     });
     await waitFor(() => expect(signed).toHaveLength(1));
     expect(screen.queryByText('Please review again')).toBeNull();
+  });
+});
+
+describe('Phase 7H: one retry control for one outage on the pay screen', () => {
+  const { openRestricted } = FIXTURES;
+  const PAYER = must(openRestricted.terms.permittedPayerAccountId, 'a payer');
+
+  it('a stale contract check shows no second "Try again"; the single "Check again" re-runs the check and the read', async () => {
+    const chain = installChain({ contractId: openRestricted.terms.contractId, blockTimestampNs: nsOf(CHAIN_MS) });
+    chain.requests.set(openRestricted.terms.id, openRestricted);
+    const { adapter, signed } = recordingWallet(PAYER);
+    const now = CHAIN_MS + 5 * 60_000;
+    renderWithChain(<PaymentScreen id={openRestricted.terms.id} />, { setup: readySetup(chain, true), adapter, now: () => now });
+    expect(await screen.findByText('Network data is out of date')).toBeTruthy();
+    const checkAgain = await waitFor(() => {
+      const found = screen.getAllByRole('button', { name: /Check again/ });
+      expect(found).toHaveLength(1);
+      return found;
+    });
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    const configReads = () => chain.calls.filter((c) => c.methodName === 'get_config').length;
+    const requestReads = () => chain.calls.filter((c) => c.methodName === 'get_request').length;
+    const [configBefore, requestBefore] = [configReads(), requestReads()];
+    // The provider catches up; one tap clears the outage.
+    chain.blockTimestampNs = nsOf(now);
+    await act(async () => {
+      fireEvent.click(must(checkAgain[0], 'check again'));
+    });
+    await waitFor(() => expect(screen.queryByText('Network data is out of date')).toBeNull());
+    expect(configReads()).toBeGreaterThan(configBefore);
+    expect(requestReads()).toBeGreaterThan(requestBefore);
+    expect(signed).toHaveLength(0);
+  });
+
+  it('a code-hash mismatch stays a danger notice with no retry, and "Check again" never clears it', async () => {
+    const chain = installChain({ contractId: openRestricted.terms.contractId, codeHash: OTHER_CODE_HASH });
+    chain.requests.set(openRestricted.terms.id, openRestricted);
+    const { adapter, signed } = recordingWallet(PAYER);
+    renderWithChain(<PaymentScreen id={openRestricted.terms.id} />, { setup: readySetup(chain, true), adapter, now: chainClock(chain) });
+    const notice = await screen.findByText('Contract code does not match');
+    const checkAgain = await waitFor(() => must(screen.getAllByRole('button', { name: /Check again/ })[0], 'check again'));
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    await act(async () => {
+      fireEvent.click(checkAgain);
+    });
+    expect(notice.isConnected || screen.queryByText('Contract code does not match') !== null).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Approve in wallet' })).toBeNull();
+    expect(signed).toHaveLength(0);
   });
 });
