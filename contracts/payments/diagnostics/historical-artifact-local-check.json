@@ -1,0 +1,71 @@
+{
+  "approval": "UNAPPROVED",
+  "sha256": "a13d932f3b4cadbb4a6580d447a8142f8c704656998659fb3ccebde6ddacb0d2",
+  "codeHash": "BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B",
+  "size": 345541,
+  "exports": [
+    {
+      "name": "memory",
+      "kind": "memory"
+    },
+    {
+      "name": "cancel_unfunded",
+      "kind": "function"
+    },
+    {
+      "name": "contract_source_metadata",
+      "kind": "function"
+    },
+    {
+      "name": "create_request",
+      "kind": "function"
+    },
+    {
+      "name": "get_accounting",
+      "kind": "function"
+    },
+    {
+      "name": "get_config",
+      "kind": "function"
+    },
+    {
+      "name": "get_receipt",
+      "kind": "function"
+    },
+    {
+      "name": "get_request",
+      "kind": "function"
+    },
+    {
+      "name": "new",
+      "kind": "function"
+    },
+    {
+      "name": "on_native_transfer_complete",
+      "kind": "function"
+    },
+    {
+      "name": "pay_instant_native",
+      "kind": "function"
+    },
+    {
+      "name": "quote_create_request",
+      "kind": "function"
+    },
+    {
+      "name": "retry_native_transfer",
+      "kind": "function"
+    },
+    {
+      "name": "__data_end",
+      "kind": "global"
+    },
+    {
+      "name": "__heap_base",
+      "kind": "global"
+    }
+  ],
+  "abiFunctionMatch": true,
+  "abiSha256": "deff287219d272d38814d713cd465bfc125a138565adf5a5e333982a01c89268",
+  "abiScope": "Export names only; argument/return semantics require runtime tests."
+}
