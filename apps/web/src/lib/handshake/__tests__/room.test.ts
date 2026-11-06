@@ -40,12 +40,6 @@ function sync(over: Partial<RoomSync> = {}, room: RoomSnapshot = snapshot()): Re
   return { schemaVersion: 'taply.room-sync.v1', sessionId: SID, cursor: '3', reset: false, serverTimeMs: 1, room, events: [], ...over };
 }
 
-const parsed = (raw: Record<string, unknown>) => {
-  const p = parseRoomSync(raw);
-  if (!p.ok) throw new Error(`expected valid sync: ${p.reason}`);
-  return p.sync;
-};
-
 const joined = (reviewed = false) => demoSession(reviewed ? 3 : 1, reviewed);
 
 describe('parseRoomSync', () => {
@@ -73,38 +67,34 @@ describe('parseRoomSync', () => {
   });
 });
 
-describe('applyRoomSync', () => {
+describe('applyRoomSync (delegates to near-client applyRoomCatchUp)', () => {
   const scope: RoomScope = { sessionId: SID, accountId: 'cafe.demo.testnet', authGeneration: 1 };
 
   it('applies the atomic room and always asks for a chain re-read', () => {
-    const r = applyRoomSync({ previous: null, sync: parsed(sync()), requested: scope, current: scope });
+    const r = applyRoomSync({ previous: null, untrusted: sync(), requested: scope, current: scope });
     expect(r).toMatchObject({ kind: 'applied', recheckChain: true });
   });
 
-  it('ignores duplicates and older cursors, but takes an explicit reset', () => {
-    const first = applyRoomSync({ previous: null, sync: parsed(sync({ cursor: '5' })), requested: scope, current: scope });
+  it('ignores duplicates and older cursors, including an older reset (no rollback)', () => {
+    const first = applyRoomSync({ previous: null, untrusted: sync({ cursor: '5' }), requested: scope, current: scope });
     if (first.kind !== 'applied') throw new Error('applied expected');
-    for (const cursor of ['5', '4', '0']) {
-      expect(applyRoomSync({ previous: first.state, sync: parsed(sync({ cursor })), requested: scope, current: scope })).toMatchObject({
-        kind: 'ignored',
-        reason: 'older_or_duplicate',
-        recheckChain: false,
-      });
+    for (const over of [{ cursor: '5' }, { cursor: '4' }, { cursor: '0' }, { cursor: '1', reset: true }]) {
+      const r = applyRoomSync({ previous: first.state, untrusted: sync(over), requested: scope, current: scope });
+      expect(r).toMatchObject({ kind: 'ignored', reason: 'older_or_duplicate', recheckChain: false });
+      expect(r.state).toBe(first.state);
     }
-    // Big cursors compare as BigInt, not as strings or floats.
-    const big = applyRoomSync({ previous: first.state, sync: parsed(sync({ cursor: '10000000000000000001' })), requested: scope, current: scope });
-    expect(big.kind).toBe('applied');
-    expect(applyRoomSync({ previous: first.state, sync: parsed(sync({ cursor: '1', reset: true })), requested: scope, current: scope }).kind).toBe('applied');
+    // A newer reset replaces the room.
+    expect(applyRoomSync({ previous: first.state, untrusted: sync({ cursor: '9', reset: true }), requested: scope, current: scope }).kind).toBe('applied');
   });
 
-  it('discards a response fetched under another account, auth generation or session', () => {
+  it('discards a response fetched under another account, auth generation or session before parsing it', () => {
     for (const current of [
       { ...scope, accountId: 'other.testnet' },
       { ...scope, authGeneration: 2 },
       { ...scope, sessionId: '11111111-1111-4111-8111-111111111111' },
     ]) {
-      const r = applyRoomSync({ previous: null, sync: parsed(sync()), requested: scope, current });
-      expect(r.kind).toBe('ignored');
+      const r = applyRoomSync({ previous: null, untrusted: { garbage: true }, requested: scope, current });
+      expect(r).toMatchObject({ kind: 'ignored', reason: 'stale_scope' });
     }
   });
 });
