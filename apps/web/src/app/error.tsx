@@ -25,7 +25,7 @@ export default function RouteError({ reset }: { readonly error: Error; readonly 
           {t.common.retry}
         </button>
         <p className="mt-3 text-xs text-[var(--text-muted)]">
-          This only reloads the screen. It does not resubmit a transaction.
+          {t.system.reloadOnlyNote}
         </p>
       </Card>
     </>

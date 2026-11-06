@@ -1,0 +1,173 @@
+{
+  "results": [
+    {
+      "name": "merchant-hub-360",
+      "overflowPx": 0
+    },
+    {
+      "name": "discovery-qr-360",
+      "overflowPx": 0
+    },
+    {
+      "name": "pos-amount-360",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-own-360",
+      "overflowPx": 0
+    },
+    {
+      "name": "merchant-hub-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "discovery-qr-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "pos-amount-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-own-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "merchant-hub-430",
+      "overflowPx": 0
+    },
+    {
+      "name": "discovery-qr-430",
+      "overflowPx": 0
+    },
+    {
+      "name": "pos-amount-430",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-own-430",
+      "overflowPx": 0
+    },
+    {
+      "name": "merchant-hub-1280",
+      "overflowPx": 0
+    },
+    {
+      "name": "discovery-qr-1280",
+      "overflowPx": 0
+    },
+    {
+      "name": "pos-amount-1280",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-own-1280",
+      "overflowPx": 0
+    },
+    {
+      "name": "pos-review-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "pos-review-wallet-button",
+      "present": 1
+    },
+    {
+      "name": "checkout-customer-360",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-customer-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-customer-430",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-customer-1280",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-not-testnet-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-paste-invalid-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "keyboard-reaches-scan-cta",
+      "ok": true
+    },
+    {
+      "name": "session-unavailable-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "session-invalid-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "demo-handshake-1-create-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "demo-handshake-3-compare-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "demo-handshake-3-mismatch-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "demo-handshake-5-wallet-390",
+      "overflowPx": 0
+    },
+    {
+      "name": "demo-handshake-compare-1280",
+      "overflowPx": 0
+    },
+    {
+      "name": "merchant-hub-390-tr",
+      "overflowPx": 0
+    },
+    {
+      "name": "discovery-qr-390-tr",
+      "overflowPx": 0
+    },
+    {
+      "name": "checkout-customer-390-tr",
+      "overflowPx": 0
+    },
+    {
+      "name": "demo-handshake-compare-390-tr",
+      "overflowPx": 0
+    },
+    {
+      "name": "reduced-motion-pulse",
+      "animationName": "none"
+    },
+    {
+      "name": "full-motion-pulse",
+      "animationName": "taply-checkout-pulse"
+    },
+    {
+      "name": "touch-targets-under-44px",
+      "items": []
+    }
+  ],
+  "rpcMethods": [
+    "status",
+    "block",
+    "query:view_account:",
+    "query:call_function:get_config",
+    "query:call_function:quote_create_request"
+  ],
+  "broadcastAttempted": false,
+  "blockedHosts": [
+    "raw.githubusercontent.com",
+    "cdn.jsdelivr.net"
+  ],
+  "pageErrors": []
+}

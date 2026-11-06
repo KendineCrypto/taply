@@ -11,7 +11,7 @@ import type {
 import { en } from '@/lib/i18n/dictionaries/en';
 import { tr } from '@/lib/i18n/dictionaries/tr';
 import { isInFlight, isRecoverableFailure, mapChainState } from '../map-chain-state';
-import type { MapInput, StatusPresentation } from '../map-chain-state';
+import type { MapInput, SettlementProof, StatusPresentation } from '../map-chain-state';
 
 /**
  * Safety tests for the only module permitted to decide payment presentation.
@@ -62,6 +62,7 @@ function run(
   source: ObservationSource = 'rpc',
   fundingEligibility: FundingEligibility = 'ELIGIBLE',
   incident: Incident = null,
+  settlementProof: SettlementProof = 'verified_receipt',
 ): StatusPresentation {
   const input: MapInput = {
     state,
@@ -69,6 +70,7 @@ function run(
     derived,
     fundingEligibility,
     incident,
+    settlementProof,
   };
   return mapChainState(input);
 }
@@ -260,6 +262,7 @@ describe('unknown, mismatched and stale observations are not trusted', () => {
         derived: permissiveDerived('payer'),
         fundingEligibility: 'NOT_OPEN',
         incident: null,
+        settlementProof: 'verified_receipt',
       });
       expect(result.needsFreshnessWarning).toBe(true);
       expect(result.verifiedRibbon).toBe(true);
@@ -291,6 +294,7 @@ describe('unknown, mismatched and stale observations are not trusted', () => {
             derived: permissiveDerived(role),
             fundingEligibility: 'ELIGIBLE',
             incident: null,
+            settlementProof: 'verified_receipt',
           }).ctas.map((c) => c.kind);
           for (const kind of kinds) {
             expect(
@@ -321,6 +325,7 @@ describe('an open incident withholds every financial action', () => {
             derived: permissiveDerived(role),
             fundingEligibility: 'ELIGIBLE',
             incident,
+            settlementProof: 'verified_receipt',
           });
           expect(result.incidentOpen, `${incident}/${state}`).toBe(true);
           expect(result.needsFreshnessWarning).toBe(true);
@@ -341,6 +346,7 @@ describe('an open incident withholds every financial action', () => {
       derived: restrictiveDerived('payer'),
       fundingEligibility: 'NOT_OPEN',
       incident: 'RECONCILIATION_REQUIRED',
+      settlementProof: 'verified_receipt',
     });
     expect(result.money).toBe('uncertain');
   });
@@ -539,6 +545,35 @@ describe('role-aware audience selection', () => {
     expect(run('LOCKED', 'payer_and_recipient', 'verified_final').audience).toBe('recipient');
     for (const role of ['payer', 'observer', 'anonymous'] as const) {
       expect(run('LOCKED', role, 'verified_final').audience, role).toBe('payer');
+    }
+  });
+});
+
+describe('contract state alone never earns the Verified Paid treatment', () => {
+  // API.md: Verified Paid needs verified settlement proof; get_receipt facts are
+  // CONTRACT_FACTS_NOT_FINALITY_PROOF. Until a receipt verifier exists, a final
+  // contract read of FINAL_PAID is "paid per contract", not verified.
+  it('FINAL_PAID + verified_final + contract_state_only: no ribbon, no success tone, distinct check icon', () => {
+    for (const role of CALLER_ROLES) {
+      const result = run('FINAL_PAID', role, 'verified_final', permissiveDerived(role), 'rpc', 'NOT_OPEN', null, 'contract_state_only');
+      expect(result.verifiedRibbon).toBe(false);
+      expect(result.contractReportsPaid).toBe(true);
+      expect(result.tone).toBe('neutral');
+      expect(result.icon).toBe('check');
+      expect(result.ctas.map((c) => c.kind)).toEqual(['view_receipt']);
+    }
+  });
+
+  it('only FINAL_PAID from a confident non-mock read can report contract-paid', () => {
+    for (const [state, role, assurance] of EVERY_COMBINATION) {
+      for (const source of ['rpc', 'index', 'mock'] as const) {
+        const result = run(state, role, assurance, permissiveDerived(role), source, 'ELIGIBLE', null, 'contract_state_only');
+        expect(result.verifiedRibbon, `${state}/${role}/${assurance}/${source}`).toBe(false);
+        expect(result.tone, `${state}/${role}/${assurance}/${source}`).not.toBe('success');
+        expect(result.contractReportsPaid, `${state}/${role}/${assurance}/${source}`).toBe(
+          state === 'FINAL_PAID' && assurance === 'verified_final' && source !== 'mock',
+        );
+      }
     }
   });
 });

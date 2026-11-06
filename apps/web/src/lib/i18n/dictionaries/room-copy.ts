@@ -1,0 +1,167 @@
+import type { RoomCopy } from '../commerce-types';
+
+/**
+ * Phase 7G gated Handshake room copy (lib/handshake/room.ts). Previewed in
+ * /demo/handshake only. Nothing here may imply payment from a room state,
+ * merchant identity from a matching code, or presence without a join.
+ */
+
+export const roomEn: RoomCopy = {
+  previewTitle: 'Room adapter preview',
+  previewIntro:
+    'How each real Handshake room state will look on both phones. Synthetic rooms run through the real presenter; no session service, wallet or chain is used.',
+  scenario: 'Room state',
+  scenarios: {
+    waiting: 'Waiting for customer',
+    joined: 'Customer joined',
+    interrupted: 'Connection interrupted',
+    reconnected: 'Reconnected',
+    reviewing: 'Reviewing terms',
+    wallet: 'Wallet approval (advisory)',
+    pending: 'Submitted, chain still open',
+    unknown: 'Wallet outcome unknown',
+    mismatch: 'Terms substituted',
+    expired: 'Session expired',
+    unsupported: 'Unsupported version',
+    verification: 'Contract cannot bind sessions',
+  },
+  merchantPhone: 'Merchant phone',
+  customerPhone: 'Customer phone',
+  phase: {
+    not_bound: { title: 'No sale bound yet', body: 'The room has no on-chain sale to compare.' },
+    waiting_for_customer: { title: 'Waiting for the customer', body: 'Nobody has joined this room.' },
+    customer_joined: { title: 'Customer joined', body: 'The session service recorded an authenticated join. Compare the code.' },
+    reviewing: { title: 'Reviewing the terms', body: 'Each side confirms the exact amount and account.' },
+    waiting_for_wallet: { title: 'Waiting for wallet approval', body: 'Both reviewed the same terms. Only the payer’s wallet can approve.' },
+    pending_chain: {
+      title: 'Waiting for the chain',
+      body: 'The payer’s phone reports a submitted transaction. Only the chain line below can confirm payment.',
+    },
+    outcome_unknown: { title: 'Wallet outcome unknown', body: 'Do not pay again. The chain is checked before anything else happens.' },
+    mismatch: { title: 'Terms do not match', body: 'This phone read different terms. Do not pay.' },
+    expired: { title: 'Session expired', body: 'The room closed. A payment already sent is still checked on chain.' },
+    closed: { title: 'Room closed', body: 'Coordination ended. Funds are not affected.' },
+  },
+  connection: {
+    connected: 'Other phone connected',
+    interrupted: 'Connection interrupted',
+    reconnected: 'Reconnected',
+    not_joined: 'No customer in the room',
+  },
+  code: { label: 'Comparison code', match: 'Codes match', mismatch: 'Codes differ', pending: 'Not comparable yet' },
+  reviews: { merchant: 'Merchant review', payer: 'Customer review', done: 'Done', notYet: 'Not yet' },
+  wallet: {
+    label: 'Wallet',
+    note: 'Reported by the payer’s phone. Not proof of payment.',
+    awaiting_wallet: 'Approval open',
+    submitted: 'Reported submitted',
+    outcome_unknown: 'Outcome unknown',
+    rejected: 'Declined',
+  },
+  chain: {
+    label: 'Chain',
+    not_read: 'Not read yet',
+    open: 'Open, not paid',
+    in_flight: 'Payout in flight',
+    paid_per_contract: 'Paid per contract',
+    verified_paid: 'Verified Paid',
+    needs_attention: 'Needs attention',
+    closed: 'Closed',
+  },
+  merchantIdentity: 'Merchant identity: not verified. A matching code does not prove who the merchant is.',
+  authority: 'Coordination only. Payment status comes from the chain.',
+  unavailable: {
+    flag_off: { title: 'Live Handshake is off', body: 'This build keeps Handshake disabled.' },
+    backend_not_connected: { title: 'No session service connected', body: 'No reviewed session-service adapter is configured.' },
+    unsupported_version: {
+      title: 'Unsupported room version',
+      body: 'This app does not understand the session service’s room format, so it shows nothing from it.',
+    },
+    refused: { title: 'Room refused', body: 'The session service refused this request.' },
+    session_not_found: { title: 'Room not found', body: 'This room does not exist or has been cleaned up.' },
+    verification_unavailable: {
+      title: 'Cannot check this room',
+      body: 'The deployed contract cannot bind a session to a sale, so the room cannot be checked against the chain.',
+    },
+  },
+};
+
+export const roomTr: RoomCopy = {
+  previewTitle: 'Oda bağdaştırıcısı önizlemesi',
+  previewIntro:
+    'Her gerçek Handshake oda durumunun iki telefonda nasıl görüneceği. Sentetik odalar gerçek sunucudan geçer; oturum hizmeti, cüzdan ya da zincir kullanılmaz.',
+  scenario: 'Oda durumu',
+  scenarios: {
+    waiting: 'Müşteri bekleniyor',
+    joined: 'Müşteri katıldı',
+    interrupted: 'Bağlantı kesildi',
+    reconnected: 'Yeniden bağlandı',
+    reviewing: 'Koşullar inceleniyor',
+    wallet: 'Cüzdan onayı (bilgi amaçlı)',
+    pending: 'Gönderildi, zincir hâlâ açık',
+    unknown: 'Cüzdan sonucu bilinmiyor',
+    mismatch: 'Koşullar değiştirilmiş',
+    expired: 'Oturumun süresi doldu',
+    unsupported: 'Desteklenmeyen sürüm',
+    verification: 'Kontrat oturum bağlayamıyor',
+  },
+  merchantPhone: 'Satıcı telefonu',
+  customerPhone: 'Müşteri telefonu',
+  phase: {
+    not_bound: { title: 'Henüz bağlı satış yok', body: 'Odada karşılaştırılacak zincir üstü bir satış yok.' },
+    waiting_for_customer: { title: 'Müşteri bekleniyor', body: 'Bu odaya henüz kimse katılmadı.' },
+    customer_joined: { title: 'Müşteri katıldı', body: 'Oturum hizmeti kimliği doğrulanmış bir katılım kaydetti. Kodu karşılaştırın.' },
+    reviewing: { title: 'Koşullar inceleniyor', body: 'Her taraf tam tutarı ve hesabı onaylar.' },
+    waiting_for_wallet: { title: 'Cüzdan onayı bekleniyor', body: 'İki taraf aynı koşulları inceledi. Yalnızca ödeyenin cüzdanı onaylayabilir.' },
+    pending_chain: {
+      title: 'Zincir bekleniyor',
+      body: 'Ödeyenin telefonu gönderilmiş bir işlem bildiriyor. Ödemeyi yalnızca aşağıdaki zincir satırı doğrulayabilir.',
+    },
+    outcome_unknown: { title: 'Cüzdan sonucu bilinmiyor', body: 'Tekrar ödemeyin. Başka bir şey olmadan önce zincir kontrol edilir.' },
+    mismatch: { title: 'Koşullar eşleşmiyor', body: 'Bu telefon farklı koşullar okudu. Ödemeyin.' },
+    expired: { title: 'Oturumun süresi doldu', body: 'Oda kapandı. Gönderilmiş bir ödeme yine de zincirde kontrol edilir.' },
+    closed: { title: 'Oda kapandı', body: 'Koordinasyon bitti. Fonlar etkilenmez.' },
+  },
+  connection: {
+    connected: 'Diğer telefon bağlı',
+    interrupted: 'Bağlantı kesildi',
+    reconnected: 'Yeniden bağlandı',
+    not_joined: 'Odada müşteri yok',
+  },
+  code: { label: 'Karşılaştırma kodu', match: 'Kodlar eşleşiyor', mismatch: 'Kodlar farklı', pending: 'Henüz karşılaştırılamaz' },
+  reviews: { merchant: 'Satıcı incelemesi', payer: 'Müşteri incelemesi', done: 'Tamam', notYet: 'Henüz değil' },
+  wallet: {
+    label: 'Cüzdan',
+    note: 'Ödeyenin telefonu tarafından bildirildi. Ödeme kanıtı değildir.',
+    awaiting_wallet: 'Onay açık',
+    submitted: 'Gönderildi bildirildi',
+    outcome_unknown: 'Sonuç bilinmiyor',
+    rejected: 'Reddedildi',
+  },
+  chain: {
+    label: 'Zincir',
+    not_read: 'Henüz okunmadı',
+    open: 'Açık, ödenmedi',
+    in_flight: 'Aktarım sürüyor',
+    paid_per_contract: 'Kontrata göre ödendi',
+    verified_paid: 'Doğrulanmış Ödendi',
+    needs_attention: 'İlgilenmeniz gerekiyor',
+    closed: 'Kapandı',
+  },
+  merchantIdentity: 'Satıcı kimliği: doğrulanmadı. Eşleşen kod satıcının kim olduğunu kanıtlamaz.',
+  authority: 'Yalnızca koordinasyon. Ödeme durumu zincirden gelir.',
+  unavailable: {
+    flag_off: { title: 'Canlı Handshake kapalı', body: 'Bu sürümde Handshake devre dışı.' },
+    backend_not_connected: { title: 'Bağlı oturum hizmeti yok', body: 'İncelenmiş bir oturum hizmeti bağdaştırıcısı yapılandırılmadı.' },
+    unsupported_version: {
+      title: 'Desteklenmeyen oda sürümü',
+      body: 'Bu uygulama oturum hizmetinin oda biçimini anlamıyor, bu yüzden ondan hiçbir şey göstermiyor.',
+    },
+    refused: { title: 'Oda reddedildi', body: 'Oturum hizmeti bu isteği reddetti.' },
+    session_not_found: { title: 'Oda bulunamadı', body: 'Bu oda yok ya da temizlendi.' },
+    verification_unavailable: {
+      title: 'Bu oda kontrol edilemiyor',
+      body: 'Dağıtılmış kontrat bir oturumu satışa bağlayamıyor, bu yüzden oda zincirle karşılaştırılamıyor.',
+    },
+  },
+};

@@ -1,0 +1,39 @@
+{
+  "cancelUntilNs": null,
+  "createdAtNs": "1793476884375457730",
+  "fundedAtNs": "1793476885854936352",
+  "latestOperation": {
+    "amountBaseUnits": "1000000000000000000000000",
+    "destinationAccountId": "dev-20261031200123-85674555103609.test.near",
+    "failureCode": null,
+    "kind": "INSTANT_PAYOUT",
+    "nonce": "1",
+    "resolvedAtNs": "1793476886102821508",
+    "startedAtNs": "1793476885854936352",
+    "status": "SUCCEEDED"
+  },
+  "payerAccountId": "dev-20261031200123-63773286685658.test.near",
+  "recipientAccountId": "dev-20261031200123-85674555103609.test.near",
+  "revision": "3",
+  "sessionCommitment": null,
+  "settlementBranch": "RECIPIENT",
+  "status": "FINAL_PAID",
+  "terms": {
+    "amountBaseUnits": "1000000000000000000000000",
+    "assetId": "near:native",
+    "cancelDurationNs": null,
+    "contractId": "dev-20261031200122-93055067749673.test.near",
+    "creationNonce": "000000000000000000000000000000000000000000000000000000000000000b",
+    "creatorAccountId": "dev-20261031200123-85674555103609.test.near",
+    "fundingExpiresAtNs": "1793562884005359337",
+    "id": "09e5d7c8014cdcdf083dae2f5fecd9630df687dd84f2ba77b684d240317af76d",
+    "memo": "",
+    "merchantAccountId": null,
+    "mode": "instant",
+    "network": "near-testnet",
+    "permittedPayerAccountId": "dev-20261031200123-63773286685658.test.near",
+    "schemaVersion": "taply.intent.v1",
+    "sessionBinding": null
+  },
+  "termsHash": "bda3d9ec19731a0e81a66ca1cd4c6998e3bc5d1e74722d182346b9bc92f3ea56"
+}

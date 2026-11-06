@@ -1,0 +1,49 @@
+name: wallet-browser-check
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/wallet-signer, feature/frontend]
+    paths:
+      - packages/near-client/**
+      - pnpm-lock.yaml
+      - .github/workflows/wallet-browser-check.yml
+  pull_request:
+    paths:
+      - packages/near-client/**
+      - pnpm-lock.yaml
+      - .github/workflows/wallet-browser-check.yml
+permissions:
+  contents: read
+jobs:
+  offline-crypto:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+      - name: Frozen install and build libraries
+        run: |
+          npm install --global pnpm@11.5.0
+          pnpm install --frozen-lockfile
+          pnpm --filter @taply/shared build
+          pnpm --filter @taply/near-client build
+      - name: Isolated pinned browser test tool (no workspace dependency changes)
+        run: |
+          npm install --prefix "$RUNNER_TEMP/taply-browser-tools" --no-save --no-package-lock --ignore-scripts playwright@1.64.1
+          "$RUNNER_TEMP/taply-browser-tools/node_modules/.bin/playwright" install --with-deps chromium firefox webkit
+      - name: Offline SDK/Web Crypto desktop and mobile-emulation matrix
+        env:
+          TAPLY_PLAYWRIGHT_MODULE: ${{ runner.temp }}/taply-browser-tools/node_modules/playwright/index.mjs
+        run: node packages/near-client/browser-tests/run.mjs
+      - name: Upload sanitized compatibility results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: wallet-offline-browser-compatibility
+          path: contracts/payments/artifacts/wallet-browser-results.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,61 @@
+{
+  "base": "http://127.0.0.1:3207",
+  "configuredRpcHost": "test.rpc.fastnear.com",
+  "forwardedToArchival": [
+    "EXPERIMENTAL_tx_status",
+    "block",
+    "query:view_account:",
+    "query:view_access_key_list:"
+  ],
+  "results": [
+    {
+      "name": "en-customer-receipt-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "tr-customer-receipt-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "tr"
+    }
+  ],
+  "failures": [],
+  "rpcMethods": [
+    "status",
+    "block",
+    "query:view_account:",
+    "query:call_function:get_receipt",
+    "query:call_function:get_config",
+    "query:call_function:get_request",
+    "EXPERIMENTAL_tx_status",
+    "query:view_access_key_list:"
+  ],
+  "broadcastAttempted": [],
+  "pageErrors": []
+}

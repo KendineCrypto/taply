@@ -1,23 +1,19 @@
 'use client';
 
-import { RouteScaffold } from '@/components/shell/RouteScaffold';
+import { ScreenHeader } from '@/components/primitives/Surface';
+import { SendFlow } from '@/components/send/SendFlow';
+import { TaplySend } from '@/components/wallet/taply/TaplySend';
+import { useWalletMode } from '@/components/wallet/taply/mode';
 import { useT } from '@/lib/i18n/provider';
 
-export default function Page() {
+/** Send NEAR Testnet: prepare and review. Confirming is gated (see SendFlow). */
+export default function SendPage() {
   const t = useT();
+  const [mode] = useWalletMode();
   return (
-    <RouteScaffold
-      title={t.screens.send}
-      flag="walletConnect"
-      plannedBehaviour={[
-        'Enter a recipient account ID and an exact base-unit amount.',
-        'Full review sheet with untruncated recipient, exact amount, network and fees before signing.',
-        'Swipe or keyboard-equivalent control opens the wallet; it never transfers on its own.',
-      ]}
-      dependsOn={[
-        'Browser wallet adapter (Claude, next increment).',
-        'packages/near-client transaction preparation (Codex).',
-      ]}
-    />
+    <>
+      <ScreenHeader title={t.screens.send} description={t.walletUx.send.subtitle} />
+      {mode === 'taply' ? <TaplySend /> : <SendFlow />}
+    </>
   );
 }

@@ -1,0 +1,129 @@
+{
+  "results": [
+    {
+      "name": "merchant-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract"
+    },
+    {
+      "name": "customer-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract"
+    },
+    {
+      "name": "merchant-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract"
+    },
+    {
+      "name": "customer-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract"
+    },
+    {
+      "name": "merchant-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract"
+    },
+    {
+      "name": "customer-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract"
+    },
+    {
+      "name": "receipt-verified-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": null,
+      "heroTitle": null
+    },
+    {
+      "name": "receipt-celebration-360",
+      "burstRings": 1
+    },
+    {
+      "name": "receipt-verified-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": null,
+      "heroTitle": null
+    },
+    {
+      "name": "receipt-celebration-390",
+      "burstRings": 1
+    },
+    {
+      "name": "tr-merchant-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi"
+    },
+    {
+      "name": "demo-joined-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": null,
+      "heroTitle": null
+    },
+    {
+      "name": "demo-wallet-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "heroTone": null,
+      "heroTitle": null
+    },
+    {
+      "name": "reduced-motion",
+      "hero": "none",
+      "connect": "none"
+    }
+  ],
+  "failures": [],
+  "rpcMethods": [
+    "status",
+    "block",
+    "query:view_account:",
+    "query:call_function:get_config",
+    "query:call_function:get_request",
+    "query:call_function:get_receipt",
+    "EXPERIMENTAL_tx_status",
+    "query:view_access_key_list:"
+  ],
+  "broadcastAttempted": false,
+  "pageErrors": []
+}

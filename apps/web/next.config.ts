@@ -21,7 +21,11 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'no-referrer' },
           { key: 'X-Frame-Options', value: 'DENY' },
           // Handshake join tokens must never leak via Referer or embedded contexts.
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          // `same-origin-allow-popups`, not `same-origin`: NEAR Connect wallets
+          // (e.g. MyNearWallet) open a popup that answers via window.opener.
+          // Plain `same-origin` severs that link and breaks wallet sign-in.
+          // Documents that open Taply still cannot keep a handle to it.
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
           { key: 'Permissions-Policy', value: 'camera=(self), geolocation=(), microphone=()' },
         ],
       },

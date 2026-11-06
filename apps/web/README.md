@@ -1,36 +1,136 @@
 # `apps/web` — Taply v0.4 frontend
 
+**taply.** — *Your wallet. Your payment. One tap.* A mobile-first NEAR
+**Testnet** wallet and payments app: connect the NEAR wallet you already have,
+then send, receive and request payments.
+
+## Try it in 60 seconds
+
+Open `/demo` (or tap **See a full payment in 60 seconds** on Home): an eight-step
+tour through the real Taply screens with deterministic **DEMO** data — wallet
+home, receive, send, create, share, review, progress, receipt. No wallet opens,
+nothing is signed, nothing touches the chain, and every screen says so. Judge
+walkthrough, storyboard, voiceover and launch post:
+[`docs/DEMO_KIT.md`](docs/DEMO_KIT.md).
+
+| Wallet home (DEMO) | Receive | Request ticket | Receipt (DEMO) |
+|---|---|---|---|
+| ![Wallet home](docs/screenshots/wallet/05-tour-wallet-home-390-en.png) | ![Receive](docs/screenshots/wallet/06-tour-receive-390-en.png) | ![Request ticket](docs/screenshots/wallet/10-tour-share-390-en.png) | ![Receipt](docs/screenshots/wallet/13-tour-receipt-390-en.png) |
+
+What works with a real wallet today: connect an existing NEAR Testnet wallet
+(NEAR Connect), real finalized balance, wallet identity, receive (account QR),
+send preparation and review, Instant Pay request creation flow, payer review,
+status and the independent receipt verifier. **Taply Wallet** (native, Phase 4D):
+create a local Testnet identity with a strong passphrase, mandatory encrypted
+backup download, restore from that backup, unlock / lock, local-only vs
+active-on-Testnet status, verified balance, receive QR and native transfer
+review — keys are generated and encrypted by the Codex wallet controller
+(Web Crypto), never in UI code. **Signing is switched off** everywhere: the send
+confirmation is unavailable for both wallets, and Instant Pay keeps using the
+external (NEAR Connect / Meteor) wallet. Screens:
+[`docs/screenshots/taply-wallet/`](docs/screenshots/taply-wallet/).
+
+Run locally: `pnpm install --frozen-lockfile`, then from `apps/web`:
+`pnpm build && pnpm start` and open <http://localhost:3000/demo>.
+
+---
+
 Mobile-first NEAR **Testnet** wallet and merchant payment PWA. Owned by Claude
 (`feature/frontend`). `docs/LEAD_PROTOCOL_FREEZE_v1.md` is the authoritative
 protocol; `@taply/shared` is its executable form and this app consumes it rather
 than restating it.
 
-## Status: Phase 0.5 (shell + shared protocol integration)
+## Status: Phase 2C (Instant Pay integration, signing gated)
 
-**No payment works. No contract is deployed. Nothing here has been demonstrated
-on NEAR Testnet.** `docs/EVIDENCE.md` remains the only place a verified claim may
-be recorded, and this phase adds nothing to it.
+**No contract is deployed or configured, and signing is switched off.** The
+Instant Pay screens are wired to the frozen contract ABI through
+`@taply/near-client`, and verified against real sandbox contract outputs in
+tests. Nothing here is Testnet evidence; `docs/EVIDENCE.md` remains the only
+place a verified claim may be recorded.
 
 | Area | State |
 |---|---|
-| App shell, 20 routes, chrome, accessibility | built |
+| App shell, routes, chrome, safe areas, accessibility | built |
 | Brand assets + PWA icons/manifest | built |
-| EN/TR localisation, all 56 shared error codes | built |
-| `@taply/shared` integration (types, schemas, hashing) | built, tested against the frozen vectors |
-| Payment status mapping + fail-closed rules | built, 105 unit/integration tests |
-| Capability flags (all off) | built |
-| Mock status matrix at `/demo` | built |
-| Wallet connect / signing | **not started** |
-| HTTP transport to `/api/v1` | **not started** |
-| Instant Pay, Protected Pay, Handshake, checkout, receipts | **not started** |
+| EN/TR localisation of all product screens | built |
+| External NEAR Testnet wallet connect (`@hot-labs/near-connect`) | built; sign-in with a real wallet **not yet human-tested** |
+| Native NEAR balance via `@taply/near-client` (final-block RPC reads) | built; browser Testnet read verified |
+| Receive: account ID, copy, QR code of the account ID | built |
+| Contract config: account + approved code hash from env, fail-closed | built, tested |
+| Contract check: `get_config` at a final block, code hash pinned, problems rejected | built, tested |
+| Create Instant request: form, chain-time expiry, quote, exact review, wallet create | built, tested; **signing gated** |
+| Share link + scannable QR of the identical link | built, tested |
+| Pay review: exact terms, explicit check, wallet approval of `pay_instant_native` | built, tested; **signing gated** |
+| Status sync: finalized `get_request` reads, bounded polling while in flight | built, tested |
+| Recipient retry of a recorded failure; creator cancel of an unpaid request | built, tested; **signing gated** |
+| Receipt: ticket with evidence-based seal; contract terminal facts collapsible | built, tested |
+| Phase 3B design system, experience components, `/demo` tour | built, tested, screenshot-checked (360/390/desktop, EN/TR) |
+| Phase 4B wallet home, `/wallet` onboarding, send (review only), receive, 8-step tour | built, tested; send confirm **unavailable** |
+| Phase 4D native Taply Wallet UI (create, encrypted backup, restore, unlock/lock, status, balance, receive, transfer review, wallet switch) | built on the real Codex controller, tested with real Web Crypto; **signing disabled**; no account created or funded |
+| Verified Paid | only from the independent receipt verifier (`src/lib/verify`); no real Taply payment verified yet |
+| Protected Pay, Handshake, checkout, send | **disabled** |
 | Service worker, CSP | **deliberately deferred** (reasons in `src/lib/protocol/README.md`) |
+
+Deployment readiness (artifact hash, config, funding, gas, key policy, incident
+procedures, open gates): [`docs/TESTNET_READINESS_REVIEW.md`](docs/TESTNET_READINESS_REVIEW.md).
+
+### Instant Pay rules (Phase 2C)
+
+- **Gates.** Reads need `NEXT_PUBLIC_TAPLY_CONTRACT_ID` and
+  `NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH`. Signing additionally needs
+  `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on` (a human decision after Testnet review)
+  and this session's `get_config` read passing `contractConfigProblems` (no fault
+  build, no Protected/Handshake/NEP-141/sponsored capability, ABI gas floors).
+  With any gate closed, every screen still renders, and no wallet request is made.
+- **Source of truth.** Status comes only from `get_request` read at a finalized
+  block where the contract's code hash matched the pin, then validated by the
+  shared `PaymentIntentResponseSchema` (`src/lib/payments/intent.ts`). Wallet
+  results, journal entries and polling never change what is shown as paid.
+- **Paid vs Verified Paid.** A final read of `FINAL_PAID` renders "Paid per
+  contract" with a note that the settlement receipt is not independently
+  verified. `mapChainState` now requires `settlementProof: 'verified_receipt'`
+  for the Verified Paid ribbon, and nothing produces that yet.
+- **No duplicates, no blind retries.** Every signature is journaled in
+  localStorage *before* the wallet opens (`src/lib/payments/journal.ts`; public
+  data only). An unknown or unconfirmed attempt blocks the same action until a
+  finalized read explains it; after two minutes of chain time with no effect, a
+  person may deliberately re-review. A creation is re-signed with its original
+  nonce and terms, never re-minted. Without a usable journal, signing is refused.
+  The contract independently rejects a second funding, a reused nonce and a stale
+  retry nonce.
+- **In flight.** `PAYOUT_IN_FLIGHT` offers no action. After 5 minutes of chain time
+  it is shown as unresolved (`RECONCILIATION_REQUIRED`); a successful transfer
+  with a failed callback can stay that way (ADR-001), and nothing retries it.
+- **Retry/cancel.** Retry appears only for the recipient of a recorded
+  `PAYOUT_FAILED_RECOVERABLE` operation (same nonce); cancel only for the creator
+  of an unpaid `OPEN` request. near-client's `prepare*` functions restate the ABI
+  rules, and the contract re-checks them.
+- **QR.** `src/lib/qr/encode.ts` is a small byte-mode encoder (no new
+  dependency). Its output was checked outside the repo: identical module-for-module
+  to `qrcode@1.5.4` and decoded by `jsqr@1.4.0` for 260 inputs; tests pin those
+  matrices.
+
+### Wallet and balance rules
+
+- Sign-in adds **no** access key. Taply never creates, stores or sees a private key.
+- A connected account is what the wallet *reported*. Nothing is signed, so it
+  is used for public reads only, never as authorisation.
+- A balance number is shown only for a `source: rpc`, `verified_final`,
+  non-stale read of the exact connected account (`src/lib/near/balance.ts`).
+  Errors, mock data, a mismatch or a missing account never render a number, and
+  never render zero. After an outage the last verified value stays visible,
+  marked stale with its check time.
+- `.near` names get a "looks like mainnet" warning, but are not rejected: the
+  `near` account exists on Testnet. The Testnet RPC read decides.
+- `Cross-Origin-Opener-Policy` is `same-origin-allow-popups` so wallet popups
+  can reply to the page that opened them.
 
 ## Commands
 
 Run from the repository root (this is a workspace member now):
 
 ```bash
-pnpm install                              # see "Lockfile" below
+pnpm install --frozen-lockfile
 pnpm --filter @taply/shared build         # REQUIRED before web typecheck/test/build
 pnpm --filter @taply/web dev
 pnpm --filter @taply/web check            # verify:brand + typecheck + lint + test
@@ -39,46 +139,18 @@ pnpm --filter @taply/web check            # verify:brand + typecheck + lint + te
 `@taply/shared` exposes only `dist/`, so it must be built before this app can
 typecheck, test or build against it.
 
-## Lockfile and workspace — action needed from Codex
+## Open dependencies
 
-`apps/web` is now a member of the root pnpm workspace and depends on
-`@taply/shared` via `workspace:*`. The root `pnpm-lock.yaml` and
-`pnpm-workspace.yaml` belong to Codex and were **left byte-identical** by this
-phase, so the lockfile does not yet contain an `apps/web` importer.
-
-Consequence: `pnpm install --frozen-lockfile` will fail until Codex regenerates
-the lockfile. A plain `pnpm install` succeeds and produces the needed entries.
-The required change is an added `apps/web:` importer plus its transitive
-packages — about +3,387 / −146 lines, no change to any existing
-`packages/shared` dependency version.
-
-Two root-level problems were avoided rather than pushed onto Codex:
-
-- **Native build script.** `eslint-config-next` pulls in
-  `eslint-import-resolver-typescript` → `unrs-resolver`, which has a native
-  postinstall. The workspace does not allow unapproved build scripts, and
-  `ERR_PNPM_IGNORED_BUILDS` made *every* pnpm command fail until
-  `pnpm-workspace.yaml` was edited. Resolved by composing
-  `@next/eslint-plugin-next` with `typescript-eslint` directly — same rules, no
-  native build, no root change.
-- **Supply-chain minimum release age.** `@types/node@26.6.6` was too new for the
-  workspace policy and pnpm wanted a `minimumReleaseAgeExclude` entry. Resolved
-  by pinning `@types/node@24.19.2`, which matches the project's Node 24 anyway.
-
-## Unresolved dependencies
-
-- **Lockfile regeneration** (above) — Codex.
-- **Root scripts** only run `--filter @taply/shared`. Adding `apps/web` to the
-  root `build`/`typecheck`/`test`/`check` scripts is a root-manifest change, so
-  it is Codex's or the lead's call.
-- **`eslint-plugin-jsx-a11y` and `eslint-plugin-react` are not installed.** Both
-  peer at `eslint@^9` only; the entire ESLint 9 line is end-of-life and the
-  workspace sets `strictPeerDependencies: true`. The a11y *lint rules* are
-  therefore absent for now — the a11y *behaviour* is still implemented and
-  asserted. They return when the plugins support ESLint 10.
-- **No transport contract exercised yet.** `PaymentIntentResponseSchema` is
-  imported and tested, but no endpoint is called, so no real API response shape
-  has been observed.
+- **Reviewed Testnet deployment** of the payments contract, its approved code
+  hash, and a human decision to set `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on`.
+- **Settlement receipt verifier** (funding, transfer and callback receipts,
+  VerifiedReceipt) before any Verified Paid ribbon.
+- **Real wallet capability test** of `signAndSendTransaction` with deposits on
+  the chosen Testnet wallets (freeze section 10, gate 3).
+- **Codex reads**: account activity, sessions, NEP-413 auth. Listed live in
+  `/demo` diagnostics.
+- `eslint-plugin-jsx-a11y` / `eslint-plugin-react` still peer at ESLint 9 only;
+  a11y behaviour is implemented and tested without those lint rules.
 
 ## Architecture
 
@@ -86,7 +158,9 @@ Two root-level problems were avoided rather than pushed onto Codex:
 src/app/            routes (App Router). One route per frozen path.
 src/components/
   brand/            approved mark geometry; never redrawn
-  shell/            AppShell, top bar, bottom nav, route scaffold
+  shell/            AppShell, top bar, bottom nav, icons, ComingSoon
+  wallet/           BalanceCard, AccountChip, connect button + error notice
+  home/             QuickActions, RecentActivity
   status/           StatusBadge, VerifiedPaidRibbon, VerificationChip, MockBadge
   primitives/       Amount, AccountId, Card, DetailRow
   feedback/         ErrorState (protocol codes), NoticeState (client-only), FeatureDisabled
@@ -95,7 +169,10 @@ src/lib/
   payments/         mapChainState — the only module that decides payment display
   format/           BigInt base-unit amounts; ns timestamps and clock anchoring
   i18n/             EN default + TR, typed dictionaries, no route prefix
-  flags/            capability flags, all off until Testnet-verified
+  flags/            capability flags; only read-only walletConnect is on
+  near/             chain config, the near-client instance, balance view model
+  wallet/           wallet adapter interface + NEAR Connect implementation
+  hooks/            online status, clipboard
   mock/             fixtures + the guard that confines them to /demo
 ```
 
@@ -150,7 +227,7 @@ stays empty until Codex deploys and reports a real one. Never put a secret in a
 ## Third-party code
 
 Next.js, React, Tailwind CSS, Zod, Vitest, sharp (build-time icon rasterization
-only), plus the workspace package `@taply/shared`. No wallet, chain or networking
-library is installed yet. Frontend code in this directory was written with Claude
+only), `@hot-labs/near-connect` 0.12.0 (MIT, wallet connection), plus the
+workspace packages `@taply/shared` and `@taply/near-client`. Frontend code in this directory was written with Claude
 Code; see the root README for the hackathon disclosure required by
 HACKATHON.md Q-005.

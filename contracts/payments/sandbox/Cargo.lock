@@ -2985,6 +2985,8 @@ name = "taply-payments-sandbox"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "near-jsonrpc-client",
+ "near-primitives",
  "near-workspaces",
  "serde_json",
  "sha2",

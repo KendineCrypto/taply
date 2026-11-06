@@ -57,7 +57,8 @@ The equivalent image is:
 rust:1.95.0-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
 ```
 
-The WASM build uses `target-cpu=mvp`, optimization `z`, LTO, one codegen unit,
+The WASM build uses `target-cpu=mvp`, `--cfg near` (near-sdk host functions, so
+contract panic messages reach the chain), optimization `z`, LTO, one codegen unit,
 overflow checks and panic abort. `scripts/build.sh` restores the default production
 target after building the fault artifact. **Never deploy**
 `payments.callback-fault.wasm` or enable `sandbox-fail-callback` in a deployment.

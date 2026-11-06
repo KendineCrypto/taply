@@ -12,11 +12,9 @@ export function Card({
   readonly className?: string;
   readonly as?: 'div' | 'section' | 'article' | 'li';
 }) {
-  const bg = level === 1 ? 'bg-[var(--surface-1)]' : 'bg-[var(--surface-2)]';
+  const surface = level === 1 ? 'surface-card' : 'rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--surface-2)]';
   return (
-    <Tag
-      className={`rounded-[var(--radius-card)] border border-[var(--border-subtle)] ${bg} p-4 ${className ?? ''}`}
-    >
+    <Tag className={`${surface} p-4 ${className ?? ''}`}>
       {children}
     </Tag>
   );
@@ -32,11 +30,11 @@ export function ScreenHeader({
   readonly trailing?: ReactNode;
 }) {
   return (
-    <header className="mb-4 flex items-start justify-between gap-3">
+    <header className="mb-5 mt-1 flex items-start justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-[1.625rem] font-semibold leading-tight tracking-tight">{title}</h1>
         {description !== undefined && (
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
+          <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-secondary)]">{description}</p>
         )}
       </div>
       {trailing}
@@ -58,8 +56,8 @@ export function DetailRow({
   readonly emphasis?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-0.5 border-b border-[var(--border-subtle)] py-2 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-      <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
+    <div className="flex flex-col gap-0.5 border-b border-[var(--border-subtle)] py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <dt className="shrink-0 text-sm text-[var(--text-muted)]">{label}</dt>
       <dd className={`min-w-0 text-right sm:text-right ${emphasis ? 'font-semibold' : ''}`}>{children}</dd>
     </div>
   );

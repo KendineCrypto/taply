@@ -1,21 +1,17 @@
 'use client';
 
-import { RouteScaffold } from '@/components/shell/RouteScaffold';
+import { ComingSoon } from '@/components/shell/ComingSoon';
 import { useT } from '@/lib/i18n/provider';
 
+/** Not live yet. Technical dependencies are listed in /demo diagnostics. */
 export default function Page() {
   const t = useT();
   return (
-    <RouteScaffold
+    <ComingSoon
       title={t.screens.split}
+      summary={t.routes.split}
       flag="splitPay"
-      plannedBehaviour={[
-        'Each participant pays a distinct immutable request; integer base-unit sums must be exact.',
-        'Group completes only after every child request reaches a verified final state.',
-      ]}
-      dependsOn={[
-        'Instant Pay verified on Testnet first (G1).',
-      ]}
+      icon="request"
     />
   );
 }

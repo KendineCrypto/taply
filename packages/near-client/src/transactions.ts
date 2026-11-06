@@ -116,13 +116,20 @@ export async function readTransaction(
   if (hashes.size > 32) throw new NearClientError("EVIDENCE_INCOMPLETE");
   const blocks = new Map<string, BlockRef>();
   const heights = new Map<string, string>();
-  for (const hash of hashes) {
-    const block = hash === finalBlock.hash ? finalBlock : await getBlock({ block_id: hash });
+  // Read-only concurrency is bounded to four, with no provider switch or retry.
+  // Do not return evidence until EVERY block and causal relationship is checked.
+  const hashList = [...hashes];
+  const resolved: BlockRef[] = [];
+  for (let i = 0; i < hashList.length; i += 4) {
+    resolved.push(...await Promise.all(hashList.slice(i, i + 4).map(hash =>
+      hash === finalBlock.hash ? finalBlock : getBlock({ block_id: hash }))));
+  }
+  for (const block of resolved) {
     if (BigInt(block.height) > BigInt(finalBlock.height) || BigInt(block.timestampNs) > BigInt(finalBlock.timestampNs)
       || (block.height === finalBlock.height && block.hash !== finalBlock.hash)
       || (heights.has(block.height) && heights.get(block.height) !== block.hash))
       throw new NearClientError("EVIDENCE_MISMATCH");
-    blocks.set(hash, block);
+    blocks.set(block.hash, block);
     heights.set(block.height, block.hash);
   }
   const nodes = new Map(data.receiptOutcomes.map(outcome => [outcome.id, outcome]));

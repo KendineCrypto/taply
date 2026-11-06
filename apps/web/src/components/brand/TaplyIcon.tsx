@@ -68,6 +68,8 @@ interface TaplyWordmarkProps {
   /** Rendered width in px. Height follows the fixed 591:250 artboard. */
   readonly width?: number;
   readonly className?: string;
+  /** `paper` = the approved light colorway (night lettering on cream) for cream surfaces. */
+  readonly tone?: 'dark' | 'paper';
 }
 
 /**
@@ -75,7 +77,7 @@ interface TaplyWordmarkProps {
  * glyph outlines exist only in brand/assets and must not be redrawn. Rendered via
  * <img> with a fixed aspect ratio so it can never be distorted.
  */
-export function TaplyWordmark({ width = 112, className }: TaplyWordmarkProps) {
+export function TaplyWordmark({ width = 112, className, tone = 'dark' }: TaplyWordmarkProps) {
   /**
    * Layout arithmetic, not money: the no-Math.round rule guards chain amounts,
    * and this only derives a pixel height from the fixed 591:250 artboard so the
@@ -92,7 +94,7 @@ export function TaplyWordmark({ width = 112, className }: TaplyWordmarkProps) {
      */
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={WORDMARK_ASSETS.transparent}
+      src={tone === 'paper' ? WORDMARK_ASSETS.light : WORDMARK_ASSETS.transparent}
       alt="Taply"
       width={width}
       height={height}

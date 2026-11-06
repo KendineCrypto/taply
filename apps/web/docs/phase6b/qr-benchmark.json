@@ -1,0 +1,29 @@
+{
+  "scope": "Synthetic Node/V8; not physical mobile browser evidence",
+  "node": "v24.22.2",
+  "edge": 640,
+  "cases": [
+    {
+      "kind": "blank",
+      "samples": 32,
+      "medianMs": 8.4,
+      "p95Ms": 11.27,
+      "maxMs": 14.49
+    },
+    {
+      "kind": "noise",
+      "samples": 32,
+      "medianMs": 479.15,
+      "p95Ms": 1255.65,
+      "maxMs": 1409.73
+    },
+    {
+      "kind": "qr",
+      "samples": 32,
+      "medianMs": 31.73,
+      "p95Ms": 47.44,
+      "maxMs": 72.44
+    }
+  ],
+  "conditions": "Recorded with other review checks active; illustrative Node/V8 diagnostic, not mobile or quiescent performance evidence."
+}

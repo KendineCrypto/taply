@@ -29,6 +29,8 @@ const ICON_GLYPH: Readonly<Record<StatusPresentation['icon'], string>> = {
   lock: '🔒',
   spinner: '◌',
   'check-shield': '✓',
+  // Contract reports paid, settlement proof pending: a plain check, no shield.
+  check: '✔',
   undo: '↩',
   alert: '!',
   x: '×',
@@ -37,7 +39,7 @@ const ICON_GLYPH: Readonly<Record<StatusPresentation['icon'], string>> = {
 export function StatusBadge(props: MapInput) {
   const t = useT();
   const presentation = mapChainState(props);
-  const copy = t.status[presentation.copyKey];
+  const copy = presentation.contractReportsPaid ? t.payment.contractPaid : t.status[presentation.copyKey];
 
   return (
     <span

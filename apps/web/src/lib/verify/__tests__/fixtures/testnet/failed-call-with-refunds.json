@@ -1,0 +1,405 @@
+{
+ "final_execution_status": "FINAL",
+ "receipts": [
+  {
+   "predecessor_id": "zcash-relayer.testnet",
+   "priority": 0,
+   "receipt": {
+    "Action": {
+     "actions": [
+      {
+       "FunctionCall": {
+        "args": "YXJncyB0cmltbWVkIGZvciBzaXplOiAyOTc2OCBiYXNlNjQgY2hhcnM=",
+        "deposit": "500000000000000000000000",
+        "gas": 1000000000000000,
+        "method_name": "submit_blocks"
+       }
+      }
+     ],
+     "gas_price": "1000000000",
+     "input_data_ids": [],
+     "is_promise_yield": false,
+     "output_data_receivers": [],
+     "signer_id": "zcash-relayer.testnet",
+     "signer_public_key": "ed25519:APp24zCNxpEueKUsxUATz9AKYwqQMTUjBHM8foUKx1E8"
+    }
+   },
+   "receipt_id": "G9E6uNu3s8mKCWQAEvwnHP16Ho66sdpTXpH7nGyD1bnN",
+   "receiver_id": "zcash-client.n-bridge.testnet"
+  },
+  {
+   "predecessor_id": "system",
+   "priority": 0,
+   "receipt": {
+    "Action": {
+     "actions": [
+      {
+       "Transfer": {
+        "deposit": "500000000000000000000000"
+       }
+      }
+     ],
+     "gas_price": "0",
+     "input_data_ids": [],
+     "is_promise_yield": false,
+     "output_data_receivers": [],
+     "signer_id": "system",
+     "signer_public_key": "ed25519:11111111111111111111111111111111"
+    }
+   },
+   "receipt_id": "YzoLk18HezjGb1MNsaBupy4aRnyAKySNehui773FfS3",
+   "receiver_id": "zcash-relayer.testnet"
+  },
+  {
+   "predecessor_id": "system",
+   "priority": 0,
+   "receipt": {
+    "Action": {
+     "actions": [
+      {
+       "Transfer": {
+        "deposit": "996493208694944600000000"
+       }
+      }
+     ],
+     "gas_price": "0",
+     "input_data_ids": [],
+     "is_promise_yield": false,
+     "output_data_receivers": [],
+     "signer_id": "zcash-relayer.testnet",
+     "signer_public_key": "ed25519:APp24zCNxpEueKUsxUATz9AKYwqQMTUjBHM8foUKx1E8"
+    }
+   },
+   "receipt_id": "61o3Y8dJtni42vZmUu5MnAhvsfEpAygSNYGGgQgSGWnk",
+   "receiver_id": "zcash-relayer.testnet"
+  }
+ ],
+ "receipts_outcome": [
+  {
+   "block_hash": "8nwTZxvGcApWiotUfCdqXNS9RXvqBjMyhXXGRYAp1aAC",
+   "id": "G9E6uNu3s8mKCWQAEvwnHP16Ho66sdpTXpH7nGyD1bnN",
+   "outcome": {
+    "executor_id": "zcash-client.n-bridge.testnet",
+    "gas_burnt": 44447948628134,
+    "logs": [
+     "Block 00006a5e56a3f0d7645f499be3dfc054048fc2f2c23e102864336291732b38d1 at height 4564948: saving to mainchain",
+     "Block 00723ed6758ae59345b60df88b62be50de7ea45b6609b5d7d461acd3016989f0 at height 4564949: saving to mainchain"
+    ],
+    "metadata": {
+     "contracts": [
+      {
+       "local": "6kwZQAJ2fHi23MCJN9CYrNu3YxgcRUqDZjNo1LN3U2av"
+      }
+     ],
+     "gas_profile": [
+      {
+       "cost": "BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "272446386219"
+      },
+      {
+       "cost": "CONTRACT_LOADING_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "35445963"
+      },
+      {
+       "cost": "CONTRACT_LOADING_BYTES",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "487387619030"
+      },
+      {
+       "cost": "LOG_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "7086626100"
+      },
+      {
+       "cost": "LOG_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "2877336438"
+      },
+      {
+       "cost": "READ_CACHED_TRIE_NODE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "237120000000"
+      },
+      {
+       "cost": "READ_MEMORY_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "939550752000"
+      },
+      {
+       "cost": "READ_MEMORY_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "73787674863"
+      },
+      {
+       "cost": "READ_REGISTER_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "870939154356"
+      },
+      {
+       "cost": "READ_REGISTER_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "8109287112"
+      },
+      {
+       "cost": "SHA256_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "49950672750"
+      },
+      {
+       "cost": "SHA256_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "183943036077"
+      },
+      {
+       "cost": "STORAGE_READ_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "18823186480166"
+      },
+      {
+       "cost": "STORAGE_READ_KEY_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "338682616086"
+      },
+      {
+       "cost": "STORAGE_READ_VALUE_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "334298007316"
+      },
+      {
+       "cost": "STORAGE_WRITE_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "385180416000"
+      },
+      {
+       "cost": "STORAGE_WRITE_KEY_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "10572430050"
+      },
+      {
+       "cost": "STORAGE_WRITE_VALUE_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "13648157160"
+      },
+      {
+       "cost": "TOUCHING_TRIE_NODE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "95760000000"
+      },
+      {
+       "cost": "UTF8_DECODING_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "9335337183"
+      },
+      {
+       "cost": "UTF8_DECODING_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "73478280708"
+      },
+      {
+       "cost": "WASM_INSTRUCTION",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "17876125747524"
+      },
+      {
+       "cost": "WRITE_MEMORY_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "972916816767"
+      },
+      {
+       "cost": "WRITE_MEMORY_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "224144645424"
+      },
+      {
+       "cost": "WRITE_REGISTER_BASE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "991470780156"
+      },
+      {
+       "cost": "WRITE_REGISTER_BYTE",
+       "cost_category": "WASM_HOST_COST",
+       "gas_used": "227911364928"
+      }
+     ],
+     "version": 4
+    },
+    "receipt_ids": [
+     "YzoLk18HezjGb1MNsaBupy4aRnyAKySNehui773FfS3",
+     "61o3Y8dJtni42vZmUu5MnAhvsfEpAygSNYGGgQgSGWnk"
+    ],
+    "status": {
+     "Failure": {
+      "ActionError": {
+       "index": 0,
+       "kind": {
+        "FunctionCallError": {
+         "ExecutionError": "Smart contract panicked: Addition of U256 values overflowed"
+        }
+       }
+      }
+     }
+    },
+    "tokens_burnt": "4444794862813400000000"
+   },
+   "proof": [
+    {
+     "direction": "Right",
+     "hash": "47dQoRK8s3n8bPzz1XiDZZAN3H3rTXdVrL6RtAsoQaPT"
+    },
+    {
+     "direction": "Right",
+     "hash": "AiYeZXphQNEBU2tGXWUtBduWTLVqZSo4Mp88LrvEurcW"
+    },
+    {
+     "direction": "Right",
+     "hash": "CSEwWn5YafP1gp2cuztp7ui5rfmB1PVXYziE1HopDnuJ"
+    }
+   ]
+  },
+  {
+   "block_hash": "Bn9Xs6jSdfQX4EoYaE5uvM39wb16RzjTQx6TmAvGC2NP",
+   "id": "YzoLk18HezjGb1MNsaBupy4aRnyAKySNehui773FfS3",
+   "outcome": {
+    "executor_id": "zcash-relayer.testnet",
+    "gas_burnt": 223182562500,
+    "logs": [],
+    "metadata": {
+     "contracts": [
+      null
+     ],
+     "gas_profile": [],
+     "version": 4
+    },
+    "receipt_ids": [],
+    "status": {
+     "SuccessValue": ""
+    },
+    "tokens_burnt": "0"
+   },
+   "proof": [
+    {
+     "direction": "Right",
+     "hash": "6BCkLVRgQd5bvuqE4XYBLm7PivSkYF9STCKbjXnbqPcL"
+    },
+    {
+     "direction": "Right",
+     "hash": "E68dMjRCdqHostHLM7aJ61unnZ39er1PYUAsiupesA1g"
+    },
+    {
+     "direction": "Right",
+     "hash": "CtjcM4yoH9vaXxxv3ju2UCU3trKuzNzpijuBkpU8Gk42"
+    },
+    {
+     "direction": "Right",
+     "hash": "E6GLwNS4CeF34wF9i1hAB9eMZKusafdbp3ddcAUwUtyM"
+    }
+   ]
+  },
+  {
+   "block_hash": "Bn9Xs6jSdfQX4EoYaE5uvM39wb16RzjTQx6TmAvGC2NP",
+   "id": "61o3Y8dJtni42vZmUu5MnAhvsfEpAygSNYGGgQgSGWnk",
+   "outcome": {
+    "executor_id": "zcash-relayer.testnet",
+    "gas_burnt": 223182562500,
+    "logs": [],
+    "metadata": {
+     "contracts": [
+      null
+     ],
+     "gas_profile": [],
+     "version": 4
+    },
+    "receipt_ids": [],
+    "status": {
+     "SuccessValue": ""
+    },
+    "tokens_burnt": "0"
+   },
+   "proof": [
+    {
+     "direction": "Left",
+     "hash": "BFj2PkPLZ7nYTocYj88hc4nuhzLpQiGXvtfK9ESrBWL4"
+    },
+    {
+     "direction": "Right",
+     "hash": "E68dMjRCdqHostHLM7aJ61unnZ39er1PYUAsiupesA1g"
+    },
+    {
+     "direction": "Right",
+     "hash": "CtjcM4yoH9vaXxxv3ju2UCU3trKuzNzpijuBkpU8Gk42"
+    },
+    {
+     "direction": "Right",
+     "hash": "E6GLwNS4CeF34wF9i1hAB9eMZKusafdbp3ddcAUwUtyM"
+    }
+   ]
+  }
+ ],
+ "status": {
+  "Failure": {
+   "ActionError": {
+    "index": 0,
+    "kind": {
+     "FunctionCallError": {
+      "ExecutionError": "Smart contract panicked: Addition of U256 values overflowed"
+     }
+    }
+   }
+  }
+ },
+ "transaction": {
+  "actions": [
+   {
+    "FunctionCall": {
+     "args": "YXJncyB0cmltbWVkIGZvciBzaXplOiAyOTc2OCBiYXNlNjQgY2hhcnM=",
+     "deposit": "500000000000000000000000",
+     "gas": 1000000000000000,
+     "method_name": "submit_blocks"
+    }
+   }
+  ],
+  "hash": "GGtLkFd3fmc9pWuWCGvkmC6S6iBqzdmiSVxJq8fPTsR5",
+  "nonce": 197412527701197,
+  "priority_fee": 0,
+  "public_key": "ed25519:APp24zCNxpEueKUsxUATz9AKYwqQMTUjBHM8foUKx1E8",
+  "receiver_id": "zcash-client.n-bridge.testnet",
+  "signature": "ed25519:3uhdTCLbYTWvi2ohSK13q1gTqCCssi2Jx87orunT92SSLGfK2tyWxNxVM9KJmHVw6wQs8ruCG5ApghAHbzZJGVGG",
+  "signer_id": "zcash-relayer.testnet"
+ },
+ "transaction_outcome": {
+  "block_hash": "7pr9aFqP1r4JqtXcygQUxN3CJzeghT5vp34jdBhwNMvH",
+  "id": "GGtLkFd3fmc9pWuWCGvkmC6S6iBqzdmiSVxJq8fPTsR5",
+  "outcome": {
+   "executor_id": "zcash-relayer.testnet",
+   "gas_burnt": 1373170641955,
+   "logs": [],
+   "metadata": {
+    "gas_profile": null,
+    "version": 1
+   },
+   "receipt_ids": [
+    "G9E6uNu3s8mKCWQAEvwnHP16Ho66sdpTXpH7nGyD1bnN"
+   ],
+   "status": {
+    "SuccessReceiptId": "G9E6uNu3s8mKCWQAEvwnHP16Ho66sdpTXpH7nGyD1bnN"
+   },
+   "tokens_burnt": "137317064195500000000"
+  },
+  "proof": [
+   {
+    "direction": "Right",
+    "hash": "573YJ9ec84uEzu18WCj9YJGKjjB2w6reWiGHoJsBkEaN"
+   },
+   {
+    "direction": "Right",
+    "hash": "58gKm2gDVsxEump2TujYGpjdWZiYsopCjF3cKH7JjZ5t"
+   },
+   {
+    "direction": "Right",
+    "hash": "HjLxDAPCgkUwRCL1kVaCR24nw7qAXi4FmFPL3onMQNap"
+   }
+  ]
+ }
+}

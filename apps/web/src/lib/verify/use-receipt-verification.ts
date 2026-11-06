@@ -1,0 +1,109 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import type { ContractRequest, VerifiedReceipt } from '@/lib/protocol';
+import { verifyInstantReceipt } from './instant-receipt';
+import type { VerificationFailure } from './instant-receipt';
+import type { ReceiptReferences } from './references';
+import type { VerifierRpc } from './rpc';
+
+export type VerificationView =
+  /** The contract does not report FINAL_PAID: there is nothing to verify. */
+  | { readonly kind: 'not_applicable' }
+  /** This build has no verifier RPC configured. */
+  | { readonly kind: 'unavailable' }
+  /** Paid per contract, but this device lacks a needed transaction hash. */
+  | { readonly kind: 'missing_reference' }
+  | { readonly kind: 'checking' }
+  | { readonly kind: 'verified'; readonly receipt: VerifiedReceipt }
+  | {
+      readonly kind: 'failed';
+      readonly reason: VerificationFailure;
+      readonly transient: boolean;
+    };
+
+/**
+ * Runs the independent receipt verifier with bounded retries for transient RPC
+ * lag/finality failures. Read-only. The result is kept in memory only: a VerifiedReceipt is
+ * never cached in storage, so a later visit re-verifies against the chain.
+ */
+export function useReceiptVerification(input: {
+  readonly rpc: VerifierRpc | null;
+  readonly contractId: string;
+  readonly approvedCodeHash: string;
+  readonly request: ContractRequest | null;
+  readonly references: ReceiptReferences | null;
+  readonly generation: number;
+}): VerificationView {
+  const { rpc, contractId, approvedCodeHash, request, references, generation } = input;
+  const applicable = request !== null && request.status === 'FINAL_PAID';
+  const funding = references?.funding ?? null;
+  const retries = references?.retries ?? [];
+  const complete = references?.complete === true;
+  const key =
+    applicable && rpc !== null && complete && funding !== null
+      ? JSON.stringify([contractId, approvedCodeHash, rpc.providerId, request.terms.id, request.termsHash,
+          request.latestOperation?.nonce, funding, retries, generation])
+      : null;
+  const [result, setResult] = useState<{
+    key: string;
+    view: VerificationView;
+  } | null>(null);
+
+  useEffect(() => {
+    if (key === null || rpc === null || request === null || funding === null) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let retriesUsed = 0;
+    let waitingForVisible = false;
+    const run = async () => {
+      if (!active) return;
+      if (document.visibilityState === 'hidden') {
+        waitingForVisible = true;
+        return;
+      }
+      waitingForVisible = false;
+      const outcome = await verifyInstantReceipt({
+        rpc,
+        contractId,
+        approvedCodeHash,
+        requestId: request.terms.id,
+        fundingTransaction: funding,
+        retryTransactions: retries,
+      });
+      if (!active) return;
+      setResult({
+        key,
+        view:
+          outcome.kind === 'verified'
+            ? { kind: 'verified', receipt: outcome.receipt }
+            : {
+                kind: 'failed',
+                reason: outcome.reason,
+                transient: outcome.transient,
+              },
+      });
+      if (outcome.kind !== 'verified' && outcome.transient && retriesUsed < 3) {
+        timer = setTimeout(() => void run(), [1_000, 3_000, 10_000][retriesUsed++]);
+      }
+    };
+    const onVisible = () => {
+      if (waitingForVisible && document.visibilityState === 'visible') void run();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    void run();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // `key` captures the contract/version, request terms/operation, references and generation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, rpc, contractId, approvedCodeHash]);
+
+  if (!applicable) return { kind: 'not_applicable' };
+  if (rpc === null) return { kind: 'unavailable' };
+  if (!complete) return { kind: 'missing_reference' };
+  if (result === null || result.key !== key) return { kind: 'checking' };
+  return result.view;
+}

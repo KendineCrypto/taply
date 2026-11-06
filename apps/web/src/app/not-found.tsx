@@ -11,10 +11,10 @@ export default function NotFound() {
       <ScreenHeader title={t.screens.notFound} />
       <Card>
         <p className="text-sm text-[var(--text-secondary)]">
-          That link does not resolve. No payment was affected.
+          {t.system.notFoundBody}
         </p>
         <Link href="/" className="mt-3 inline-flex text-[var(--taply-lime)] underline">
-          {t.screens.home}
+          {t.system.goHome}
         </Link>
       </Card>
     </>

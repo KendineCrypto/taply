@@ -1,22 +1,20 @@
 'use client';
 
-import { RouteScaffold } from '@/components/shell/RouteScaffold';
+import { ScreenHeader } from '@/components/primitives/Surface';
+import { RecentActivity } from '@/components/home/RecentActivity';
 import { useT } from '@/lib/i18n/provider';
 
-export default function Page() {
+/**
+ * Activity tab: every request and payment this browser started for the
+ * connected account, from the local journal. Each row opens its status page,
+ * which reads the chain. No synthetic history.
+ */
+export default function ActivityPage() {
   const t = useT();
   return (
-    <RouteScaffold
-      title={t.screens.activity}
-      flag="walletConnect"
-      plannedBehaviour={[
-        'Chain-indexed activity with provenance per row.',
-        'Rows link to the canonical intent view or a final receipt.',
-        'Unresolved submissions from the journal are surfaced at the top until reconciled.',
-      ]}
-      dependsOn={[
-        'Codex typed pagination response for account activity.',
-      ]}
-    />
+    <>
+      <ScreenHeader title={t.oneTap.activity.title} />
+      <RecentActivity preview={false} />
+    </>
   );
 }

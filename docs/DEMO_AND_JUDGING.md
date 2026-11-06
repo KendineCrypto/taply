@@ -1,5 +1,7 @@
 # Taply v0.4 judging, README and demo proof playbook
 
+> The storyboard below is the original product target, not shipped scope. For Phase 7I use the [current 60-second shot list](RELEASE_DEMO.md): real G2 Handshake is NO-GO and Protected Pay is disabled. Do not narrate those target features as live.
+
 ## Judging positioning
 **Compared to payment-link tools (e.g., PingPay):** Taply doesn't claim better cross-chain routing. It differentiates on **human-verifiable live merchant Handshake**, explicit settlement states and consent-based Protected Pay, all proven on NEAR Testnet. Do not claim exclusive invention of escrow, QR or wallets. Be honest that existing products cover adjacent capabilities.
 

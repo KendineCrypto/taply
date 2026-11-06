@@ -32,7 +32,12 @@ export interface FlagState {
    * Why it is off, shown verbatim in the UI so a disabled surface is honest
    * rather than mysterious. Mirrors docs/EVIDENCE.md status values.
    */
-  readonly reason: 'not_implemented' | 'awaiting_testnet_proof' | 'security_gate' | 'enabled';
+  readonly reason:
+    | 'not_implemented'
+    | 'awaiting_testnet_proof'
+    | 'security_gate'
+    | 'disabled_by_config'
+    | 'enabled';
   /** True when no amount of configuration may enable it (gate is human-only). */
   readonly hardDisabled: boolean;
 }
@@ -43,12 +48,17 @@ const OFF = (reason: FlagState['reason'], hardDisabled = false): FlagState => ({
   hardDisabled,
 });
 
+const ON: FlagState = { enabled: true, reason: 'enabled', hardDisabled: false };
+
 /**
- * Phase 0 reality: nothing chain-facing exists yet in apps/web, and Codex has
- * not deployed a contract. Every payment capability is therefore off.
+ * Phase 2A reality: an external NEAR Testnet wallet can be connected and the
+ * connected account's native balance is read from Testnet RPC. That capability
+ * is read-only - it cannot sign or move anything - so it is on by default.
+ *
+ * Codex has not deployed a contract, so every PAYMENT capability stays off.
  */
 const DEFAULTS: Readonly<Record<FeatureFlag, FlagState>> = {
-  walletConnect: OFF('not_implemented'),
+  walletConnect: ON,
   instantPay: OFF('awaiting_testnet_proof'),
   merchantCheckout: OFF('not_implemented'),
   handshake: OFF('not_implemented'),
@@ -63,9 +73,15 @@ const DEFAULTS: Readonly<Record<FeatureFlag, FlagState>> = {
   sponsoredGas: OFF('security_gate', true),
 };
 
-/** Env overrides may only ever turn a soft-disabled flag ON when explicitly 'on'. */
+/**
+ * Env overrides: 'on' may turn a soft-disabled flag on; 'off' always turns a
+ * flag off (a kill switch). Hard-disabled flags ignore both.
+ */
 const ENV_KEYS: Partial<Record<FeatureFlag, string>> = {
   walletConnect: 'NEXT_PUBLIC_TAPLY_FLAG_WALLET',
+  // Signing gate for Instant Pay transactions. Turning it on is a human decision
+  // after Testnet review; it also needs a configured, verified contract.
+  instantPay: 'NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY',
   protectedPay: 'NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY',
   handshake: 'NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE',
   merchantCheckout: 'NEXT_PUBLIC_TAPLY_FLAG_MERCHANT',
@@ -82,7 +98,9 @@ export function resolveFlags(env: Record<string, string | undefined>): Readonly<
     if (!key) continue;
 
     if (env[key] === 'on') {
-      resolved[flag] = { enabled: true, reason: 'enabled', hardDisabled: false };
+      resolved[flag] = ON;
+    } else if (env[key] === 'off' && base.enabled) {
+      resolved[flag] = OFF('disabled_by_config');
     }
   }
 
@@ -91,6 +109,7 @@ export function resolveFlags(env: Record<string, string | undefined>): Readonly<
 
 export const FLAGS = resolveFlags({
   NEXT_PUBLIC_TAPLY_FLAG_WALLET: process.env.NEXT_PUBLIC_TAPLY_FLAG_WALLET,
+  NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY: process.env.NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY,
   NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY: process.env.NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY,
   NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE: process.env.NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE,
   NEXT_PUBLIC_TAPLY_FLAG_MERCHANT: process.env.NEXT_PUBLIC_TAPLY_FLAG_MERCHANT,
