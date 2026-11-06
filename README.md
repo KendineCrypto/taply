@@ -8,11 +8,24 @@ point of sale. A merchant creates one unique sale; the customer scans its QR,
 sees the exact amount and receiving account read from the chain, approves in
 their own wallet, and both phones check the receipt on chain by themselves.
 
-**Status on 2026-11-05:** Instant Pay is deployed and verified on NEAR Testnet
-(contract `taply-pay-pilot-1.testnet`). A real Instant Pay payment reached
-`FINAL_PAID` and **Verified Paid** in Taply's independent receipt verifier
-([evidence](docs/EVIDENCE.md)). Live Handshake and Protected Pay are **not**
-live. Details below; every claim links to evidence or is marked as not shipped.
+**Status on 2026-11-06 (Phase 7H release candidate):** Instant Pay is deployed
+and verified on NEAR Testnet (contract `taply-pay-pilot-1.testnet`). A real
+Instant Pay payment reached `FINAL_PAID` and **Verified Paid** in Taply's
+independent receipt verifier ([evidence](docs/EVIDENCE.md)). Live Handshake and
+Protected Pay are **not** live. Details below; every claim links to evidence or
+is marked as not shipped. Release notes and exact test results:
+[`docs/PHASE_7H_RELEASE_REPORT.md`](docs/PHASE_7H_RELEASE_REPORT.md).
+
+## For judges: check it in 5 minutes (no wallet, no funds)
+
+| Do | See |
+| --- | --- |
+| `pnpm install --frozen-lockfile && pnpm check` | brand check, build, strict types, lint and ~1,000 unit/integration tests pass, no network |
+| `pnpm --filter @taply/web dev`, open `/demo` | the full payment journey, stamped **DEMO** (synthetic) |
+| Configure section B below, open `/pay/9b9a5724…4502` | the **real** pilot sale read from the Testnet contract: 0.1 NEAR, Pay to `taplytest.testnet`, sale code `KED 5E9`, **Paid per contract** |
+| Open `/receipt/9b9a5724…4502` | stays **Paid per contract** and explains that a normal RPC no longer keeps the 2026-11-01 blocks; it never shows Verified Paid without the receipts |
+| Open [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | deploy tx, funding tx `CrzQ57Jx…` and the verifier JSON that said **Verified Paid** |
+| Read [`apps/web/docs/screenshots/phase7h/`](apps/web/docs/screenshots/phase7h/) | production-build screenshots of both phones, EN and TR, 360–1280 px, and failure states |
 
 ## The problem
 
@@ -117,9 +130,18 @@ In `apps/web/.env.local` set:
 NEXT_PUBLIC_TAPLY_NETWORK=near-testnet
 NEXT_PUBLIC_TAPLY_CONTRACT_ID=taply-pay-pilot-1.testnet
 NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH=BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B
-NEXT_PUBLIC_TAPLY_RPC_URL=https://rpc.testnet.near.org
+NEXT_PUBLIC_TAPLY_RPC_URL=https://test.rpc.fastnear.com
+NEXT_PUBLIC_TAPLY_RPC_PROVIDER_ID=fastnear-testnet
 NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off
 ```
+
+`https://rpc.testnet.near.org` also works. Public RPCs rate-limit per IP: during
+heavy browser QA on 2026-11-06 we observed `HTTP 429` from `rpc.testnet.near.org`
+(`Retry-After: 418`) and, briefly, from FastNEAR. Normal single-person use stays
+far below that. When it happens, Taply shows "Could not check the payments
+contract" with one **Check again** button and signs nothing; wait a few minutes
+or use another [Testnet RPC provider](https://docs.near.org/api/rpc/providers).
+Every RPC answer is checked against the Testnet genesis hash.
 
 Then `pnpm --filter @taply/web build && pnpm --filter @taply/web start`:
 
@@ -136,8 +158,10 @@ To verify that old payment end to end with real data, use an archival RPC:
 # Merchant-side search: finds funding tx CrzQ57Jx… from the contract's fundedAtNs alone
 TAPLY_LIVE_RPC=https://archival-rpc.testnet.near.org \
   pnpm --filter @taply/web exec vitest run src/lib/verify/__tests__/locate-funding.live.test.ts
-# Full browser run (production build; history reads retried on archival by the harness)
-node apps/web/scripts/phase7g-qa.mjs <path to playwright/index.mjs> <out dir> apps/web/.env.local
+# Full browser run (production build, signing flag must be off; read-only injected wallet;
+# history reads retried on archival only where the script says so)
+pnpm --filter @taply/web build && pnpm --filter @taply/web exec next start -p 3207 -H 127.0.0.1
+node apps/web/scripts/phase7h-qa.mjs <path to playwright/index.mjs> <out dir> apps/web/.env.local
 ```
 
 A fresh payment (C below) verifies on a normal RPC within about two days.
@@ -166,9 +190,15 @@ The scripted judge walkthrough is in [`docs/PHASE_7G_DEMO_KIT.md`](docs/PHASE_7G
   [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
 - Verifier output for the pilot payment:
   [`docs/evidence/instant-pay-2026-11-01-receipt.json`](docs/evidence/instant-pay-2026-11-01-receipt.json).
-- Public read-only contract check:
-  `node apps/web/scripts/deploy-preflight.mjs post taply-pay-pilot-1.testnet --rpc https://rpc.testnet.near.org`.
+- Public read-only contract check (10/10 PASS on 2026-11-06 via the archival
+  RPC: code hash pin, one retained FullAccess key, config, Instant-only
+  capability, balance, principal conserved):
+  `node apps/web/scripts/deploy-preflight.mjs post taply-pay-pilot-1.testnet --rpc https://archival-rpc.testnet.near.org`.
+  If a public RPC throttles you, view calls come back empty and the script
+  reports FAIL; re-run later or on another provider.
 - Production-build browser QA on real pilot data:
+  [`apps/web/docs/screenshots/phase7h/`](apps/web/docs/screenshots/phase7h/)
+  (Phase 7H, 5 widths × EN/TR, edge states) and
   [`apps/web/docs/screenshots/phase7g/`](apps/web/docs/screenshots/phase7g/).
 
 ## Readiness gates
@@ -194,6 +224,10 @@ The scripted judge walkthrough is in [`docs/PHASE_7G_DEMO_KIT.md`](docs/PHASE_7G
   receipt stays Paid per contract and says why.
 - **Old receipts on FastNEAR:** a pruned transaction makes that RPC time out
   instead of answering "unknown", so the verifier reports a temporary failure.
+- **Public RPC rate limits:** public Testnet RPCs answer `429` after heavy use
+  from one IP; the app fails closed (no status guess, no signing).
+- **Handshake room client** now uses the same strict reducer as the core
+  (`applyRoomCatchUp`) but is still not wired to any route.
 - **Activity history** is this device's local journal; there is no indexer.
 - **Hosting:** the pilot ran over private Tailscale HTTPS. No public hosted
   demo is claimed.
@@ -246,12 +280,17 @@ Original protocol documents: [Protocol Freeze v1](docs/LEAD_PROTOCOL_FREEZE_v1.m
 
 ## Submission state (open items for the human)
 
+Full checklist: [`docs/PHASE_7H_RELEASE_CHECKLIST.md`](docs/PHASE_7H_RELEASE_CHECKLIST.md).
+
 - [x] Repository is public (checked 2026-11-05).
 - [ ] **LICENSE** file (Q-014 asks for one; the owner chooses the license).
 - [ ] A reviewed branch or tag for judges: `main` does not yet contain the
-      Phase 6–7 work this README describes.
+      Phase 6–7H work this README describes. All commits are inside the
+      eligible window (repository starts 2026-10-29), so there is no
+      pre-hackathon baseline to separate.
 - [ ] Public demo video and a human-written X post (tag @NEARProtocol and
       #NEARHackathon).
+- [ ] Optional hosted HTTPS demo (plan in the Phase 7H report, section 8).
 - [ ] Submission: only the human submits, after confirming the exact payload.
 
 ## Sources
