@@ -67,7 +67,9 @@ describe('shared session hero', () => {
   it('Paid per contract shows the receipt check as NOT done, side by side', () => {
     renderSession({ stage: 'contract_paid', payerAccountId: 'buyer.testnet' });
     const legend = screen.getByTestId('proof-legend');
-    expect(within(legend).getByText('Paid per contract')).toBeTruthy();
+    expect(within(legend).getByText('Contract record: paid')).toBeTruthy();
+    // Phase 7H: the legend no longer repeats the status chip and hero title verbatim.
+    expect(within(legend).queryByText('Paid per contract')).toBeNull();
     expect(within(legend).getByText('Verified Paid: Not checked on this screen')).toBeTruthy();
     expect(nodeStates()).toEqual(['done', 'done', 'done', 'done', 'todo']);
     expect(screen.getByText('Paid by buyer.testnet')).toBeTruthy();

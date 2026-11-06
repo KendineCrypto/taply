@@ -144,7 +144,7 @@ export const roomTr: RoomCopy = {
     open: 'Açık, ödenmedi',
     in_flight: 'Aktarım sürüyor',
     paid_per_contract: 'Kontrata göre ödendi',
-    verified_paid: 'Doğrulanmış Ödeme',
+    verified_paid: 'Doğrulanmış Ödendi',
     needs_attention: 'İlgilenmeniz gerekiyor',
     closed: 'Kapandı',
   },

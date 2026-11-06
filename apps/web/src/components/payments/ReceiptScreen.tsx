@@ -63,10 +63,13 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
   );
   const hints = useMemo<LinkHints>(() => parseLinkHints(search), [search]);
   const [generation, setGeneration] = useState(0);
+  // Phase 7H: an explicit re-read after a failed terminal-facts read.
+  const [readTick, setReadTick] = useState(0);
   const validId = HashHexSchema.safeParse(id).success;
 
   useEffect(() => {
     if (!validId || setup.status !== 'ready') return;
+    void readTick;
     let active = true;
     void setup.reader.readTerminalFacts(id).then((result) => {
       if (active) setRead({ id, result });
@@ -74,7 +77,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
     return () => {
       active = false;
     };
-  }, [id, validId, setup]);
+  }, [id, validId, setup, readTick]);
 
   const facts = read !== null && read.error === null ? (read.observation.data?.facts ?? null) : null;
   const ready = setup.status === 'ready' ? setup : null;
@@ -121,6 +124,19 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
       <div className="flex flex-col gap-4">
         <InlineNotice
           copy={error?.code === 'CONTRACT_CODE_MISMATCH' ? t.payment.setup.codeMismatch : t.payment.status.readFailed}
+          action={
+            error?.code === 'CONTRACT_CODE_MISMATCH' ? undefined : (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setRead(null);
+                  setReadTick((n) => n + 1);
+                }}
+              >
+                <Icon name="refresh" size={16} /> {t.oneTap.payment.refresh}
+              </Button>
+            )
+          }
         />
         <BackToPayment id={id} />
       </div>
@@ -212,7 +228,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
         />
       )}
       {!showVerified && paid && (
-        <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>
+        <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPendingOnReceipt}</p>
       )}
       {showVerified && candidate !== null && (
         <p className="px-1 text-center text-xs text-[var(--text-muted)]" data-testid="located-note">

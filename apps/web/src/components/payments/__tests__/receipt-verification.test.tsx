@@ -153,6 +153,9 @@ describe('receipt verification on /receipt/[id]', () => {
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
     expect(document.querySelector('[data-receipt-status="contract_paid"]')).not.toBeNull();
+    // Phase 7H: on the receipt itself, never tell the reader to "open the receipt".
+    expect(document.body.textContent).not.toMatch(/Open the receipt/);
+    expect(screen.getByText(/which has not succeeded on this screen/)).toBeTruthy();
   });
 
   it('a tampered receipt graph shows a mismatch warning, not Verified Paid', async () => {
@@ -204,6 +207,31 @@ describe('receipt verification on /receipt/[id]', () => {
     });
 
     expect(await screen.findByText('Verification not available')).toBeTruthy();
+    expect(screen.queryByTestId('verified-evidence')).toBeNull();
+  });
+});
+
+describe('Phase 7H: receipt read failure', () => {
+  it('offers one "Check again"; a tap re-reads and shows the contract state, never Verified Paid on its own', async () => {
+    const { setup } = setupFor(paidRestricted, { verifier: false });
+    // SYNTHETIC: the first get_receipt read fails at the transport, later ones succeed.
+    const real = globalThis.fetch;
+    let failures = 1;
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { params?: { method_name?: string } };
+      if (failures > 0 && body.params?.method_name === 'get_receipt') {
+        failures -= 1;
+        throw new TypeError('Failed to fetch');
+      }
+      return real(url, init);
+    });
+    renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, { setup, adapter: recordingWallet(null).adapter });
+    expect(await screen.findByText('Could not read the request')).toBeTruthy();
+    const retry = screen.getAllByRole('button', { name: /Check again/ });
+    expect(retry).toHaveLength(1);
+    fireEvent.click(retry[0] as HTMLElement);
+    expect(await screen.findByText('Paid per contract')).toBeTruthy();
+    expect(screen.queryByText('Could not read the request')).toBeNull();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
   });
 });
