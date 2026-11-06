@@ -26,3 +26,10 @@ export type {
   ContractConfig, ContractConfigProblem, ContractErrorCode, CreateQuote, PaymentRequestRead,
   PreparedContractCall, TerminalFacts, TerminalFactsRead,
 } from "./contract.js";
+export { MERCHANT_CONTRACT_VERSION, createMerchantRequestReader, verifyMerchantObservation, matchMerchantSession } from "./merchant.js";
+export type { MerchantDeployment, MerchantSessionExpectation } from "./merchant.js";
+export { signMessageCapability, prepareWalletAuthentication } from "./wallet-auth.js";
+export { applyRoomCatchUp, RoomCatchUpSchema } from "./room-sync.js";
+export type { RoomClientScope, RoomClientState } from "./room-sync.js";
+export { MerchantContractConfigSchema, prepareMerchantCreateRequest, prepareMerchantPayInstantNative } from "./merchant.js";
+export type { MerchantContractConfig } from "./merchant.js";

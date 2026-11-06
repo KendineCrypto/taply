@@ -1,3 +1,4 @@
+import { roomEn } from './room-copy';
 import type { CommerceCopy } from '../commerce-types';
 
 export const commerceEn: CommerceCopy = {
@@ -231,5 +232,47 @@ export const commerceEn: CommerceCopy = {
       reviewing: 'Reviewing payment',
       yourWallet: 'Waiting for your wallet',
     },
+  },
+  phase7g: {
+    status: {
+      ready_for_customer: 'Ready for customer',
+      payment_observed: 'Payment observed',
+      verified_receipt: 'Verified receipt available',
+      ready_to_review: 'Ready to review',
+      awaiting_wallet: 'Awaiting wallet approval',
+      checking_chain: 'Checking chain',
+      transaction_submitted: 'Transaction submitted',
+      verified_paid: 'Verified Paid',
+      paid_per_contract: 'Paid per contract',
+      needs_attention: 'Needs attention',
+      closed: 'Closed',
+    },
+    statusLabel: 'Status',
+    proofNext: {
+      title: 'Verified Paid',
+      pending: 'Not checked on this screen',
+      receiverAction: 'Verify receipt',
+      payerAction: 'Check receipt',
+      receiverNote: 'This phone looks the payment up on chain and checks every receipt itself.',
+    },
+    locate: {
+      stepFind: 'Find the payment on chain',
+      stepCheck: 'Check every receipt',
+      searching: { title: 'Finding the payment on chain', body: 'Reading the blocks around the payment time. Nothing is signed or sent.' },
+      checking: 'Payment found on chain. Checking every receipt…',
+      foundNote: 'Found from public chain data on this phone. No link from the customer was needed.',
+      notFound: { title: 'Payment not found on chain from here', body: 'Still Paid per contract. To check the receipt, open the verification link from the customer’s receipt.' },
+      history: { title: 'This payment is too old for this RPC', body: 'Still Paid per contract. The connected RPC no longer keeps those blocks. Use the customer’s verification link with an archival RPC.' },
+      unavailable: { title: 'Could not search the chain', body: 'Still Paid per contract. The RPC did not answer. This is not a payment problem.' },
+      retryNeeded: { title: 'This payout needed a retry', body: 'Still Paid per contract. Checking it needs each retry transaction, so open the verification link instead.' },
+      searchAgain: 'Search again',
+    },
+    merchantHome: {
+      comingLaterTitle: 'Coming later',
+      comingLaterBody: 'Live Handshake and verified merchant profiles need a session-enabled contract.',
+      unboundShort: 'Each sale is an ordinary Instant payment to this account. Customers see your account ID, not a verified business name.',
+    },
+    checkoutNote: 'This page only names a NEAR Testnet account. It proves nothing about the shop, signs nothing and lists no sales. Compare the account with the merchant, then scan the sale QR.',
+    room: roomEn,
   },
 };

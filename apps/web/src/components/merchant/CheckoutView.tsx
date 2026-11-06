@@ -131,9 +131,8 @@ export function CheckoutView({ accountId }: { readonly accountId: string }) {
         </ol>
       </section>
 
-      <InlineNotice copy={c.authenticity} tone="caution" />
-      <InlineNotice copy={c.noActiveSale} tone="neutral" />
-      <p className="px-1 text-center text-xs text-[var(--text-muted)]">{c.nothingSigned}</p>
+      {/* Phase 7G: one notice instead of three (proves, no listing, signs nothing). */}
+      <InlineNotice copy={{ title: c.authenticity.title, body: t.commerce.phase7g.checkoutNote }} tone="caution" />
 
       {scanning && (
         <QrScanner

@@ -144,3 +144,64 @@ export function journeyContext(input: {
   if (input.side === 'receiver') return input.posSale ? 'pos' : 'request';
   return input.fromCheckout ? 'checkout' : 'request';
 }
+
+/* ------------------------------------------------------------------------ */
+/* Phase 7G: one canonical status per side                                   */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * The short status both phones print above the headline. Derived ONLY from
+ * the evidence-based progress stage (contract state at a finalized block, this
+ * device's own open wallet window, the independent verifier) plus, on the
+ * paying side, this device's own unexplained payment attempt in its journal.
+ * Never from a scan, a timer or the other phone.
+ */
+export type JourneyStatus =
+  // Receiving side (merchant)
+  | 'ready_for_customer'
+  | 'payment_observed'
+  | 'verified_receipt'
+  // Paying side (customer)
+  | 'ready_to_review'
+  | 'awaiting_wallet'
+  | 'checking_chain'
+  | 'transaction_submitted'
+  | 'verified_paid'
+  // Both
+  | 'paid_per_contract'
+  | 'needs_attention'
+  | 'closed';
+
+type StageLike = 'awaiting' | 'wallet' | 'transfer' | 'contract_paid' | 'verified' | 'failed' | 'unresolved' | 'cancelled';
+
+export function journeyStatus(input: {
+  readonly side: JourneySide;
+  readonly stage: StageLike;
+  /** Paying side only: this device's own payment attempt is not yet explained by the chain. */
+  readonly ownAttemptPending?: boolean;
+}): JourneyStatus {
+  const { side, stage } = input;
+  switch (stage) {
+    case 'failed':
+    case 'unresolved':
+      return 'needs_attention';
+    case 'cancelled':
+      return 'closed';
+    case 'contract_paid':
+      return 'paid_per_contract';
+    case 'verified':
+      return side === 'receiver' ? 'verified_receipt' : 'verified_paid';
+    case 'transfer':
+      return side === 'receiver' ? 'payment_observed' : 'transaction_submitted';
+    case 'wallet':
+      return side === 'receiver' ? 'ready_for_customer' : 'awaiting_wallet';
+    case 'awaiting':
+      if (side === 'receiver') return 'ready_for_customer';
+      return input.ownAttemptPending === true ? 'checking_chain' : 'ready_to_review';
+  }
+}
+
+/** Only these two statuses may use the success (lime) treatment. */
+export function isVerifiedStatus(status: JourneyStatus): boolean {
+  return status === 'verified_receipt' || status === 'verified_paid';
+}

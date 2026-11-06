@@ -68,7 +68,7 @@ describe('shared session hero', () => {
     renderSession({ stage: 'contract_paid', payerAccountId: 'buyer.testnet' });
     const legend = screen.getByTestId('proof-legend');
     expect(within(legend).getByText('Paid per contract')).toBeTruthy();
-    expect(within(legend).getByText('Verified Paid: receipt check not run here')).toBeTruthy();
+    expect(within(legend).getByText('Verified Paid: Not checked on this screen')).toBeTruthy();
     expect(nodeStates()).toEqual(['done', 'done', 'done', 'done', 'todo']);
     expect(screen.getByText('Paid by buyer.testnet')).toBeTruthy();
   });
