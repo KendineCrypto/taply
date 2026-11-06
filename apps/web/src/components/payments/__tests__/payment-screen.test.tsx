@@ -108,10 +108,10 @@ describe('payer review and wallet approval', () => {
     expect(signed).toHaveLength(1);
   });
 
-  it('a declined signature sends nothing and allows a deliberate new attempt', async () => {
+  it('a wallet-reported decline is treated as unknown and blocks paying again (F-01)', async () => {
     const chain = chainWith(openRestricted);
     const { WalletError } = await import('@/lib/wallet/adapter');
-    const { adapter } = recordingWallet(PAYER, async () => {
+    const { adapter, signed } = recordingWallet(PAYER, async () => {
       throw new WalletError('cancelled');
     });
     renderWithChain(<PaymentScreen id={openRestricted.terms.id} />, { setup: readySetup(chain, true), adapter });
@@ -119,8 +119,11 @@ describe('payer review and wallet approval', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Approve in wallet' }));
     });
-    expect(await screen.findByText('Declined in your wallet')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Approve in wallet' })).toBeTruthy();
+    // The wallet's "declined" cannot prove nothing was broadcast.
+    expect(await screen.findByText('Result unknown')).toBeTruthy();
+    expect(await screen.findByText('An earlier attempt is still unexplained')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Approve in wallet' })).toBeNull();
+    expect(signed).toHaveLength(1);
   });
 
   it('refuses a payer the terms do not permit, without asking the wallet', async () => {

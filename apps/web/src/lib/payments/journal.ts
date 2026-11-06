@@ -23,7 +23,7 @@ export type JournalMethod = (typeof JOURNAL_METHODS)[number];
 
 /**
  * AWAITING_SIGNATURE  wallet opened; nothing known yet
- * USER_REJECTED       the wallet reported a decline; nothing was sent
+ * USER_REJECTED       nonblocking only with local notDispatched evidence
  * OUTCOME_UNKNOWN     the wallet may have broadcast; only the chain can tell
  * SUBMITTED           the wallet returned a transaction hash; the chain decides the result
  * RESOLVED            a finalized read explained the attempt; it no longer blocks
@@ -45,6 +45,8 @@ export const JournalEntrySchema = z.strictObject({
   /** retry_native_transfer: the recorded failure nonce it targeted. */
   operationNonce: z.string().regex(/^[1-9][0-9]{0,19}$/).nullable(),
   phase: z.enum(JOURNAL_PHASES),
+  /** Only local pre-dispatch checks may supply this; absent in legacy records. */
+  notDispatched: z.literal(true).optional(),
   transactionHash: z.string().regex(TX_HASH).nullable(),
   startedAt: z.iso.datetime({ offset: false }),
   updatedAt: z.iso.datetime({ offset: false }),
@@ -60,7 +62,7 @@ export interface JournalStorage {
 
 /** Unresolved phases block a new attempt for the same request/method/signer. */
 export function isBlocking(entry: JournalEntry): boolean {
-  return entry.phase !== 'RESOLVED' && entry.phase !== 'USER_REJECTED';
+  return entry.phase !== 'RESOLVED' && !(entry.phase === 'USER_REJECTED' && entry.notDispatched === true && entry.transactionHash === null);
 }
 
 function keyOf(entry: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'>): string {
@@ -93,7 +95,10 @@ export class SubmissionJournal {
     if (raw === null) return [];
     const parsed = JournalSchema.safeParse(safeJson(raw));
     if (!parsed.success) throw new JournalCorruptError();
-    return parsed.data.entries;
+    // Older versions inferred rejection from SDK text. Preserve these attempts
+    // as unknown across reloads; no timeout or migration may erase the brake.
+    return parsed.data.entries.map(entry => entry.phase === 'USER_REJECTED' && isBlocking(entry)
+      ? { ...entry, phase: 'OUTCOME_UNKNOWN' as const } : entry);
   }
 
   isReadable(): boolean {
@@ -160,7 +165,7 @@ export class SubmissionJournal {
   /** Changes one entry. Re-reads storage under the lock so other tabs' entries survive. */
   async update(
     target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'> & Partial<Pick<JournalEntry, 'startedAt'>>,
-    change: { readonly phase: JournalPhase; readonly transactionHash?: string | null },
+    change: { readonly phase: JournalPhase; readonly transactionHash?: string | null; readonly notDispatched?: true },
   ): Promise<JournalEntry> {
     if (this.lock === null) return this.updateLocked(target, change);
     return this.lock.run(() => this.updateLocked(target, change));
@@ -168,7 +173,7 @@ export class SubmissionJournal {
 
   private updateLocked(
     target: Pick<JournalEntry, 'requestId' | 'method' | 'signerAccountId'> & Partial<Pick<JournalEntry, 'startedAt'>>,
-    change: { readonly phase: JournalPhase; readonly transactionHash?: string | null },
+    change: { readonly phase: JournalPhase; readonly transactionHash?: string | null; readonly notDispatched?: true },
   ): JournalEntry {
     const entries = this.entries();
     const index = entries.findIndex((e) => keyOf(e) === keyOf(target));
@@ -177,6 +182,7 @@ export class SubmissionJournal {
     if (target.startedAt !== undefined && current.startedAt !== target.startedAt) throw new Error('journal attempt superseded');
     const next = JournalEntrySchema.parse({
       ...current,
+      ...(change.notDispatched === true ? { notDispatched: true as const } : {}),
       // Once a finalized read explained an attempt it stays explained: a late
       // wallet outcome or redirect only attaches its hash (Phase 6A). Only a new
       // `begin` replaces a RESOLVED entry.

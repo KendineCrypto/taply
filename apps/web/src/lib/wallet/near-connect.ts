@@ -1,6 +1,6 @@
 import type { NearConnector } from '@hot-labs/near-connect';
 import { classifyAccountId, isRejectedAccount } from '@/lib/near/account';
-import { WalletError, classifyWalletError } from './adapter';
+import { WalletError, WalletNotDispatchedError, classifyWalletError } from './adapter';
 import { transactionHashOf } from './adapter';
 import type { SignOutcome, WalletAdapter, WalletCall, WalletSession } from './adapter';
 
@@ -113,15 +113,15 @@ export function createNearConnectAdapter(rpcUrl: string): WalletAdapter {
       try {
         const { wallet, accounts } = await connector.getConnectedWallet();
         session = toSession(accounts, wallet);
-      } catch (cause) {
-        throw new WalletError('no_account', { cause });
+      } catch {
+        // No signing method has been invoked on this path.
+        throw new WalletNotDispatchedError();
       }
-      if (session.accountId !== signerAccountId) throw new WalletError('no_account');
+      if (session.accountId !== signerAccountId) throw new WalletNotDispatchedError();
 
-      const wallet = await connector.wallet();
-      let outcome: unknown;
       try {
-        outcome = await wallet.signAndSendTransaction({
+        const wallet = await connector.wallet();
+        const outcome: unknown = await wallet.signAndSendTransaction({
           network: 'testnet',
           signerId: signerAccountId,
           receiverId: call.receiverId,
@@ -132,13 +132,13 @@ export function createNearConnectAdapter(rpcUrl: string): WalletAdapter {
             },
           ],
         });
-      } catch (cause) {
-        // Only an explicit decline is known to have sent nothing.
-        if (classifyWalletError(cause) === 'cancelled') throw new WalletError('cancelled', { cause });
+        const transactionHash = transactionHashOf(outcome);
+        return transactionHash === null ? { kind: 'unknown' } : { kind: 'submitted', transactionHash };
+      } catch {
+        // No trusted no-broadcast signal exists across the SDK/wallet boundary.
+        // Includes cancellation text/codes, redirects and malformed outcomes.
         return { kind: 'unknown' };
       }
-      const transactionHash = transactionHashOf(outcome);
-      return transactionHash === null ? { kind: 'unknown' } : { kind: 'submitted', transactionHash };
     },
 
     subscribe(listener) {

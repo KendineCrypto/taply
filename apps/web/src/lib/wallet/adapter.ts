@@ -40,6 +40,15 @@ export class WalletError extends Error {
   }
 }
 
+/** Local control-flow evidence: throw only before invoking a signing SDK.
+ * SDK exceptions must never be converted into this type after dispatch. */
+export class WalletNotDispatchedError extends WalletError {
+  constructor() {
+    super('no_account');
+    this.name = 'WalletNotDispatchedError';
+  }
+}
+
 /**
  * One contract call, exactly as `@taply/near-client` prepared it. The adapter
  * passes it to the wallet unchanged; the person approves or declines there.
@@ -56,10 +65,10 @@ export interface WalletCall {
  * What a wallet reported after a signing request. Neither variant means the call
  * succeeded: only a finalized chain read can say that.
  *  - submitted: the wallet returned a transaction hash.
- *  - unknown:   anything else that was not an explicit decline. The transaction
+ *  - unknown:   anything else after dispatch. The transaction
  *               may or may not have been broadcast, so the caller must reconcile
  *               with the chain and must not offer a blind retry.
- * An explicit decline throws `WalletError('cancelled')` instead: nothing was sent.
+ * No external SDK cancellation signal currently proves absence of broadcast.
  */
 export type SignOutcome =
   | { readonly kind: 'submitted'; readonly transactionHash: string }
@@ -94,16 +103,16 @@ export interface WalletAdapter {
   subscribe(listener: (session: WalletSession | null) => void): () => void;
   /**
    * Asks the connected wallet to sign and send ONE function call as
-   * `signerAccountId`. Throws `WalletError('cancelled')` on an explicit decline,
-   * `WalletError('no_account')` if the wallet is not connected as that signer.
-   * Every other failure is reported as `{ kind: 'unknown' }`.
+   * `signerAccountId`. Only a local pre-dispatch account check may throw
+   * WalletNotDispatchedError. All failures after SDK invocation are unknown.
    */
   signAndSendTransaction(signerAccountId: string, call: WalletCall): Promise<SignOutcome>;
 }
 
 /**
- * Maps whatever a wallet SDK throws onto our four kinds. SDK messages are not
- * localised or stable, so they are matched loosely and never shown to people.
+ * Connection UI classification only (picker closed, no account, no wallet).
+ * Never use it for signing: message text cannot prove a transaction was not
+ * broadcast, so `submitCall` and the signing adapter do not call it (F-01).
  */
 export function classifyWalletError(cause: unknown): WalletErrorKind {
   if (cause instanceof WalletError) return cause.kind;

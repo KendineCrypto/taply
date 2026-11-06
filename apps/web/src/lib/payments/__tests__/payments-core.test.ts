@@ -5,7 +5,7 @@ import { resolveContractSetting, resolveChainConfig } from '@/lib/near/config';
 import { resolveFlags } from '@/lib/flags/features';
 import { calculateRequestId, calculateTermsHash } from '@/lib/protocol';
 import type { ContractRequest } from '@/lib/protocol';
-import { WalletError } from '@/lib/wallet/adapter';
+import { WalletError, WalletNotDispatchedError } from '@/lib/wallet/adapter';
 import { transactionHashOf } from '@/lib/wallet/adapter';
 import { buildInstantTerms, newCreationNonce, validateRequestForm } from '../create';
 import { canonicalPayUrl } from '@/lib/share/origin';
@@ -144,15 +144,22 @@ describe('journal and submission', () => {
     await expect(journal.begin(base)).rejects.toThrow(JournalBlockedError);
   });
 
-  it('decline -> USER_REJECTED (not blocking); hash -> SUBMITTED; wrong account -> nothing sent', async () => {
+  it('wallet decline -> OUTCOME_UNKNOWN (blocking); only local pre-dispatch evidence is nonblocking (F-01)', async () => {
     const journal = new SubmissionJournal(memory(), undefined, inProcessJournalLock());
-    expect(await submit(journal, async () => Promise.reject(new WalletError('cancelled')))).toEqual({ kind: 'rejected' });
-    expect(journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet')?.phase).toBe('USER_REJECTED');
-    expect(await submit(journal, async () => ({ kind: 'submitted', transactionHash: TX }))).toEqual({ kind: 'submitted', transactionHash: TX });
-    expect(journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet')).toMatchObject({ phase: 'SUBMITTED', transactionHash: TX });
+    // A wallet-reported decline cannot prove nothing was broadcast.
+    expect(await submit(journal, async () => Promise.reject(new WalletError('cancelled')))).toEqual({ kind: 'unknown' });
+    expect(journal.find(open.terms.id, 'pay_instant_native', 'payer.testnet')?.phase).toBe('OUTCOME_UNKNOWN');
+    expect((await submit(journal, async () => { throw new Error('must not resubmit'); })).kind).toBe('blocked');
+
+    const mismatch = new SubmissionJournal(memory(), undefined, inProcessJournalLock());
+    expect(await submit(mismatch, async () => Promise.reject(new WalletNotDispatchedError()))).toEqual({ kind: 'wrong_account' });
+    expect(mismatch.find(open.terms.id, 'pay_instant_native', 'payer.testnet')).toMatchObject({ phase: 'USER_REJECTED', notDispatched: true });
+    expect(await submit(mismatch, async () => ({ kind: 'submitted', transactionHash: TX }))).toEqual({ kind: 'submitted', transactionHash: TX });
+    expect(mismatch.find(open.terms.id, 'pay_instant_native', 'payer.testnet')).toMatchObject({ phase: 'SUBMITTED', transactionHash: TX });
+
     const other = new SubmissionJournal(memory(), undefined, inProcessJournalLock());
     expect(await submitCall({ journal: other, call, signerAccountId: 'payer.testnet', requestId: open.terms.id, termsHash: open.termsHash,
-      signAndSend: async () => Promise.reject(new WalletError('no_account')) })).toEqual({ kind: 'wrong_account' });
+      signAndSend: async () => Promise.reject(new WalletError('no_account')) })).toEqual({ kind: 'unknown' });
   });
   it('retains a locally verified hash on an ambiguous wallet outcome without unblocking', async () => {
     const journal = new SubmissionJournal(memory(), undefined, inProcessJournalLock());

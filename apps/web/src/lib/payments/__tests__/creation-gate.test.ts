@@ -34,8 +34,11 @@ describe('creation gate', () => {
       entry({ requestId: '6'.repeat(64), method: 'pay_instant_native', terms: null }),
       entry({ requestId: '7'.repeat(64), phase: 'OUTCOME_UNKNOWN' }),
       entry({ requestId: '8'.repeat(64), phase: 'AWAITING_SIGNATURE' }),
+      entry({ requestId: '9'.repeat(64), phase: 'USER_REJECTED', notDispatched: true }),
     ];
-    expect(blockingCreations(list, 'shop.testnet', C).map((e) => e.requestId[0])).toEqual(['1', '7', '8']);
+    // '3' is a legacy USER_REJECTED without local no-dispatch evidence: still blocking (F-01).
+    // '9' was refused locally before any wallet call: nonblocking.
+    expect(blockingCreations(list, 'shop.testnet', C).map((e) => e.requestId[0])).toEqual(['1', '3', '7', '8']);
   });
 
   it('latest recent creation: newest, within the window, never a decline', () => {

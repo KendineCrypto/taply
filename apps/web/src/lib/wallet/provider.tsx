@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { FLAGS } from '@/lib/flags/features';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { classifyWalletError } from './adapter';
-import { WalletError } from './adapter';
+import { WalletNotDispatchedError } from './adapter';
 import type { SignOutcome, WalletAdapter, WalletCall, WalletErrorKind, WalletSession } from './adapter';
 import { createNearConnectAdapter } from './near-connect';
 
@@ -108,7 +108,7 @@ export function WalletProvider({
 
   const signAndSend = useCallback(
     async (call: WalletCall): Promise<SignOutcome> => {
-      if (adapter === null || state.status !== 'connected') throw new WalletError('no_account');
+      if (adapter === null || state.status !== 'connected') throw new WalletNotDispatchedError();
       return adapter.signAndSendTransaction(state.session.accountId, call);
     },
     [adapter, state],

@@ -1,6 +1,6 @@
 import type { PreparedContractCall } from '@taply/near-client';
 import type { IntentTerms } from '@/lib/protocol';
-import { WalletError, classifyWalletError } from '@/lib/wallet/adapter';
+import { WalletNotDispatchedError } from '@/lib/wallet/adapter';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
 import { JournalBlockedError, isBlocking } from './journal';
 import type { JournalEntry, JournalMethod, SubmissionJournal } from './journal';
@@ -62,14 +62,9 @@ export async function submitCall(input: {
   try {
     outcome = await input.signAndSend(call);
   } catch (error) {
-    const kind = error instanceof WalletError ? error.kind : classifyWalletError(error);
-    if (kind === 'cancelled') {
-      await record(journal, target, { phase: 'USER_REJECTED' });
-      return { kind: 'rejected' };
-    }
-    if (kind === 'no_account') {
-      await record(journal, target, { phase: 'USER_REJECTED' });
-      return { kind: 'wrong_account' };
+    if (error instanceof WalletNotDispatchedError) {
+      const saved = await record(journal, target, { phase: 'USER_REJECTED', notDispatched: true });
+      return saved ? { kind: 'wrong_account' } : { kind: 'unknown' };
     }
     await record(journal, target, { phase: 'OUTCOME_UNKNOWN' });
     return { kind: 'unknown' };
