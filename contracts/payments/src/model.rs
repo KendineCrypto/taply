@@ -145,13 +145,10 @@ impl IntentTerms {
             self.mode == "instant" && self.cancel_duration_ns.is_none(),
             "PROTECTED_DISABLED"
         );
-        #[cfg(not(feature = "merchant-bound-v1"))]
         require!(
             self.merchant_account_id.is_none() && self.session_binding.is_none(),
             "HANDSHAKE_DISABLED"
         );
-        #[cfg(feature = "merchant-bound-v1")]
-        crate::merchant::validate_binding(self);
         require!(self.memo.len() <= 256, "MEMO_TOO_LONG");
         hash_bytes(&self.creation_nonce);
         hash_bytes(&self.id);
@@ -236,15 +233,7 @@ impl Record {
             "resolvedAtNs": (self.status != Status::InFlight).then(|| self.resolved_at.to_string()),
             "failureCode": (self.status == Status::Failed).then_some("NATIVE_TRANSFER_FAILED")
         }));
-        #[cfg(not(feature = "merchant-bound-v1"))]
-        let commitment: Option<String> = None;
-        #[cfg(feature = "merchant-bound-v1")]
-        let commitment = self
-            .terms
-            .session_binding
-            .as_ref()
-            .map(|_| domain_hash("taply.session.v1", &hex(&self.terms_hash)));
-        json!({"terms": self.terms, "termsHash": hex(&self.terms_hash), "sessionCommitment": commitment,
+        json!({"terms": self.terms, "termsHash": hex(&self.terms_hash), "sessionCommitment": null,
             "recipientAccountId": self.terms.creator_account_id, "status": self.status.wire(),
             "revision": self.revision.to_string(), "createdAtNs": self.created_at.to_string(),
             "payerAccountId": payer, "fundedAtNs": funded.then(|| self.funded_at.to_string()),

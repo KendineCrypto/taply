@@ -1,7 +1,5 @@
 // The SDK also generates camelCase argument fields outside the impl block.
 #![allow(non_snake_case)]
-#[cfg(feature = "merchant-bound-v1")]
-mod merchant;
 pub mod model;
 
 use model::*;
@@ -54,10 +52,10 @@ impl Payments {
 
     pub fn get_config(&self) -> Value {
         strict_input::<EmptyArgs>();
-        json!({"schemaVersion": "taply.contract-config.v1", "contractVersion": if cfg!(feature = "merchant-bound-v1") { "0.5.0-merchant.1" } else { "0.4.0" },
+        json!({"schemaVersion": "taply.contract-config.v1", "contractVersion": "0.4.0",
             "network": "near-testnet", "contractId": env::current_account_id(),
             "intentVersion": "taply.intent.v1", "eventVersion": "0.4.0",
-            "capabilities": {"instantNative": true, "protectedPay": false, "handshake": cfg!(feature = "merchant-bound-v1"),
+            "capabilities": {"instantNative": true, "protectedPay": false, "handshake": false,
                 "merchantProfiles": false, "nep141": false, "sponsoredGas": false},
             "quoteVersion": QUOTE_VERSION, "storageByteCostYocto": env::storage_byte_cost().as_yoctonear().to_string(),
             "gas": {"createRequest": CREATE_GAS.as_gas().to_string(), "payInstantNative": PAY_GAS.as_gas().to_string(),
@@ -72,8 +70,6 @@ impl Payments {
         strict_input::<QuoteArgs>();
         terms.validate();
         require!(!env::storage_has_key(&key(&terms.id)), "NONCE_CONSUMED");
-        #[cfg(feature = "merchant-bound-v1")]
-        merchant::unconsumed(&terms);
         let r = Record::new(terms);
         let bytes = storage_bytes(&r);
         json!({"quoteVersion": QUOTE_VERSION, "requestId": r.terms.id,
@@ -94,8 +90,6 @@ impl Payments {
         );
         let k = key(&terms.id);
         require!(!env::storage_has_key(&k), "NONCE_CONSUMED");
-        #[cfg(feature = "merchant-bound-v1")]
-        merchant::unconsumed(&terms);
         let r = Record::new(terms);
         let bytes = storage_bytes(&r);
         let bond = storage_cost(bytes);
@@ -108,13 +102,6 @@ impl Payments {
             !env::storage_write(&k, &borsh::to_vec(&r).unwrap()),
             "NONCE_CONSUMED"
         );
-        #[cfg(feature = "merchant-bound-v1")]
-        if let Some(sale) = merchant::sale_key(&r.terms) {
-            require!(
-                !env::storage_write(&sale, &hash_bytes(&r.terms.id)),
-                "SESSION_ALREADY_USED"
-            );
-        }
         require!(
             env::storage_usage() - before == bytes,
             "STORAGE_QUOTE_MISMATCH"
@@ -365,15 +352,7 @@ fn key(id: &str) -> Vec<u8> {
     k
 }
 fn storage_bytes(r: &Record) -> u64 {
-    let bytes = 33 + borsh::to_vec(r).unwrap().len() as u64 + RECORD_OVERHEAD;
-    #[cfg(feature = "merchant-bound-v1")]
-    let bytes = bytes
-        + if r.terms.session_binding.is_some() {
-            33 + 32 + RECORD_OVERHEAD
-        } else {
-            0
-        };
-    bytes
+    33 + borsh::to_vec(r).unwrap().len() as u64 + RECORD_OVERHEAD
 }
 fn storage_cost(bytes: u64) -> u128 {
     u128::from(bytes)

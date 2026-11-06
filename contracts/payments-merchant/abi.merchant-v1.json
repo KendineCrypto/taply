@@ -1,0 +1,137 @@
+{
+  "format": "taply.contract-abi.v1",
+  "contractVersion": "0.5.0-merchant.1",
+  "encoding": "JSON UTF-8; strict objects; all integers canonical decimal strings",
+  "typesDocument": "MERCHANT_V1.md",
+  "methods": [
+    {
+      "name": "contract_source_metadata",
+      "kind": "view",
+      "access": "SDK-generated NEP-330 metadata",
+      "args": {},
+      "returns": "NEP-330 ContractSourceMetadata"
+    },
+    {
+      "name": "new",
+      "kind": "init",
+      "access": "self, once",
+      "args": {},
+      "depositYocto": "0",
+      "returns": "void"
+    },
+    {
+      "name": "get_config",
+      "kind": "view",
+      "args": {},
+      "returns": "ContractConfig"
+    },
+    {
+      "name": "quote_create_request",
+      "kind": "view",
+      "args": {
+        "terms": "IntentTerms"
+      },
+      "returns": "CreateQuote"
+    },
+    {
+      "name": "create_request",
+      "kind": "call",
+      "access": "direct recipient",
+      "args": {
+        "terms": "IntentTerms",
+        "quoteVersion": "PositiveU64"
+      },
+      "depositYocto": "CreateQuote.depositYocto exactly",
+      "minimumGas": "30000000000000",
+      "returns": "ContractRequest"
+    },
+    {
+      "name": "get_request",
+      "kind": "view",
+      "args": {
+        "id": "HashHex"
+      },
+      "returns": "ContractRequest | null"
+    },
+    {
+      "name": "get_receipt",
+      "kind": "view",
+      "args": {
+        "id": "HashHex"
+      },
+      "returns": "TerminalFacts | null"
+    },
+    {
+      "name": "get_accounting",
+      "kind": "view",
+      "args": {},
+      "returns": "Accounting"
+    },
+    {
+      "name": "cancel_unfunded",
+      "kind": "call",
+      "access": "direct recipient; OPEN",
+      "args": {
+        "id": "HashHex",
+        "expectedTermsHash": "HashHex"
+      },
+      "depositYocto": "1",
+      "minimumGas": "15000000000000",
+      "returns": "ContractRequest"
+    },
+    {
+      "name": "pay_instant_native",
+      "kind": "call",
+      "access": "direct permitted payer; OPEN; unexpired",
+      "args": {
+        "id": "HashHex",
+        "expectedTermsHash": "HashHex"
+      },
+      "depositYocto": "IntentTerms.amountBaseUnits exactly",
+      "minimumGas": "50000000000000",
+      "returns": "Promise<boolean>"
+    },
+    {
+      "name": "retry_native_transfer",
+      "kind": "call",
+      "access": "direct recipient; recorded FAILED only",
+      "args": {
+        "id": "HashHex",
+        "expectedOperationNonce": "PositiveU64"
+      },
+      "depositYocto": "1",
+      "minimumGas": "50000000000000",
+      "returns": "Promise<boolean>"
+    },
+    {
+      "name": "on_native_transfer_complete",
+      "kind": "callback",
+      "access": "self; exactly one runtime promise result; matching IN_FLIGHT nonce",
+      "args": {
+        "id": "HashHex",
+        "operationNonce": "PositiveU64",
+        "kind": "INSTANT_PAYOUT"
+      },
+      "depositYocto": "0",
+      "allocatedGas": "15000000000000",
+      "returns": "boolean"
+    }
+  ],
+  "disabledMethods": [
+    "fund_protected_native",
+    "cancel_protected",
+    "release_protected",
+    "ft_on_transfer"
+  ],
+  "administrativeMethods": [],
+  "unknownCallbackPolicy": "Remain PAYOUT_IN_FLIGHT; no retry, refund, timeout reset or admin settlement",
+  "buildFeature": "merchant-bound-v1",
+  "additionalValidationErrors": [
+    "MERCHANT_RECIPIENT_MISMATCH",
+    "INCOMPLETE_MERCHANT_SESSION_BINDING",
+    "INVALID_SESSION_ID",
+    "INVALID_SESSION_EXPIRY",
+    "SESSION_EXCEEDS_FUNDING_EXPIRY",
+    "SESSION_ALREADY_USED"
+  ]
+}
