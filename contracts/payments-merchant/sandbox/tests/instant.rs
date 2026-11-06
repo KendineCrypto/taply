@@ -18,7 +18,10 @@ use sha2::{Digest, Sha256};
 const PRINCIPAL: u128 = 1_000_000_000_000_000_000_000_000;
 const GAS: Gas = Gas::from_tgas(50);
 fn merchant_build() -> bool {
-    assert_eq!(std::env::var("TAPLY_SANDBOX_MERCHANT_V1").as_deref(), Ok("1"));
+    assert_eq!(
+        std::env::var("TAPLY_SANDBOX_MERCHANT_V1").as_deref(),
+        Ok("1")
+    );
     true
 }
 fn digest(domain: &str, bytes: &str) -> String {
