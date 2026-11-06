@@ -1,0 +1,10 @@
+{
+  "extends": "../../../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "typeRoots": ["../../../apps/web/node_modules/@types"]
+  },
+  "include": ["*.test.ts", "vitest.config.mts"],
+  "exclude": []
+}

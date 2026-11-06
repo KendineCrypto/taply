@@ -79,6 +79,23 @@ test('ordinary decision failure rolls back without advancing head; asynchronous 
   } finally { f.repo.close(); rmSync(f.dir, { recursive: true, force: true }); }
 });
 
+test('malformed, stale or replaced authority heads fence decisions before invoking application code', async () => {
+  for (const patch of [{ epoch: 'b'.repeat(64) }, { revision: '1' }, { revision: '01' },
+    { revision: '18446744073709551616' }, { digest: 'f'.repeat(64) }, { digest: 'invalid' }]) {
+    const f = setup();
+    try {
+      const before = structuredClone(f.authority.head), tx = f.tx();
+      Object.assign(f.authority.head, patch);
+      let invoked = false;
+      await assert.rejects(tx.transaction(() => { invoked = true; return true; }), /VERIFICATION_UNAVAILABLE/);
+      assert.equal(invoked, false);
+      f.authority.head = before;
+      await assert.rejects(tx.transaction(() => true), /VERIFICATION_UNAVAILABLE/);
+      assert.equal(f.repo.read().revision, '0');
+    } finally { f.repo.close(); rmSync(f.dir, { recursive: true, force: true }); }
+  }
+});
+
 test('independent processes share external CAS fencing: exactly one acknowledged token decision', async () => {
   const { fork } = await import('node:child_process');
   const dir = mkdtempSync(join(tmpdir(), 'taply-fence-process-')), path = join(dir, 'test.db'), key = randomBytes(32);
