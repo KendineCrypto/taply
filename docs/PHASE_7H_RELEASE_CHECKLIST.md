@@ -1,5 +1,7 @@
 # Phase 7H release and submission checklist
 
+> Historical planning checklist. Use the [current submission checklist](SUBMISSION_CHECKLIST.md); no earlier checked box grants current release approval.
+
 Prepared 2026-11-06 on `feature/phase7h-release` (local only). Every box below
 is either something an agent verified (marked **verified**, with the command or
 file) or a **human decision / human action**. Nothing here has been pushed,

@@ -1,5 +1,7 @@
 # Phase 7H release-candidate report
 
+> Historical Phase 7H report. Current status and blockers are in [Phase 7I release readiness](RELEASE_READINESS.md). Earlier readiness and next-step recommendations are not current release approval.
+
 2026-11-06. Frontend + release work on the operator's Windows machine.
 **Nothing was pushed, merged, tagged, deployed, signed, funded, posted or
 submitted.** No transaction was created; every browser run used a read-only

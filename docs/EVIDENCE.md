@@ -1,5 +1,7 @@
 # Testnet proof ledger (fill ONLY with observed, reproducible results)
 
+> Historical proof ledger: preserve original observation dates and results. Phase 7H later reverified the pilot via archival RPC ([report](PHASE_7H_INTEGRATION_REPORT.md)); Phase 7I release preparation added no chain observation. See [current scope and limitations](RELEASE_READINESS.md). The feature ledger below is a 2026-11-01 snapshot, not the current frontend inventory.
+
 ## Phase 4A public read-only deployment verification — 2026-11-01
 
 **Historical Phase 4A read-only snapshot:** Deployment was verified and no payment had happened at the time of this check. The later live-payment proof is recorded below.
