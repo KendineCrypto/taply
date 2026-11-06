@@ -13,15 +13,21 @@ except the explicitly skipped opt-in live test.
 ```powershell
 git clone https://github.com/KendineCrypto/taply.git
 cd taply
-git checkout 2199fab57ace177b60cdfe70e2c72672eefd9cfe
+git checkout 7443c01161fa412943140d8e52ad1de9f56ff97e # published implementation + release docs; not a release tag
 pnpm install --frozen-lockfile
 pnpm check
 pnpm --filter @taply/web dev
 ```
 
-This published SHA is the reviewed **implementation baseline**, not a release tag.
-Release-preparation documentation is local until separately approved publication.
-The final submission must identify its reviewed commit/tag and include these docs.
+This published SHA contains both the implementation baseline and the release
+preparation docs (PR #10). It is not a release tag or signing approval.
+The later safety review is on local branch `feature/final-integration-review`;
+see [FINAL_INTEGRATION_REVIEW.md](FINAL_INTEGRATION_REVIEW.md) in that checkout.
+Its report-bearing commit can be identified with
+`git log -1 --format=%H -- docs/FINAL_INTEGRATION_REVIEW.md`.
+That final branch has not been published by this review. After separately
+authorized publication, use its reviewed full SHA for final judging; do not
+claim that the older baseline contains this later safety report.
 
 Open [localhost demo](http://localhost:3000/demo). Walk through review, processing
 and receipt; every scene is **DEMO / synthetic**, not a new chain payment.

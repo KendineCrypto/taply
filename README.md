@@ -111,7 +111,7 @@ A successful workspace check does not include Rust/sandbox or standalone API che
 ```sh
 git clone https://github.com/KendineCrypto/taply.git
 cd taply
-git checkout 2199fab57ace177b60cdfe70e2c72672eefd9cfe # published G1 isolation baseline, not a release tag
+git checkout 7443c01161fa412943140d8e52ad1de9f56ff97e # published implementation + release docs; not a release tag
 pnpm install --frozen-lockfile
 pnpm check            # workspace checks, no funds; standalone/contract checks listed in release report
 ```

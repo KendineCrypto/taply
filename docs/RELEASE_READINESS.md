@@ -19,8 +19,13 @@ The final report-bearing commit is identified by `git rev-parse HEAD`.
 
 Only README/docs are changed. Contract logic, approved pins, dependencies,
 lockfiles, web source and gates are unchanged. PR #8 diagnostic workflow is
-absent. No push, PR, merge, existing-branch rebase, tag, deployment, signing,
-funds movement, G2 activation, LICENSE addition or submission was performed.
+absent. At the preparation stage, no push or PR had been performed; the
+release-candidate documentation was subsequently published in PR #10 at
+`7443c01161fa412943140d8e52ad1de9f56ff97e`. This historical report does not
+claim that published source is still local-only. The later local cumulative
+safety assessment is [FINAL_INTEGRATION_REVIEW.md](FINAL_INTEGRATION_REVIEW.md).
+No merge, deployment, signing, funds movement, G2 activation, LICENSE addition
+or submission is authorized by either report.
 
 ## Normal contract CI: observed evidence
 
