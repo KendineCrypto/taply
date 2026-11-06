@@ -1,3 +1,7 @@
+# Source isolation notice
+
+Candidate source and validation now live in `../payments-merchant/`. In the commands below use `cd contracts/payments-merchant`. G1 no longer defines the merchant feature. Legacy build/sandbox scripts forward explicitly; outputs are in the candidate directory.
+
 # Candidate merchant contract 0.5.0-merchant.1
 
 This is an isolated opt-in build (`--features merchant-bound-v1`), not an upgrade

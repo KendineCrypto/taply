@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then echo "CARGO_TARGET_DIR override is forbidden" >&2; exit 1; fi
+if [[ -n "${TAPLY_SANDBOX_MERCHANT_V1:-}" ]]; then echo "Use payments-merchant/scripts/check.sh" >&2; exit 1; fi
 mkdir -p artifacts
 cargo fmt --all --check
 cargo fmt --manifest-path sandbox/Cargo.toml --all --check

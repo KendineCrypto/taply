@@ -33,15 +33,6 @@ fn terms(n: u64) -> IntentTerms {
     t.cancel_duration_ns = None;
     t.merchant_account_id = None;
     t.session_binding = None;
-    #[cfg(feature = "merchant-bound-v1")]
-    {
-        t.merchant_account_id = Some(t.creator_account_id.clone());
-        t.session_binding = Some(SessionBinding {
-            id: format!("11111111-1111-4111-8111-{n:012x}"),
-            nonce: format!("{n:064x}"),
-            expires_at_ns: (NOW + 120_000_000_000).to_string(),
-        });
-    }
     t.id = t.request_id();
     t
 }
@@ -317,7 +308,7 @@ fn strict_wire_rejects_unknown_duplicate_missing_and_noncanonical_terms() {
     );
     assert!(
         near_sdk::serde_json::from_str::<IntentTerms>(
-            &raw.replace("\"sessionBinding\":", "\"sessionBindingMissing\":")
+            &raw.replace("\"sessionBinding\":null", "\"sessionBindingMissing\":null")
         )
         .is_err()
     );
@@ -363,7 +354,7 @@ fn disabled_modes_and_invalid_terms_cannot_be_quoted() {
             "contractId" => json!("other.testnet"),
             "memo" => json!("é".repeat(129)),
             "fundingExpiresAtNs" => json!(NOW.to_string()),
-            "merchantAccountId" => json!("eve.testnet"),
+            "merchantAccountId" => json!("alice.testnet"),
             _ => json!("0"),
         };
         let bad: IntentTerms = near_sdk::serde_json::from_value(v).unwrap();
@@ -537,170 +528,4 @@ fn runtime_wire_input_and_invalid_reads_are_rejected() {
     });
     assert!(c.get_request("f".repeat(64)).is_none());
     assert!(c.get_receipt("f".repeat(64)).is_none());
-}
-
-#[cfg(feature = "merchant-bound-v1")]
-#[test]
-fn merchant_binding_is_immutable_creator_authorized_and_canonical() {
-    let mut c = contract();
-    let t = terms(100);
-    let q = c.quote_create_request(t.clone());
-    context(
-        "eve.testnet",
-        decimal128(q["depositYocto"].as_str().unwrap()),
-        NOW,
-        vec![],
-    );
-    rejects(|| {
-        c.create_request(t.clone(), "1".into());
-    });
-    assert!(read(&t.id).is_none());
-    create(&mut c, &t);
-    let original = c.get_request(t.id.clone()).unwrap();
-    assert_eq!(original["recipientAccountId"], "alice.testnet");
-    assert_eq!(
-        original["sessionCommitment"],
-        domain_hash("taply.session.v1", &t.terms_hash())
-    );
-    for field in ["amount", "expiry", "session"] {
-        let mut changed = t.clone();
-        match field {
-            "amount" => changed.amount_base_units = "2".into(),
-            "expiry" => changed.funding_expires_at_ns = (NOW + 500_000_000_000).to_string(),
-            _ => changed.session_binding.as_mut().unwrap().nonce = "f".repeat(64),
-        }
-        context(
-            "bob.testnet",
-            decimal128(&t.amount_base_units),
-            NOW + 1,
-            vec![],
-        );
-        rejects(|| {
-            drop(c.pay_instant_native(t.id.clone(), changed.terms_hash()));
-        });
-        context(
-            "alice.testnet",
-            decimal128(q["depositYocto"].as_str().unwrap()),
-            NOW,
-            vec![],
-        );
-        rejects(|| {
-            c.create_request(changed, "1".into());
-        });
-    }
-    assert_eq!(c.get_request(t.id.clone()).unwrap(), original);
-    let mut reused_sale = t.clone();
-    reused_sale.creation_nonce = "e".repeat(64);
-    reused_sale.id = reused_sale.request_id();
-    rejects(|| {
-        c.quote_create_request(reused_sale.clone());
-    });
-    context(
-        "alice.testnet",
-        decimal128(q["depositYocto"].as_str().unwrap()),
-        NOW,
-        vec![],
-    );
-    rejects(|| {
-        c.create_request(reused_sale, "1".into());
-    });
-    fund(&mut c, &t);
-    assert!(callback(&mut c, &t, "1", PromiseResult::Successful(vec![])));
-    assert_eq!(
-        c.get_request(t.id.clone()).unwrap()["sessionCommitment"],
-        original["sessionCommitment"]
-    );
-}
-
-#[cfg(feature = "merchant-bound-v1")]
-#[test]
-fn malformed_or_incompatible_sessions_refuse_without_storage() {
-    let c = contract();
-    for case in 0..10 {
-        let mut t = terms(101);
-        match case {
-            0 => t.merchant_account_id = None,
-            1 => t.session_binding = None,
-            2 => t.merchant_account_id = Some("eve.testnet".parse().unwrap()),
-            3 => t.session_binding.as_mut().unwrap().id = "1".repeat(8192),
-            4 => {
-                t.session_binding.as_mut().unwrap().id =
-                    "11111111-1111-5111-8111-111111111111".into()
-            }
-            5 => t.session_binding.as_mut().unwrap().nonce = "A".repeat(64),
-            6 => t.session_binding.as_mut().unwrap().expires_at_ns = NOW.to_string(),
-            7 => {
-                t.session_binding.as_mut().unwrap().expires_at_ns =
-                    (NOW + 120_000_000_001).to_string()
-            }
-            8 => t.funding_expires_at_ns = (NOW + 1).to_string(),
-            _ => t.session_binding.as_mut().unwrap().expires_at_ns = "01".into(),
-        }
-        rejects(|| {
-            c.quote_create_request(t);
-        });
-    }
-    assert_eq!(c.request_count, 0);
-}
-
-#[cfg(feature = "merchant-bound-v1")]
-#[test]
-fn candidate_keeps_ordinary_instant_requests_compatible() {
-    let mut c = contract();
-    let mut t = terms(102);
-    t.merchant_account_id = None;
-    t.session_binding = None;
-    create(&mut c, &t);
-    fund(&mut c, &t);
-    assert!(callback(&mut c, &t, "1", PromiseResult::Successful(vec![])));
-    assert_eq!(
-        c.get_request(t.id.clone()).unwrap()["sessionCommitment"],
-        Value::Null
-    );
-    assert_eq!(c.get_config()["contractVersion"], "0.5.0-merchant.1");
-}
-
-#[cfg(feature = "merchant-bound-v1")]
-#[test]
-fn maximum_bound_terms_storage_gas_and_cancelled_sale_replay() {
-    let mut c = contract();
-    let owner = "a".repeat(64);
-    let mut t = terms(103);
-    t.creator_account_id = owner.parse().unwrap();
-    t.merchant_account_id = Some(t.creator_account_id.clone());
-    t.permitted_payer_account_id = Some("b".repeat(64).parse().unwrap());
-    t.amount_base_units = u128::MAX.to_string();
-    t.memo = "é".repeat(128);
-    t.funding_expires_at_ns = (NOW + 86_400_000_000_000).to_string();
-    t.id = t.request_id();
-    context(&owner, 0, NOW, vec![]);
-    let q = c.quote_create_request(t.clone());
-    let bond = decimal128(q["depositYocto"].as_str().unwrap());
-    let mut b = VMContextBuilder::new();
-    b.current_account_id("payments.fixture.testnet".parse().unwrap())
-        .predecessor_account_id(owner.parse().unwrap())
-        .signer_account_id(owner.parse().unwrap())
-        .block_timestamp(NOW)
-        .account_balance(NearToken::from_near(1000))
-        .attached_deposit(NearToken::from_yoctonear(bond))
-        .prepaid_gas(Gas::from_tgas(29));
-    testing_env!(b.build());
-    rejects(|| {
-        c.create_request(t.clone(), "1".into());
-    });
-    assert!(read(&t.id).is_none());
-    context(&owner, bond, NOW, vec![]);
-    let before = env::storage_usage();
-    c.create_request(t.clone(), "1".into());
-    assert_eq!(
-        env::storage_usage() - before,
-        decimal64(q["storageBytes"].as_str().unwrap())
-    );
-    context(&owner, 1, NOW + 1, vec![]);
-    c.cancel_unfunded(t.id.clone(), t.terms_hash());
-    t.creation_nonce = "c".repeat(64);
-    t.id = t.request_id();
-    rejects(|| {
-        c.quote_create_request(t);
-    });
 }
