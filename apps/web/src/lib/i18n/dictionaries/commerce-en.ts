@@ -218,7 +218,9 @@ export const commerceEn: CommerceCopy = {
     },
     steps: { created: 'Created', approved: 'Wallet', transfer: 'On chain', contract: 'Contract', verified: 'Receipt check' },
     proofLegend: {
-      contract: 'Paid per contract',
+      // Phase 7H: names the evidence level, so it contrasts with the Verified Paid row
+      // instead of repeating the status chip and the hero title verbatim.
+      contract: 'Contract record: paid',
       verified: 'Verified Paid',
       verifiedPending: 'Verified Paid: receipt check not run here',
     },

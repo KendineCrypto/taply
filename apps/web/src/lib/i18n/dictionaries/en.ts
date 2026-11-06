@@ -604,6 +604,8 @@ export const en: Dictionary = {
     },
     settlementProofPending:
       "This comes from the contract's state at a finalized block. A Verified Paid receipt also needs the funding, transfer and callback receipts checked. Open the receipt to check them.",
+    settlementProofPendingOnReceipt:
+      "This comes from the contract's state at a finalized block. Verified Paid also needs the funding, transfer and callback receipts checked, which has not succeeded on this screen.",
     setup: {
       notConfigured: {
         title: 'Payments are not set up',

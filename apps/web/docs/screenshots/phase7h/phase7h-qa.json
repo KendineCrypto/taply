@@ -1,0 +1,2534 @@
+{
+  "base": "http://127.0.0.1:3207",
+  "configuredRpcHost": "test.rpc.fastnear.com",
+  "forwardedToArchival": [
+    "EXPERIMENTAL_tx_status",
+    "block",
+    "query:view_account:",
+    "query:view_access_key_list:",
+    "chunk"
+  ],
+  "results": [
+    {
+      "name": "en-home-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-home-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-checkout-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-receipt-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-home-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-home-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-checkout-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-receipt-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-home-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-home-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-checkout-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-receipt-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-home-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-home-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-checkout-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-paid-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-paid-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-receipt-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-home-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-home-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-checkout-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-merchant-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "en-customer-receipt-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "tr-home-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-home-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-checkout-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-paid-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-receipt-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-home-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-home-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-checkout-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-receipt-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-home-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-home-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-checkout-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-paid-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-paid-430",
+      "error": "TimeoutError: locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.journey-hero').first() to be visible\u001b[22m\n"
+    },
+    {
+      "name": "tr-customer-receipt-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-home-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-home-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-checkout-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-paid-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-paid-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-receipt-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-home-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-home-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-checkout-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-merchant-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-paid-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Kontrata göre ödendi",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-receipt-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "en-merchant-receipt-verified-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "merchant-locator-en-390",
+      "seconds": 54
+    },
+    {
+      "name": "tr-merchant-receipt-verified-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "verified",
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": true,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "merchant-locator-tr-360",
+      "seconds": 11
+    },
+    {
+      "name": "switch-taplytest-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "switch-taply-pilot-funder-1101-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "switch-someone-else-qa-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "switch-disconnected-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "account-switching",
+      "seen": [
+        {
+          "account": "taplytest.testnet",
+          "status": "paid_per_contract",
+          "heroTitle": "Paid per contract",
+          "merchantWording": true,
+          "customerWording": false
+        },
+        {
+          "account": "taply-pilot-funder-1101.testnet",
+          "status": "paid_per_contract",
+          "heroTitle": "Paid per contract",
+          "merchantWording": false,
+          "customerWording": true
+        },
+        {
+          "account": "someone-else-qa.testnet",
+          "status": "paid_per_contract",
+          "heroTitle": "Paid per contract",
+          "merchantWording": false,
+          "customerWording": true
+        },
+        {
+          "account": "none",
+          "status": "paid_per_contract",
+          "heroTitle": "Paid per contract",
+          "merchantWording": false,
+          "customerWording": true
+        }
+      ]
+    },
+    {
+      "name": "pruned-merchant-receipt-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "contract_paid",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "pruned-merchant-no-false-verified",
+      "ok": true
+    },
+    {
+      "name": "pruned-customer-receipt-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": "contract_paid",
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "pruned-customer-no-false-verified",
+      "ok": true
+    },
+    {
+      "name": "synthetic-receipt-read-failure-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "receipt-failure-no-false-verified",
+      "ok": true,
+      "retryControls": 1,
+      "recoveredTo": "verified"
+    },
+    {
+      "name": "synthetic-rpc-down-en-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 2,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "rpc-down-single-retry-en",
+      "ok": true,
+      "retryControls": 1
+    },
+    {
+      "name": "synthetic-rpc-down-tr-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 2,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "tr"
+    },
+    {
+      "name": "rpc-down-single-retry-tr",
+      "ok": true,
+      "retryControls": 1
+    },
+    {
+      "name": "reconnect-merchant-paid-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 1,
+      "liveRegions": 1,
+      "heroTone": "neutral",
+      "heroTitle": "Paid per contract",
+      "status": "paid_per_contract",
+      "receipt": null,
+      "saysVerifiedPaid": true,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "offline-reconnect",
+      "recovered": true,
+      "statusAfter": "paid_per_contract",
+      "offlineExcerpt": ""
+    },
+    {
+      "name": "synthetic-slow-rpc-loading-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 1,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "slow-rpc",
+      "earlyStatus": null,
+      "recovered": true
+    },
+    {
+      "name": "reduced-motion-en",
+      "animating": [
+        "animate-page:taply-page-in:1e-05s",
+        "animate-page mt-5 flex items-start gap-4:taply-page-in:1e-05s"
+      ],
+      "still": false
+    },
+    {
+      "name": "reduced-motion-tr",
+      "animating": [
+        "animate-page:taply-page-in:1e-05s",
+        "animate-page mt-5 flex items-start gap-4:taply-page-in:1e-05s"
+      ],
+      "still": false
+    },
+    {
+      "name": "keyboard-primary-action",
+      "reached": {
+        "tabs": 4,
+        "ring": true
+      },
+      "ok": true
+    },
+    {
+      "name": "handshake-live-route-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": false,
+      "lang": "en"
+    },
+    {
+      "name": "handshake-demo-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [
+        "Waiting for the customer x2"
+      ],
+      "retryControls": 0,
+      "liveRegions": 3,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "handshake-gated",
+      "liveSaysPaid": false,
+      "demoStamped": true
+    }
+  ],
+  "failures": [
+    {
+      "name": "en-demo-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "en-demo-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Your wallet",
+          "h": 36
+        },
+        {
+          "text": "2. Receive",
+          "h": 36
+        },
+        {
+          "text": "3. Send",
+          "h": 36
+        },
+        {
+          "text": "4. Create a request",
+          "h": 36
+        },
+        {
+          "text": "5. Share it",
+          "h": 36
+        },
+        {
+          "text": "6. Payer reviews",
+          "h": 36
+        },
+        {
+          "text": "7. Watch it settle",
+          "h": 36
+        },
+        {
+          "text": "8. Verified receipt",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    },
+    {
+      "name": "tr-demo-360",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-430",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-customer-paid-430",
+      "error": "TimeoutError: locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.journey-hero').first() to be visible\u001b[22m\n"
+    },
+    {
+      "name": "tr-demo-768",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "tr-demo-1280",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [
+        {
+          "text": "1. Cüzdanınız",
+          "h": 36
+        },
+        {
+          "text": "2. Alın",
+          "h": 36
+        },
+        {
+          "text": "3. Gönderin",
+          "h": 36
+        },
+        {
+          "text": "4. Talep oluşturun",
+          "h": 36
+        },
+        {
+          "text": "5. Paylaşın",
+          "h": 36
+        },
+        {
+          "text": "6. Ödeyen kontrol eder",
+          "h": 36
+        },
+        {
+          "text": "7. Kesinleşmesini izleyin",
+          "h": 36
+        },
+        {
+          "text": "8. Doğrulanmış makbuz",
+          "h": 36
+        }
+      ],
+      "wide": [],
+      "repeated": [],
+      "retryControls": 0,
+      "liveRegions": 0,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "tr"
+    },
+    {
+      "name": "reduced-motion-en",
+      "animating": [
+        "animate-page:taply-page-in:1e-05s",
+        "animate-page mt-5 flex items-start gap-4:taply-page-in:1e-05s"
+      ],
+      "still": false
+    },
+    {
+      "name": "reduced-motion-tr",
+      "animating": [
+        "animate-page:taply-page-in:1e-05s",
+        "animate-page mt-5 flex items-start gap-4:taply-page-in:1e-05s"
+      ],
+      "still": false
+    },
+    {
+      "name": "handshake-demo-390",
+      "overflowPx": 0,
+      "unnamed": [],
+      "small": [],
+      "wide": [],
+      "repeated": [
+        "Waiting for the customer x2"
+      ],
+      "retryControls": 0,
+      "liveRegions": 3,
+      "heroTone": null,
+      "heroTitle": null,
+      "status": null,
+      "receipt": null,
+      "saysVerifiedPaid": false,
+      "hasVerifiedEvidence": false,
+      "mockStamp": true,
+      "lang": "en"
+    }
+  ],
+  "rpcMethods": [
+    "status",
+    "block",
+    "query:view_account:",
+    "query:call_function:get_config",
+    "query:call_function:get_request",
+    "query:call_function:get_receipt",
+    "EXPERIMENTAL_tx_status",
+    "query:view_access_key_list:",
+    "chunk"
+  ],
+  "broadcastAttempted": [],
+  "pageErrors": [
+    "chrome-error://chromewebdata/: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
+    "chrome-error://chromewebdata/: Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
+  ]
+}
