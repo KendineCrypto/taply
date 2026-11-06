@@ -75,11 +75,11 @@ describe('payer review and wallet approval', () => {
     // Paid per contract - never the Verified Paid ribbon (no receipt verifier yet).
     expect(await screen.findAllByText('Paid per contract')).not.toHaveLength(0);
     expect(screen.queryByText('Verified')).toBeNull();
-    expect(screen.getByText(/Open the receipt to check them/)).toBeTruthy();
+    expect(screen.getByText('Verified Paid: Not checked on this screen')).toBeTruthy();
     // Phase 6A: the receipt opens once by itself, carrying this device's funding hash,
     // so the independent verifier starts without the person doing anything.
     const receipt = `/receipt/${openRestricted.terms.id}?ftx=${BLOCK_HASH}`;
-    expect(screen.getByRole('link', { name: 'View receipt' }).getAttribute('href')).toBe(receipt);
+    expect(screen.getByRole('link', { name: 'Check receipt' }).getAttribute('href')).toBe(receipt);
     await waitFor(() => expect(push).toHaveBeenCalledWith(receipt));
     expect(push).toHaveBeenCalledTimes(1);
   });

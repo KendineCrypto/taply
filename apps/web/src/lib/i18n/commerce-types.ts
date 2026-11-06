@@ -1,3 +1,5 @@
+import type { JourneyStatus } from '@/lib/merchant/journey';
+
 /**
  * Copy for the merchant POS, customer checkout and Handshake screens (Phase 7).
  * Kept in its own interface so the main dictionary only gains one key.
@@ -155,6 +157,7 @@ export interface CommerceCopy {
   };
 
   readonly journey: JourneyCopy;
+  readonly phase7g: Phase7GCopy;
 }
 
 /**
@@ -220,4 +223,60 @@ export interface JourneyCopy {
     readonly reviewing: string;
     readonly yourWallet: string;
   };
+}
+
+/**
+ * Phase 7G: canonical status labels, the merchant's Verified Paid path and the
+ * gated Handshake room states. Statuses are evidence-derived (see
+ * lib/merchant/journey.ts journeyStatus); none of this copy may imply customer
+ * presence, merchant identity or payment from a session event.
+ */
+export interface Phase7GCopy {
+  readonly status: Readonly<Record<JourneyStatus, string>>;
+  readonly statusLabel: string;
+  readonly proofNext: {
+    readonly title: string;
+    readonly pending: string;
+    readonly receiverAction: string;
+    readonly payerAction: string;
+    readonly receiverNote: string;
+  };
+  readonly locate: {
+    readonly stepFind: string;
+    readonly stepCheck: string;
+    readonly searching: TitleBody;
+    readonly checking: string;
+    readonly foundNote: string;
+    readonly notFound: TitleBody;
+    readonly history: TitleBody;
+    readonly unavailable: TitleBody;
+    readonly retryNeeded: TitleBody;
+    readonly searchAgain: string;
+  };
+  readonly merchantHome: {
+    readonly comingLaterTitle: string;
+    readonly comingLaterBody: string;
+    readonly unboundShort: string;
+  };
+  readonly checkoutNote: string;
+  readonly room: RoomCopy;
+}
+
+/** Phase 7G gated Handshake room states (lib/handshake/room.ts). DEMO-previewed only. */
+export interface RoomCopy {
+  readonly previewTitle: string;
+  readonly previewIntro: string;
+  readonly scenario: string;
+  readonly scenarios: Readonly<Record<string, string>>;
+  readonly merchantPhone: string;
+  readonly customerPhone: string;
+  readonly phase: Readonly<Record<'not_bound' | 'waiting_for_customer' | 'customer_joined' | 'reviewing' | 'waiting_for_wallet' | 'pending_chain' | 'outcome_unknown' | 'mismatch' | 'expired' | 'closed', TitleBody>>;
+  readonly connection: Readonly<Record<'connected' | 'interrupted' | 'reconnected' | 'not_joined', string>>;
+  readonly code: { readonly label: string; readonly match: string; readonly mismatch: string; readonly pending: string };
+  readonly reviews: { readonly merchant: string; readonly payer: string; readonly done: string; readonly notYet: string };
+  readonly wallet: { readonly label: string; readonly note: string; readonly awaiting_wallet: string; readonly submitted: string; readonly outcome_unknown: string; readonly rejected: string };
+  readonly chain: { readonly label: string; readonly not_read: string; readonly open: string; readonly in_flight: string; readonly paid_per_contract: string; readonly verified_paid: string; readonly needs_attention: string; readonly closed: string };
+  readonly merchantIdentity: string;
+  readonly authority: string;
+  readonly unavailable: Readonly<Record<'flag_off' | 'backend_not_connected' | 'unsupported_version' | 'refused' | 'session_not_found' | 'verification_unavailable', TitleBody>>;
 }

@@ -7,8 +7,8 @@ import type { ContractConfig, ContractConfigProblem, NearTestnetClient, RpcError
 import { FLAGS } from '@/lib/flags/features';
 import { getNearClient } from '@/lib/near/client';
 import { CHAIN_CONFIG } from '@/lib/near/config';
-import { createFetchVerifierRpc } from '@/lib/verify/rpc';
-import type { VerifierRpc } from '@/lib/verify/rpc';
+import { createFetchLocatorRpc, createFetchVerifierRpc } from '@/lib/verify/rpc';
+import type { LocatorRpc, VerifierRpc } from '@/lib/verify/rpc';
 import { chainFreshness } from './freshness';
 import type { ChainFreshness } from './freshness';
 import { JOURNAL_STORAGE_KEY, SubmissionJournal } from './journal';
@@ -47,6 +47,12 @@ export type PaymentsSetup =
       readonly explorerBaseUrl: string;
       /** Read-only RPC for the independent receipt verifier; null disables Verified Paid. */
       readonly verifierRpc: VerifierRpc | null;
+      /**
+       * Phase 7G: read-only `block`/`chunk` reads that locate a funding
+       * transaction from chain data. Its result is only a candidate for the
+       * verifier above, never proof. Absent/null: no automatic search.
+       */
+      readonly locatorRpc?: LocatorRpc | null;
     };
 
 export type VerifiedCheck = {
@@ -118,6 +124,10 @@ function defaultSetup(): PaymentsSetup {
     signingFlag: FLAGS.instantPay.enabled,
     explorerBaseUrl: CHAIN_CONFIG.explorerBaseUrl,
     verifierRpc: createFetchVerifierRpc({
+      rpcUrl: CHAIN_CONFIG.client.rpcUrl,
+      providerId: CHAIN_CONFIG.client.rpcProviderId,
+    }),
+    locatorRpc: createFetchLocatorRpc({
       rpcUrl: CHAIN_CONFIG.client.rpcUrl,
       providerId: CHAIN_CONFIG.client.rpcProviderId,
     }),

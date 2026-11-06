@@ -21,6 +21,8 @@ import { collectReferences, parseLinkHints, verificationLink } from '@/lib/verif
 import type { LinkHints } from '@/lib/verify/references';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
 import { saleCode } from '@/lib/merchant/journey';
+import { useFundingLocator } from '@/lib/verify/use-funding-locator';
+import type { LocatorView } from '@/lib/verify/use-funding-locator';
 import { useReceiptVerification } from '@/lib/verify/use-receipt-verification';
 import type { VerificationView } from '@/lib/verify/use-receipt-verification';
 import { useAccountId } from '@/lib/wallet/provider';
@@ -79,7 +81,21 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
   const request =
     facts !== null && ready !== null && facts.request.terms.id === id && facts.request.terms.contractId === ready.contractId ? facts.request : null;
   const entries = journal?.isReadable() ? journal.forRequest(id) : [];
-  const references = request === null ? null : collectReferences(request, entries, hints);
+  const known = request === null ? null : collectReferences(request, entries, hints);
+  // Phase 7G: no funding hash on this device or in the link (typically the merchant's
+  // phone). Look the payment up from public chain data. The located hash is only a
+  // candidate, exactly like a link hint: the verifier below still decides.
+  const missing = request === null ? 'elsewhere' : missingEvidence(request, entries, walletReturnsPending);
+  const located = useFundingLocator({
+    rpc: ready?.locatorRpc ?? null,
+    contractId: ready?.contractId ?? '',
+    request,
+    enabled: known !== null && known.funding === null && missing !== 'matching',
+    generation,
+  });
+  const candidate = located.kind === 'found' ? (located.candidates[0] ?? null) : null;
+  const references =
+    request === null || known === null ? null : candidate === null ? known : collectReferences(request, entries, { ...hints, funding: candidate });
   const verification = useReceiptVerification({
     rpc: ready?.verifierRpc ?? null,
     contractId: ready?.contractId ?? '',
@@ -190,12 +206,18 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
       {!showVerified && paid && (
         <VerificationNotice
           view={verification}
-          missing={missingEvidence(request, entries, walletReturnsPending)}
+          located={located}
+          missing={missing}
           onRetry={() => setGeneration((g) => g + 1)}
         />
       )}
       {!showVerified && paid && (
         <p className="px-1 text-xs text-[var(--text-muted)]">{t.payment.settlementProofPending}</p>
+      )}
+      {showVerified && candidate !== null && (
+        <p className="px-1 text-center text-xs text-[var(--text-muted)]" data-testid="located-note">
+          {t.commerce.phase7g.locate.foundNote}
+        </p>
       )}
 
       <details className="disclosure">
@@ -281,10 +303,12 @@ function missingEvidence(
 
 function VerificationNotice({
   view,
+  located,
   missing,
   onRetry,
 }: {
   readonly view: VerificationView;
+  readonly located: LocatorView;
   readonly missing: MissingEvidence;
   readonly onRetry: () => void;
 }) {
@@ -295,6 +319,7 @@ function VerificationNotice({
     case 'verified':
       return null;
     case 'checking':
+      if (located.kind === 'found') return <LocatorProgress step="check" />;
       return (
         <p className="flex items-center gap-2 px-1 text-sm text-[var(--text-secondary)]" role="status">
           <Spinner /> {v.checking}
@@ -303,6 +328,8 @@ function VerificationNotice({
     case 'unavailable':
       return <InlineNotice copy={v.unavailable} tone="neutral" />;
     case 'missing_reference':
+      if (missing !== 'matching' && located.kind === 'searching') return <LocatorProgress step="find" />;
+      if (missing !== 'matching' && located.kind !== 'idle' && located.kind !== 'found') return <LocatorOutcome view={located} onRetry={onRetry} />;
       if (missing === 'matching') {
         return (
           <p className="flex items-center gap-2 px-1 text-sm text-[var(--text-secondary)]" role="status">
@@ -381,6 +408,72 @@ function ProofActions({ receipt }: { readonly receipt: VerifiedReceipt }) {
         <Icon name={evidence.status === 'copied' ? 'check' : 'copy'} size={16} />
         {evidence.status === 'copied' ? t.payment.verification.evidenceCopied : t.payment.verification.copyEvidence}
       </button>
+    </div>
+  );
+}
+
+/**
+ * Phase 7G: two real steps, each a bounded read that is actually running. The
+ * current step pulses; nothing advances on a timer.
+ */
+function LocatorProgress({ step }: { readonly step: 'find' | 'check' }) {
+  const t = useT();
+  const l = t.commerce.phase7g.locate;
+  const items = [
+    { key: 'find', label: l.stepFind, state: step === 'find' ? 'current' : 'done' },
+    { key: 'check', label: l.stepCheck, state: step === 'check' ? 'current' : 'todo' },
+  ] as const;
+  return (
+    <section className="surface-card flex flex-col gap-3 p-4" data-testid="locator-progress" data-step={step}>
+      <div role="status" aria-live="polite">
+        <p className="text-sm font-semibold">{step === 'find' ? l.searching.title : l.checking}</p>
+        {step === 'find' && <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{l.searching.body}</p>}
+      </div>
+      <ol className="flex flex-col gap-2 text-sm">
+        {items.map((item) => (
+          <li key={item.key} className="flex items-center gap-2.5" data-state={item.state}>
+            {item.state === 'done' ? (
+              <span aria-hidden="true" className="grid size-[18px] place-items-center rounded-full bg-[var(--text-primary)] text-[var(--surface-0)]">
+                <Icon name="check" size={12} />
+              </span>
+            ) : item.state === 'current' ? (
+              <span aria-hidden="true" className="journey-node-current relative grid size-[18px] place-items-center rounded-full ring-2 ring-[var(--taply-gold)]">
+                <span className="size-2 rounded-full bg-[var(--taply-gold)]" />
+              </span>
+            ) : (
+              <span aria-hidden="true" className="size-[18px] rounded-full ring-2 ring-[var(--border-strong)]" />
+            )}
+            <span className={item.state === 'todo' ? 'text-[var(--text-muted)]' : ''}>{item.label}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** The chain search ended without a candidate: still Paid per contract, said plainly. */
+function LocatorOutcome({ view, onRetry }: { readonly view: LocatorView; readonly onRetry: () => void }) {
+  const t = useT();
+  const l = t.commerce.phase7g.locate;
+  const copy =
+    view.kind === 'history_unavailable'
+      ? l.history
+      : view.kind === 'not_applicable'
+        ? view.reason === 'needs_retry_references'
+          ? l.retryNeeded
+          : t.payment.verification.missingReference
+        : view.kind === 'unavailable' || view.kind === 'budget_exhausted'
+          ? l.unavailable
+          : l.notFound;
+  const retryable = view.kind === 'unavailable' || view.kind === 'budget_exhausted' || view.kind === 'not_found';
+  return (
+    <div className="flex flex-col gap-2" data-testid="locator-outcome" data-kind={view.kind}>
+      <InlineNotice copy={copy} tone="neutral" />
+      {retryable && (
+        <Button variant="secondary" onClick={onRetry}>
+          {l.searchAgain}
+        </Button>
+      )}
     </div>
   );
 }

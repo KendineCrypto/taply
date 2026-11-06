@@ -908,3 +908,142 @@ html:has(.taply-sheet[open]) {
     transition: none !important;
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* Phase 7G: motion refinements                                              */
+/* Compositor-friendly (opacity/transform), evidence-led: nothing moves to   */
+/* suggest progress the chain has not shown. All still under reduced motion. */
+/* ------------------------------------------------------------------------ */
+
+/* The breathing glow moves from an animated box-shadow (repaints the whole
+   card every frame on low-end phones) to an inner glow layer whose OPACITY
+   animates. Same tones: neutral, gold while money moves, lime only verified. */
+.journey-hero[data-live='true'],
+.journey-hero[data-tone='caution'],
+.journey-hero[data-tone='success'] {
+  animation: taply-rise 0.55s var(--ease-out) both;
+}
+.journey-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 48px 2px var(--journey-glow);
+  opacity: 0;
+  will-change: opacity;
+}
+@keyframes taply-glow {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.journey-hero[data-live='true']::after,
+.journey-hero[data-tone='caution']::after {
+  animation: taply-glow 3.4s 0.6s ease-in-out infinite;
+}
+.journey-hero[data-tone='success']::after {
+  animation: taply-glow 2.4s 0.6s ease-in-out 2;
+}
+
+/* The amount the person acts on is emphasised twice, then rests. */
+.journey-amount-glow {
+  animation-iteration-count: 2;
+}
+
+/* Waiting is not progress: no ripple on the current step until something
+   observable happens (this device's wallet window, or the chain). */
+.journey-hero[data-stage='awaiting'] .journey-node-current::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* A new status arrives with one short fade; identical updates replay nothing. */
+.journey-status {
+  animation: taply-page-in 0.35s var(--ease-out) both;
+}
+
+/* Pending chain: a gold pulse travels the filled track ONLY while the chain
+   shows the payout in flight (PAYOUT_IN_FLIGHT observed at a final block). */
+@keyframes taply-track-pulse {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+.journey-track-pulse {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, var(--taply-gold), transparent);
+  animation: taply-track-pulse 1.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Settlement: the Contract step pops once when the contract records the payout. */
+@keyframes taply-settle {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.journey-settle {
+  animation: taply-settle 0.6s 0.15s var(--ease-out) both;
+}
+
+/* Terms confirmed: one soft cream sweep across the reviewed terms. */
+@keyframes taply-terms-sweep {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+.journey-terms {
+  position: relative;
+  overflow: hidden;
+}
+.journey-terms[data-confirmed='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 20%, rgb(244 243 232 / 0.1) 50%, transparent 80%);
+  animation: taply-terms-sweep 0.9s var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-hero::after,
+  .journey-hero[data-live='true']::after,
+  .journey-hero[data-tone='caution']::after,
+  .journey-hero[data-tone='success']::after,
+  .journey-status,
+  .journey-track-pulse,
+  .journey-settle,
+  .journey-terms[data-confirmed='true']::after {
+    animation: none !important;
+  }
+  .journey-hero::after,
+  .journey-track-pulse,
+  .journey-terms[data-confirmed='true']::after {
+    opacity: 0;
+  }
+}

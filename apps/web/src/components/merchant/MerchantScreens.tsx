@@ -64,17 +64,25 @@ export function MerchantHome() {
             <nav aria-label={m.title} className="flex flex-col gap-3">
               <MerchantTile index={0} primary href="/merchant/register" icon="request" title={m.newSale.title} body={m.newSale.body} />
               <MerchantTile index={1} href="/merchant/setup" icon="scan" title={m.discovery.title} body={m.discovery.body} />
-              {/* No session backend, no on-chain binding, no profile signing: inert in every build, whatever the flags say. */}
-              <MerchantTile index={2} icon="link" title={m.handshake.title} body={m.handshake.body} disabledLabel={t.commerce.comingLater} />
-              <MerchantTile
-                index={3}
-                icon="shield"
-                title={m.profile.title}
-                body={m.profile.body}
-                disabledLabel={t.commerce.comingLater}
-              />
             </nav>
-            <InlineNotice copy={t.commerce.unbound} tone="neutral" />
+            {/* Phase 7G: one quiet, inert row instead of two full disabled tiles. No session
+                backend, no on-chain binding, no profile signing: inert whatever the flags say. */}
+            <section
+              aria-labelledby="merchant-later"
+              className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-subtle)] px-4 py-3"
+              data-testid="merchant-coming-later"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="merchant-later" className="text-sm font-semibold text-[var(--text-secondary)]">
+                  {m.handshake.title} · {m.profile.title}
+                </h2>
+                <span className="shrink-0 rounded-full border border-[var(--tone-caution-border)] px-2 py-0.5 text-[11px] font-semibold text-[var(--tone-caution-fg)]">
+                  {t.commerce.comingLater}
+                </span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{t.commerce.phase7g.merchantHome.comingLaterBody}</p>
+            </section>
+            <p className="-mt-2 px-1 text-xs leading-relaxed text-[var(--text-muted)]">{t.commerce.phase7g.merchantHome.unboundShort}</p>
             <RecentSales accountId={accountId} />
           </div>
         )}
