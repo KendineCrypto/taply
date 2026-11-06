@@ -1,5 +1,7 @@
 # Taply v0.4 architecture — contract boundaries
 
+> Historical architecture/Phase 0 scope below is not current deployment status. The Instant-only Testnet pilot is recorded in [EVIDENCE.md](EVIDENCE.md); current API/G2 and release limitations are in [release readiness](RELEASE_READINESS.md). Planned components are not all running services.
+
 ## Components
 
 **Protocol authority:** `docs/LEAD_PROTOCOL_FREEZE_v1.md` supersedes conflicting

@@ -8,24 +8,27 @@ point of sale. A merchant creates one unique sale; the customer scans its QR,
 sees the exact amount and receiving account read from the chain, approves in
 their own wallet, and both phones check the receipt on chain by themselves.
 
-**Status on 2026-11-06 (Phase 7H release candidate):** Instant Pay is deployed
+**Status on 2026-11-06 (Phase 7I, conditional G1 Testnet release candidate):** Instant Pay is deployed
 and verified on NEAR Testnet (contract `taply-pay-pilot-1.testnet`). A real
 Instant Pay payment reached `FINAL_PAID` and **Verified Paid** in Taply's
-independent receipt verifier ([evidence](docs/EVIDENCE.md)). Live Handshake and
-Protected Pay are **not** live. Details below; every claim links to evidence or
-is marked as not shipped. Release notes and exact test results:
-[`docs/PHASE_7H_RELEASE_REPORT.md`](docs/PHASE_7H_RELEASE_REPORT.md).
+independent receipt verifier ([evidence](docs/EVIDENCE.md)). **Physical iPhone acceptance is outstanding. Normal G1 and isolated G2 candidate Rust/WASM/sandbox CI passed; G2 deployment is NOT authorized. Real G2 Handshake is NO-GO; Protected Pay is disabled.**
+Phase 7I simplifies EN/TR copy and disclosures without changing payment logic.
+Current [release readiness and exact checks](docs/RELEASE_READINESS.md),
+[no-wallet judge guide](docs/JUDGE_QUICK_START.md), and
+[submission checklist](docs/SUBMISSION_CHECKLIST.md).
+
+Normal CI: [run 42229980978](https://github.com/KendineCrypto/taply/actions/runs/42229980978), G1 15 unit + 10 sandbox tests; isolated G2 15 default + 19 merchant unit + 10 sandbox tests. G1 approved byte/hash/ABI checks passed unchanged. This is contract validation, not new deployment or physical-device acceptance.
 
 ## For judges: check it in 5 minutes (no wallet, no funds)
 
 | Do | See |
 | --- | --- |
-| `pnpm install --frozen-lockfile && pnpm check` | brand check, build, strict types, lint and ~1,000 unit/integration tests pass, no network |
+| `pnpm install --frozen-lockfile && pnpm check` | brand, build, types, lint and 1,155 workspace tests pass; 1 opt-in live skip. Install/build may need network; contract CI evidence is recorded separately |
 | `pnpm --filter @taply/web dev`, open `/demo` | the full payment journey, stamped **DEMO** (synthetic) |
 | Configure section B below, open `/pay/9b9a5724…4502` | the **real** pilot sale read from the Testnet contract: 0.1 NEAR, Pay to `taplytest.testnet`, sale code `KED 5E9`, **Paid per contract** |
-| Open `/receipt/9b9a5724…4502` | stays **Paid per contract** and explains that a normal RPC no longer keeps the 2026-11-01 blocks; it never shows Verified Paid without the receipts |
+| Open `/receipt/9b9a5724…4502` | shows **Paid per contract** until full proof succeeds; explicit history errors and uncertain timeouts remain distinct; no Verified Paid without receipts |
 | Open [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | deploy tx, funding tx `CrzQ57Jx…` and the verifier JSON that said **Verified Paid** |
-| Read [`apps/web/docs/screenshots/phase7h/`](apps/web/docs/screenshots/phase7h/) | production-build screenshots of both phones, EN and TR, 360–1280 px, and failure states |
+| Read [Phase 7I screenshots](apps/web/docs/screenshots/phase7i/) and [7H evidence](apps/web/docs/screenshots/phase7h/) | 7I offline/demo captures predate final clock/chevron polish; 7H contains historical pilot reads and injected failures. Neither proves physical-device acceptance |
 
 ## The problem
 
@@ -102,13 +105,15 @@ Adjacent products exist; the difference is the verifiable two-device flow.
 ## Try it (do X → see Y)
 
 Requirements: Node **24.22.2** (`.node-version`) and pnpm **11.5.0**.
+Installation requires package access; production builds may fetch Google Fonts.
+A successful workspace check does not include Rust/sandbox or standalone API checks.
 
 ```sh
 git clone https://github.com/KendineCrypto/taply.git
 cd taply
-git checkout <reviewed submission branch or tag>   # see "Submission state" below
+git checkout 2199fab57ace177b60cdfe70e2c72672eefd9cfe # published G1 isolation baseline, not a release tag
 pnpm install --frozen-lockfile
-pnpm check            # brand, build, types, lint and all unit tests (no network, no funds)
+pnpm check            # workspace checks, no funds; standalone/contract checks listed in release report
 ```
 
 ### A. Local simulation (no wallet, no chain)
@@ -137,8 +142,7 @@ NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off
 
 `https://rpc.testnet.near.org` also works. Public RPCs rate-limit per IP: during
 heavy browser QA on 2026-11-06 we observed `HTTP 429` from `rpc.testnet.near.org`
-(`Retry-After: 418`) and, briefly, from FastNEAR. Normal single-person use stays
-far below that. When it happens, Taply shows "Could not check the payments
+(`Retry-After: 418`) and, briefly, from FastNEAR. Availability is not guaranteed. When it happens, Taply shows "Could not check the payments
 contract" with one **Check again** button and signs nothing; wait a few minutes
 or use another [Testnet RPC provider](https://docs.near.org/api/rpc/providers).
 Every RPC answer is checked against the Testnet genesis hash.
@@ -149,8 +153,9 @@ Then `pnpm --filter @taply/web build && pnpm --filter @taply/web start`:
   → see **Paid per contract**, sale code `KED 5E9`, payer and recipient, read
   from the contract at a finalized block.
 - Open `/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502`
-  → see the receipt stay **Paid per contract** and say why: the pilot's
-  2026-11-01 blocks are older than a normal RPC keeps (about two days).
+  → expect **Paid per contract** until full receipt verification succeeds.
+  Explicit missing-history responses explain unavailable history; generic
+  timeouts remain uncertain and must not be interpreted as pruning or success.
 
 To verify that old payment end to end with real data, use an archival RPC:
 
@@ -164,7 +169,8 @@ pnpm --filter @taply/web build && pnpm --filter @taply/web exec next start -p 32
 node apps/web/scripts/phase7h-qa.mjs <path to playwright/index.mjs> <out dir> apps/web/.env.local
 ```
 
-A fresh payment (C below) verifies on a normal RPC within about two days.
+A recent payment may verify on a non-archival RPC while its full receipts remain
+available. Provider retention and availability are not guaranteed.
 
 ### C. Real two-phone payment (needs two Testnet wallets)
 
@@ -182,7 +188,8 @@ need a public HTTPS origin (`NEXT_PUBLIC_TAPLY_SHARE_ORIGIN`).
 - Merchant phone, no tap → see **Payment observed**, then **Paid per contract**.
 - Either phone → **Verify receipt** / **Check receipt** → see **Verified Paid**.
 
-The scripted judge walkthrough is in [`docs/PHASE_7G_DEMO_KIT.md`](docs/PHASE_7G_DEMO_KIT.md).
+The current [no-funds judge walkthrough](docs/JUDGE_QUICK_START.md) and
+[60-second demo plan](docs/RELEASE_DEMO.md) separate simulation from historical proof.
 
 ## Verified Testnet evidence
 
@@ -205,25 +212,25 @@ The scripted judge walkthrough is in [`docs/PHASE_7G_DEMO_KIT.md`](docs/PHASE_7G
 
 | Gate | Meaning ([MILESTONES.md](docs/MILESTONES.md)) | State |
 | --- | --- | --- |
-| G1 | Real native NEAR request → signed settlement → verified `FINAL_PAID` | **Met** (pilot payment above) |
-| G2 | Merchant QR checkout + two live client views | **Partly met**: per-sale merchant QR and two independent chain-backed views work; authenticated live Handshake does **not** |
+| G1 | Real native NEAR request → signed settlement → verified `FINAL_PAID` | **Conditional Testnet release candidate**: historical pilot proof exists; normal contract CI passed; physical iPhone acceptance remains open |
+| G2 | Merchant QR checkout + authenticated live two-device Handshake | **NO-GO**: ordinary per-sale QR/read views do not establish live Handshake acceptance |
 | G3 | Protected escrow: real refund and real release on Testnet | **Not met**; Protected Pay disabled |
-| G4 | Chain proof/receipt + adversarial and UX robustness | **Met for Instant Pay in software**: independent verifier, fail-closed states, unit/integration tests and browser QA. No external audit |
+| G4 | Chain proof/receipt + adversarial and UX robustness | Software evidence exists; **full acceptance remains open** pending physical-device acceptance and human security/release review. No external audit |
 
 ## Known limitations
 
 - **Testnet only.** Not audited. Configured-RPC trust model (not a light
   client). The pilot contract keeps a FullAccess key; the verifier refuses a
   receipt if the contract's keys changed during the payment window.
-- **Physical devices:** one user-reported iPhone 13 run; Android untested; the
-  iPhone receipt JSON is not yet archived.
+- **Physical devices:** formal iPhone acceptance is outstanding. One earlier
+  user-reported iPhone 13 run does not close it; Android remains untested.
+- **Contract verification:** normal G1/G2 candidate CI passed; Rust remains unavailable locally. G2 remains unapproved and disabled. [Exact run and provenance](docs/RELEASE_READINESS.md).
 - **Handshake is not live.** The sale code is not merchant authentication.
   Merchants are shown by account ID only, with no verified names.
 - **Merchant-side verification** needs an RPC that still holds the payment's
   blocks and does not cover payouts that needed a retry. In those cases the
   receipt stays Paid per contract and says why.
-- **Old receipts on FastNEAR:** a pruned transaction makes that RPC time out
-  instead of answering "unknown", so the verifier reports a temporary failure.
+- **Old receipts on FastNEAR:** historical reads may time out. A generic timeout remains uncertain; only explicit validated history errors are classified as missing history.
 - **Public RPC rate limits:** public Testnet RPCs answer `429` after heavy use
   from one IP; the app fails closed (no status guess, no signing).
 - **Handshake room client** now uses the same strict reducer as the core
@@ -237,7 +244,8 @@ The scripted judge walkthrough is in [`docs/PHASE_7G_DEMO_KIT.md`](docs/PHASE_7G
 ```text
 apps/web/              Next.js 16 PWA (TypeScript strict): POS, checkout, pay, receipt, verifier
 apps/api/              Session/room service (in-process Fetch handlers; production auth closed)
-contracts/payments/    Rust near-sdk Instant Pay contract (Testnet)
+contracts/payments/    Frozen G1 Instant Pay contract (Testnet pilot source)
+contracts/payments-merchant/ Isolated, unapproved G2 candidate; not deployed
 packages/near-client/  Typed, wallet-neutral NEAR RPC reads and call builders
 packages/shared/       Frozen protocol schemas, canonical hashing, sale/comparison codes
 docs/                  Protocol freeze, state machine, security, evidence, phase reports
@@ -271,7 +279,7 @@ Original protocol documents: [Protocol Freeze v1](docs/LEAD_PROTOCOL_FREEZE_v1.m
 ## Hackathon eligibility context
 
 - NEAR HACKATHON. Development and submission end **2026-11-14 23:59 UTC**
-  (re-checked against https://nearhackathon.com/HACKATHON.md on 2026-11-05).
+  (re-checked against https://nearhackathon.com/HACKATHON.md on 2026-11-06).
   Testnet-only projects are eligible (Q-010); no partner integration is
   mandatory (Q-011).
 - Best-fit track: **Real-World Money** (`realworld`), merchant payments.
@@ -280,16 +288,16 @@ Original protocol documents: [Protocol Freeze v1](docs/LEAD_PROTOCOL_FREEZE_v1.m
 
 ## Submission state (open items for the human)
 
-Full checklist: [`docs/PHASE_7H_RELEASE_CHECKLIST.md`](docs/PHASE_7H_RELEASE_CHECKLIST.md).
+Full checklist: [`docs/SUBMISSION_CHECKLIST.md`](docs/SUBMISSION_CHECKLIST.md).
 
 - [x] Repository is public (checked 2026-11-05).
 - [ ] **LICENSE** file (Q-014 asks for one; the owner chooses the license).
 - [ ] A reviewed branch or tag for judges: `main` does not yet contain the
-      Phase 6–7H work this README describes. All commits are inside the
+      Phase 6–7I work this README describes. All commits are inside the
       eligible window (repository starts 2026-10-29), so there is no
       pre-hackathon baseline to separate.
-- [ ] Public demo video and a human-written X post (tag @NEARProtocol and
-      #NEARHackathon).
+- [ ] Public demo video and human-reviewed X post (tag @NEARProtocol and
+      #NEARHackathon); [shot list and unpublished draft](docs/RELEASE_DEMO.md).
 - [ ] Optional hosted HTTPS demo (plan in the Phase 7H report, section 8).
 - [ ] Submission: only the human submits, after confirming the exact payload.
 

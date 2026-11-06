@@ -1,5 +1,7 @@
 # Phase 7I — UX copy simplification
 
+> Historical implementation report: the results below describe initial `0503e9f`. Final `352a7cf` adds neutral contract-paid clocks, the checkout chevron and four tests (1,155 workspace passes). Committed screenshots predate that polish. See [current release readiness](RELEASE_READINESS.md) for reruns and remaining gates.
+
 Implemented locally on the connected Windows PC, in `C:\taply-phase7i-ux`, branch `feature/phase7i-ux`, from verified source SHA `6a485a251f38271fa9f95567e601a71c2b0ae70b`.
 
 ## Result

@@ -1,5 +1,7 @@
 # G1 contract source isolation report
 
+> Update 2026-11-06: normal CI now passes both jobs for approved head 2199fab; see [release readiness](RELEASE_READINESS.md) for exact run, merge-ref provenance and counts. The implementation-time limitations below are historical. G2 remains unapproved and disabled.
+
 ## Scope and disposition
 
 Prepared locally on DESKTOP-SDAI72B, 2026-11-06. Worktree:
