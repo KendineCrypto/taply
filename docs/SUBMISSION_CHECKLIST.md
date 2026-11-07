@@ -15,7 +15,7 @@ Recheck on submission day. All times UTC.
 | --- | --- | --- |
 | Deadline | Development ends and submissions close **2026-11-14 23:59 UTC**; judging from 2026-11-16 | Open |
 | Public repository | Public before the deadline and through judging (Q-014) | Public (checked 2026-11-05); recheck |
-| LICENSE file | "Any. MIT is fine. Repo stays public through judging; add a LICENSE file." (Q-014) | **Missing — owner decision** |
+| LICENSE file | "Any. MIT is fine. Repo stays public through judging; add a LICENSE file." (Q-014) | **Added 2026-11-08 on feature/monday-testnet-sprint: MIT, (c) 2026 KendineCrypto_, brand excluded (NOTICE)** |
 | Eligible history | Code from 2026-10-19 counts (Q-001); dedicated branch or tags plus a README section linking the diff (Q-003) | Repository starts 2026-10-29; judged branch + compare link in README |
 | AI / library disclosure | Allowed; list in README (Q-005) | README "How it was built" |
 | Testnet | Testnet-only projects are eligible for all tracks (Q-010) | NEAR Testnet only |

@@ -1,0 +1,18 @@
+Taply — NOTICE
+
+Source code in this repository is licensed under the MIT License (see LICENSE),
+Copyright (c) 2026 KendineCrypto_.
+
+Brand assets are NOT covered by the MIT License:
+  - the "Taply" / "taply." name and the "t." mark,
+  - everything in brand/ (wordmark and icon SVG/PNG, favicon, design tokens,
+    taply.css, BRAND_PREVIEW.png, Taply_Brand_Book_v2.pdf),
+  - the copies of those marks in apps/web/public/brand/ and apps/web/public/icons/.
+All rights reserved. You may use them only to refer to the Taply project
+(for example in reviews, articles or links to this repository), not as the
+name or logo of another product. The MIT License grants no trademark rights.
+
+Third-party software keeps its own licence; see THIRD_PARTY_NOTICES.md.
+
+AI assistance: much of the code and documentation was written by AI coding
+agents (Claude Code, Codex) under human direction, as disclosed in README.md.

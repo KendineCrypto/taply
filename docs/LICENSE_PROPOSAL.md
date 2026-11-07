@@ -1,4 +1,7 @@
-# LICENSE proposal — awaiting owner confirmation (no LICENSE committed)
+# LICENSE — owner decision recorded 2026-11-08
+
+Owner chose: MIT, copyright holder **KendineCrypto_**, brand assets **excluded** from MIT.
+Files: `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`. Proposal text kept below for the record.
 
 Prepared 2026-11-08. Supersedes nothing; extends [LICENSE_RECOMMENDATION.md](LICENSE_RECOMMENDATION.md).
 
