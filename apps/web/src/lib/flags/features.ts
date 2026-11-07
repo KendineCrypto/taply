@@ -64,7 +64,9 @@ const DEFAULTS: Readonly<Record<FeatureFlag, FlagState>> = {
   handshake: OFF('not_implemented'),
   // Freeze section 10 item 6: human review of escrow custody required first.
   protectedPay: OFF('security_gate'),
-  contacts: OFF('not_implemented'),
+  // Monday sprint E1: local-only address book. It reads and writes this
+  // device's storage only and never signs; NEXT_PUBLIC_TAPLY_FLAG_CONTACTS=off hides it.
+  contacts: ON,
   splitPay: OFF('not_implemented'),
   recurring: OFF('not_implemented'),
   // Lead decision 10 / freeze section 1: no env override.
@@ -85,6 +87,7 @@ const ENV_KEYS: Partial<Record<FeatureFlag, string>> = {
   protectedPay: 'NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY',
   handshake: 'NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE',
   merchantCheckout: 'NEXT_PUBLIC_TAPLY_FLAG_MERCHANT',
+  contacts: 'NEXT_PUBLIC_TAPLY_FLAG_CONTACTS',
 };
 
 export function resolveFlags(env: Record<string, string | undefined>): Readonly<Record<FeatureFlag, FlagState>> {
@@ -113,6 +116,7 @@ export const FLAGS = resolveFlags({
   NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY: process.env.NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY,
   NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE: process.env.NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE,
   NEXT_PUBLIC_TAPLY_FLAG_MERCHANT: process.env.NEXT_PUBLIC_TAPLY_FLAG_MERCHANT,
+  NEXT_PUBLIC_TAPLY_FLAG_CONTACTS: process.env.NEXT_PUBLIC_TAPLY_FLAG_CONTACTS,
 });
 
 export function isEnabled(flag: FeatureFlag): boolean {

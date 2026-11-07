@@ -1,5 +1,6 @@
 import type { Dictionary } from '../types';
 import { commerceEn } from './commerce-en';
+import { toolsEn } from './tools-en';
 
 /**
  * English (default locale).
@@ -14,6 +15,7 @@ import { commerceEn } from './commerce-en';
  */
 export const en: Dictionary = {
   commerce: commerceEn,
+  tools: toolsEn,
   locale: 'en',
   localeName: 'English',
 

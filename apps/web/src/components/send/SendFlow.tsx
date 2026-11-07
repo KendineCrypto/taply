@@ -16,6 +16,10 @@ import type { NearTestnetClient } from '@/lib/near/client';
 import { useNativeBalance } from '@/lib/near/use-native-balance';
 import { NEAR_NATIVE } from '@/lib/protocol';
 import { useWallet } from '@/lib/wallet/provider';
+import { ContactMatch, ContactPicker } from '@/components/contacts/ContactPicker';
+import { FLAGS } from '@/lib/flags/features';
+import { useContactBook } from '@/lib/contacts/use-contacts';
+import { contactForAccount } from '@/lib/contacts/contacts';
 import { SendReview } from './SendParts';
 
 /**
@@ -119,6 +123,9 @@ function ConnectedSend({
   const [amount, setAmount] = useState('');
   const [reviewing, setReviewing] = useState(false);
   const check = useRecipientCheck(client, recipient, accountId);
+  const contactsOn = FLAGS.contacts.enabled;
+  const book = useContactBook();
+  const contacts = contactsOn ? book.contacts : [];
   const balance = displayableBalance(useNativeBalance(client, accountId).view);
 
   let amountYocto: bigint | null = null;
@@ -143,6 +150,16 @@ function ConnectedSend({
           amountYocto={amountYocto.toString()}
           confirm={{ available: SEND_SIGNER_AVAILABLE }}
           onEdit={() => setReviewing(false)}
+          details={(() => {
+            // The name is shown next to, never instead of, the full account ID above.
+            const saved = contactsOn ? contactForAccount(recipient.trim(), contacts) : null;
+            return saved === null ? undefined : (
+              <div className="flex items-start justify-between gap-3" data-testid="review-contact">
+                <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.tools.contacts.labelField}</dt>
+                <dd className="text-right">{saved.label}</dd>
+              </div>
+            );
+          })()}
         />
       </div>
     );
@@ -172,9 +189,12 @@ function ConnectedSend({
         }}
       >
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={recipientId} className="text-sm font-medium">
-            {s.recipientLabel}
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor={recipientId} className="text-sm font-medium">
+              {s.recipientLabel}
+            </label>
+            {contactsOn && <ContactPicker contacts={contacts} onPick={setRecipient} />}
+          </div>
           <input
             id={recipientId}
             value={recipient}
@@ -191,6 +211,15 @@ function ConnectedSend({
             {check.kind === 'found' && <Icon name="check" size={14} />}
             {message?.text ?? s.recipientHint}
           </p>
+          {contactsOn && <ContactMatch accountId={recipient} contacts={contacts} />}
+          {contactsOn && check.kind === 'found' && contactForAccount(recipient.trim(), contacts) === null && (
+            <a
+              href={`/contacts?account=${encodeURIComponent(recipient.trim())}`}
+              className="tap-target inline-flex items-center self-start text-xs font-medium text-[var(--text-secondary)] underline underline-offset-4"
+            >
+              {t.tools.contacts.saveAsContact}
+            </a>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
