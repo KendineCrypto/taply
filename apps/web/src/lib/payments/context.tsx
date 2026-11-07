@@ -1,5 +1,6 @@
 'use client';
 
+import '@/lib/security/zod-jitless';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { contractConfigProblems } from '@taply/near-client';

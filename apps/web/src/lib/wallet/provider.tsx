@@ -1,5 +1,6 @@
 'use client';
 
+import '@/lib/security/zod-jitless';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FLAGS } from '@/lib/flags/features';

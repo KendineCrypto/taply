@@ -25,8 +25,22 @@ import type { SignOutcome, WalletAdapter, WalletCall, WalletSession } from './ad
 
 let connectorPromise: Promise<NearConnector> | null = null;
 
+/**
+ * The CSP nonce of this page, read from a Next.js script. Browsers hide the
+ * nonce from getAttribute() once a CSP header applies ("nonce hiding"), so the
+ * `nonce` property is read. Undefined when no CSP nonce is in use.
+ */
+export function pageCspNonce(doc: Document = document): string | undefined {
+  for (const script of doc.querySelectorAll<HTMLScriptElement>('script[nonce]')) {
+    const value = script.nonce || script.getAttribute('nonce') || '';
+    if (/^[A-Za-z0-9+/=]{16,128}$/.test(value)) return value;
+  }
+  return undefined;
+}
+
 function getConnector(rpcUrl: string): Promise<NearConnector> {
   if (connectorPromise === null) {
+    const nonce = pageCspNonce();
     connectorPromise = import('@hot-labs/near-connect').then(
       ({ NearConnector: Connector }) =>
         new Connector({
@@ -35,6 +49,9 @@ function getConnector(rpcUrl: string): Promise<NearConnector> {
           features: { testnet: true, signInWithoutAddKey: true, signAndSendTransaction: true },
           autoConnect: false,
           footerBranding: null,
+          // Wallet code runs inline in a srcdoc iframe that inherits the page CSP
+          // (lib/security/csp.ts); it can only run with this page's nonce.
+          ...(nonce === undefined ? {} : { cspNonce: nonce }),
         }),
     );
     // A failed import must not poison every later attempt.

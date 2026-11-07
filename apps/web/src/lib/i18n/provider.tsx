@@ -1,5 +1,6 @@
 'use client';
 
+import '@/lib/security/zod-jitless';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { DICTIONARIES, LOCALE_COOKIE } from './index';
