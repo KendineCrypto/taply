@@ -6,6 +6,7 @@ import type { FeatureFlag, FlagState } from '@/lib/flags/features';
 import type { HandshakeSession, IntentTerms } from '@/lib/protocol';
 import { presentHandshake } from './present';
 import type { HandshakeRole } from './present';
+import { COORDINATION_MAX_BODY_BYTES, readBoundedText } from '@/lib/net/bounded-body';
 
 /**
  * Phase 7G: frontend boundary for the shared payment ROOM (backend handoff
@@ -385,7 +386,8 @@ export function createRoomReader(origin: string, transport: typeof fetch): RoomA
         if (response.status === 404) return { ok: false, error: 'not_found' };
         if (response.status === 410) return { ok: false, error: 'expired' };
         if (!response.ok) return { ok: false, error: 'unavailable' };
-        const parsed = parseRoomSync(parseStrictJson(await response.text()));
+        // F-05: bounded streaming read before strict parsing.
+        const parsed = parseRoomSync(parseStrictJson(await readBoundedText(response, COORDINATION_MAX_BODY_BYTES)));
         if (!parsed.ok) return { ok: false, error: parsed.reason };
         if (parsed.sync.sessionId !== sessionId) return { ok: false, error: 'invalid' };
         return { ok: true, sync: parsed.sync };

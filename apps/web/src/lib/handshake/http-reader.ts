@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ApiErrorSchema, HandshakeSessionSchema, SessionEventSchema, parseStrictJson } from '@taply/shared';
+import { COORDINATION_MAX_BODY_BYTES, readBoundedText } from '@/lib/net/bounded-body';
 
 const Id = z.uuid();
 const Cursor = z.string().regex(/^(0|[1-9][0-9]*)$/).max(20);
@@ -24,7 +25,8 @@ export function createCoordinationReader(origin: string, transport: typeof fetch
         signal: AbortSignal.timeout(5000),
       });
       if (!response.headers.get('content-type')?.startsWith('application/json')) return { ok: false, error: 'unavailable' };
-      const data = parseStrictJson(await response.text());
+      // F-05: bounded streaming read; an oversized body is "unavailable", never buffered whole.
+      const data = parseStrictJson(await readBoundedText(response, COORDINATION_MAX_BODY_BYTES));
       if (!response.ok) {
         const failure = ApiErrorSchema.safeParse(data);
         if (!failure.success) return { ok: false, error: 'unavailable' };

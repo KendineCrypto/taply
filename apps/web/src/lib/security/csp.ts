@@ -14,8 +14,10 @@
  *    only to the configured Testnet RPCs (validated HTTPS, genesis-checked).
  *  - img-src https: — wallet icons come from each wallet's manifest.
  *  - frame-src https: — wallet pages a wallet executor may open in a frame.
- *  - style-src 'unsafe-inline' — React style attributes and the wallet
- *    selector's injected styles. Styles cannot run script.
+ *  - style-src 'unsafe-inline' https: and font-src https: — React style
+ *    attributes, the selector's injected styles, and wallet UIs' own web
+ *    fonts (Meteor loads rsms.me and cdnfonts stylesheets inside its
+ *    executor frame; verified 2026-11-08). Stylesheets cannot run script.
  *
  * Not set: upgrade-insecure-requests (it would break http://127.0.0.1 testing;
  * production is HTTPS-only and should send HSTS instead).
@@ -34,9 +36,9 @@ export function buildContentSecurityPolicy(input: { readonly nonce: string; read
     ['default-src', ["'self'"]],
     // 'unsafe-eval' only in `next dev` (React debugging). Never in a production build.
     ['script-src', ["'self'", `'nonce-${input.nonce}'`, "'strict-dynamic'", ...(input.dev ? ["'unsafe-eval'"] : [])]],
-    ['style-src', ["'self'", "'unsafe-inline'"]],
+    ['style-src', ["'self'", "'unsafe-inline'", 'https:']],
     ['img-src', ["'self'", 'data:', 'blob:', 'https:']],
-    ['font-src', ["'self'", 'data:']],
+    ['font-src', ["'self'", 'data:', 'https:']],
     ['connect-src', ["'self'", 'https:', 'wss:', ...(input.dev ? ['ws:'] : [])]],
     ['frame-src', ["'self'", 'https:']],
     ['worker-src', ["'self'", 'blob:']],

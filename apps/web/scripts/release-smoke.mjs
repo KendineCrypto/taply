@@ -8,7 +8,7 @@
 // process). Example:
 //   node apps/web/scripts/release-smoke.mjs <playwright/index.mjs> <outDir> webkit
 // Env: BASE (default http://127.0.0.1:3207), RPC_HOSTS (comma list), GAP_MS,
-//      SKIP_CHAIN=1 (UI-only steps).
+//      SKIP_CHAIN=1 (UI-only steps), ONLY=<regex on step label>.
 //
 // Status per step: PASS, FAIL, or BLOCKED. BLOCKED means a step that needs a
 // live chain read failed while the RPC was visibly throttling or unreachable
@@ -115,8 +115,11 @@ async function facts(page) {
   });
 }
 
+const ONLY = process.env.ONLY ? new RegExp(process.env.ONLY) : null;
+
 async function step(bname, vp, label, opts, fn) {
   if (SKIP_CHAIN && opts.chain) return;
+  if (ONLY !== null && !ONLY.test(label)) return;
   stepRpc = { throttled: 0, blockedByCors: 0, ok: 0 };
   cspConsole = [];
   const browser = opts.browser;
@@ -217,6 +220,16 @@ for (const bname of which.split(',')) {
       await p.keyboard.press('Escape');
       return { pass: seen.selectorNodes > 0 || seen.errorNotice, note: JSON.stringify(seen) };
     });
+    for (const [route, en, tr] of [['/contacts', /Contacts/, /Kişiler/], ['/recurring', /Recurring requests/, /Tekrarlayan talepler/], ['/split', /Split Pay/, /Böl ve Öde/]]) {
+      for (const locale of ['en', 'tr']) {
+        await step(bname, vp, `tool${route.replace('/', '-')}-${locale}`, { ...o, locale, account: MERCHANT }, async (p) => {
+          await p.goto(BASE + route); await has(p, locale === 'en' ? en : tr);
+          // Local-only tools: nothing on the page may be in a paid or verified state.
+          const claims = await p.locator('[data-group-status="settled_verified"], [data-child-status="verified"], [data-child-status="paid_per_contract"], [data-testid="verified-evidence"]').count();
+          return { pass: claims === 0, note: `paid/verified elements=${claims}` };
+        });
+      }
+    }
     await step(bname, vp, 'merchant-disconnected', o, async (p) => {
       await p.goto(BASE + '/merchant'); await has(p, /Connect|wallet/);
       return { pass: true };
