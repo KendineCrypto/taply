@@ -127,9 +127,10 @@ describe('verifier RPC: bounded streaming and timeouts', () => {
     expect(await codeOf(rpc.call('status', []))).toBe('RPC_UNAVAILABLE');
   });
 
-  it('still maps HTTP errors to RPC_UNAVAILABLE', async () => {
-    const fetcher = (async () => new Response('busy', { status: 429 })) as typeof fetch;
-    const rpc = createFetchVerifierRpc({ rpcUrl: 'https://rpc.example', providerId: 'p', fetcher });
-    expect(await codeOf(rpc.call('status', []))).toBe('RPC_UNAVAILABLE');
+  it('still maps HTTP errors to RPC_UNAVAILABLE, and a 429 to RATE_LIMITED', async () => {
+    const busy = (async () => new Response('busy', { status: 502 })) as typeof fetch;
+    expect(await codeOf(createFetchVerifierRpc({ rpcUrl: 'https://rpc.example', providerId: 'p', fetcher: busy }).call('status', []))).toBe('RPC_UNAVAILABLE');
+    const limited = (async () => new Response('busy', { status: 429 })) as typeof fetch;
+    expect(await codeOf(createFetchVerifierRpc({ rpcUrl: 'https://rpc.example', providerId: 'p', fetcher: limited }).call('status', []))).toBe('RATE_LIMITED');
   });
 });

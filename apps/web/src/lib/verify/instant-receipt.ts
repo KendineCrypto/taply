@@ -60,6 +60,8 @@ export type VerificationFailure =
   | 'INPUT_INVALID'
   | 'NETWORK_MISMATCH'
   | 'RPC_UNAVAILABLE'
+  /** The RPC provider answered HTTP 429 (or this tab is in its cool-down). Nothing was learned. */
+  | 'RATE_LIMITED'
   /** A needed block or state was pruned by a non-archival RPC. */
   | 'HISTORY_UNAVAILABLE'
   | 'TRANSACTION_NOT_FOUND'
@@ -85,6 +87,7 @@ export type VerificationFailure =
 /** Failures that can change by themselves if the reader waits and checks again. */
 export const TRANSIENT_FAILURES: ReadonlySet<VerificationFailure> = new Set([
   'RPC_UNAVAILABLE',
+  'RATE_LIMITED',
   'TRANSACTION_NOT_FOUND',
   'NOT_FINAL',
   'NOT_FINAL_PAID',
@@ -98,6 +101,8 @@ export type VerificationResult =
       /** Developer diagnostic. Never shown to people, never contains secrets. */
       readonly detail: string;
       readonly transient: boolean;
+      /** RATE_LIMITED (or 503 Retry-After): how long the provider asked us to wait. */
+      readonly retryAfterMs?: number;
     };
 
 export interface TxRef {
@@ -120,13 +125,14 @@ class Fail extends Error {
   constructor(
     readonly reason: VerificationFailure,
     readonly detail: string,
+    readonly retryAfterMs: number | null = null,
   ) {
     super(`${reason}: ${detail}`);
   }
 }
 
-function fail(reason: VerificationFailure, detail: string): never {
-  throw new Fail(reason, detail);
+function fail(reason: VerificationFailure, detail: string, retryAfterMs: number | null = null): never {
+  throw new Fail(reason, detail, retryAfterMs);
 }
 
 function check(condition: boolean, reason: VerificationFailure, detail: string): asserts condition {
@@ -410,6 +416,8 @@ async function rpcCall(rpc: VerifierRpc, method: Parameters<VerifierRpc['call']>
       if (error.code === 'UNKNOWN_TRANSACTION') fail('TRANSACTION_NOT_FOUND', `${method} unknown transaction`);
       if (error.code === 'UNKNOWN_BLOCK') fail('HISTORY_UNAVAILABLE', `${method} block not available`);
       if (error.code === 'MALFORMED') fail('EVIDENCE_INCONSISTENT', `${method} malformed response`);
+      if (error.code === 'RATE_LIMITED') fail('RATE_LIMITED', `${method} rate limited`, error.retryAfterMs);
+      fail('RPC_UNAVAILABLE', `${method} failed`, error.retryAfterMs);
     }
     fail('RPC_UNAVAILABLE', `${method} failed`);
   }
@@ -799,6 +807,7 @@ export async function verifyInstantReceipt(input: VerifyInstantInput): Promise<V
         reason: error.reason,
         detail: error.detail,
         transient: TRANSIENT_FAILURES.has(error.reason),
+        ...(error.retryAfterMs === null ? {} : { retryAfterMs: error.retryAfterMs }),
       };
     }
     return {

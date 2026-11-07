@@ -33,10 +33,22 @@ export type ChainConfigResult =
   | {
       readonly ok: true;
       readonly client: NearTestnetConfig;
+      /**
+       * RPC for the read-only receipt verifier and funding locator. Defaults to
+       * the main RPC. A separate archival endpoint here keeps routine contract
+       * reads (polling) off a provider that rate-limits hard, and only uses it
+       * where old blocks are needed. The verifier checks the Testnet genesis
+       * hash and the approved code hash on this RPC itself, and every
+       * VerifiedReceipt names the provider it was checked through.
+       */
+      readonly verifier: { readonly rpcUrl: string; readonly rpcProviderId: string };
       readonly explorerBaseUrl: string;
       readonly contract: ContractSetting;
     }
-  | { readonly ok: false; readonly reason: 'wrong_network' | 'invalid_rpc_url' | 'invalid_explorer_url' };
+  | {
+      readonly ok: false;
+      readonly reason: 'wrong_network' | 'invalid_rpc_url' | 'invalid_explorer_url' | 'invalid_verifier_rpc';
+    };
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
@@ -56,6 +68,9 @@ export function resolveContractSetting(accountId: string | undefined, codeHash: 
   if (!AccountIdSchema.safeParse(accountId).success || !isCodeHash(codeHash)) return { status: 'invalid' };
   return { status: 'configured', accountId, expectedCodeHash: codeHash };
 }
+
+/** Same rule as @taply/near-client's rpcProviderId. */
+const PROVIDER_ID = /^[a-zA-Z0-9._-]{1,64}$/;
 
 function isPlainHttpsUrl(value: string): boolean {
   let url: URL;
@@ -82,6 +97,8 @@ export function resolveChainConfig(env: {
   readonly rpcUrl?: string | undefined;
   readonly rpcProviderId?: string | undefined;
   readonly explorerBaseUrl?: string | undefined;
+  readonly verifierRpcUrl?: string | undefined;
+  readonly verifierRpcProviderId?: string | undefined;
   readonly contractId?: string | undefined;
   readonly contractCodeHash?: string | undefined;
 }): ChainConfigResult {
@@ -95,15 +112,31 @@ export function resolveChainConfig(env: {
   if (!isPlainHttpsUrl(explorerBaseUrl)) return { ok: false, reason: 'invalid_explorer_url' };
 
   const contract = resolveContractSetting(env.contractId, env.contractCodeHash);
+  const rpcProviderId = env.rpcProviderId || DEFAULT_TESTNET_RPC_PROVIDER_ID;
+
+  // Fail closed: a verifier RPC that is set must be valid and named, or nothing runs.
+  let verifier = { rpcUrl, rpcProviderId };
+  if (env.verifierRpcUrl || env.verifierRpcProviderId) {
+    if (
+      !env.verifierRpcUrl ||
+      !isPlainHttpsUrl(env.verifierRpcUrl) ||
+      !env.verifierRpcProviderId ||
+      !PROVIDER_ID.test(env.verifierRpcProviderId)
+    ) {
+      return { ok: false, reason: 'invalid_verifier_rpc' };
+    }
+    verifier = { rpcUrl: env.verifierRpcUrl, rpcProviderId: env.verifierRpcProviderId };
+  }
 
   return {
     ok: true,
     explorerBaseUrl,
     contract,
+    verifier,
     client: {
       network: 'near-testnet',
       rpcUrl,
-      rpcProviderId: env.rpcProviderId || DEFAULT_TESTNET_RPC_PROVIDER_ID,
+      rpcProviderId,
       // Only a complete, valid (account, code hash) pair reaches the client, which
       // then checks that code hash at the same finalized block as every view.
       contract:
@@ -119,6 +152,8 @@ export const CHAIN_CONFIG: ChainConfigResult = resolveChainConfig({
   rpcUrl: process.env.NEXT_PUBLIC_TAPLY_RPC_URL,
   rpcProviderId: process.env.NEXT_PUBLIC_TAPLY_RPC_PROVIDER_ID,
   explorerBaseUrl: process.env.NEXT_PUBLIC_TAPLY_EXPLORER_BASE_URL,
+  verifierRpcUrl: process.env.NEXT_PUBLIC_TAPLY_VERIFIER_RPC_URL,
+  verifierRpcProviderId: process.env.NEXT_PUBLIC_TAPLY_VERIFIER_RPC_PROVIDER_ID,
   contractId: process.env.NEXT_PUBLIC_TAPLY_CONTRACT_ID,
   contractCodeHash: process.env.NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH,
 });

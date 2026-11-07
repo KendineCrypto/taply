@@ -67,6 +67,31 @@ describe('resolveChainConfig', () => {
     expect(resolveChainConfig({ network: 'mainnet' })).toEqual({ ok: false, reason: 'wrong_network' });
   });
 
+  it('uses the main RPC for verification unless a separate verifier RPC is set (Monday sprint)', () => {
+    const base = { rpcUrl: 'https://test.rpc.fastnear.com', rpcProviderId: 'fastnear-testnet' };
+    const same = resolveChainConfig(base);
+    expect(same.ok && same.verifier).toEqual({ rpcUrl: 'https://test.rpc.fastnear.com', rpcProviderId: 'fastnear-testnet' });
+    const split = resolveChainConfig({
+      ...base,
+      verifierRpcUrl: 'https://archival-rpc.testnet.near.org',
+      verifierRpcProviderId: 'near-archival-testnet',
+    });
+    expect(split.ok && split.verifier).toEqual({ rpcUrl: 'https://archival-rpc.testnet.near.org', rpcProviderId: 'near-archival-testnet' });
+    expect(split.ok && split.client.rpcUrl).toBe('https://test.rpc.fastnear.com');
+  });
+
+  it('fails closed on a half-set or unsafe verifier RPC', () => {
+    for (const bad of [
+      { verifierRpcUrl: 'https://archival-rpc.testnet.near.org' },
+      { verifierRpcProviderId: 'near-archival-testnet' },
+      { verifierRpcUrl: 'http://archival-rpc.testnet.near.org', verifierRpcProviderId: 'x' },
+      { verifierRpcUrl: 'https://rpc.example.org/?apiKey=secret', verifierRpcProviderId: 'x' },
+      { verifierRpcUrl: 'https://rpc.example.org', verifierRpcProviderId: 'has spaces' },
+    ]) {
+      expect(resolveChainConfig(bad), JSON.stringify(bad)).toEqual({ ok: false, reason: 'invalid_verifier_rpc' });
+    }
+  });
+
   it('refuses non-HTTPS, credentialed or parameterised RPC URLs', () => {
     for (const rpcUrl of [
       'http://rpc.testnet.near.org',

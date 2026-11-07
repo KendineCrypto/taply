@@ -40,6 +40,8 @@ export type LocateResult =
   | { readonly kind: 'not_found'; readonly calls: number }
   | { readonly kind: 'history_unavailable'; readonly calls: number }
   | { readonly kind: 'unavailable'; readonly calls: number }
+  /** The RPC asked us to slow down (HTTP 429). Nothing was learned; search again after `retryAfterMs`. */
+  | { readonly kind: 'rate_limited'; readonly calls: number; readonly retryAfterMs: number }
   | { readonly kind: 'budget_exhausted'; readonly calls: number }
   | {
       readonly kind: 'not_applicable';
@@ -206,6 +208,9 @@ export async function locateFundingTransaction(input: LocateInput): Promise<Loca
   } catch (error) {
     if (error instanceof Exhausted) return { kind: 'budget_exhausted', calls };
     if (error instanceof VerifierRpcError && error.code === 'UNKNOWN_BLOCK') return { kind: 'history_unavailable', calls };
+    if (error instanceof VerifierRpcError && error.code === 'RATE_LIMITED') {
+      return { kind: 'rate_limited', calls, retryAfterMs: error.retryAfterMs ?? 0 };
+    }
     return { kind: 'unavailable', calls };
   }
 }

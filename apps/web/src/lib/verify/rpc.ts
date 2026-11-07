@@ -1,4 +1,6 @@
 import { parseRpcJsonWithIntegers } from '@taply/near-client';
+import { clampCooldownMs, createRateLimitGate, parseRetryAfterMs } from './rate-limit';
+import type { RateLimitGate } from './rate-limit';
 
 /**
  * Read-only JSON-RPC transport for the receipt verifier.
@@ -16,8 +18,13 @@ export const VERIFIER_METHODS = ['status', 'block', 'query', 'EXPERIMENTAL_tx_st
 export type VerifierMethod = (typeof VERIFIER_METHODS)[number];
 
 export type VerifierRpcErrorCode =
-  /** Network failure, HTTP error or rate limit. Try again later. */
+  /** Network failure, HTTP error or timeout. Try again later. */
   | 'RPC_UNAVAILABLE'
+  /**
+   * The provider answered HTTP 429, or this tab is still inside the cool-down
+   * it asked for. Nothing was learned about the chain. Wait `retryAfterMs`.
+   */
+  | 'RATE_LIMITED'
   /** The node does not know this transaction (yet). */
   | 'UNKNOWN_TRANSACTION'
   /** The node no longer has (or never had) this block: an archival RPC is needed. */
@@ -28,7 +35,11 @@ export type VerifierRpcErrorCode =
   | 'MALFORMED';
 
 export class VerifierRpcError extends Error {
-  constructor(readonly code: VerifierRpcErrorCode) {
+  constructor(
+    readonly code: VerifierRpcErrorCode,
+    /** Set for RATE_LIMITED (and a 503 with Retry-After): how long the provider asked us to wait. */
+    readonly retryAfterMs: number | null = null,
+  ) {
     super(`verifier-rpc:${code}`);
     this.name = 'VerifierRpcError';
   }
@@ -70,6 +81,66 @@ export interface FetchRpcInput {
   readonly timeoutMs?: number;
   readonly maxResponseBytes?: number;
   readonly fetcher?: typeof fetch;
+  /**
+   * Shared cool-down for every reader of the same RPC. Pass the same gate to
+   * the verifier and the locator; a fresh private gate is used otherwise.
+   */
+  readonly rateLimitGate?: RateLimitGate;
+  /** Clock for Retry-After HTTP-dates. */
+  readonly now?: () => number;
+  /** Keep immutable answers in memory (default true). See `immutableCacheKey`. */
+  readonly cacheImmutable?: boolean;
+}
+
+/** Bounded in-memory cache size per transport. */
+export const IMMUTABLE_CACHE_ENTRIES = 512;
+
+// NEAR block, chunk and transaction hashes are base58, 32 bytes.
+const BASE58_HASH = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/**
+ * Returns a cache key only for requests whose successful answer can never
+ * change: a block or chunk named by hash, a state query pinned to a block hash,
+ * and a transaction status requested at FINAL (the result is additionally
+ * checked to be FINAL before it is kept). Latest-final reads, `status`, block
+ * heights and anything else are never cached.
+ *
+ * This is a same-tab, same-provider memory of answers already received from
+ * the chain in this session, so a retry after a 429 only asks for what is still
+ * missing. It is never written to storage and never replaces a fresh read of
+ * the current contract state.
+ */
+export function immutableCacheKey(method: string, params: unknown): string | null {
+  if (typeof params !== 'object' || params === null || Array.isArray(params)) return null;
+  const p = params as Record<string, unknown>;
+  const pinnedByHash = typeof p['block_id'] === 'string' && BASE58_HASH.test(p['block_id']) && !('finality' in p);
+  if (method === 'block' && pinnedByHash && Object.keys(p).length === 1) return `${method}:${JSON.stringify(p)}`;
+  if (method === 'chunk' && typeof p['chunk_id'] === 'string' && BASE58_HASH.test(p['chunk_id']) && Object.keys(p).length === 1) {
+    return `${method}:${JSON.stringify(p)}`;
+  }
+  if (method === 'query' && pinnedByHash) return `${method}:${stableJson(p)}`;
+  if (
+    method === 'EXPERIMENTAL_tx_status' &&
+    p['wait_until'] === 'FINAL' &&
+    typeof p['tx_hash'] === 'string' &&
+    BASE58_HASH.test(p['tx_hash'])
+  ) {
+    return `${method}:${stableJson(p)}`;
+  }
+  return null;
+}
+
+function stableJson(value: Record<string, unknown>): string {
+  return JSON.stringify(Object.keys(value).sort().map((key) => [key, value[key]]));
+}
+
+function cacheableResult(method: string, result: unknown): boolean {
+  if (method !== 'EXPERIMENTAL_tx_status') return result !== null && result !== undefined;
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    (result as Record<string, unknown>)['final_execution_status'] === 'FINAL'
+  );
 }
 
 export function createFetchVerifierRpc(input: FetchRpcInput): VerifierRpc {
@@ -106,20 +177,41 @@ function createBoundedRpc<M extends string>(
   const fetcher = input.fetcher ?? ((url, init) => globalThis.fetch(url, init));
   const timeoutMs = input.timeoutMs ?? 15_000;
   const maxBytes = input.maxResponseBytes ?? MAX_RESPONSE_BYTES;
+  const now = input.now ?? (() => Date.now());
+  const gate = input.rateLimitGate ?? createRateLimitGate(now);
+  const cache = input.cacheImmutable === false ? null : new Map<string, unknown>();
   let nextId = 0;
   return {
     providerId: input.providerId,
     async call(method, params) {
       if (!allowed.includes(method)) throw new VerifierRpcError('RPC_ERROR');
+      const cacheKey = cache === null ? null : immutableCacheKey(method, params);
+      if (cacheKey !== null && cache?.has(cacheKey)) return structuredClone(cache.get(cacheKey));
+      // Inside a provider-requested cool-down: fail at once, send nothing.
+      const wait = gate.remainingMs();
+      if (wait > 0) throw new VerifierRpcError('RATE_LIMITED', wait);
+      // Backing off after opaque failures (possibly a 429 the browser hid): fail fast.
+      if (gate.backoffRemainingMs() > 0) throw new VerifierRpcError('RPC_UNAVAILABLE');
       const id = `${idPrefix}-${++nextId}`;
-      const { text, httpOk } = await fetchBoundedText({
-        fetcher,
-        url: input.rpcUrl,
-        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-        timeoutMs,
-        maxBytes,
-        errorBodyStatuses: ERROR_BODY_STATUSES,
-      });
+      let fetched: { readonly text: string; readonly httpOk: boolean };
+      try {
+        fetched = await fetchBoundedText({
+          fetcher,
+          url: input.rpcUrl,
+          body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+          timeoutMs,
+          maxBytes,
+          errorBodyStatuses: ERROR_BODY_STATUSES,
+          gate,
+          now,
+        });
+      } catch (error) {
+        if (error instanceof VerifierRpcError && error.code === 'RPC_UNAVAILABLE' && error.retryAfterMs === null) {
+          gate.noteNetworkFailure();
+        }
+        throw error;
+      }
+      const { text, httpOk } = fetched;
       let envelope: unknown;
       try {
         envelope = parseRpcJsonWithIntegers(text);
@@ -146,8 +238,16 @@ function createBoundedRpc<M extends string>(
         throw new VerifierRpcError(code === 'UNKNOWN_BLOCK' || code === 'UNKNOWN_TRANSACTION' ? code : 'RPC_UNAVAILABLE');
       }
       if (hasError) throw new VerifierRpcError(classifyRpcError(record['error']));
+      gate.noteSuccess();
       const result = record['result'];
       assertSafeNumbers(result);
+      if (cache !== null && cacheKey !== null && cacheableResult(method, result)) {
+        if (cache.size >= IMMUTABLE_CACHE_ENTRIES) {
+          const oldest = cache.keys().next();
+          if (oldest.done !== true) cache.delete(oldest.value);
+        }
+        cache.set(cacheKey, structuredClone(result));
+      }
       return result;
     },
   };
@@ -173,6 +273,8 @@ async function fetchBoundedText(input: {
   readonly maxBytes: number;
   /** HTTP error statuses whose (bounded) body is still read, for JSON-RPC error classification. */
   readonly errorBodyStatuses?: ReadonlySet<number>;
+  readonly gate?: RateLimitGate;
+  readonly now?: () => number;
 }): Promise<{ readonly text: string; readonly httpOk: boolean }> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -193,6 +295,15 @@ async function fetchBoundedText(input: {
       credentials: 'omit',
       redirect: 'error',
     });
+    // 429 Too Many Requests, or 503 with an explicit Retry-After: the provider
+    // told us when to come back. Remember it for every reader of this RPC.
+    const retryAfter = parseRetryAfterMs(response.headers.get('retry-after'), (input.now ?? Date.now)());
+    if (response.status === 429 || (response.status === 503 && retryAfter !== null)) {
+      void response.body?.cancel().catch(() => undefined);
+      const cooldown = clampCooldownMs(retryAfter);
+      input.gate?.note(cooldown);
+      throw new VerifierRpcError(response.status === 429 ? 'RATE_LIMITED' : 'RPC_UNAVAILABLE', cooldown);
+    }
     if (!response.ok && !(input.errorBodyStatuses?.has(response.status) ?? false)) {
       void response.body?.cancel().catch(() => undefined);
       throw new VerifierRpcError('RPC_UNAVAILABLE');

@@ -47,7 +47,12 @@ export function PaymentsSetupNotice({ retryElsewhere = false }: { readonly retry
     );
   }
   if (check.status === 'unreachable') {
-    const copy = check.error === 'CONTRACT_CODE_MISMATCH' ? t.payment.setup.codeMismatch : t.payment.setup.unreachable;
+    const copy =
+      check.error === 'CONTRACT_CODE_MISMATCH'
+        ? t.payment.setup.codeMismatch
+        : check.error === 'RPC_RATE_LIMITED'
+          ? t.payment.setup.rateLimited
+          : t.payment.setup.unreachable;
     return (
       <InlineNotice
         copy={copy}

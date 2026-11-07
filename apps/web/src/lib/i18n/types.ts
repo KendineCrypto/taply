@@ -306,6 +306,8 @@ export interface Dictionary {
       readonly checking: string;
       readonly rejected: ErrorCopy;
       readonly unreachable: ErrorCopy;
+      /** The RPC answered HTTP 429. Not a payment result. */
+      readonly rateLimited: ErrorCopy;
       readonly codeMismatch: ErrorCopy;
       readonly verifiedContract: string;
     };
@@ -439,6 +441,24 @@ export interface Dictionary {
       readonly historyUnavailable: ErrorCopy;
       readonly failedMismatch: ErrorCopy;
       readonly reasonCode: string;
+      /** The RPC answered HTTP 429 during verification. */
+      readonly rateLimited: ErrorCopy;
+      /** `{time}`: local time when checking again is allowed. */
+      readonly rateLimitedUntil: string;
+      /** `{time}`: local time of the next automatic check. */
+      readonly autoRetryAt: string;
+      /** A saved earlier verifier output, never a live check. */
+      readonly archived: {
+        readonly badge: string;
+        readonly title: string;
+        /** `{date}`, `{provider}` are filled. */
+        readonly body: string;
+        readonly whenUnreadable: string;
+        readonly checkedAt: string;
+        readonly provider: string;
+        readonly stateBlock: string;
+        readonly openJson: string;
+      };
       readonly checkAgain: string;
       readonly copyLink: string;
       readonly linkCopied: string;

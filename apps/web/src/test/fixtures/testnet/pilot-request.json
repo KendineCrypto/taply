@@ -1,0 +1,39 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502",
+    "network": "near-testnet",
+    "contractId": "taply-pay-pilot-1.testnet",
+    "creationNonce": "e5b3e5cdb083fa84df014333b63017203c04bc875df620c2df86b4261e73de2b",
+    "creatorAccountId": "taplytest.testnet",
+    "assetId": "near:native",
+    "amountBaseUnits": "100000000000000000000000",
+    "mode": "instant",
+    "cancelDurationNs": null,
+    "fundingExpiresAtNs": "1793589470338962933",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "11903572703c42b9b2f0b110f861a83eed84d3cdeac955027b2bc241836888f3",
+  "sessionCommitment": null,
+  "recipientAccountId": "taplytest.testnet",
+  "status": "FINAL_PAID",
+  "revision": "3",
+  "createdAtNs": "1793546311217588064",
+  "payerAccountId": "taply-pilot-funder-1101.testnet",
+  "fundedAtNs": "1793547116103935210",
+  "cancelUntilNs": null,
+  "settlementBranch": "RECIPIENT",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "INSTANT_PAYOUT",
+    "destinationAccountId": "taplytest.testnet",
+    "amountBaseUnits": "100000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1793547116103935210",
+    "resolvedAtNs": "1793547117094514191",
+    "failureCode": null
+  }
+}

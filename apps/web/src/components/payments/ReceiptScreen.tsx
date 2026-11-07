@@ -10,7 +10,8 @@ import type { ReceiptReference } from '@/components/experience/ReceiptTicket';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Icon } from '@/components/shell/Icons';
 import { useCopy } from '@/lib/hooks/browser';
-import { useT } from '@/lib/i18n/provider';
+import { fill } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n/provider';
 import { usePayments } from '@/lib/payments/context';
 import { callerRoleFor } from '@/lib/payments/intent';
 import { mapChainState } from '@/lib/payments/map-chain-state';
@@ -21,6 +22,8 @@ import { collectReferences, parseLinkHints, verificationLink } from '@/lib/verif
 import type { LinkHints } from '@/lib/verify/references';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
 import { saleCode } from '@/lib/merchant/journey';
+import { archivedVerificationFor } from '@/lib/verify/archive';
+import type { ArchivedVerification } from '@/lib/verify/archive';
 import { useFundingLocator } from '@/lib/verify/use-funding-locator';
 import type { LocatorView } from '@/lib/verify/use-funding-locator';
 import { useReceiptVerification } from '@/lib/verify/use-receipt-verification';
@@ -120,10 +123,23 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
 
   const { observation, error } = read;
   if (error !== null || observation.data === null) {
+    // No current read. An archived record may still be shown, labelled as such,
+    // but only for this build's contract and approved code (terms unknown now).
+    // A read that succeeded but found no request is an answer, not an outage: no archive then.
+    const archivedWhenUnreadable =
+      error === null || error.code === 'CONTRACT_CODE_MISMATCH'
+        ? null
+        : archivedVerificationFor({ requestId: id, contractId: setup.contractId, approvedCodeHash: setup.expectedCodeHash, liveTermsHash: null });
     return (
       <div className="flex flex-col gap-4">
         <InlineNotice
-          copy={error?.code === 'CONTRACT_CODE_MISMATCH' ? t.payment.setup.codeMismatch : t.payment.status.readFailed}
+          copy={
+            error?.code === 'CONTRACT_CODE_MISMATCH'
+              ? t.payment.setup.codeMismatch
+              : error?.code === 'RPC_RATE_LIMITED'
+                ? t.payment.setup.rateLimited
+                : t.payment.status.readFailed
+          }
           action={
             error?.code === 'CONTRACT_CODE_MISMATCH' ? undefined : (
               <Button
@@ -138,6 +154,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
             )
           }
         />
+        {archivedWhenUnreadable !== null && <ArchivedRecord record={archivedWhenUnreadable} unreadable />}
         <BackToPayment id={id} />
       </div>
     );
@@ -172,6 +189,20 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
   );
 
   const showVerified = presentation.verifiedRibbon && verified !== null;
+  // Shown only after today's check has ended without Verified Paid, below it.
+  const liveCheckEnded =
+    verification.kind === 'failed' ||
+    verification.kind === 'unavailable' ||
+    (verification.kind === 'missing_reference' && located.kind !== 'searching' && located.kind !== 'found' && missing !== 'matching');
+  const archived =
+    !showVerified && paid && liveCheckEnded
+      ? archivedVerificationFor({
+          requestId: id,
+          contractId: setup.contractId,
+          approvedCodeHash: setup.expectedCodeHash,
+          liveTermsHash: request.termsHash,
+        })
+      : null;
   const status = showVerified ? 'verified' : paid ? 'contract_paid' : 'cancelled';
   const v = t.payment.verification;
   const ticketReferences: ReceiptReference[] =
@@ -235,6 +266,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
           onRetry={() => setGeneration((g) => g + 1)}
         />
       )}
+      {archived !== null && <ArchivedRecord record={archived} />}
 
       <details className="disclosure">
         <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 px-1 text-sm font-medium text-[var(--text-secondary)]">
@@ -334,6 +366,7 @@ function VerificationNotice({
   readonly onRetry: () => void;
 }) {
   const t = useT();
+  const { locale } = useLocale();
   const v = t.payment.verification;
   switch (view.kind) {
     case 'not_applicable':
@@ -365,15 +398,30 @@ function VerificationNotice({
         />
       );
     case 'failed': {
-      const copy = view.transient
-        ? v.failedTransient
-        : view.reason === 'HISTORY_UNAVAILABLE'
-          ? v.historyUnavailable
-          : v.failedMismatch;
+      const copy =
+        view.reason === 'RATE_LIMITED'
+          ? v.rateLimited
+          : view.transient
+            ? v.failedTransient
+            : view.reason === 'HISTORY_UNAVAILABLE'
+              ? v.historyUnavailable
+              : v.failedMismatch;
       const tone = view.transient || view.reason === 'HISTORY_UNAVAILABLE' ? 'neutral' : 'danger';
+      const waitUntil = view.retryAfterMs === null ? null : view.failedAt + view.retryAfterMs;
       return (
-        <div className="flex flex-col gap-2" data-testid="verification-failed">
+        <div className="flex flex-col gap-2" data-testid="verification-failed" data-reason={view.reason}>
           <InlineNotice copy={copy} tone={tone} />
+          {view.autoRetryAt !== null ? (
+            <p className="px-1 text-xs text-[var(--text-muted)]" data-testid="verification-auto-retry">
+              {fill(v.autoRetryAt, { time: clockTime(view.autoRetryAt, locale) })}
+            </p>
+          ) : (
+            waitUntil !== null && (
+              <p className="px-1 text-xs text-[var(--text-muted)]" data-testid="verification-wait-until">
+                {fill(v.rateLimitedUntil, { time: clockTime(waitUntil, locale) })}
+              </p>
+            )
+          )}
           <details className="disclosure">
             <summary className="flex min-h-[44px] cursor-pointer items-center text-sm">{t.oneTap.payment.details}</summary>
             <p className="px-1 text-xs text-[var(--text-muted)]">
@@ -479,7 +527,9 @@ function LocatorOutcome({ view, onRetry }: { readonly view: LocatorView; readonl
   const t = useT();
   const l = t.commerce.phase7g.locate;
   const copy =
-    view.kind === 'history_unavailable'
+    view.kind === 'rate_limited'
+      ? t.payment.verification.rateLimited
+      : view.kind === 'history_unavailable'
       ? l.history
       : view.kind === 'not_applicable'
         ? view.reason === 'needs_retry_references'
@@ -488,7 +538,8 @@ function LocatorOutcome({ view, onRetry }: { readonly view: LocatorView; readonl
         : view.kind === 'unavailable' || view.kind === 'budget_exhausted'
           ? l.unavailable
           : l.notFound;
-  const retryable = view.kind === 'unavailable' || view.kind === 'budget_exhausted' || view.kind === 'not_found';
+  const retryable =
+    view.kind === 'unavailable' || view.kind === 'budget_exhausted' || view.kind === 'not_found' || view.kind === 'rate_limited';
   return (
     <div className="flex flex-col gap-2" data-testid="locator-outcome" data-kind={view.kind}>
       <InlineNotice copy={copy} tone="neutral" />
@@ -498,5 +549,59 @@ function LocatorOutcome({ view, onRetry }: { readonly view: LocatorView; readonl
         </Button>
       )}
     </div>
+  );
+}
+
+function clockTime(epochMs: number, locale: string): string {
+  return new Date(epochMs).toLocaleTimeString(locale === 'tr' ? 'tr-TR' : 'en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+/**
+ * A saved earlier verifier result. Deliberately NOT the receipt: no lime, no
+ * ribbon, no receipt status, an explicit "Archived · not a live check" badge,
+ * and a link to the unchanged JSON so anyone can re-check it themselves.
+ */
+function ArchivedRecord({ record, unreadable = false }: { readonly record: ArchivedVerification; readonly unreadable?: boolean }) {
+  const t = useT();
+  const a = t.payment.verification.archived;
+  const date = record.checkedAt.slice(0, 10);
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] p-4"
+      data-testid="archived-verification"
+      data-archived="true"
+      aria-labelledby="archived-verification-title"
+    >
+      <span className="self-start rounded-full border border-[var(--border-strong)] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        {a.badge}
+      </span>
+      <h2 id="archived-verification-title" className="text-base font-semibold">
+        {a.title}
+      </h2>
+      {unreadable && <p className="text-sm text-[var(--text-secondary)]">{a.whenUnreadable}</p>}
+      <p className="text-sm text-[var(--text-secondary)]">{fill(a.body, { date, provider: record.rpcProviderId })}</p>
+      <dl className="flex flex-col gap-2 text-sm">
+        <DetailRow label={a.checkedAt}>
+          <span className="chain-id">{record.checkedAt}</span>
+        </DetailRow>
+        <DetailRow label={a.provider}>
+          <span className="chain-id">{record.rpcProviderId}</span>
+        </DetailRow>
+        <DetailRow label={a.stateBlock}>
+          <span className="chain-id">#{record.stateBlockHeight}</span>
+        </DetailRow>
+        <DetailRow label={t.payment.verification.fundingTx}>
+          <span className="chain-id break-all">{record.fundingTransactionHash}</span>
+        </DetailRow>
+      </dl>
+      <a
+        href={record.jsonPath}
+        className="tap-target inline-flex items-center gap-2 self-start text-sm font-medium underline underline-offset-4"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <Icon name="link" size={16} /> {a.openJson}
+      </a>
+    </section>
   );
 }

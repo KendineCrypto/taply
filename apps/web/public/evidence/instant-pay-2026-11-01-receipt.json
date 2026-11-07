@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "taply.receipt.v1",
+  "requestId": "9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502",
+  "termsHash": "11903572703c42b9b2f0b110f861a83eed84d3cdeac955027b2bc241836888f3",
+  "sessionId": null,
+  "network": "near-testnet",
+  "contractId": "taply-pay-pilot-1.testnet",
+  "contractCodeHash": "BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B",
+  "mode": "instant",
+  "finalStatus": "FINAL_PAID",
+  "payerAccountId": "taply-pilot-funder-1101.testnet",
+  "recipientAccountId": "taplytest.testnet",
+  "settlementBeneficiaryAccountId": "taplytest.testnet",
+  "assetId": "near:native",
+  "amountBaseUnits": "100000000000000000000000",
+  "operationNonce": "1",
+  "fundingTransaction": {
+    "hash": "CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su",
+    "signerAccountId": "taply-pilot-funder-1101.testnet"
+  },
+  "fundingReceipt": {
+    "receiptId": "Zyj9hfcEsqZQ4DiDDqyZaVYsEqCkv4ppkshVms9Y1uJ",
+    "executorAccountId": "taply-pay-pilot-1.testnet",
+    "block": {
+      "hash": "AKxg24GCGyreEARGfASH34D2xqDo6oAYQxKS28Cg8d6w",
+      "height": "275767733",
+      "timestampNs": "1793547116103935210"
+    },
+    "outcome": "SUCCESS"
+  },
+  "settlementTransaction": {
+    "hash": "CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su",
+    "signerAccountId": "taply-pilot-funder-1101.testnet"
+  },
+  "transferReceipt": {
+    "receiptId": "3kLbAxp9Q4XC1DCr7BNF6Vcy6XPYmNJyTHADA9R9MTv4",
+    "executorAccountId": "taplytest.testnet",
+    "block": {
+      "hash": "5bDG3t4Q2KC8b9SxFxd8yLxwcgCFV91mX4pMC27dSeK2",
+      "height": "275767734",
+      "timestampNs": "1793547116607382051"
+    },
+    "outcome": "SUCCESS"
+  },
+  "callbackReceipt": {
+    "receiptId": "3FZ4Eu6JYy9LHikK42hx5E6ZAsrTgcnZ3i4CN7hQgvJp",
+    "executorAccountId": "taply-pay-pilot-1.testnet",
+    "block": {
+      "hash": "FgVXxyqHv6ixgg81u4oGTSur2W9oPEgpY2KRMovF4MEC",
+      "height": "275767735",
+      "timestampNs": "1793547117094514191"
+    },
+    "outcome": "SUCCESS"
+  },
+  "contractStateBlock": {
+    "hash": "Ex5DkzLb7M7hrhEEhAW7VQVtmM4Nhsz8j4CH3nUkS9US",
+    "height": "275768214",
+    "timestampNs": "1793547386287676168"
+  },
+  "verification": {
+    "state": "verified_final",
+    "executionFinality": "FINAL",
+    "trustModel": "configured-rpc",
+    "rpcProviderId": "fastnear-testnet",
+    "checkedAt": "2026-11-01T15:36:30.100Z"
+  }
+}

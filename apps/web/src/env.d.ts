@@ -25,6 +25,8 @@ declare namespace NodeJS {
      */
     readonly NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH?: string;
     readonly NEXT_PUBLIC_TAPLY_EXPLORER_BASE_URL?: string;
+    readonly NEXT_PUBLIC_TAPLY_VERIFIER_RPC_URL?: string;
+    readonly NEXT_PUBLIC_TAPLY_VERIFIER_RPC_PROVIDER_ID?: string;
     /** Public Testnet JSON-RPC endpoint (HTTPS, CORS-enabled, no credentials). */
     readonly NEXT_PUBLIC_TAPLY_RPC_URL?: string;
     /** Label recorded on every observation so provenance is visible. */

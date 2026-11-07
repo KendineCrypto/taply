@@ -624,6 +624,10 @@ export const en: Dictionary = {
         title: 'This contract is not approved for payments',
         body: 'The contract reported a configuration this app will not use (for example a test build or an unreviewed feature). Payments stay off.',
       },
+      rateLimited: {
+        title: 'NEAR Testnet RPC is busy',
+        body: 'The public RPC asked us to slow down (too many requests). This is not a payment result. Signing stays off; wait a minute and try again.',
+      },
       unreachable: {
         title: 'Could not check the payments contract',
         body: "Could not check the contract. Signing stays off; try again.",
@@ -839,7 +843,7 @@ export const en: Dictionary = {
       },
       failedTransient: {
         title: 'Could not verify yet',
-        body: "Could not verify the receipt. Do not pay again.",
+        body: 'Could not reach the NEAR Testnet RPC to verify the receipt (it may be offline or limiting requests). Do not pay again.',
       },
       historyUnavailable: {
         title: 'History not available from this RPC',
@@ -850,6 +854,22 @@ export const en: Dictionary = {
         body: 'The chain evidence did not pass verification, so this is not a Verified Paid receipt. Do not pay again. Keep the transaction hashes and contact support.',
       },
       reasonCode: 'Reason code',
+      rateLimited: {
+        title: 'RPC busy: verification paused',
+        body: 'The public NEAR Testnet RPC asked us to slow down. Nothing about this payment changed and nothing was concluded. Do not pay again.',
+      },
+      rateLimitedUntil: 'You can check again after {time}.',
+      autoRetryAt: 'Checking again automatically at {time}.',
+      archived: {
+        badge: 'Archived · not a live check',
+        title: 'Archived verification record',
+        body: "On {date}, Taply's verifier checked this payment through {provider} and found it Verified Paid. This is the saved result of that check, not a new read of the chain. Today's status is shown above.",
+        whenUnreadable: 'The chain could not be read just now, so no current status is shown.',
+        checkedAt: 'Checked at (UTC)',
+        provider: 'Checked via RPC',
+        stateBlock: 'Contract state block',
+        openJson: 'Open the archived verifier JSON',
+      },
       checkAgain: 'Check again',
       copyLink: 'Copy verification link',
       linkCopied: 'Link copied',

@@ -622,6 +622,10 @@ export const tr: Dictionary = {
         title: 'Bu kontrat ödemeler için onaylı değil',
         body: 'Kontrat bu uygulamanın kullanmayacağı bir yapılandırma bildirdi (örneğin test sürümü veya incelenmemiş bir özellik). Ödemeler kapalı kalır.',
       },
+      rateLimited: {
+        title: 'NEAR Testnet RPC yoğun',
+        body: 'Herkese açık RPC yavaşlamamızı istedi (çok fazla istek). Bu bir ödeme sonucu değildir. İmzalama kapalı kalır; bir dakika bekleyip tekrar dene.',
+      },
       unreachable: {
         title: 'Ödeme kontratı kontrol edilemedi',
         body: "Kontrat kontrol edilemedi. İmzalama kapalı; tekrar dene.",
@@ -837,7 +841,7 @@ export const tr: Dictionary = {
       },
       failedTransient: {
         title: 'Henüz doğrulanamadı',
-        body: "Makbuz doğrulanamadı. Tekrar ödeme yapma.",
+        body: 'Makbuzu doğrulamak için NEAR Testnet RPC’ye ulaşılamadı (çevrimdışı olabilir ya da istekleri sınırlıyor olabilir). Tekrar ödeme yapma.',
       },
       historyUnavailable: {
         title: 'Bu RPC geçmişi sunmuyor',
@@ -848,6 +852,22 @@ export const tr: Dictionary = {
         body: 'Zincir kanıtı doğrulamayı geçemedi; bu bir Doğrulanmış Ödendi makbuzu değildir. Tekrar ödeme yapmayın. İşlem özetlerini saklayın ve destekle iletişime geçin.',
       },
       reasonCode: 'Neden kodu',
+      rateLimited: {
+        title: 'RPC yoğun: doğrulama duraklatıldı',
+        body: 'Herkese açık NEAR Testnet RPC yavaşlamamızı istedi. Bu ödemede hiçbir şey değişmedi ve bir sonuca varılmadı. Tekrar ödeme yapma.',
+      },
+      rateLimitedUntil: '{time} sonrasında tekrar kontrol edebilirsin.',
+      autoRetryAt: '{time} saatinde otomatik olarak tekrar kontrol edilecek.',
+      archived: {
+        badge: 'Arşiv · canlı kontrol değil',
+        title: 'Arşivlenmiş doğrulama kaydı',
+        body: "{date} tarihinde Taply doğrulayıcısı bu ödemeyi {provider} üzerinden kontrol etti ve Doğrulanmış Ödendi buldu. Bu, o kontrolün kaydedilmiş sonucudur; zincirin yeni bir okuması değildir. Bugünkü durum yukarıda gösterilir.",
+        whenUnreadable: 'Zincir şu anda okunamadı; bu yüzden güncel durum gösterilmiyor.',
+        checkedAt: 'Kontrol zamanı (UTC)',
+        provider: 'Kontrol edilen RPC',
+        stateBlock: 'Kontrat durum bloğu',
+        openJson: 'Arşivlenmiş doğrulayıcı JSON dosyasını aç',
+      },
       checkAgain: 'Tekrar kontrol et',
       copyLink: 'Doğrulama bağlantısını kopyala',
       linkCopied: 'Bağlantı kopyalandı',

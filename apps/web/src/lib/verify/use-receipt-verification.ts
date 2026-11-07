@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ContractRequest, VerifiedReceipt } from '@/lib/protocol';
 import { verifyInstantReceipt } from './instant-receipt';
 import type { VerificationFailure } from './instant-receipt';
+import { nextAutoRetryDelay } from './retry-policy';
 import type { ReceiptReferences } from './references';
 import type { VerifierRpc } from './rpc';
 
@@ -20,11 +21,18 @@ export type VerificationView =
       readonly kind: 'failed';
       readonly reason: VerificationFailure;
       readonly transient: boolean;
+      /** Provider-requested wait (rate limit), in ms from `failedAt`. */
+      readonly retryAfterMs: number | null;
+      /** Epoch ms of this failed attempt (device clock, display only). */
+      readonly failedAt: number;
+      /** Epoch ms of the next automatic attempt, or null when it waits for the person. */
+      readonly autoRetryAt: number | null;
     };
 
 /**
  * Runs the independent receipt verifier with bounded retries for transient RPC
- * lag/finality failures. Read-only. The result is kept in memory only: a VerifiedReceipt is
+ * lag/finality failures (schedule in `retry-policy.ts`; rate limits honoured,
+ * long provider waits left to the person). Read-only. The result is kept in memory only: a VerifiedReceipt is
  * never cached in storage, so a later visit re-verifies against the chain.
  */
 export function useReceiptVerification(input: {
@@ -72,19 +80,26 @@ export function useReceiptVerification(input: {
         retryTransactions: retries,
       });
       if (!active) return;
+      if (outcome.kind === 'verified') {
+        setResult({ key, view: { kind: 'verified', receipt: outcome.receipt } });
+        return;
+      }
+      const failedAt = Date.now();
+      const delay = nextAutoRetryDelay(outcome, retriesUsed);
       setResult({
         key,
-        view:
-          outcome.kind === 'verified'
-            ? { kind: 'verified', receipt: outcome.receipt }
-            : {
-                kind: 'failed',
-                reason: outcome.reason,
-                transient: outcome.transient,
-              },
+        view: {
+          kind: 'failed',
+          reason: outcome.reason,
+          transient: outcome.transient,
+          retryAfterMs: outcome.retryAfterMs ?? null,
+          failedAt,
+          autoRetryAt: delay === null ? null : failedAt + delay,
+        },
       });
-      if (outcome.kind !== 'verified' && outcome.transient && retriesUsed < 3) {
-        timer = setTimeout(() => void run(), [1_000, 3_000, 10_000][retriesUsed++]);
+      if (delay !== null) {
+        retriesUsed += 1;
+        timer = setTimeout(() => void run(), delay);
       }
     };
     const onVisible = () => {

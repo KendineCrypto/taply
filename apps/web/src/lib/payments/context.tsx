@@ -8,6 +8,7 @@ import { FLAGS } from '@/lib/flags/features';
 import { getNearClient } from '@/lib/near/client';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { createFetchLocatorRpc, createFetchVerifierRpc } from '@/lib/verify/rpc';
+import { createRateLimitGate } from '@/lib/verify/rate-limit';
 import type { LocatorRpc, VerifierRpc } from '@/lib/verify/rpc';
 import { chainFreshness } from './freshness';
 import type { ChainFreshness } from './freshness';
@@ -116,6 +117,8 @@ function defaultSetup(): PaymentsSetup {
   if (contract.status === 'invalid') return { status: 'invalid_config' };
   const reader = getNearClient();
   if (reader === null) return { status: 'chain_unavailable' };
+  // One cool-down for both readers of this RPC: a 429 seen by either pauses both.
+  const rateLimitGate = createRateLimitGate();
   return {
     status: 'ready',
     contractId: contract.accountId,
@@ -124,12 +127,14 @@ function defaultSetup(): PaymentsSetup {
     signingFlag: FLAGS.instantPay.enabled,
     explorerBaseUrl: CHAIN_CONFIG.explorerBaseUrl,
     verifierRpc: createFetchVerifierRpc({
-      rpcUrl: CHAIN_CONFIG.client.rpcUrl,
-      providerId: CHAIN_CONFIG.client.rpcProviderId,
+      rpcUrl: CHAIN_CONFIG.verifier.rpcUrl,
+      providerId: CHAIN_CONFIG.verifier.rpcProviderId,
+      rateLimitGate,
     }),
     locatorRpc: createFetchLocatorRpc({
-      rpcUrl: CHAIN_CONFIG.client.rpcUrl,
-      providerId: CHAIN_CONFIG.client.rpcProviderId,
+      rpcUrl: CHAIN_CONFIG.verifier.rpcUrl,
+      providerId: CHAIN_CONFIG.verifier.rpcProviderId,
+      rateLimitGate,
     }),
   };
 }

@@ -39,10 +39,16 @@ for (const [label, factory] of [['verifier', createFetchVerifierRpc], ['locator'
         Response.json(mutate(errorEnvelope(JSON.parse(String(init?.body)).id as string, 'UNKNOWN_BLOCK')), { status: 422 }) });
       await expect(rpc.call('block', {})).rejects.toMatchObject({ code: 'RPC_UNAVAILABLE' });
     });
-    it.each([408, 422, 429, 503])('plain HTTP %s text cannot prove history absence', async status => {
+    it.each([
+      [408, 'RPC_UNAVAILABLE'],
+      [422, 'RPC_UNAVAILABLE'],
+      // Monday sprint: a 429 is its own transient code (with a cool-down), still never pruning.
+      [429, 'RATE_LIMITED'],
+      [503, 'RPC_UNAVAILABLE'],
+    ])('plain HTTP %s text cannot prove history absence', async (status, code) => {
       const rpc = factory({ rpcUrl: 'https://fixture.example', providerId: 'synthetic', fetcher: async () =>
         new Response('UNKNOWN_BLOCK', { status }) });
-      await expect(rpc.call('block', {})).rejects.toMatchObject({ code: 'RPC_UNAVAILABLE' });
+      await expect(rpc.call('block', {})).rejects.toMatchObject({ code });
     });
     it('rejects oversized HTTP error bodies', async () => {
       const rpc = factory({ rpcUrl: 'https://fixture.example', providerId: 'synthetic', maxResponseBytes: 64,

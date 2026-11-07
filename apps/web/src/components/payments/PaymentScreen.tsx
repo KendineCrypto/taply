@@ -239,7 +239,13 @@ function ViewBody({
     case 'unavailable':
       return (
         <InlineNotice
-          copy={view.error === 'CONTRACT_CODE_MISMATCH' ? t.payment.setup.codeMismatch : t.payment.status.readFailed}
+          copy={
+            view.error === 'CONTRACT_CODE_MISMATCH'
+              ? t.payment.setup.codeMismatch
+              : view.error === 'RPC_RATE_LIMITED'
+                ? t.payment.setup.rateLimited
+                : t.payment.status.readFailed
+          }
           tone={view.error === 'CONTRACT_CODE_MISMATCH' ? 'danger' : 'caution'}
         />
       );

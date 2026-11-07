@@ -80,7 +80,7 @@ describe('verifier RPC transport', () => {
       })),
       'RPC_ERROR',
     ],
-    ['http 429', respond(() => ({}), 429), 'RPC_UNAVAILABLE'],
+    ['http 429', respond(() => ({}), 429), 'RATE_LIMITED'],
   ])('maps %s', async (_label, fetcher, expected) => {
     const rpc = createFetchVerifierRpc({
       rpcUrl: 'https://rpc.example',
