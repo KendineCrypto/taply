@@ -1,5 +1,6 @@
 'use client';
 
+import { FLAGS } from '@/lib/flags/features';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -91,7 +92,7 @@ export function NetworkBadge() {
 }
 
 interface MenuLink {
-  readonly href: '/wallet' | '/receive' | '/merchant' | '/settings' | '/demo';
+  readonly href: '/wallet' | '/receive' | '/merchant' | '/contacts' | '/split' | '/recurring' | '/settings' | '/demo';
   readonly icon: IconName;
   readonly label: string;
   readonly body?: string;
@@ -111,6 +112,10 @@ function AccountMenu() {
     { href: '/wallet', icon: 'wallet', label: m.wallet },
     { href: '/receive', icon: 'receive', label: m.receive },
     { href: '/merchant', icon: 'pay', label: t.commerce.merchant.title, body: t.commerce.merchant.menuBody },
+    // Monday sprint tools: local-only planning; each hides itself behind its kill switch.
+    ...(FLAGS.contacts.enabled ? [{ href: '/contacts' as const, icon: 'wallet' as const, label: t.screens.contacts, body: t.routes.contacts }] : []),
+    ...(FLAGS.splitPay.enabled ? [{ href: '/split' as const, icon: 'request' as const, label: t.tools.split.title, body: t.routes.split }] : []),
+    ...(FLAGS.recurring.enabled ? [{ href: '/recurring' as const, icon: 'clock' as const, label: t.screens.recurring, body: t.routes.recurring }] : []),
     { href: '/settings', icon: 'settings', label: m.settings },
     { href: '/demo', icon: 'shield', label: m.help, body: m.helpBody },
   ];
