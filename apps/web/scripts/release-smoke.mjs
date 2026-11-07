@@ -57,7 +57,8 @@ async function open(browser, name, { width, height, mobile, locale = 'en', accou
   // Record every CSP violation in every frame (including wallet srcdoc iframes).
   await context.addInitScript(() => {
     window.__csp = [];
-    document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.effectiveDirective} ${e.blockedURI || 'inline'}`));
+    document.addEventListener('securitypolicyviolation', (e) =>
+      window.__csp.push({ v: `${e.effectiveDirective} ${e.blockedURI || 'inline'}`, src: e.sourceFile, col: e.columnNumber }));
   });
   await context.addCookies([{ name: 'taply_locale', value: locale, url: BASE }]);
   if (account) await context.addInitScript(injectWallet, account);
@@ -134,7 +135,18 @@ async function step(bname, vp, label, opts, fn) {
   r.rpc = { ...stepRpc };
   const frameCsp = [];
   for (const frame of page.frames()) frameCsp.push(...(await frame.evaluate(() => window.__csp ?? []).catch(() => [])));
-  r.csp = [...new Set([...frameCsp, ...cspConsole])];
+  // A blocked eval is only "benign" when the exact, try/catch-wrapped capability
+  // probe of a known library sits at the reported position of a same-origin
+  // chunk. Every other violation fails the step.
+  const benign = [];
+  const real = [];
+  for (const v of frameCsp) {
+    const probe = v.v === 'script-src eval' && typeof v.src === 'string' && v.src.startsWith(`${BASE}/_next/static/`) ? await knownProbe(v.src, v.col) : null;
+    if (probe !== null) benign.push(probe); else real.push(v.v);
+  }
+  r.cspBenign = [...new Set(benign)];
+  // Console text is the fallback signal only when no violation event was captured (conservative).
+  r.csp = frameCsp.length > 0 ? [...new Set(real)] : [...new Set(cspConsole)];
   if (r.csp.length > 0) { r.pass = false; r.note = `${r.note ?? ''} CSP violations: ${r.csp.slice(0, 3).join(' | ')}`.trim(); }
   r.status = r.pass ? 'PASS' : opts.chain && (stepRpc.throttled > 0 || stepRpc.blockedByCors > 0) ? 'BLOCKED' : 'FAIL';
   r.errors = errors;
@@ -142,7 +154,21 @@ async function step(bname, vp, label, opts, fn) {
   await page.screenshot({ path: `${outDir}/${bname}-${vp.tag}-${label}.png`, fullPage: false }).catch(() => undefined);
   await context.close();
   results.push(r);
+  if (r.cspBenign.length > 0) r.note = `${r.note ?? ''} [benign CSP probe: ${r.cspBenign.join(', ')}]`.trim();
   console.log(`${r.status} ${r.name} ${r.ms}ms ${(r.error ?? r.note ?? '').slice(0, 200)} rpc=${JSON.stringify(r.rpc)} ${errors.length ? `[${errors.length} console errors]` : ''}`);
+}
+
+const chunkCache = new Map();
+const PROBES = [
+  ['is-generator-function probe (Next util polyfill)', 'Function("return function*() {}")'],
+  ['zod allowsEval probe', 'return Function(""),!0}catch'],
+];
+async function knownProbe(src, col) {
+  if (!chunkCache.has(src)) chunkCache.set(src, await fetch(src).then((r) => r.text()).catch(() => ''));
+  const text = chunkCache.get(src);
+  const around = text.slice(Math.max(0, col - 400), col + 200);
+  const hit = PROBES.find(([, code]) => around.includes(code));
+  return hit === undefined ? null : hit[0];
 }
 
 const has = async (page, re, timeout = 20000) => {

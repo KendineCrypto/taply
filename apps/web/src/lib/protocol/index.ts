@@ -10,6 +10,9 @@
  * hashing domains in this repository, and it is not here.
  */
 
+// Must run before any schema parses (Zod's eval probe trips the CSP otherwise).
+import '@/lib/security/zod-jitless';
+
 // --- Versions and wire constants -------------------------------------------
 export {
   API_PREFIX,

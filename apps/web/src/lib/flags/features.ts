@@ -67,8 +67,13 @@ const DEFAULTS: Readonly<Record<FeatureFlag, FlagState>> = {
   // Monday sprint E1: local-only address book. It reads and writes this
   // device's storage only and never signs; NEXT_PUBLIC_TAPLY_FLAG_CONTACTS=off hides it.
   contacts: ON,
-  splitPay: OFF('not_implemented'),
-  recurring: OFF('not_implemented'),
+  // Monday sprint E3: plans exact shares and PRE-FILLS one normal request per share.
+  // Settlement uses the existing request flow and its gates; group "done" needs every
+  // share Verified Paid. NEXT_PUBLIC_TAPLY_FLAG_SPLIT=off hides it.
+  splitPay: ON,
+  // Monday sprint E2: local templates that only PRE-FILL the normal request form.
+  // Never signs, never charges. NEXT_PUBLIC_TAPLY_FLAG_RECURRING=off hides it.
+  recurring: ON,
   // Lead decision 10 / freeze section 1: no env override.
   socialLogin: OFF('security_gate', true),
   milestonePay: OFF('security_gate', true),
@@ -88,6 +93,8 @@ const ENV_KEYS: Partial<Record<FeatureFlag, string>> = {
   handshake: 'NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE',
   merchantCheckout: 'NEXT_PUBLIC_TAPLY_FLAG_MERCHANT',
   contacts: 'NEXT_PUBLIC_TAPLY_FLAG_CONTACTS',
+  recurring: 'NEXT_PUBLIC_TAPLY_FLAG_RECURRING',
+  splitPay: 'NEXT_PUBLIC_TAPLY_FLAG_SPLIT',
 };
 
 export function resolveFlags(env: Record<string, string | undefined>): Readonly<Record<FeatureFlag, FlagState>> {
@@ -117,6 +124,8 @@ export const FLAGS = resolveFlags({
   NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE: process.env.NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE,
   NEXT_PUBLIC_TAPLY_FLAG_MERCHANT: process.env.NEXT_PUBLIC_TAPLY_FLAG_MERCHANT,
   NEXT_PUBLIC_TAPLY_FLAG_CONTACTS: process.env.NEXT_PUBLIC_TAPLY_FLAG_CONTACTS,
+  NEXT_PUBLIC_TAPLY_FLAG_RECURRING: process.env.NEXT_PUBLIC_TAPLY_FLAG_RECURRING,
+  NEXT_PUBLIC_TAPLY_FLAG_SPLIT: process.env.NEXT_PUBLIC_TAPLY_FLAG_SPLIT,
 });
 
 export function isEnabled(flag: FeatureFlag): boolean {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import type { ContractConfig, CreateQuote, PreparedContractCall } from '@taply/near-client';
 import { prepareCreateRequest } from '@taply/near-client';
@@ -29,6 +29,8 @@ import type { Reconciliation, SubmitResult } from '@/lib/payments/submit';
 import { NEAR_NATIVE } from '@/lib/protocol';
 import type { IntentTerms } from '@/lib/protocol';
 import { useWallet } from '@/lib/wallet/provider';
+import { baseUnitsToDecimal, parsePrefill } from '@/lib/tools/handoff';
+import { describePrefill, recordPrefillResult } from '@/lib/tools/prefill-context';
 import { ChainTime, PaymentsSetupNotice, RequestTermsPreview, SigningBlockNotice, SubmitResultNotice } from './PaymentParts';
 
 type Step =
@@ -63,8 +65,22 @@ export function CreateRequest({
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [payer, setPayer] = useState('');
+  // Monday sprint E2/E3: a recurring template or Split Pay may PRE-FILL this form
+  // (lib/tools/handoff). It only sets the fields; review and wallet approval stay manual.
+  const search = useSyncExternalStore(noSubscription, () => window.location.search, () => '');
+  const prefill = useMemo(() => (sale ? null : parsePrefill(search)), [sale, search]);
+  const [appliedPrefill, setAppliedPrefill] = useState<string | null>(null);
   const [lifetime, setLifetime] = useState<FundingLifetime>('15m');
   const [optionsOpen, setOptionsOpen] = useState(false);
+  if (prefill !== null && appliedPrefill !== search) {
+    // Adjust state once per pre-fill link (React's "state from props" pattern, no effect).
+    setAppliedPrefill(search);
+    setAmount(baseUnitsToDecimal(prefill.amountBaseUnits, NEAR_NATIVE.decimals));
+    setMemo(prefill.memo);
+    setPayer(prefill.payer ?? '');
+    setOptionsOpen(prefill.payer !== null || prefill.memo !== '');
+  }
+  const prefillPlan = prefill === null ? null : describePrefill(prefill.source);
   const [errors, setErrors] = useState<ReadonlyArray<RequestFormError>>([]);
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [quoteError, setQuoteError] = useState<'failed' | 'nonce_consumed' | 'stale' | null>(null);
@@ -241,6 +257,15 @@ export function CreateRequest({
     });
     setResult(outcome);
     if (outcome.kind === 'submitted' || outcome.kind === 'unknown') {
+      // Link the plan entry to this request (also when the outcome is unknown) so the
+      // same occurrence or share is never offered again. Only if the terms are unchanged.
+      if (
+        prefill !== null &&
+        reviewed.terms.amountBaseUnits === prefill.amountBaseUnits &&
+        reviewed.terms.permittedPayerAccountId === prefill.payer
+      ) {
+        recordPrefillResult(prefill.source, reviewed.terms.id, new Date());
+      }
       // Wording hint only: /pay frames this request as "Your sale" with a New sale action.
       if (sale) rememberPosSale(localHints(), reviewed.terms.id);
       // The status page reads the chain and reconciles the journal entry.
@@ -323,6 +348,17 @@ export function CreateRequest({
           }
         />
       ))}
+
+      {prefill !== null && prefillPlan !== null && step.kind === 'form' && (
+        <div className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-sm" data-testid="prefill-banner">
+          <p className="font-medium">
+            {prefill.source.kind === 'recurring'
+              ? fill(t.tools.prefill.recurring, { name: prefillPlan.name, date: prefillPlan.detail })
+              : fill(t.tools.prefill.split, { name: prefillPlan.name, who: prefillPlan.detail })}
+          </p>
+          <p className="mt-1 text-[var(--text-secondary)]">{t.tools.prefill.note}</p>
+        </div>
+      )}
 
       {staleReview && (
         <InlineNotice tone="caution" copy={{ title: c.accountChanged.title, body: fill(c.accountChanged.body, { account: step.terms.creatorAccountId }) }} />
@@ -632,3 +668,5 @@ function Field({
     </div>
   );
 }
+
+const noSubscription = () => () => undefined;

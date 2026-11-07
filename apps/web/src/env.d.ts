@@ -44,5 +44,7 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_MERCHANT?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_CONTACTS?: string;
+    readonly NEXT_PUBLIC_TAPLY_FLAG_RECURRING?: string;
+    readonly NEXT_PUBLIC_TAPLY_FLAG_SPLIT?: string;
   }
 }
