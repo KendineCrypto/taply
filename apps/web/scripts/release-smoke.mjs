@@ -182,7 +182,7 @@ const has = async (page, re, timeout = 20000) => {
 const VIEWPORTS = [
   { tag: 'mobile390', width: 390, height: 844, mobile: true },
   { tag: 'desktop1280', width: 1280, height: 800, mobile: false },
-];
+].filter((v) => !process.env.VIEWPORT || v.tag === process.env.VIEWPORT);
 const posHint = { fn: (id) => localStorage.setItem('taply.posSales.v1', JSON.stringify([id])), arg: ID };
 
 for (const bname of which.split(',')) {
