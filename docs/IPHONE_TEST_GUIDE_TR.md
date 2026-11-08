@@ -3,10 +3,15 @@
 Bu rehber, Taply'yi kendi iPhone'unda elle denemen içindir. Hiçbir adımda gerçek
 para yoktur: Taply yalnızca **NEAR Testnet** kullanır, ödeme imzalama kapalıdır.
 
-- Test edilen sürüm: dal `feature/monday-testnet-sprint`, commit `f8b45ff`, build `THq9ZAnwy12QhZs1S-9Uu`
+- Test edilen sürüm: dal `feature/monday-testnet-sprint`, yeni tasarım (commit `f032e82` uygulama kodu)
 - Bu bilgisayardaki sunucu: `127.0.0.1:3100` (tek sunucu), Tailscale ile yalnızca senin ağında yayında
 
 ## 0. Başlamadan önce (bir kez)
+
+> **Şu an önemli:** Bu bilgisayarda Tailscale başka bir Windows kullanıcısına (`loltest`) geçmiş ve bağlantı kapalı.
+> Önce bilgisayarda: Tailscale'i çalıştıran kullanıcıyla oturum aç → görev çubuğundaki Tailscale simgesi →
+> **Connect** (bağlı olsun). Kalıcı çözüm: Tailscale menüsü → **Preferences / Tercihler → Run unattended**.
+> Sonra bana yaz; bağlantıyı yeniden doğrulayacağım. O zamana kadar aşağıdaki bağlantılar açılmaz.
 
 **Yol A — Tailscale (hazır, şimdi çalışıyor):**
 
@@ -34,6 +39,7 @@ Temel adres: **https://desktop-sdai72b.tailde1299.ts.net**
 | Ayarlar (dil) | https://desktop-sdai72b.tailde1299.ts.net/settings |
 | DEMO (sahte, etiketli) | https://desktop-sdai72b.tailde1299.ts.net/demo |
 | DEMO Handshake önizleme | https://desktop-sdai72b.tailde1299.ts.net/demo/handshake |
+| Cüzdan | https://desktop-sdai72b.tailde1299.ts.net/wallet |
 | Satıcı | https://desktop-sdai72b.tailde1299.ts.net/merchant |
 | Mağaza / ödeme sayfası | https://desktop-sdai72b.tailde1299.ts.net/checkout/taplytest.testnet |
 | Kişiler | https://desktop-sdai72b.tailde1299.ts.net/contacts |
@@ -67,7 +73,8 @@ hiçbir imza/onay istemiyorsa bağlayabilirsin; imza isterse iptal et.
 
 ### 01 — Ana sayfayı Safari'de aç
 1. Safari'de **Ana sayfa** bağlantısına dokun.
-2. Görmen gereken: üstte `taply.` logosu, sağda yeşil noktalı **NEAR Testnet** rozeti, ortada **Cüzdan bağla** düğmesi, altta **Cüzdan · Tap · Geçmiş** menüsü.
+2. Cüzdan bağlıysa bakiyenin altında üç büyük düğme görürsün: **Al**, **İste**, **Öde**.
+3. Görmen gereken: üstte `taply.` logosu, sağda yeşil noktalı **NEAR Testnet** rozeti, ortada **Cüzdan bağla** düğmesi, altta **Cüzdan · Tap · Geçmiş** menüsü.
 - Başarılı: sayfa 5 sn içinde açılır, yatay kaydırma yok.
 - Hatalı: beyaz sayfa, "bağlantı güvenli değil" uyarısı, sağa taşan içerik.
 
@@ -110,7 +117,7 @@ hiçbir imza/onay istemiyorsa bağlayabilirsin; imza isterse iptal et.
 
 ### 08 — Gerçek geçmiş Testnet satışı
 1. **Gerçek geçmiş 0,1 NEAR satış** bağlantısını aç.
-2. ~10 sn içinde: **Ödeme** başlığı, **0,1 NEAR**, **SATIŞ KODU KED 5E9**, alıcı `taplytest.testnet`, durum **Kontrata göre ödendi**. **Makbuzu doğrula** ve **Tekrar kontrol et** düğmeleri olur.
+2. ~10 sn içinde: **Ödeme** başlığı, **0,1 NEAR**, **SATIŞ KODU KED 5E9**, alıcı `taplytest.testnet`, durum **Ödeme kaydedildi** (altında "Doğrulama bekleniyor"). **Makbuzu doğrula** düğmesi, altında kapalı **Adımlar** ve **İşlem ayrıntıları** bölümleri ve **Tekrar kontrol et** olur. İçinde blok numarası gibi teknik bilgiler var; varsayılan ekranda görünmemeli.
 - Bu sahte değildir: 1 Kasım 2026'daki gerçek Testnet pilot ödemesidir ve zincirden şimdi okunur.
 - Hatalı: farklı tutar/hesap, sonsuz "Kontrol ediliyor", "Doğrulanmış Ödendi" yazısının yeşil şeritsiz görünmesi.
 
@@ -118,11 +125,11 @@ hiçbir imza/onay istemiyorsa bağlayabilirsin; imza isterse iptal et.
 1. **Gerçek geçmiş makbuz** bağlantısını aç; 1–2 dakika bekle.
 2. İki sonuçtan biri doğrudur:
    - **Doğrulanmış Ödendi** (yeşil/lime şerit + kanıt satırları) → taze doğrulama başarılı; ekran görüntüsü al.
-   - **Kontrata göre ödendi** + altında kesik çizgili **Arşivlenmiş doğrulama kaydı** kutusu → canlı doğrulama şu an olmadı (çoğunlukla RPC yoğunluğu). Bu da doğru davranıştır.
+   - **Ödeme kaydedildi** (altında "Doğrulama bekleniyor") + altında kesik çizgili **Arşivlenmiş doğrulama kaydı** kutusu → canlı doğrulama şu an olmadı (çoğunlukla RPC yoğunluğu). Bu da doğru davranıştır.
 - Hatalı: arşiv kutusu varken üstte "Doğrulanmış Ödendi" yazması.
 
 ### 10 — RPC yoğunken arşiv kaydı açıkça etiketli mi
-1. 09'da arşiv kutusu çıktıysa: üstünde **"Arşiv · canlı kontrol değil"** rozeti olmalı ve metinde "zincirin yeni bir okuması değildir" yazmalı.
+1. 09'da arşiv kutusu çıktıysa: üstünde **"Arşiv kaydı · canlı doğrulama değil"** rozeti olmalı ve metinde "yeni zincir okuması değil" yazmalı.
 2. **Arşivlenmiş doğrulayıcı JSON dosyasını aç**'a bas: bir JSON sayfası açılır (`checkedAt: 2026-11-01T15:36:30.100Z`).
 3. "RPC yoğun: doğrulama duraklatıldı" görürsen altındaki saati not al.
 - 09'da taze **Doğrulanmış Ödendi** çıktıysa bu adım **BLOCKED** (RPC yoğun değildi; arşiv gösterilmedi). Bu iyi bir şey.
@@ -146,7 +153,7 @@ hiçbir imza/onay istemiyorsa bağlayabilirsin; imza isterse iptal et.
 - Cüzdan bağlıysa (isteğe bağlı): **Yeni şablon** → İsim `Kira`, Tutar `1,5`, Tekrar **Her ay**, İlk tarih bugün → **Şablonu kaydet**. Kartta **Zamanı geldi: …** ve gelecek tarihler görünmeli.
 
 ### 14 — Kendiliğinden para göndermediğini doğrula
-1. Sayfanın üstündeki kalkan simgeli yazıyı oku: "Şablon, abonelik değil: Taply kimseden kendiliğinden para çekmez…".
+1. Başlığın altındaki küçük kalkanlı etiketi oku: **"Otomatik ödeme yok · her talebi sen onaylarsın"**.
 2. (Cüzdan bağlıysa) **… için talebi hazırla**'ya bas: talep formu doldurulmuş açılır, üstte "“Kira” şablonundan" notu olur. **Devam et**'e basma, cüzdanda hiçbir şey onaylama; geri dön.
 - Başarılı: hiçbir cüzdan penceresi kendiliğinden açılmaz.
 
@@ -155,7 +162,8 @@ hiçbir imza/onay istemiyorsa bağlayabilirsin; imza isterse iptal et.
 - Cüzdan bağlıysa: **Böl ve Öde** → **Yeni bölüşüm** → Ne için? `Yemek`, Toplam `1`, **Eşit**, İsim 1 `Ali`, İsim 2 `Can`, **Kişi ekle**, İsim 3 `Deniz` → **Bölüşümü kaydet**.
 
 ### 16 — Paylar tam olarak 1 NEAR mı
-1. Kaydetmeden önce paylar şöyle görünmeli: **0,333333333333333333333334 NEAR**, **0,333333333333333333333333 NEAR**, **0,333333333333333333333333 NEAR** (toplam tam 1).
+1. Kaydetmeden önce her pay **≈ 0,33333 NEAR** görünmeli (≈ yuvarlandığını gösterir).
+2. **Kesin tutarlar**'a dokun: **0,333333333333333333333334**, **0,333333333333333333333333**, **0,333333333333333333333333 NEAR** (toplam tam 1).
 2. **Özel tutarlar**'ı seçip 0,5 + 0,4 yazarsan "toplamdan … farklı" uyarısı çıkmalı ve kaydetmemeli.
 - Cüzdan bağlı değilse **BLOCKED**.
 
@@ -169,7 +177,7 @@ Gezdiğin tüm sayfalarda kontrol et: **Doğrulanmış Ödendi** yalnızca 09'da
 ### 19 — İnterneti kapat / aç
 1. Gerçek geçmiş satış sayfası açıkken **Uçak modu**nu aç, sayfayı yenile.
 2. Hata ekranı veya "kontrol edilemedi" mesajı görmelisin; asla "ödendi" değil.
-3. Uçak modunu kapat, Tailscale'in tekrar **Connected** olmasını bekle, **Tekrar kontrol et**'e bas: **Kontrata göre ödendi** geri gelmeli.
+3. Uçak modunu kapat, Tailscale'in tekrar **Connected** olmasını bekle, **Tekrar kontrol et**'e bas: **Ödeme kaydedildi** (altında "Doğrulama bekleniyor") geri gelmeli.
 
 ### 20 — Ana Ekrana ekle
 1. Safari'de ana sayfa açıkken alttaki **Paylaş** simgesi (kare + yukarı ok) → **Ana Ekrana Ekle** → ad **Taply** → **Ekle**.

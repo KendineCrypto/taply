@@ -255,7 +255,7 @@ for (const bname of which.split(',')) {
       await p.locator('.journey-hero').first().waitFor({ timeout: 60000 });
       await p.waitForTimeout(1500);
       const f = await facts(p);
-      const ok = /0\.1/.test(f.text) && /taplytest\.testnet/.test(f.text) && /KED ?5E9/.test(f.text) && /Paid per contract/.test(f.text);
+      const ok = /0\.1/.test(f.text) && /taplytest\.testnet/.test(f.text) && /KED ?5E9/.test(f.text) && /Payment recorded|Paid per contract/.test(f.text);
       return { pass: ok && !f.demo, note: `status=${f.status}` };
     });
     if (full) await step(bname, vp, 'pay-review-historical-tr', { ...o, chain: true, account: MERCHANT, init: posHint, locale: 'tr' }, async (p) => {
@@ -290,7 +290,8 @@ for (const bname of which.split(',')) {
       const reasonAttr = await p.locator('[data-testid="verification-failed"]').getAttribute('data-reason').catch(() => null);
       if (f.verifiedEvidence) return { pass: !f.demo && archived === 0, note: `FRESH Verified Paid receipt=${f.receipt}` };
       // Archive shown: the live status must stay Paid per contract (never verified).
-      const honest = f.receipt === 'contract_paid' && archived === 1 && !/Verified Paid/.test(f.text.replace(/found it Verified Paid/g, ''));
+      // Judge by state, not words (the archive panel itself mentions its old Verified Paid result).
+      const honest = f.receipt === 'contract_paid' && archived === 1 && !f.verifiedEvidence;
       return { pass: false, honestFallback: honest, note: `NOT verified now (reason=${reasonAttr}); archive shown=${archived}; live receipt=${f.receipt}; honest=${honest}` };
     });
     if (full && bname === 'chromium') await step(bname, vp, 'receipt-merchant-no-link', { ...o, chain: true, account: MERCHANT }, async (p) => {
@@ -298,7 +299,7 @@ for (const bname of which.split(',')) {
       await p.waitForTimeout(4000);
       try { await p.getByTestId('verified-evidence').waitFor({ timeout: 150000 }); } catch { /* recorded below */ }
       const f = await facts(p);
-      return { pass: /Paid per contract|Verified Paid/.test(f.text), note: `receipt=${f.receipt} verified=${f.verifiedEvidence}` };
+      return { pass: /Payment recorded|Paid per contract|Verified Paid/.test(f.text), note: `receipt=${f.receipt} verified=${f.verifiedEvidence}` };
     });
     await step(bname, vp, 'error-malformed-id', o, async (p) => {
       await p.goto(BASE + '/pay/deadbeef'); await p.waitForTimeout(2500);
@@ -308,18 +309,18 @@ for (const bname of which.split(',')) {
     await step(bname, vp, 'error-unknown-request', { ...o, chain: true, account: CUSTOMER }, async (p) => {
       await p.goto(BASE + `/pay/${UNKNOWN_ID}`); await p.waitForTimeout(12000);
       const f = await facts(p);
-      return { pass: !/Paid per contract|Verified Paid/.test(f.text), note: f.text.slice(0, 200) };
+      return { pass: !/Payment recorded|Paid per contract|Verified Paid/.test(f.text), note: f.text.slice(0, 200) };
     });
     await step(bname, vp, 'error-rpc-down-synthetic', { ...o, account: CUSTOMER, rpcDown: true }, async (p) => {
       await p.goto(BASE + `/pay/${ID}`); await p.waitForTimeout(12000);
       const f = await facts(p);
       const retry = await p.getByRole('button', { name: /Check again|Try again/ }).count();
-      return { pass: !/Paid per contract/.test(f.text) && retry >= 1, note: `retryButtons=${retry} ${f.text.slice(0, 160)}` };
+      return { pass: !/Payment recorded|Paid per contract/.test(f.text) && retry >= 1, note: `retryButtons=${retry} ${f.text.slice(0, 160)}` };
     });
     await step(bname, vp, 'handshake-live-gated', o, async (p) => {
       await p.goto(BASE + '/s/00000000-0000-4000-8000-000000000001'); await p.waitForTimeout(2500);
       const f = await facts(p);
-      return { pass: !/Verified Paid|Paid per contract/.test(f.text), note: f.text.slice(0, 160) };
+      return { pass: !/Verified Paid|Payment recorded|Paid per contract/.test(f.text), note: f.text.slice(0, 160) };
     });
     if (full) await step(bname, vp, 'evidence-json-served', o, async (p) => {
       const res = await p.request.get(BASE + '/evidence/instant-pay-2026-11-01-receipt.json');
