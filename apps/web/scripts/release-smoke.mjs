@@ -66,7 +66,11 @@ async function open(browser, name, { width, height, mobile, locale = 'en', accou
   await context.route('**/*', async (route) => {
     const req = route.request();
     const url = new URL(req.url());
-    if (url.origin === BASE) return route.continue();
+    // Protected Vercel Preview: send the short-lived OIDC token to our own origin only, never to RPC hosts.
+    if (url.origin === BASE) {
+      const token = process.env.VERCEL_OIDC_TOKEN;
+      return token ? route.continue({ headers: { ...req.headers(), 'x-vercel-trusted-oidc-idp-token': token } }) : route.continue();
+    }
     if (RPC_HOSTS.has(url.host)) {
       let body = {};
       try { body = JSON.parse(req.postData() ?? '{}'); } catch { /* not json */ }
@@ -167,7 +171,9 @@ const PROBES = [
   ['zod allowsEval probe', 'return Function(""),!0}catch'],
 ];
 async function knownProbe(src, col) {
-  if (!chunkCache.has(src)) chunkCache.set(src, await fetch(src).then((r) => r.text()).catch(() => ''));
+  const token = process.env.VERCEL_OIDC_TOKEN;
+  const headers = token && new URL(src).origin === BASE ? { 'x-vercel-trusted-oidc-idp-token': token } : {};
+  if (!chunkCache.has(src)) chunkCache.set(src, await fetch(src, { headers }).then((r) => r.text()).catch(() => ''));
   const text = chunkCache.get(src);
   const around = text.slice(Math.max(0, col - 400), col + 200);
   const hit = PROBES.find(([, code]) => around.includes(code));
@@ -323,7 +329,8 @@ for (const bname of which.split(',')) {
       return { pass: !/Verified Paid|Payment recorded|Paid per contract/.test(f.text), note: f.text.slice(0, 160) };
     });
     if (full) await step(bname, vp, 'evidence-json-served', o, async (p) => {
-      const res = await p.request.get(BASE + '/evidence/instant-pay-2026-11-01-receipt.json');
+      const token = process.env.VERCEL_OIDC_TOKEN;
+      const res = await p.request.get(BASE + '/evidence/instant-pay-2026-11-01-receipt.json', token ? { headers: { 'x-vercel-trusted-oidc-idp-token': token } } : {});
       const json = await res.json();
       return { pass: res.status() === 200 && json.requestId === ID && json.verification?.checkedAt === '2026-11-01T15:36:30.100Z', note: `status=${res.status()}` };
     });
