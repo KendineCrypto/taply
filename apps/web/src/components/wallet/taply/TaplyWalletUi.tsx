@@ -133,9 +133,9 @@ export function TaplyIdentityCard({ actions }: { readonly actions?: ReactNode })
             <p className="mt-2 flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
               <Icon name="check" size={14} className="text-[var(--taply-lime)]" />
               {fill(t.balance.verifiedAt, {
-                height: formatBaseUnits(state.balance.blockHeight, 0, { locale }).exact,
                 time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(nsToDate(state.balance.blockTimestampNs)),
               })}
+              <span className="sr-only">{fill(t.balance.finalBlock, { height: formatBaseUnits(state.balance.blockHeight, 0, { locale }).exact })}</span>
             </p>
           </>
         ) : (

@@ -34,8 +34,12 @@ import { useFundingLocator } from '@/lib/verify/use-funding-locator';
 import { useReceiptVerification } from '@/lib/verify/use-receipt-verification';
 import { useWallet } from '@/lib/wallet/provider';
 
-// Exact to the last yoctoNEAR: a split share must never be shown shortened.
-const near = (units: bigint | string, locale: 'en' | 'tr') => `${formatBaseUnits(units.toString(), NEAR_NATIVE.decimals, { locale }).exact} NEAR`;
+// Readable by default ("≈" when digits were dropped); the exact value is one tap away.
+const near = (units: bigint | string, locale: 'en' | 'tr') => {
+  const f = formatBaseUnits(units.toString(), NEAR_NATIVE.decimals, { locale });
+  return `${f.truncated ? '≈ ' : ''}${f.display} NEAR`;
+};
+const exactNear = (units: bigint | string, locale: 'en' | 'tr') => `${formatBaseUnits(units.toString(), NEAR_NATIVE.decimals, { locale }).exact} NEAR`;
 
 /** `/split` (UX_FLOWS screen 20). */
 export function SplitScreen({ storage }: { readonly storage?: SplitStorage | null }) {
@@ -51,9 +55,6 @@ export function SplitScreen({ storage }: { readonly storage?: SplitStorage | nul
   const header = (
     <>
       <ScreenHeader title={s.title} description={s.description} />
-      <p className="mb-4 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-sm text-[var(--text-secondary)]">
-        {s.howItWorks}
-      </p>
     </>
   );
   const state = store.state;
@@ -121,7 +122,10 @@ export function SplitScreen({ storage }: { readonly storage?: SplitStorage | nul
             ))}
           </ul>
         )}
-        <p className="text-xs text-[var(--text-muted)]">{t.app.demoFundsNote}</p>
+        <details className="disclosure px-1">
+          <summary className="flex min-h-[var(--tap-target)] cursor-pointer items-center text-sm text-[var(--text-secondary)]">{s.howItWorksTitle}</summary>
+          <p className="pb-2 text-sm text-[var(--text-secondary)]">{s.howItWorks}</p>
+        </details>
       </div>
       <Sheet
         open={deleting !== null}
@@ -196,7 +200,6 @@ function GroupCard({ group, account, onDelete }: { readonly group: SplitGroup; r
         ))}
       </ol>
       {!mine && account !== null && <p className="text-xs text-[var(--tone-caution-fg)]">{fill(s.otherAccount, { account: group.recipientAccountId })}</p>}
-      <p className="text-xs text-[var(--text-muted)]">{s.notVerifiedSession}</p>
       <div className="flex flex-wrap gap-2">
         {group.participants.some((p) => p.requestId !== null) && (
           <Button variant="secondary" onClick={() => setCheckTick((n) => n + 1)}>
@@ -269,7 +272,7 @@ function ChildRow({
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="font-semibold">{near(p.amountBaseUnits, locale)}</p>
+          <p className="font-semibold" title={exactNear(p.amountBaseUnits, locale)}>{near(p.amountBaseUnits, locale)}</p>
           <span className={`text-xs ${status === 'verified' ? 'text-[var(--taply-lime)]' : status === 'mismatch' || status === 'expired' || status === 'payout_failed' ? 'text-[var(--tone-danger-fg)]' : 'text-[var(--text-secondary)]'}`}>
             {status === 'checking' ? (
               <>
@@ -435,7 +438,11 @@ function SplitForm({
             {mode === 'custom' ? (
               <TextField id={`${base}-p${person.key}-share`} label={`${s.personShare} ${i + 1}`} inputMode="decimal" value={person.share} onChange={(v) => setPeople((ps) => ps.map((x) => (x.key === person.key ? { ...x, share: v } : x)))} />
             ) : (
-              preview !== null && <p className="text-sm font-semibold" data-testid="split-equal-share">{near(preview[i] ?? 0n, locale)}</p>
+              preview !== null && (
+                <p className="text-sm font-semibold" data-testid="split-equal-share" data-exact={exactNear(preview[i] ?? 0n, locale)}>
+                  {near(preview[i] ?? 0n, locale)}
+                </p>
+              )
             )}
             {people.length > 2 && (
               <button
@@ -457,6 +464,19 @@ function SplitForm({
         >
           {s.addPerson}
         </Button>
+      )}
+      {preview !== null && preview.some((v) => formatBaseUnits(v.toString(), NEAR_NATIVE.decimals).truncated) && (
+        <details className="disclosure" data-testid="split-exact">
+          <summary className="flex min-h-[var(--tap-target)] cursor-pointer items-center text-sm text-[var(--text-secondary)]">{s.exactTitle}</summary>
+          <ol className="flex flex-col gap-1 pb-2 text-xs">
+            {preview.map((v, i) => (
+              <li key={i} className="chain-id break-all">
+                {people[i]?.label || i + 1}: {exactNear(v, locale)}
+              </li>
+            ))}
+          </ol>
+          <p className="pb-2 text-xs text-[var(--text-muted)]">{s.exactNote}</p>
+        </details>
       )}
       {mode === 'custom' && diff !== null && (
         <p className={`text-sm ${diff === 0n ? 'text-[var(--text-secondary)]' : 'text-[var(--tone-caution-fg)]'}`} data-testid="split-sum" aria-live="polite">

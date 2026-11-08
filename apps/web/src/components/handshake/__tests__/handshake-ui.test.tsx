@@ -76,7 +76,7 @@ describe('handshake demo', () => {
     next();
     expect(screen.getByText('Ready for wallet approval')).toBeTruthy();
     expect(screen.getByText(/The demo stops here/)).toBeTruthy();
-    expect(screen.queryByText(/Verified Paid|Paid per contract|Payment complete/)).toBeNull();
+    expect(screen.queryByText(/Verified Paid|Payment recorded|Payment complete/)).toBeNull();
     expect(screen.getByRole('button', { name: /Restart/ })).toBeTruthy();
   });
 

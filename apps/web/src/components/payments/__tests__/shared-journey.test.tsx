@@ -40,7 +40,7 @@ const hero = async () => must((await screen.findByTestId('journey-counterpart'))
 const getRequestReads = (chain: ReturnType<typeof installChain>) => chain.calls.filter((c) => c.methodName === 'get_request').length;
 
 describe('merchant phone (receiver)', () => {
-  it('a POS sale: ready state with QR and code, then moves to Paid per contract by itself, never Verified Paid', async () => {
+  it('a POS sale: ready state with QR and code, then moves to Payment recorded by itself, never Verified Paid', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.stubEnv('NEXT_PUBLIC_TAPLY_SHARE_ORIGIN', 'https://pilot.taply.app');
     window.localStorage.setItem(POS_SALES_KEY, JSON.stringify([ID]));
@@ -68,7 +68,7 @@ describe('merchant phone (receiver)', () => {
     });
     expect(getRequestReads(chain)).toBeGreaterThan(before);
     const paid = await hero();
-    expect(within(paid).getByRole('heading', { name: 'Paid per contract' })).toBeTruthy();
+    expect(within(paid).getByRole('heading', { name: 'Payment recorded' })).toBeTruthy();
     expect(within(paid).getByTestId('proof-legend').textContent).toContain('Verified Paid: Not checked on this screen');
     expect(paid.getAttribute('data-tone')).not.toBe('success');
     expect(paid.getAttribute('data-live')).toBeNull();

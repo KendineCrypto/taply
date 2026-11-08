@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { prepareCancelUnfunded, preparePayInstantNative, prepareRetryNativeTransfer } from '@taply/near-client';
@@ -164,9 +165,10 @@ function PaymentLive({ id }: { readonly id: string }) {
         live={live}
         onRun={run}
         onRefresh={refresh}
+        provenance={<Provenance block={block} checkedAt={checkedAt} />}
       />
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        {view !== null && <Provenance block={block} checkedAt={checkedAt} />}
+        {view !== null && view.kind !== 'ok' && <Provenance block={block} checkedAt={checkedAt} />}
         <Button variant="ghost" onClick={checkAgain} disabled={loading} className="-mr-2 px-2">
           {loading ? (
             <>
@@ -208,6 +210,7 @@ function PaymentLive({ id }: { readonly id: string }) {
 
 function ViewBody({
   id,
+  provenance,
   view,
   accountId,
   attempts,
@@ -226,6 +229,7 @@ function ViewBody({
   readonly live: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
   readonly onRefresh: () => void;
+  readonly provenance: ReactNode;
 }) {
   const t = useT();
   if (view === null) {
@@ -275,6 +279,7 @@ function ViewBody({
           live={live}
           onRun={onRun}
           onRefresh={onRefresh}
+          provenance={provenance}
         />
       );
   }
@@ -282,6 +287,7 @@ function ViewBody({
 
 function RequestView({
   id,
+  provenance,
   view,
   accountId,
   attempts,
@@ -300,6 +306,7 @@ function RequestView({
   readonly live: boolean;
   readonly onRun: (call: PreparedContractCall, request: ContractRequest, operationNonce?: string) => Promise<void>;
   readonly onRefresh: () => void;
+  readonly provenance: ReactNode;
 }) {
   const t = useT();
   const { setup, check, signingBlock, ensureFreshCheck, now } = usePayments();
@@ -524,10 +531,10 @@ function RequestView({
 
       <details className="disclosure">
         <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 px-1 text-sm font-medium text-[var(--text-secondary)]">
-          {t.oneTap.payment.details}
+          {t.oneTap.payment.transactionDetails}
           <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
         </summary>
-        <div className="mt-2">
+        <div className="mt-2 flex flex-col gap-2">
           <RequestTerms request={request}>
             {request.payerAccountId !== null && (
               <DetailRow label={t.payment.status.payerLabel}>
@@ -547,6 +554,7 @@ function RequestView({
               </DetailRow>
             )}
           </RequestTerms>
+          {provenance}
         </div>
       </details>
     </>

@@ -209,10 +209,11 @@ function BalanceFigure({ verified, stale }: { readonly verified: VerifiedBalance
         ) : (
           <>
             <Icon name="check" size={14} className="text-[var(--taply-lime)]" />
-            {fill(t.balance.verifiedAt, {
-              height: formatBaseUnits(verified.observedBlock.height, 0, { locale }).exact,
-              time: formatTime(verified.checkedAt, locale),
-            })}
+            {/* Block height is evidence, not headline: tooltip + screen readers only. */}
+            <span title={fill(t.balance.finalBlock, { height: formatBaseUnits(verified.observedBlock.height, 0, { locale }).exact })}>
+              {fill(t.balance.verifiedAt, { time: formatTime(verified.checkedAt, locale) })}
+            </span>
+            <span className="sr-only">{fill(t.balance.finalBlock, { height: formatBaseUnits(verified.observedBlock.height, 0, { locale }).exact })}</span>
           </>
         )}
       </p>

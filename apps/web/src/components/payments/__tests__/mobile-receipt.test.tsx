@@ -10,7 +10,7 @@ import { VerifierRpcError } from '@/lib/verify/rpc';
 import { buildPaidChain, hashOf } from '@/lib/verify/__tests__/fake-chain';
 
 /**
- * Phase 6A, task 4: the pilot's mobile payment showed "Paid per contract" and
+ * Phase 6A, task 4: the pilot's mobile payment showed "Payment recorded" and
  * "Settlement proof not available on this device". On a wallet redirect the pay
  * screen can see FINAL_PAID and resolve the attempt before the returned hash is
  * matched on chain; the hash was then dropped. Now it is attached, the receipt
@@ -180,7 +180,7 @@ describe('missing transaction evidence stays honest', () => {
     window.history.replaceState(null, '', `/receipt/${ID}`);
     renderWithChain(<ReceiptScreen id={ID} />, { setup, adapter: recordingWallet(PAYER).adapter, storage });
     expect(await screen.findByText('Your wallet did not return the transaction reference')).toBeTruthy();
-    expect(screen.getByText('Paid per contract')).toBeTruthy();
+    expect(screen.getByText('Payment recorded')).toBeTruthy();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
   });
@@ -193,7 +193,7 @@ describe('missing transaction evidence stays honest', () => {
     window.history.replaceState(null, '', `/receipt/${ID}`);
     renderWithChain(<ReceiptScreen id={ID} />, { setup, adapter: recordingWallet(PAYER).adapter, storage });
     expect(await screen.findByText('Matching the transaction your wallet returned to this payment…')).toBeTruthy();
-    expect(screen.getByText('Paid per contract')).toBeTruthy();
+    expect(screen.getByText('Payment recorded')).toBeTruthy();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
   });
 

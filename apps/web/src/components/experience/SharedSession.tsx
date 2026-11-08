@@ -158,7 +158,7 @@ export function SharedSession({
 
       <details className="disclosure mt-3" data-testid="journey-details">
         <summary className="flex min-h-[44px] cursor-pointer items-center justify-between text-sm text-[var(--text-secondary)]">
-          {t.oneTap.payment.details}
+          {t.oneTap.payment.steps}
           <Icon name="chevron" size={16} className="disclosure-chevron" />
         </summary>
         <JourneyTimeline stage={stage} />

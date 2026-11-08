@@ -48,7 +48,7 @@ describe('evidence-led motion hooks', () => {
     }
   });
 
-  it('the settle pop plays only on the Contract step, only at Paid per contract', () => {
+  it('the settle pop plays only on the Contract step, only at Payment recorded', () => {
     for (const stage of STAGES) {
       renderStage(stage);
       const settled = [...document.querySelectorAll('[data-settle]')];

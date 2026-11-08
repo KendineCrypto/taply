@@ -49,7 +49,7 @@ describe('receipt ticket', () => {
   it('never animates a receipt that is only paid per contract', () => {
     renderTicket({ status: 'contract_paid', celebrateKey: 'req:cb3' });
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Paid per contract' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Payment recorded' })).toBeTruthy();
     expect(celebrating()).toBeNull();
     expect(document.querySelector('svg[width="28"] path')?.getAttribute('d')).toBe('M12 8v4.5l3 1.5');
     expect(screen.getByText('Independent receipt check pending').closest('details')).toBeNull();

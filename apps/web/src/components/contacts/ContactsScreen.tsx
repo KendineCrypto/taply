@@ -172,7 +172,6 @@ export function ContactsScreen({ storage }: { readonly storage?: ContactStorage 
             )}
           </>
         )}
-        <p className="text-xs text-[var(--text-muted)]">{t.app.demoFundsNote}</p>
       </div>
 
       <Sheet

@@ -118,7 +118,7 @@ describe('receipt verification on /receipt/[id]', () => {
     expect(await screen.findByTestId('verified-evidence')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Verified Paid' })).toBeTruthy();
     expect(document.querySelector('[data-receipt-status="verified"]')).not.toBeNull();
-    expect(screen.queryByText('Paid per contract')).toBeNull();
+    expect(screen.queryByText('Payment recorded')).toBeNull();
     expect(screen.getByRole('button', { name: 'Copy verification link' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Copy receipt evidence (JSON)' })).toBeTruthy();
     expect(screen.getByText('fake-testnet')).toBeTruthy();
@@ -141,7 +141,7 @@ describe('receipt verification on /receipt/[id]', () => {
     expect(screen.getByText('Payout transaction')).toBeTruthy();
   });
 
-  it('without any transaction hash stays "Paid per contract" and never verified', async () => {
+  it('without any transaction hash stays "Payment recorded" and never verified', async () => {
     const { setup } = setupFor(paidRestricted);
     renderWithChain(<ReceiptScreen id={paidRestricted.terms.id} />, {
       setup,
@@ -149,7 +149,7 @@ describe('receipt verification on /receipt/[id]', () => {
     });
 
     expect(await screen.findByText('Settlement proof not available on this device')).toBeTruthy();
-    expect(screen.getByText('Paid per contract')).toBeTruthy();
+    expect(screen.getByText('Payment recorded')).toBeTruthy();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
     expect(document.querySelector('[data-receipt-status="contract_paid"]')).not.toBeNull();
@@ -179,7 +179,7 @@ describe('receipt verification on /receipt/[id]', () => {
     expect(screen.getByText('TRANSFER_MISMATCH')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
-    expect(screen.getByText('Paid per contract')).toBeTruthy();
+    expect(screen.getByText('Payment recorded')).toBeTruthy();
   });
 
   it('a forged link hash cannot verify', async () => {
@@ -230,7 +230,7 @@ describe('Phase 7H: receipt read failure', () => {
     const retry = screen.getAllByRole('button', { name: /Check again/ });
     expect(retry).toHaveLength(1);
     fireEvent.click(retry[0] as HTMLElement);
-    expect(await screen.findByText('Paid per contract')).toBeTruthy();
+    expect(await screen.findByText('Payment recorded')).toBeTruthy();
     expect(screen.queryByText('Could not read the request')).toBeNull();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
   });

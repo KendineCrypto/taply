@@ -22,7 +22,7 @@ export const en: Dictionary = {
   app: {
     name: 'Taply',
     networkBadge: 'NEAR Testnet',
-    demoFundsNote: 'Test funds only. No real money, no fiat value.',
+    demoFundsNote: 'Test funds only.',
     skipToContent: 'Skip to main content',
     languageLabel: 'Language',
   },
@@ -352,7 +352,7 @@ export const en: Dictionary = {
     },
     socialLoginUnavailable: {
       title: 'Not available for Testnet',
-      body: 'This sign-in method cannot provide a Testnet wallet yet. Continue with a supported wallet.',
+      body: 'Continue with a supported wallet.',
     },
     chainTimeUnavailable: {
       title: 'Chain time unavailable',
@@ -423,9 +423,9 @@ export const en: Dictionary = {
     walletLabel: 'Wallet',
     connectTitle: 'Connect a NEAR Testnet wallet',
     connectBody: "Connect your NEAR Testnet wallet.",
-    noKeysNote: 'Taply never sees or stores your keys. Every transfer is approved in your own wallet.',
+    noKeysNote: 'Taply never sees your keys.',
     reportedNotProven:
-      'Your wallet shared this account ID. Nothing has been signed, and connecting cannot move funds.',
+      'Connecting signs nothing.',
     disabled: {
       title: 'Wallet connection is off',
       body: 'Wallet connection is switched off in this build.',
@@ -462,7 +462,8 @@ export const en: Dictionary = {
     title: 'Testnet balance',
     refresh: 'Refresh balance',
     refreshing: 'Refreshing',
-    verifiedAt: 'Final block #{height} · {time}',
+    verifiedAt: 'Updated · {time}',
+    finalBlock: 'Final block #{height}',
     staleAt: 'Last verified {time}. The latest read failed.',
     storageNote: 'Total account balance. Part of it is reserved for storage and cannot be sent.',
     lockedLabel: 'Locked (staked)',
@@ -555,7 +556,7 @@ export const en: Dictionary = {
     contractNotDeployed: 'Not configured',
     rpcLabel: 'Testnet service',
     diagnosticsLink: 'Open diagnostics',
-    diagnosticsBody: 'Technical details about this build, for reviewers.',
+    diagnosticsBody: 'Technical details for reviewers.',
     notConnected: 'No wallet connected',
   },
 
@@ -599,7 +600,7 @@ export const en: Dictionary = {
 
   payment: {
     contractPaid: {
-      label: 'Paid per contract',
+      label: 'Payment recorded',
       payer: 'The contract recorded this payment as paid to the recipient. A separately verified receipt is not available yet.',
       recipient: 'The contract recorded the transfer to your account as paid. A separately verified receipt is not available yet.',
       announce: 'Contract state says paid at a finalized block. Settlement receipt not independently verified yet.',
@@ -628,7 +629,7 @@ export const en: Dictionary = {
       },
       rateLimited: {
         title: 'NEAR Testnet RPC is busy',
-        body: 'The public RPC asked us to slow down (too many requests). This is not a payment result. Signing stays off; wait a minute and try again.',
+        body: 'The RPC is busy. Not a payment result; try again shortly.',
       },
       unreachable: {
         title: 'Could not check the payments contract',
@@ -638,12 +639,12 @@ export const en: Dictionary = {
         title: 'Contract code does not match',
         body: 'The contract account is running different code from the approved version. Nothing from it is shown or signed.',
       },
-      verifiedContract: 'Contract code hash checked at a finalized block',
+      verifiedContract: 'Contract code checked',
     },
     signing: {
       flagOff: {
         title: 'Transactions are switched off',
-        body: "Review only; signing is disabled.",
+        body: 'Signing is off in this build.',
       },
       unverified: {
         title: 'Contract not verified yet',
@@ -685,7 +686,7 @@ export const en: Dictionary = {
     create: {
       connectFirst: 'Connect your Testnet wallet to create a request. You will be the recipient.',
       amountLabel: 'Amount (NEAR)',
-      amountHint: 'Testnet NEAR only. Up to 24 decimal places.',
+      amountHint: 'Testnet NEAR',
       memoLabel: 'Note (optional)',
       memoHint: 'Shown to the payer. Up to 256 bytes. Stored on chain and public.',
       payerLabel: 'Only this account may pay (optional)',
@@ -699,7 +700,7 @@ export const en: Dictionary = {
       quoting: 'Getting the contract quote…',
       quoteTitle: 'Check before you sign',
       storageBond: 'Storage bond',
-      storageBondNote: 'Paid by you to store this request permanently on chain. It is not refunded, even if the request is cancelled.',
+      storageBondNote: 'Stores the request on chain; not refunded.',
       gasLabel: 'Gas allowance',
       gasNote: 'Prepaid gas; unused gas is returned by NEAR. Your wallet shows the final fee.',
       requestIdLabel: 'Request ID',
@@ -845,7 +846,7 @@ export const en: Dictionary = {
       },
       failedTransient: {
         title: 'Could not verify yet',
-        body: 'Could not reach the NEAR Testnet RPC to verify the receipt (it may be offline or limiting requests). Do not pay again.',
+        body: 'Could not reach the RPC. Do not pay again.',
       },
       historyUnavailable: {
         title: 'History not available from this RPC',
@@ -858,15 +859,15 @@ export const en: Dictionary = {
       reasonCode: 'Reason code',
       rateLimited: {
         title: 'RPC busy: verification paused',
-        body: 'The public NEAR Testnet RPC asked us to slow down. Nothing about this payment changed and nothing was concluded. Do not pay again.',
+        body: 'The RPC is busy; verification paused. Do not pay again.',
       },
       rateLimitedUntil: 'You can check again after {time}.',
       autoRetryAt: 'Checking again automatically at {time}.',
       archived: {
-        badge: 'Archived · not a live check',
+        badge: 'Archived record · not a live check',
         title: 'Archived verification record',
-        body: "On {date}, Taply's verifier checked this payment through {provider} and found it Verified Paid. This is the saved result of that check, not a new read of the chain. Today's status is shown above.",
-        whenUnreadable: 'The chain could not be read just now, so no current status is shown.',
+        body: 'Verified Paid on {date} via {provider}. Saved result, not a new chain read.',
+        whenUnreadable: 'The chain could not be read just now.',
         checkedAt: 'Checked at (UTC)',
         provider: 'Checked via RPC',
         stateBlock: 'Contract state block',
@@ -905,10 +906,10 @@ export const en: Dictionary = {
         wallet: { title: 'Approve in your wallet', body: 'Your wallet is open. Nothing moves until you approve there.' },
         transfer: {
           title: 'Transfer in progress',
-          body: 'The payment reached the contract, which is sending it to the recipient. Not confirmed yet.',
+          body: 'The contract is paying the recipient.',
         },
         contract_paid: {
-          title: 'Paid per contract',
+          title: 'Payment recorded',
           body: 'The contract recorded the payout. The independent receipt check has not run on this screen.',
         },
         verified: {
@@ -940,7 +941,7 @@ export const en: Dictionary = {
     receipt: {
       verified: 'Verified Paid',
       verifiedSub: 'Checked against on-chain receipts',
-      contractPaid: 'Paid per contract',
+      contractPaid: 'Payment recorded',
       contractPaidSub: 'Independent receipt check pending',
       cancelled: 'Cancelled',
       cancelledSub: 'Nothing was paid',
@@ -953,7 +954,7 @@ export const en: Dictionary = {
     },
     review: {
       networkFee: 'Network fee',
-      networkFeeValue: 'Paid as gas in your wallet. Taply adds no fee.',
+      networkFeeValue: 'Wallet gas · no Taply fee',
       walletAction: 'Wallet action',
       walletActionValue: 'Send exactly this amount to the payment contract',
       contract: 'Payment contract',
@@ -974,34 +975,34 @@ export const en: Dictionary = {
       title: 'Taply in 60 seconds',
       intro:
         'These are the real Taply screens filled with demo data. No wallet opens, nothing is signed and nothing touches the chain.',
-      synthetic: 'Demo data. Not a Testnet payment.',
+      synthetic: 'Demo · not a real payment',
       stepOf: 'Step {n} of {total}',
       progressLabel: 'Tour progress',
       steps: {
-        home: { title: 'Your wallet', caption: 'Your account, your balance and three actions: send, receive and request.' },
-        create: { title: 'Create a request', caption: 'Type an amount. You are the recipient, so nobody can swap the payee.' },
-        share: { title: 'Share it', caption: 'One link and one QR code. The payer needs nothing but a NEAR wallet.' },
+        home: { title: 'Your wallet', caption: 'Balance and three actions.' },
+        create: { title: 'Create a request', caption: 'Enter an amount. You receive it.' },
+        share: { title: 'Share it', caption: 'One link, one QR.' },
         review: {
           title: 'Payer reviews',
-          caption: 'Full recipient, exact amount, network and the wallet action, before anything is signed.',
+          caption: 'Everything is visible before paying.',
         },
         progress: {
           title: 'Watch it settle',
-          caption: 'Each state is shown as it is. Observed is never presented as verified.',
+          caption: 'Status comes from the chain.',
         },
-        receipt: { title: 'Verified receipt', caption: 'Verified Paid only when receipts on chain prove it.' },
+        receipt: { title: 'Verified receipt', caption: 'A receipt proven on chain.' },
       },
       next: 'Next',
       back: 'Back',
       restart: 'Start over',
       approveDemo: 'Approve in wallet (demo)',
       createDemo: 'Create request (demo)',
-      approveNote: 'In the demo this only moves the tour forward. In the app your own wallet opens and you approve there.',
+      approveNote: 'No wallet opens in the demo.',
       play: 'Play',
       pause: 'Pause',
       showState: 'Show state',
       explorerNote: 'Explorer links appear on real receipts.',
-      evidenceNote: 'Demo receipt: illustrates the layout. Real Verified Paid receipts come only from the on-chain check.',
+      evidenceNote: 'Demo receipt. Real receipts are verified on chain.',
       balanceLabel: 'Demo balance',
       reviewerTitle: 'For reviewers: every payment state',
       reviewerBody: 'The full status matrix, for every role and assurance level.',
@@ -1043,7 +1044,7 @@ export const en: Dictionary = {
       activityTitle: 'Recent activity',
       activityScope: 'Payments started in this browser. The status page shows what the chain says.',
       activityEmptyTitle: 'No payments yet',
-      activityEmptyBody: "Requests and payments from this device appear here.",
+      activityEmptyBody: 'Requests and payments appear here.',
       explorer: 'Full history on the explorer',
     },
     activity: {
@@ -1066,7 +1067,7 @@ export const en: Dictionary = {
       subtitle: 'Send NEAR Testnet to another account.',
       preview: {
         title: 'Sending is in preview',
-        body: "Review a transfer; sending is not available yet.",
+        body: 'Sending is not available yet.',
       },
       recipientLabel: 'To',
       recipientPlaceholder: 'name.testnet',
@@ -1089,7 +1090,7 @@ export const en: Dictionary = {
       youSend: 'You are sending',
       walletAction: 'Wallet action',
       walletActionValue: 'Direct NEAR transfer to the recipient',
-      feeValue: 'Paid as gas in your wallet. Taply adds no fee.',
+      feeValue: 'Wallet gas · no Taply fee',
       confirm: 'Confirm and send',
       confirmUnavailable: "Sending is disabled. Nothing will be sent.",
       connectFirst: 'Connect your Testnet wallet to send.',
@@ -1102,23 +1103,23 @@ export const en: Dictionary = {
       sendAnother: 'Send another',
     },
     receive: {
-      subtitle: 'Share your account to receive NEAR Testnet.',
+      subtitle: 'Share your account.',
       ticketTitle: 'My NEAR Testnet account',
       copy: 'Copy account ID',
       copied: 'Account ID copied',
       share: 'Share',
       networkWarning: {
         title: 'NEAR Testnet only',
-        body: "Do not send mainnet NEAR or tokens from other networks.",
+        body: 'Send NEAR Testnet only.',
       },
       qrNote: "Account only · no amount",
       requestInstead: 'Ask for an exact amount',
     },
     demo: {
-      receive: { title: 'Receive', caption: 'Your account as a QR code, with a clear Testnet-only warning.' },
-      send: { title: 'Send', caption: 'Recipient checked, balance shown, exact amount reviewed before your wallet signs.' },
+      receive: { title: 'Receive', caption: 'Your account as a QR.' },
+      send: { title: 'Send', caption: 'Recipient and amount are checked before signing.' },
       confirmDemo: 'Confirm and send (demo)',
-      conceptNote: 'Demo data. The real Taply Wallet lives on your device; its sending stays off until separately approved.',
+      conceptNote: 'Demo data.',
       showResult: 'Show result',
     },
   },
@@ -1294,7 +1295,7 @@ export const en: Dictionary = {
     },
     payEntry: {
       title: 'Pay',
-      body: 'Open a payment request. The amount and recipient come from the contract, and nothing is paid until you approve in your wallet.',
+      body: 'Open a payment link.',
       choicesLabel: 'Ways to open a payment',
       link: { label: 'Pay with link', body: 'Paste a payment link or request ID.' },
       scan: { label: 'Scan QR', body: 'Point your camera at a payment QR code.' },
@@ -1373,7 +1374,7 @@ export const en: Dictionary = {
     },
     activity: {
       title: 'Activity',
-      scope: "This device only; open an item to check its chain status.",
+      scope: 'Activity on this device.',
     },
     request: {
       title: 'Request',
@@ -1390,6 +1391,8 @@ export const en: Dictionary = {
     },
     payment: {
       details: 'Details',
+      transactionDetails: 'Transaction details',
+      steps: 'Steps',
       from: 'From',
       refresh: 'Check again',
     },

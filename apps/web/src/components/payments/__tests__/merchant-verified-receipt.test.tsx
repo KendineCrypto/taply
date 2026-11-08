@@ -67,7 +67,7 @@ describe('merchant-side Verified Paid without the customer link', () => {
     expect(document.querySelector('[data-receipt-status="contract_paid"]')).not.toBeNull();
   });
 
-  it('nothing found on chain: stays Paid per contract, says why, offers Search again', async () => {
+  it('nothing found on chain: stays Payment recorded, says why, offers Search again', async () => {
     const { setup } = merchantSetup(paid, { locatedHash: null });
     renderWithChain(<ReceiptScreen id={paid.terms.id} />, { setup, adapter: merchantWallet(), storage: memoryStorage() });
 
@@ -103,7 +103,7 @@ describe('merchant-side Verified Paid without the customer link', () => {
     const { setup } = merchantSetup(paid, { locator: false });
     renderWithChain(<ReceiptScreen id={paid.terms.id} />, { setup, adapter: merchantWallet(), storage: memoryStorage() });
 
-    expect(await screen.findByText(/Paid per contract/, {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByText(/Payment recorded/, {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.queryByTestId('locator-progress')).toBeNull();
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
   });

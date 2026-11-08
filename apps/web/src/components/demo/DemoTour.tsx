@@ -214,17 +214,6 @@ export function DemoTour() {
   );
 }
 
-function DemoBanner() {
-  const t = useT();
-  return (
-    <p className="mb-3 flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--tone-danger-border)] bg-[var(--tone-danger-bg)] px-3 py-2 text-xs font-medium text-[var(--text-primary)]">
-      <span className="rounded border border-[var(--taply-clay)] px-1 text-[10px] font-bold tracking-widest text-[var(--taply-clay)]">
-        {t.experience.demo.badge}
-      </span>
-      {t.experience.demo.synthetic}
-    </p>
-  );
-}
 
 function HomeStep({ onGo }: { readonly onGo: (step: DemoStep) => void }) {
   const t = useT();
@@ -334,7 +323,6 @@ function SendStep() {
 
   return (
     <div className="flex flex-col gap-4">
-      <DemoBanner />
       {outcome === null ? (
         <SendReview
           recipientAccountId={DEMO_PAYER}
@@ -398,7 +386,6 @@ function CreateStep({
   const invalid = demoAmountToYocto(amountText) === null;
   return (
     <section className="surface-card flex flex-col gap-4 p-5">
-      <DemoBanner />
       <div className="flex flex-col gap-1.5">
         <label htmlFor={amountId} className="text-sm font-medium">
           {t.payment.create.amountLabel}
@@ -448,7 +435,6 @@ function ReviewStep({ amountYocto, memo, onApprove }: { readonly amountYocto: st
   const [confirmed, setConfirmed] = useState(false);
   return (
     <section className="surface-card flex flex-col gap-4 p-5" aria-labelledby="demo-review-title">
-      <DemoBanner />
       <h3 id="demo-review-title" className="text-lg font-semibold">
         {t.payment.review.title}
       </h3>
@@ -491,7 +477,6 @@ function ProgressStep({ onDone }: { readonly onDone: () => void }) {
   const finished = stage === 'verified';
   return (
     <div className="flex flex-col gap-4">
-      <DemoBanner />
       <PaymentProgress
         stage={stage}
         footer={

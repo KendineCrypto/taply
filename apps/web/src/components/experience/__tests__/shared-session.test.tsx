@@ -42,11 +42,11 @@ describe('shared session hero', () => {
   it.each<[ProgressStage, 'receiver' | 'payer', string]>([
     ['awaiting', 'receiver', 'Ready for the customer'],
     ['transfer', 'receiver', 'Payment seen on chain'],
-    ['contract_paid', 'receiver', 'Paid per contract'],
+    ['contract_paid', 'receiver', 'Payment recorded'],
     ['verified', 'receiver', 'Independently verified'],
     ['wallet', 'payer', 'Waiting for your wallet'],
     ['transfer', 'payer', 'Payment submitted'],
-    ['contract_paid', 'payer', 'Paid per contract'],
+    ['contract_paid', 'payer', 'Payment recorded'],
     ['failed', 'payer', 'Transfer failed — recoverable'],
   ])('%s on the %s side reads "%s"', (stage, side, title) => {
     renderSession({ stage, side });
@@ -65,12 +65,12 @@ describe('shared session hero', () => {
     expect(nodeStates()).toEqual(['done', 'done', 'done', 'done', 'done']);
   });
 
-  it('Paid per contract shows the receipt check as NOT done, side by side', () => {
+  it('Payment recorded shows the receipt check as NOT done, side by side', () => {
     renderSession({ stage: 'contract_paid', payerAccountId: 'buyer.testnet' });
     const legend = screen.getByTestId('proof-legend');
     expect(within(legend).getByText('Contract record: paid')).toBeTruthy();
     // Phase 7H: the legend no longer repeats the status chip and hero title verbatim.
-    expect(within(legend).queryByText('Paid per contract')).toBeNull();
+    expect(within(legend).queryByText('Payment recorded')).toBeNull();
     expect(within(legend).getByText('Verified Paid: Not checked on this screen')).toBeTruthy();
     expect(nodeStates()).toEqual(['done', 'done', 'done', 'done', 'todo']);
     expect(screen.getByText('Paid by buyer.testnet')).toBeTruthy();
@@ -127,7 +127,7 @@ describe('Verified Paid celebration', () => {
       </I18nProvider>,
     );
 
-  it('bursts once for a verified receipt, never for Paid per contract, and prints the sale code', () => {
+  it('bursts once for a verified receipt, never for Payment recorded, and prints the sale code', () => {
     ticket('verified', 'r:1');
     expect(document.querySelectorAll('.celebrate-burst, .celebrate-burst-late')).toHaveLength(2);
     expect(screen.getByText('4K7 Q2M')).toBeTruthy();
@@ -161,7 +161,7 @@ describe('Handshake demo coordination (DEMO only)', () => {
     expect(status()).toEqual(['Waiting for wallet approval', 'Waiting for your wallet']);
     // Still stamped DEMO, and no paid state anywhere.
     expect(screen.getByText('Synthetic data · no network · no wallet')).toBeTruthy();
-    expect(screen.queryByText(/Verified Paid|Paid per contract/)).toBeNull();
+    expect(screen.queryByText(/Verified Paid|Payment recorded/)).toBeNull();
   });
 });
 

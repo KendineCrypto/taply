@@ -57,8 +57,8 @@ export function RecurringScreen({ storage, now = () => new Date() }: { readonly 
   const header = (
     <>
       <ScreenHeader title={r.title} description={r.description} />
-      <p className="mb-4 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-sm text-[var(--text-secondary)]" data-testid="not-subscription">
-        <Icon name="shield" size={16} className="mr-1.5 inline" /> {r.notSubscription}
+      <p className="-mt-2 mb-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs text-[var(--text-secondary)]" data-testid="not-subscription">
+        <Icon name="shield" size={14} /> {r.notSubscription}
       </p>
     </>
   );
@@ -166,7 +166,6 @@ export function RecurringScreen({ storage, now = () => new Date() }: { readonly 
             ))}
           </ul>
         )}
-        <p className="text-xs text-[var(--text-muted)]">{t.app.demoFundsNote}</p>
       </div>
       <Sheet
         open={deleting !== null}
@@ -249,7 +248,6 @@ function TemplateCard({
         <dd className="chain-id break-all">{fill(r.toYou, { account: template.recipientAccountId })}</dd>
         <dd className="chain-id break-all">{template.payerAccountId === null ? r.anyPayer : fill(r.onlyPayer, { account: template.payerAccountId })}</dd>
         {template.memo !== '' && <dd className="whitespace-pre-wrap break-words">“{template.memo}”</dd>}
-        <dd>{fill(r.timeZone, { zone: template.timeZone })}</dd>
       </dl>
       {preview.length > 0 && (
         <div>

@@ -72,8 +72,8 @@ describe('payer review and wallet approval', () => {
     const journal = JSON.parse(must(storage.data.get(JOURNAL_STORAGE_KEY), 'a journal'));
     expect(journal.entries[0]).toMatchObject({ method: 'pay_instant_native', requestId: openRestricted.terms.id, phase: expect.stringMatching(/SUBMITTED|RESOLVED/) });
 
-    // Paid per contract - never the Verified Paid ribbon (no receipt verifier yet).
-    expect(await screen.findAllByText('Paid per contract')).not.toHaveLength(0);
+    // Payment recorded - never the Verified Paid ribbon (no receipt verifier yet).
+    expect(await screen.findAllByText('Payment recorded')).not.toHaveLength(0);
     expect(screen.queryByText('Verified')).toBeNull();
     expect(screen.getByText('Verified Paid: Not checked on this screen')).toBeTruthy();
     // Phase 6A: the receipt opens once by itself, carrying this device's funding hash,
@@ -189,7 +189,7 @@ describe('recipient view', () => {
       gas: '50000000000000',
       depositYocto: '1',
     });
-    expect(await screen.findAllByText('Paid per contract')).not.toHaveLength(0);
+    expect(await screen.findAllByText('Payment recorded')).not.toHaveLength(0);
   });
 
   it('PAYOUT_FAILED_RECOVERABLE: the payer sees why, and has no retry', async () => {

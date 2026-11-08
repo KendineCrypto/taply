@@ -49,7 +49,7 @@ describe('receipt under RPC rate limits', () => {
     expect(screen.getByTestId('verification-wait-until')).toBeTruthy();
     expect(screen.queryByTestId('verification-auto-retry')).toBeNull();
 
-    // Today's status stays Paid per contract: no ribbon, no verified receipt.
+    // Today's status stays Payment recorded: no ribbon, no verified receipt.
     expect(screen.queryByTestId('verified-evidence')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Verified Paid' })).toBeNull();
     expect(document.querySelector('[data-receipt-status="verified"]')).toBeNull();
@@ -57,8 +57,8 @@ describe('receipt under RPC rate limits', () => {
 
     const archived = screen.getByTestId('archived-verification');
     expect(archived.getAttribute('data-archived')).toBe('true');
-    expect(archived.textContent).toContain('Archived · not a live check');
-    expect(archived.textContent).toContain('not a new read of the chain');
+    expect(archived.textContent).toContain('Archived record · not a live check');
+    expect(archived.textContent).toContain('not a new chain read');
     expect(archived.textContent).toContain('2026-11-01T15:36:30.100Z');
     expect(archived.querySelector('[data-receipt-status]')).toBeNull();
     expect(archived.querySelector('a')?.getAttribute('href')).toBe('/evidence/instant-pay-2026-11-01-receipt.json');
@@ -99,7 +99,7 @@ describe('receipt under RPC rate limits', () => {
     renderWithChain(<ReceiptScreen id={PILOT.terms.id} />, { setup, adapter: recordingWallet(null).adapter });
     expect(await screen.findByText('NEAR Testnet RPC is busy', {}, { timeout: 15000 })).toBeTruthy();
     const archived = screen.getByTestId('archived-verification');
-    expect(archived.textContent).toContain('no current status is shown');
+    expect(archived.textContent).toContain('could not be read just now');
     expect(document.querySelector('[data-receipt-status]')).toBeNull();
   }, 20000);
 });

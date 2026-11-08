@@ -46,7 +46,7 @@ describe('/recurring', () => {
     const chain = installChain({ contractId: 'pay.testnet' });
     renderWithChain(<RecurringScreen />, { setup: readySetup(chain, false), adapter: recordingWallet(null).adapter });
     expect(await screen.findByText(/Connect your NEAR Testnet wallet to create templates/)).toBeTruthy();
-    expect(screen.getByTestId('not-subscription').textContent).toContain('never charges anyone');
+    expect(screen.getByTestId('not-subscription').textContent).toContain('No auto-pay');
   });
 
   it('creates a template, shows the due date and next dates, and links to a PRE-FILLED request form', async () => {
@@ -114,7 +114,10 @@ describe('/split', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add person' }));
     await change('Name 3', 'Deniz');
     await change('Their NEAR Testnet account (optional) 3', 'deniz.testnet');
-    expect(screen.getAllByTestId('split-equal-share').map((e) => e.textContent)).toEqual([
+    // Rounded on screen; the exact base-unit values stay available (data-exact + "Exact amounts").
+    expect(screen.getAllByTestId('split-equal-share').map((e) => e.textContent)).toEqual(['≈ 0.33333 NEAR', '≈ 0.33333 NEAR', '≈ 0.33333 NEAR']);
+    expect(screen.getByTestId('split-exact')).toBeTruthy();
+    expect(screen.getAllByTestId('split-equal-share').map((e) => e.getAttribute('data-exact'))).toEqual([
       '0.333333333333333333333334 NEAR',
       '0.333333333333333333333333 NEAR',
       '0.333333333333333333333333 NEAR',
@@ -146,7 +149,7 @@ describe('/split', () => {
     expect(loadSplits(window.localStorage)).toEqual({ status: 'ok', groups: [] });
   });
 
-  it('a paid share is "Paid per contract" until the verifier confirms it; the group never reads final early', async () => {
+  it('a paid share is "Payment recorded" until the verifier confirms it; the group never reads final early', async () => {
     const created = createSplit(
       { name: 'Pilot', total: '0.2', mode: 'equal', memo: '', people: [{ label: 'One', account: '', share: '' }, { label: 'Two', account: '', share: '' }] },
       { recipientAccountId: ME, now: new Date(), id: 'group-00001', participantId: (i) => `person-000${i}` },

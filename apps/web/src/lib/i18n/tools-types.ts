@@ -175,6 +175,9 @@ export interface ToolsCopy {
     readonly saved: string;
     readonly verifiedOf: string;
     readonly notVerifiedSession: string;
+    readonly howItWorksTitle: string;
+    readonly exactTitle: string;
+    readonly exactNote: string;
     readonly mode: Readonly<Record<'equal' | 'custom', string>>;
     readonly empty: ErrorCopy;
     readonly unavailable: ErrorCopy;

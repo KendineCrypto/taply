@@ -114,10 +114,10 @@ describe('status chip honesty', () => {
 
   it('Turkish labels', () => {
     render(view({ stage: 'contract_paid', side: 'payer' }, 'tr'));
-    expect(screen.getByTestId('journey-status').textContent).toContain('Kontrata göre ödendi');
+    expect(screen.getByTestId('journey-status').textContent).toContain('Ödeme kaydedildi');
   });
 
-  it('Paid per contract offers exactly one next step, and the merchant is told it checks receipts itself', () => {
+  it('Payment recorded offers exactly one next step, and the merchant is told it checks receipts itself', () => {
     render(view({ stage: 'contract_paid', proofAction: <button type="button">Verify receipt</button> }));
     expect(screen.getAllByRole("button", { name: "Verify receipt" })).toHaveLength(1);
     expect(screen.getByText(/looks the payment up on chain/)).toBeTruthy();
@@ -145,7 +145,7 @@ describe('Phase 7I progressive disclosure', () => {
     expect(screen.getByRole('button', { name: 'Verify' }).closest('details')).toBeNull();
     expect(document.querySelector('#journey-title')?.closest('details')).toBeNull();
     expect(document.querySelector('#journey-title')?.parentElement?.textContent).toContain(
-      locale === 'en' ? 'not independently verified yet' : 'henüz bağımsız doğrulanmadı',
+      locale === 'en' ? 'Awaiting verification' : 'Doğrulama bekleniyor',
     );
     expect(details.querySelector('summary')?.className).toContain('min-h-[44px]');
     expect(details.querySelector('ol')).not.toBeNull();

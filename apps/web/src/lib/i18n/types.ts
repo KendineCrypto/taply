@@ -188,6 +188,7 @@ export interface Dictionary {
     readonly refresh: string;
     readonly refreshing: string;
     readonly verifiedAt: string;
+    readonly finalBlock: string;
     readonly staleAt: string;
     readonly storageNote: string;
     readonly lockedLabel: string;
@@ -871,6 +872,8 @@ export interface Dictionary {
     };
     readonly payment: {
       readonly details: string;
+      readonly transactionDetails: string;
+      readonly steps: string;
       readonly from: string;
       readonly refresh: string;
     };

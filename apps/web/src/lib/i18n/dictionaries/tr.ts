@@ -20,7 +20,7 @@ export const tr: Dictionary = {
   app: {
     name: 'Taply',
     networkBadge: 'NEAR Testnet',
-    demoFundsNote: 'Yalnızca test fonları. Gerçek para değil, parasal değeri yok.',
+    demoFundsNote: 'Yalnızca test fonları.',
     skipToContent: 'Ana içeriğe geç',
     languageLabel: 'Dil',
   },
@@ -352,7 +352,7 @@ export const tr: Dictionary = {
     socialLoginUnavailable: {
       title: 'Testnet için kullanılamıyor',
       // NORMATIVE
-      body: 'Bu giriş yöntemi Testnet cüzdanı için henüz kullanılamıyor. Desteklenen cüzdanla devam et.',
+      body: 'Desteklenen bir cüzdanla devam et.',
     },
     chainTimeUnavailable: {
       title: 'Zincir saati okunamıyor',
@@ -421,9 +421,9 @@ export const tr: Dictionary = {
     walletLabel: 'Cüzdan',
     connectTitle: 'NEAR Testnet cüzdanı bağla',
     connectBody: "NEAR Testnet cüzdanını bağla.",
-    noKeysNote: 'Taply anahtarlarını asla görmez ve saklamaz. Her transferi kendi cüzdanında onaylarsın.',
+    noKeysNote: 'Taply anahtarlarını asla görmez.',
     reportedNotProven:
-      'Bu hesap kimliğini cüzdanın paylaştı. Hiçbir şey imzalanmadı; bağlanmak fon hareket ettiremez.',
+      'Bağlanmak hiçbir şey imzalamaz.',
     disabled: {
       title: 'Cüzdan bağlantısı kapalı',
       body: 'Bu sürümde cüzdan bağlantısı kapatılmış.',
@@ -460,7 +460,8 @@ export const tr: Dictionary = {
     title: 'Testnet bakiyesi',
     refresh: 'Bakiyeyi yenile',
     refreshing: 'Yenileniyor',
-    verifiedAt: 'Kesinleşmiş blok #{height} · {time}',
+    verifiedAt: 'Güncel · {time}',
+    finalBlock: 'Kesinleşmiş blok #{height}',
     staleAt: 'Son doğrulama {time}. Son okuma başarısız oldu.',
     storageNote: 'Toplam hesap bakiyesi. Bir kısmı depolama için ayrılmıştır ve gönderilemez.',
     lockedLabel: 'Kilitli (stake)',
@@ -553,7 +554,7 @@ export const tr: Dictionary = {
     contractNotDeployed: 'Yapılandırılmadı',
     rpcLabel: 'Testnet servisi',
     diagnosticsLink: 'Tanılamayı aç',
-    diagnosticsBody: 'Bu sürümün teknik ayrıntıları, inceleyenler için.',
+    diagnosticsBody: 'İnceleyenler için teknik ayrıntılar.',
     notConnected: 'Bağlı cüzdan yok',
   },
 
@@ -597,7 +598,7 @@ export const tr: Dictionary = {
 
   payment: {
     contractPaid: {
-      label: 'Kontrata göre ödendi',
+      label: 'Ödeme kaydedildi',
       payer: 'Kontrat bu ödemeyi alıcıya ödenmiş olarak kaydetti. Ayrıca doğrulanmış bir makbuz henüz yok.',
       recipient: 'Kontrat hesabınıza yapılan aktarımı ödenmiş olarak kaydetti. Ayrıca doğrulanmış bir makbuz henüz yok.',
       announce: 'Kesinleşmiş blokta kontrat durumu ödendi diyor. Ödeme makbuzu henüz bağımsız olarak doğrulanmadı.',
@@ -626,7 +627,7 @@ export const tr: Dictionary = {
       },
       rateLimited: {
         title: 'NEAR Testnet RPC yoğun',
-        body: 'Herkese açık RPC yavaşlamamızı istedi (çok fazla istek). Bu bir ödeme sonucu değildir. İmzalama kapalı kalır; bir dakika bekleyip tekrar dene.',
+        body: 'RPC şu an yoğun. Ödeme sonucu değildir; biraz sonra tekrar dene.',
       },
       unreachable: {
         title: 'Ödeme kontratı kontrol edilemedi',
@@ -636,12 +637,12 @@ export const tr: Dictionary = {
         title: 'Kontrat kodu eşleşmiyor',
         body: 'Kontrat hesabı onaylı sürümden farklı bir kod çalıştırıyor. Bu kontrattan hiçbir şey gösterilmez veya imzalanmaz.',
       },
-      verifiedContract: 'Kontrat kod özeti kesinleşmiş blokta kontrol edildi',
+      verifiedContract: 'Kontrat kodu doğrulandı',
     },
     signing: {
       flagOff: {
         title: 'İşlemler kapalı',
-        body: "Yalnızca inceleme; imzalama kapalı.",
+        body: 'Bu sürümde imzalama kapalı.',
       },
       unverified: {
         title: 'Kontrat henüz doğrulanmadı',
@@ -683,7 +684,7 @@ export const tr: Dictionary = {
     create: {
       connectFirst: 'Talep oluşturmak için Testnet cüzdanını bağla. Alıcı sen olacaksın.',
       amountLabel: 'Tutar (NEAR)',
-      amountHint: 'Yalnızca Testnet NEAR. En fazla 24 ondalık basamak.',
+      amountHint: 'Testnet NEAR',
       memoLabel: 'Not (isteğe bağlı)',
       memoHint: 'Ödeyene gösterilir. En fazla 256 bayt. Zincirde saklanır ve herkese açıktır.',
       payerLabel: 'Yalnızca bu hesap ödeyebilir (isteğe bağlı)',
@@ -697,7 +698,7 @@ export const tr: Dictionary = {
       quoting: 'Kontrat teklifi alınıyor…',
       quoteTitle: 'İmzalamadan önce kontrol et',
       storageBond: 'Depolama teminatı',
-      storageBondNote: 'Bu talebi zincirde kalıcı olarak saklamak için senin ödediğin tutar. Talep iptal edilse bile iade edilmez.',
+      storageBondNote: 'Talebi zincirde saklar; iade edilmez.',
       gasLabel: 'Gaz payı',
       gasNote: "Önceden ödenen gaz; kullanılmayan kısmı NEAR iade eder. Kesin ücreti cüzdanın gösterir.",
       requestIdLabel: 'Talep kimliği',
@@ -843,7 +844,7 @@ export const tr: Dictionary = {
       },
       failedTransient: {
         title: 'Henüz doğrulanamadı',
-        body: 'Makbuzu doğrulamak için NEAR Testnet RPC’ye ulaşılamadı (çevrimdışı olabilir ya da istekleri sınırlıyor olabilir). Tekrar ödeme yapma.',
+        body: 'RPC’ye ulaşılamadı. Tekrar ödeme yapma.',
       },
       historyUnavailable: {
         title: 'Bu RPC geçmişi sunmuyor',
@@ -856,15 +857,15 @@ export const tr: Dictionary = {
       reasonCode: 'Neden kodu',
       rateLimited: {
         title: 'RPC yoğun: doğrulama duraklatıldı',
-        body: 'Herkese açık NEAR Testnet RPC yavaşlamamızı istedi. Bu ödemede hiçbir şey değişmedi ve bir sonuca varılmadı. Tekrar ödeme yapma.',
+        body: 'RPC yoğun; doğrulama duraklatıldı. Tekrar ödeme yapma.',
       },
       rateLimitedUntil: '{time} sonrasında tekrar kontrol edebilirsin.',
       autoRetryAt: '{time} saatinde otomatik olarak tekrar kontrol edilecek.',
       archived: {
-        badge: 'Arşiv · canlı kontrol değil',
+        badge: 'Arşiv kaydı · canlı doğrulama değil',
         title: 'Arşivlenmiş doğrulama kaydı',
-        body: "{date} tarihinde Taply doğrulayıcısı bu ödemeyi {provider} üzerinden kontrol etti ve Doğrulanmış Ödendi buldu. Bu, o kontrolün kaydedilmiş sonucudur; zincirin yeni bir okuması değildir. Bugünkü durum yukarıda gösterilir.",
-        whenUnreadable: 'Zincir şu anda okunamadı; bu yüzden güncel durum gösterilmiyor.',
+        body: '{date} tarihinde {provider} üzerinden Doğrulanmış Ödendi. Kaydedilmiş sonuç; yeni zincir okuması değil.',
+        whenUnreadable: 'Zincir şu an okunamadı.',
         checkedAt: 'Kontrol zamanı (UTC)',
         provider: 'Kontrol edilen RPC',
         stateBlock: 'Kontrat durum bloğu',
@@ -903,10 +904,10 @@ export const tr: Dictionary = {
         wallet: { title: 'Cüzdanınızda onaylayın', body: 'Cüzdanınız açık. Orada onaylamadıkça hiçbir şey gönderilmez.' },
         transfer: {
           title: 'Transfer sürüyor',
-          body: 'Ödeme kontrata ulaştı; kontrat tutarı alıcıya gönderiyor. Henüz onaylanmadı.',
+          body: 'Kontrat alıcıya gönderiyor.',
         },
         contract_paid: {
-          title: 'Kontrata göre ödendi',
+          title: 'Ödeme kaydedildi',
           body: 'Kontrat ödemeyi kaydetti. Bağımsız makbuz kontrolü bu ekranda çalışmadı.',
         },
         verified: {
@@ -938,7 +939,7 @@ export const tr: Dictionary = {
     receipt: {
       verified: 'Doğrulanmış Ödendi',
       verifiedSub: 'Zincirdeki makbuzlarla kontrol edildi',
-      contractPaid: 'Kontrata göre ödendi',
+      contractPaid: 'Ödeme kaydedildi',
       contractPaidSub: 'Bağımsız makbuz kontrolü bekleniyor',
       cancelled: 'İptal edildi',
       cancelledSub: 'Hiçbir şey ödenmedi',
@@ -951,7 +952,7 @@ export const tr: Dictionary = {
     },
     review: {
       networkFee: 'Ağ ücreti',
-      networkFeeValue: 'Cüzdanınızda gas olarak ödenir. Taply ücret eklemez.',
+      networkFeeValue: 'Cüzdanında gas · Taply ücreti yok',
       walletAction: 'Cüzdan işlemi',
       walletActionValue: 'Ödeme kontratına tam olarak bu tutarı gönder',
       contract: 'Ödeme kontratı',
@@ -972,24 +973,24 @@ export const tr: Dictionary = {
       title: '60 saniyede Taply',
       intro:
         'Bunlar demo verilerle doldurulmuş gerçek Taply ekranlarıdır. Cüzdan açılmaz, hiçbir şey imzalanmaz ve zincire dokunulmaz.',
-      synthetic: 'Demo verisi. Testnet ödemesi değildir.',
+      synthetic: 'Demo · gerçek ödeme değil',
       stepOf: 'Adım {n} / {total}',
       progressLabel: 'Tur ilerlemesi',
       steps: {
-        home: { title: 'Cüzdanınız', caption: 'Hesabınız, bakiyeniz ve üç işlem: gönder, al ve talep et.' },
-        create: { title: 'Talep oluşturun', caption: 'Bir tutar yazın. Alıcı sizsiniz; kimse alıcıyı değiştiremez.' },
-        share: { title: 'Paylaşın', caption: 'Tek bağlantı, tek QR kodu. Ödeyenin yalnızca bir NEAR cüzdanına ihtiyacı var.' },
+        home: { title: 'Cüzdanınız', caption: 'Bakiye ve üç işlem.' },
+        create: { title: 'Talep oluşturun', caption: 'Tutarı yaz. Alıcı sensin.' },
+        share: { title: 'Paylaşın', caption: 'Tek bağlantı, tek QR.' },
         review: {
           title: 'Ödeyen kontrol eder',
-          caption: 'İmzalamadan önce tam alıcı, kesin tutar, ağ ve cüzdan işlemi.',
+          caption: 'Ödemeden önce her şey görünür.',
         },
         progress: {
           title: 'Kesinleşmesini izleyin',
-          caption: 'Her durum olduğu gibi gösterilir. Gözlemlenen asla doğrulanmış gibi sunulmaz.',
+          caption: 'Durum zincirden okunur.',
         },
         receipt: {
           title: 'Doğrulanmış makbuz',
-          caption: 'Doğrulanmış Ödendi yalnızca zincirdeki makbuzlar kanıtladığında.',
+          caption: 'Zincirde kanıtlanan makbuz.',
         },
       },
       next: 'İleri',
@@ -998,13 +999,13 @@ export const tr: Dictionary = {
       approveDemo: 'Cüzdanda onayla (demo)',
       createDemo: 'Talep oluştur (demo)',
       approveNote:
-        'Demoda bu yalnızca turu ilerletir. Uygulamada kendi cüzdanınız açılır ve onayı orada verirsiniz.',
+        'Demoda cüzdan açılmaz.',
       play: 'Oynat',
       pause: 'Duraklat',
       showState: 'Durumu göster',
       explorerNote: 'Gezgin bağlantıları gerçek makbuzlarda görünür.',
       evidenceNote:
-        'Demo makbuzu: yerleşimi gösterir. Gerçek Doğrulanmış Ödendi makbuzları yalnızca zincir kontrolünden gelir.',
+        'Demo makbuzu. Gerçek makbuzlar zincirden doğrulanır.',
       balanceLabel: 'Demo bakiyesi',
       reviewerTitle: 'İnceleyenler için: tüm ödeme durumları',
       reviewerBody: 'Her rol ve güvence düzeyi için eksiksiz durum matrisi.',
@@ -1046,7 +1047,7 @@ export const tr: Dictionary = {
       activityTitle: 'Son işlemler',
       activityScope: 'Bu tarayıcıda başlatılan ödemeler. Durum sayfası zincirin ne dediğini gösterir.',
       activityEmptyTitle: 'Henüz ödeme yok',
-      activityEmptyBody: "Bu cihazdaki talepler ve ödemeler burada görünür.",
+      activityEmptyBody: 'Talepler ve ödemeler burada görünür.',
       explorer: 'Tüm geçmiş gezginde',
     },
     activity: {
@@ -1069,7 +1070,7 @@ export const tr: Dictionary = {
       subtitle: 'Başka bir hesaba NEAR Testnet gönderin.',
       preview: {
         title: 'Gönderme önizleme aşamasında',
-        body: "Transferi kontrol et; gönderim henüz kullanılamıyor.",
+        body: 'Gönderim henüz kapalı.',
       },
       recipientLabel: 'Alıcı',
       recipientPlaceholder: 'isim.testnet',
@@ -1092,7 +1093,7 @@ export const tr: Dictionary = {
       youSend: 'Gönderiyorsunuz',
       walletAction: 'Cüzdan işlemi',
       walletActionValue: 'Alıcıya doğrudan NEAR transferi',
-      feeValue: 'Cüzdanınızda gas olarak ödenir. Taply ücret eklemez.',
+      feeValue: 'Cüzdanında gas · Taply ücreti yok',
       confirm: 'Onayla ve gönder',
       confirmUnavailable: "Gönderim kapalı. Hiçbir şey gönderilmez.",
       connectFirst: 'Göndermek için Testnet cüzdanınızı bağlayın.',
@@ -1105,23 +1106,23 @@ export const tr: Dictionary = {
       sendAnother: 'Yeni gönderim',
     },
     receive: {
-      subtitle: 'NEAR Testnet almak için hesabınızı paylaşın.',
+      subtitle: 'Hesabını paylaş.',
       ticketTitle: 'NEAR Testnet hesabım',
       copy: 'Hesap kimliğini kopyala',
       copied: 'Hesap kimliği kopyalandı',
       share: 'Paylaş',
       networkWarning: {
         title: 'Yalnızca NEAR Testnet',
-        body: "Mainnet NEAR veya başka ağlardan token gönderme.",
+        body: 'Yalnızca NEAR Testnet gönder.',
       },
       qrNote: "Yalnızca hesap · tutar içermez",
       requestInstead: 'Kesin bir tutar isteyin',
     },
     demo: {
-      receive: { title: 'Alın', caption: 'Hesabınız QR kodu olarak, açık bir yalnızca-Testnet uyarısıyla.' },
-      send: { title: 'Gönderin', caption: 'Alıcı kontrol edilir, bakiye görünür, cüzdan imzalamadan önce kesin tutar kontrol edilir.' },
+      receive: { title: 'Alın', caption: 'Hesabın, QR olarak.' },
+      send: { title: 'Gönderin', caption: 'Alıcı ve tutar imzadan önce kontrol edilir.' },
       confirmDemo: 'Onayla ve gönder (demo)',
-      conceptNote: 'Demo verisi. Gerçek Taply Cüzdan cihazınızda yaşar; gönderme ayrıca onaylanana kadar kapalıdır.',
+      conceptNote: 'Demo verisi.',
       showResult: 'Sonucu göster',
     },
   },
@@ -1297,7 +1298,7 @@ export const tr: Dictionary = {
     },
     payEntry: {
       title: 'Öde',
-      body: 'Bir ödeme talebini aç. Tutar ve alıcı kontrattan okunur; cüzdanında onaylamadan hiçbir şey ödenmez.',
+      body: 'Bir ödeme bağlantısı aç.',
       choicesLabel: 'Ödeme açma yolları',
       link: { label: 'Bağlantıyla öde', body: 'Ödeme bağlantısı ya da talep kimliği yapıştır.' },
       scan: { label: 'QR tara', body: 'Kameranı bir ödeme QR koduna tut.' },
@@ -1376,7 +1377,7 @@ export const tr: Dictionary = {
     },
     activity: {
       title: 'Geçmiş',
-      scope: "Yalnızca bu cihaz; zincirdeki durumu görmek için işlemi aç.",
+      scope: 'Bu cihazdaki işlemler.',
     },
     request: {
       title: 'İste',
@@ -1393,6 +1394,8 @@ export const tr: Dictionary = {
     },
     payment: {
       details: 'Ayrıntılar',
+      transactionDetails: 'İşlem ayrıntıları',
+      steps: 'Adımlar',
       from: 'Gönderen',
       refresh: 'Tekrar kontrol et',
     },

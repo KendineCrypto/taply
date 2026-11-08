@@ -36,7 +36,7 @@ describe('room adapter preview (DEMO)', () => {
         if (panel.getAttribute('data-room') === 'unavailable') continue;
         expect(within(panel).getByTestId('room-identity').textContent).toContain('not verified');
         const text = (panel.textContent ?? '').replace(within(panel).getByTestId('room-chain').textContent ?? '', '');
-        expect(text).not.toMatch(/Verified Paid|Paid per contract|\bpaid\b(?! again)/i);
+        expect(text).not.toMatch(/Verified Paid|Payment recorded|\bpaid\b(?! again)/i);
       }
     }
   });
