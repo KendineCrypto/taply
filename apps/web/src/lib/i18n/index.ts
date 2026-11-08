@@ -22,26 +22,13 @@ export function getDictionary(locale: Locale): Dictionary {
 }
 
 /**
- * Resolves a locale from a cookie value first (explicit user choice), then from
- * an Accept-Language header, then the default. No locale route prefix is used,
- * which keeps the frozen route list in section 9 unchanged.
+ * The saved choice (the locale cookie, set only from Settings) wins; otherwise
+ * English. Browser language and location are deliberately ignored, so a first
+ * visit is always English and an explicit choice is never overridden. No locale
+ * route prefix is used, which keeps the frozen route list in section 9 unchanged.
  */
-export function resolveLocale(
-  cookieValue: string | undefined,
-  acceptLanguage: string | null | undefined,
-): Locale {
-  if (isLocale(cookieValue)) return cookieValue;
-
-  if (acceptLanguage) {
-    for (const part of acceptLanguage.split(',')) {
-      const tag = part.split(';')[0]?.trim().toLowerCase();
-      if (!tag) continue;
-      const base = tag.split('-')[0];
-      if (isLocale(base)) return base;
-    }
-  }
-
-  return DEFAULT_LOCALE;
+export function resolveLocale(cookieValue: string | undefined): Locale {
+  return isLocale(cookieValue) ? cookieValue : DEFAULT_LOCALE;
 }
 
 /**

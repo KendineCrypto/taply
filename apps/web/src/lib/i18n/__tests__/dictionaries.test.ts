@@ -176,20 +176,16 @@ describe('status copy cannot contradict the payment rules', () => {
 });
 
 describe('resolveLocale', () => {
-  it('prefers an explicit cookie choice', () => {
-    expect(resolveLocale('tr', 'en-US,en;q=0.9')).toBe('tr');
-    expect(resolveLocale('en', 'tr-TR')).toBe('en');
+  it('keeps an explicit saved choice', () => {
+    expect(resolveLocale('tr')).toBe('tr');
+    expect(resolveLocale('en')).toBe('en');
   });
 
-  it('falls back to Accept-Language', () => {
-    expect(resolveLocale(undefined, 'tr-TR,tr;q=0.9,en;q=0.8')).toBe('tr');
-    expect(resolveLocale(undefined, 'en-GB,en;q=0.9')).toBe('en');
-  });
-
-  it('defaults to English for unknown or missing input', () => {
-    expect(resolveLocale(undefined, undefined)).toBe('en');
-    expect(resolveLocale('de', 'de-DE')).toBe('en');
-    expect(resolveLocale(undefined, '')).toBe('en');
+  it('is English for a first visit or an unknown value (browser language is never consulted)', () => {
+    expect(resolveLocale(undefined)).toBe('en');
+    expect(resolveLocale('')).toBe('en');
+    expect(resolveLocale('de')).toBe('en');
+    expect(resolveLocale('TR')).toBe('en');
   });
 });
 

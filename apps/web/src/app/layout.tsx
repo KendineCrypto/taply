@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import './globals.css';
 import { AppShell } from '@/components/shell/AppShell';
 import { I18nProvider } from '@/lib/i18n/provider';
@@ -46,11 +46,9 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { readonly children: React.ReactNode }) {
   // Resolving the locale on the server means the first paint is already correct,
   // so status copy never flashes in the wrong language.
-  const [cookieStore, headerList] = await Promise.all([cookies(), headers()]);
-  const locale = resolveLocale(
-    cookieStore.get(LOCALE_COOKIE)?.value,
-    headerList.get('accept-language'),
-  );
+  // Only the saved choice counts; a first visit is English whatever the browser language.
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(LOCALE_COOKIE)?.value);
   const dictionary = getDictionary(locale);
 
   return (
