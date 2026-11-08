@@ -641,8 +641,8 @@ export const tr: Dictionary = {
     },
     signing: {
       flagOff: {
-        title: 'İşlemler kapalı',
-        body: 'Bu sürümde imzalama kapalı.',
+        title: 'Ödemeler henüz açık değil',
+        body: 'Bu isteği burada kontrol edebilirsin, ancak Taply üzerinden ödeme şimdilik kapalı.',
       },
       unverified: {
         title: 'Kontrat henüz doğrulanmadı',

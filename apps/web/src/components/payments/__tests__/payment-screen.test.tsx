@@ -88,7 +88,7 @@ describe('payer review and wallet approval', () => {
     const chain = chainWith(openRestricted);
     const { adapter, signed } = recordingWallet(PAYER);
     renderWithChain(<PaymentScreen id={openRestricted.terms.id} />, { setup: readySetup(chain, false), adapter });
-    expect(await screen.findByText('Transactions are switched off')).toBeTruthy();
+    expect(await screen.findByText('Payments not enabled yet')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Approve in wallet' })).toBeNull();
     expect(signed).toHaveLength(0);
   });

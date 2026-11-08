@@ -643,8 +643,8 @@ export const en: Dictionary = {
     },
     signing: {
       flagOff: {
-        title: 'Transactions are switched off',
-        body: 'Signing is off in this build.',
+        title: 'Payments not enabled yet',
+        body: 'You can check this request here, but paying from Taply is off for now.',
       },
       unverified: {
         title: 'Contract not verified yet',

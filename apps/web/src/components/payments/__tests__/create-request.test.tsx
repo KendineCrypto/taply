@@ -152,7 +152,7 @@ describe('create request', () => {
     const create = screen.getByRole('button', { name: 'Create request in wallet' }) as HTMLButtonElement;
     expect(create.disabled).toBe(true);
     expect(create.getAttribute('aria-describedby')).toBe(status.id);
-    expect(screen.queryByText('Transactions are switched off')).toBeNull();
+    expect(screen.queryByText('You can check this request here, but paying from Taply is off for now.')).toBeNull();
     await act(async () => {
       fireEvent.click(create);
     });
