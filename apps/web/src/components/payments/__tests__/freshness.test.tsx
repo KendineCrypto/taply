@@ -45,7 +45,7 @@ async function toReview(amount: string) {
   await act(async () => {
     fireEvent.click(next);
   });
-  await screen.findByRole('heading', { name: 'Check before you sign' });
+  await screen.findByRole('heading', { name: 'Payment request' });
 }
 
 describe('request creation refuses stale chain data', () => {
@@ -79,7 +79,7 @@ describe('request creation refuses stale chain data', () => {
     });
     expect(signed).toHaveLength(0);
     expect(await screen.findByText('Please review again')).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Check before you sign' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Payment request' })).toBeNull();
   });
 
   it('a contract configuration change between review and signing requires a new review', async () => {

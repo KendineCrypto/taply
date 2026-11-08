@@ -345,7 +345,6 @@ export interface Dictionary {
       readonly recipientIsYou: string;
       readonly getQuote: string;
       readonly quoting: string;
-      readonly quoteTitle: string;
       readonly storageBond: string;
       readonly storageBondNote: string;
       readonly gasLabel: string;
@@ -865,10 +864,13 @@ export interface Dictionary {
       readonly anyoneMayPay: string;
       readonly toYou: string;
       readonly reviewTitle: string;
-      readonly reviewBody: string;
       readonly whoCanPay: string;
       readonly payableUntil: string;
-      readonly technical: string;
+      /** Default-view cost row: the non-refundable storage deposit (network fee shown by the wallet). */
+      readonly cost: string;
+      readonly costNote: string;
+      /** Short status under the inactive action when this build has signing off. */
+      readonly previewOff: string;
     };
     readonly payment: {
       readonly details: string;

@@ -7,19 +7,21 @@ import type { ContractConfig, CreateQuote, PreparedContractCall } from '@taply/n
 import { prepareCreateRequest } from '@taply/near-client';
 import { AccountId, Amount } from '@/components/primitives/Amount';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
-import { Card, DetailRow } from '@/components/primitives/Surface';
+import { Card } from '@/components/primitives/Surface';
 import { AmountHero, Monogram } from '@/components/experience/Basics';
 import { Icon } from '@/components/shell/Icons';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { fill } from '@/lib/i18n';
 import { useLocale, useT } from '@/lib/i18n/provider';
+import { formatCutoff } from '@/lib/format/time';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { blockingCreations, latestRecentCreation, recheckDelayMs } from '@/lib/payments/creation-gate';
 import { localHints, rememberPosSale } from '@/lib/merchant/journey';
 import { FUNDING_LIFETIMES, buildInstantTerms, newCreationNonce, validateRequestForm } from '@/lib/payments/create';
 import type { FundingLifetime, RequestFormError } from '@/lib/payments/create';
 import { usePayments } from '@/lib/payments/context';
+import type { SigningBlock } from '@/lib/payments/context';
 import { chainFreshness, sameContractConfig } from '@/lib/payments/freshness';
 import { buildPaymentView } from '@/lib/payments/intent';
 import { isBlocking } from '@/lib/payments/journal';
@@ -31,7 +33,7 @@ import type { IntentTerms } from '@/lib/protocol';
 import { useWallet } from '@/lib/wallet/provider';
 import { baseUnitsToDecimal, parsePrefill } from '@/lib/tools/handoff';
 import { describePrefill, recordPrefillResult } from '@/lib/tools/prefill-context';
-import { ChainTime, PaymentsSetupNotice, RequestTermsPreview, SigningBlockNotice, SubmitResultNotice } from './PaymentParts';
+import { PaymentsSetupNotice, SubmitResultNotice } from './PaymentParts';
 
 type Step =
   | { readonly kind: 'form' }
@@ -464,97 +466,19 @@ export function CreateRequest({
       )}
 
       {(step.kind === 'review' || step.kind === 'signing') && !staleReview && (
-        <section aria-labelledby="create-review-title" className="animate-page flex flex-col gap-5">
-          <div>
-            <h2 id="create-review-title" className="text-lg font-semibold">
-              {t.payment.create.quoteTitle}
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{t.oneTap.request.reviewBody}</p>
-          </div>
-          <div>
-            <AmountHero baseUnits={step.terms.amountBaseUnits} size="lg" />
-            {step.terms.memo !== '' && (
-              // Plain text only: memos are untrusted and never rendered as HTML.
-              <p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-secondary)]">“{step.terms.memo}”</p>
-            )}
-          </div>
-          <dl className="surface-card px-4 py-1">
-            <DetailRow label={t.payment.review.recipient} emphasis>
-              <span className="flex flex-col items-end">
-                <AccountId accountId={step.terms.creatorAccountId} />
-                <span className="text-xs font-normal text-[var(--text-muted)]">{t.payment.create.recipientIsYou}</span>
-              </span>
-            </DetailRow>
-            <DetailRow label={t.oneTap.request.whoCanPay}>
-              {step.terms.permittedPayerAccountId === null ? (
-                t.oneTap.request.anyoneMayPay
-              ) : (
-                <AccountId accountId={step.terms.permittedPayerAccountId} />
-              )}
-            </DetailRow>
-            <DetailRow label={t.oneTap.request.payableUntil}>
-              <ChainTime ns={step.terms.fundingExpiresAtNs} />
-            </DetailRow>
-            <DetailRow label={t.common.network}>
-              {t.app.networkBadge} · {t.mode.instant}
-            </DetailRow>
-            <DetailRow label={t.payment.create.storageBond} emphasis>
-              <Amount baseUnits={step.quote.depositYocto} asset={NEAR_NATIVE} />
-            </DetailRow>
-            <DetailRow label={t.payment.create.gasLabel}>
-              <span className="chain-id">{(BigInt(step.quote.gas) / 1_000_000_000_000n).toString()} Tgas</span>
-            </DetailRow>
-          </dl>
-          <div className="-mt-2 flex flex-col gap-1 px-1">
-            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{t.payment.create.storageBondNote}</p>
-            <p className="text-xs text-[var(--text-muted)]">{t.payment.create.gasNote}</p>
-          </div>
-
-          <details className="disclosure">
-            <summary className="flex min-h-[var(--tap-target)] items-center justify-between gap-3 px-1 text-sm font-medium text-[var(--text-secondary)]">
-              {t.oneTap.request.technical}
-              <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
-            </summary>
-            <div className="mt-2">
-              <RequestTermsPreview terms={step.terms} />
-            </div>
-          </details>
-
-          {sale && (
-            <div className="flex flex-col gap-2" data-testid="sale-unbound">
-              <InlineNotice copy={c.unbound} tone="neutral" />
-              <p className="px-1 text-xs text-[var(--text-muted)]">{c.sale.uniqueNote}</p>
-            </div>
-          )}
-
-          {result !== null && <SubmitResultNotice result={result} />}
-          <div className="flex flex-col gap-1">
-            {signingBlock !== null ? (
-              <SigningBlockNotice block={signingBlock} />
-            ) : (
-              <Button size="lg" block onClick={() => void onSign()} disabled={step.kind === 'signing'}>
-                {step.kind === 'signing' ? (
-                  <>
-                    <Spinner /> {t.payment.signing.waitingForWallet}
-                  </>
-                ) : (
-                  t.payment.create.createInWallet
-                )}
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              block
-              disabled={step.kind === 'signing'}
-              onClick={() => {
-                setResult(null);
-                setStep({ kind: 'form' });
-              }}
-            >
-              {t.payment.create.edit}
-            </Button>
-          </div>
-        </section>
+        <ReviewStep
+          terms={step.terms}
+          quote={step.quote}
+          sale={sale}
+          signing={step.kind === 'signing'}
+          signingBlock={signingBlock}
+          result={result}
+          onSign={() => void onSign()}
+          onEdit={() => {
+            setResult(null);
+            setStep({ kind: 'form' });
+          }}
+        />
       )}
     </div>
   );
@@ -670,3 +594,165 @@ function Field({
 }
 
 const noSubscription = () => () => undefined;
+
+/**
+ * The last screen before the wallet opens. Default view: amount, recipient,
+ * deadline, any payer restriction and the real cost (the non-refundable storage
+ * deposit, plus the network fee the wallet shows). Everything else is one tap
+ * away under "Transaction details". When signing is unavailable the action is
+ * visibly inactive with a short status, never a clickable-looking button.
+ */
+function ReviewStep({
+  terms,
+  quote,
+  sale,
+  signing,
+  signingBlock,
+  result,
+  onSign,
+  onEdit,
+}: {
+  readonly terms: IntentTerms;
+  readonly quote: CreateQuote;
+  readonly sale: boolean;
+  readonly signing: boolean;
+  readonly signingBlock: SigningBlock | null;
+  readonly result: SubmitResult | null;
+  readonly onSign: () => void;
+  readonly onEdit: () => void;
+}) {
+  const t = useT();
+  const { locale } = useLocale();
+  const c = t.commerce;
+  const r = t.oneTap.request;
+  const statusId = useId();
+  const deadline = formatCutoff(terms.fundingExpiresAtNs, locale);
+  const restricted = terms.permittedPayerAccountId;
+  // Setup problems are explained by PaymentsSetupNotice above; these two get a short status here.
+  const blockedNote =
+    signingBlock === 'signing_flag_off' ? r.previewOff : signingBlock === 'contract_unverified' ? t.payment.signing.unverified.title : null;
+  const canSign = signingBlock === null;
+  const Heading = sale ? 'h2' : 'h1';
+
+  return (
+    <section aria-labelledby="create-review-title" className="animate-page flex flex-col gap-5">
+      <Heading
+        id="create-review-title"
+        className={sale ? 'text-lg font-semibold' : 'mt-1 text-[1.625rem] font-semibold leading-tight tracking-tight'}
+      >
+        {r.reviewTitle}
+      </Heading>
+
+      <div className="flex flex-col items-center gap-2 py-3 text-center">
+        <AmountHero baseUnits={terms.amountBaseUnits} className="justify-center" />
+        {terms.memo !== '' && (
+          // Plain text only: memos are untrusted and never rendered as HTML.
+          <p className="max-w-full whitespace-pre-wrap break-words text-[var(--text-secondary)]">“{terms.memo}”</p>
+        )}
+      </div>
+
+      <dl className="divide-y divide-[var(--border-subtle)] rounded-[var(--radius-card)] bg-[var(--surface-1)] px-4" data-testid="review-summary">
+        <ReviewRow label={t.payment.review.recipient} sub={t.payment.create.recipientIsYou}>
+          <AccountId accountId={terms.creatorAccountId} className="break-all font-medium" />
+        </ReviewRow>
+        <ReviewRow label={r.payableUntil}>{deadline.local}</ReviewRow>
+        {restricted !== null && (
+          <ReviewRow label={r.whoCanPay}>
+            <AccountId accountId={restricted} className="break-all font-medium" />
+          </ReviewRow>
+        )}
+        <ReviewRow label={r.cost} sub={r.costNote}>
+          <Amount baseUnits={quote.depositYocto} asset={NEAR_NATIVE} className="font-medium" />
+        </ReviewRow>
+      </dl>
+
+      <details className="disclosure rounded-[var(--radius-card)] border border-[var(--border-subtle)] px-4">
+        <summary className="flex min-h-[52px] items-center justify-between gap-3 text-sm font-medium text-[var(--text-secondary)]">
+          {t.oneTap.payment.transactionDetails}
+          <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
+        </summary>
+        <dl className="divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)] pb-1">
+          {restricted === null && <ReviewRow stacked label={r.whoCanPay}>{r.anyoneMayPay}</ReviewRow>}
+          <ReviewRow stacked label={t.common.network}>
+            {t.app.networkBadge} · {t.mode.instant}
+          </ReviewRow>
+          <ReviewRow stacked label={t.payment.review.expires}>{deadline.utc}</ReviewRow>
+          <ReviewRow stacked label={t.payment.review.exactBaseUnits}>
+            <span className="chain-id break-all text-sm">{terms.amountBaseUnits}</span>
+          </ReviewRow>
+          <ReviewRow stacked label={t.payment.create.storageBond} sub={t.payment.create.storageBondNote}>
+            <span className="chain-id break-all text-sm">{quote.depositYocto}</span>
+          </ReviewRow>
+          <ReviewRow stacked label={t.payment.create.gasLabel} sub={t.payment.create.gasNote}>
+            <span className="chain-id text-sm">{(BigInt(quote.gas) / 1_000_000_000_000n).toString()} Tgas</span>
+          </ReviewRow>
+          <ReviewRow stacked label={t.payment.review.contract}>
+            <AccountId accountId={terms.contractId} className="break-all text-sm" />
+          </ReviewRow>
+          <ReviewRow stacked label={t.routes.requestIdLabel}>
+            <span className="chain-id break-all text-sm">{terms.id}</span>
+          </ReviewRow>
+        </dl>
+      </details>
+
+      {sale && (
+        <div className="flex flex-col gap-2" data-testid="sale-unbound">
+          <InlineNotice copy={c.unbound} tone="neutral" />
+          <p className="px-1 text-xs text-[var(--text-muted)]">{c.sale.uniqueNote}</p>
+        </div>
+      )}
+
+      {result !== null && <SubmitResultNotice result={result} />}
+      <div className="flex flex-col gap-2 pt-1">
+        <Button
+          size="lg"
+          block
+          variant={canSign ? 'primary' : 'secondary'}
+          onClick={canSign ? onSign : undefined}
+          disabled={!canSign || signing}
+          aria-describedby={blockedNote === null ? undefined : statusId}
+        >
+          {signing ? (
+            <>
+              <Spinner /> {t.payment.signing.waitingForWallet}
+            </>
+          ) : (
+            t.payment.create.createInWallet
+          )}
+        </Button>
+        {blockedNote !== null && (
+          <p id={statusId} className="flex items-center justify-center gap-2 text-xs text-[var(--text-muted)]" data-testid="signing-off-status">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--text-muted)]" />
+            {blockedNote}
+          </p>
+        )}
+        <Button variant="ghost" block disabled={signing} onClick={onEdit}>
+          {t.payment.create.edit}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** One compact label/value line; long chain IDs wrap instead of overflowing. Technical rows stack. */
+function ReviewRow({
+  label,
+  sub,
+  stacked = false,
+  children,
+}: {
+  readonly label: string;
+  readonly sub?: string;
+  readonly stacked?: boolean;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div className={stacked ? 'flex flex-col gap-1 py-3' : 'flex items-start justify-between gap-4 py-3.5'}>
+      <dt className={`shrink-0 text-[var(--text-muted)] ${stacked ? 'text-xs' : 'text-sm'}`}>{label}</dt>
+      <dd className={`flex min-w-0 flex-col text-[0.9375rem] ${stacked ? 'items-start text-left' : 'items-end text-right'}`}>
+        {children}
+        {sub !== undefined && <span className="mt-0.5 text-xs text-[var(--text-muted)]">{sub}</span>}
+      </dd>
+    </div>
+  );
+}

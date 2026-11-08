@@ -126,7 +126,7 @@ for (const width of [...widths, 1280]) {
     await cont.waitFor({ timeout: 15000 });
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Continue' && !b.disabled), null, { timeout: 20000 });
     await cont.click();
-    await page.getByText('Check before you sign').first().waitFor({ timeout: 20000 });
+    await page.getByText('Payment request').first().waitFor({ timeout: 20000 });
     await shot(page, 'pos-review-390');
     results.push({ name: 'pos-review-wallet-button', present: await page.getByRole('button', { name: 'Create request in wallet' }).count() });
   } catch (e) {

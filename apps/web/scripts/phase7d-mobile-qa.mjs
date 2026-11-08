@@ -130,7 +130,7 @@ for (const width of [360, 430]) {
   await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Continue' && !b.disabled), null, { timeout: 20000 });
   await page.getByRole('button', { name: 'Continue' }).click();
   try {
-    await page.getByText('Check before you sign').first().waitFor({ timeout: 20000 });
+    await page.getByText('Payment request').first().waitFor({ timeout: 20000 });
     await audit(page, 'tiny-amount-review-360');
   } catch (e) {
     results.push({ name: 'tiny-amount-review-360', error: String(e).slice(0, 160) });

@@ -36,7 +36,7 @@ async function createSale(amount: string, reference: string) {
   await act(async () => {
     fireEvent.click(review);
   });
-  await screen.findByText('Check before you sign');
+  await screen.findByText('Payment request');
 }
 
 describe('merchant POS (sale register)', () => {
@@ -151,7 +151,7 @@ describe('merchant POS (sale register)', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(false));
     // The second sale uses the SAME durable journal, after confirmed creation.
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await screen.findByText('Check before you sign');
+    await screen.findByText('Payment request');
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Create request in wallet' })));
     expect(signed).toHaveLength(2);
     const secondTerms = (must(signed[1], 'second sale').call.args as { terms: IntentTerms }).terms;
@@ -181,7 +181,7 @@ describe('merchant POS (sale register)', () => {
     expect(await screen.findByText('Connected account changed')).toBeTruthy();
     expect(screen.getByText(/prepared for merchant\.testnet/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Create request in wallet' })).toBeNull();
-    expect(screen.queryByText('Check before you sign')).toBeNull();
+    expect(screen.queryByText('Payment request')).toBeNull();
     // Back on the form for the new account; nothing was signed.
     expect(screen.getByText('second-shop.testnet')).toBeTruthy();
     expect(signed).toHaveLength(0);
@@ -203,12 +203,16 @@ describe('merchant POS (sale register)', () => {
     expect(screen.queryByLabelText('Amount (NEAR)')).toBeNull();
   });
 
-  it('with the signing flag off, review is possible but the wallet is never offered', async () => {
+  it('with the signing flag off, review is possible but the wallet is never opened', async () => {
     const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
     const { adapter, signed } = recordingWallet(MERCHANT);
     renderWithChain(<SaleRegister />, { setup: readySetup(chain, false), adapter });
     await createSale('1', '');
-    expect(screen.queryByRole('button', { name: 'Create request in wallet' })).toBeNull();
+    // The action is visibly inactive with a short status; clicking it does nothing.
+    expect(screen.getByTestId('signing-off-status').textContent).toBe('Preview · Transactions off');
+    const create = screen.getByRole('button', { name: 'Create request in wallet' }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    await act(async () => fireEvent.click(create));
     expect(signed).toHaveLength(0);
   });
 });

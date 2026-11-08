@@ -43,7 +43,7 @@ describe('create request', () => {
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter, storage });
 
     await fillAndReview('1.5', { memo: 'Coffee ☕', payer: 'bob.testnet' });
-    expect(await screen.findByText('Check before you sign')).toBeTruthy();
+    expect(await screen.findByText('Payment request')).toBeTruthy();
     expect(screen.getByText('1500000000000000000000000')).toBeTruthy(); // exact yocto
     expect(screen.getByText('Storage bond')).toBeTruthy();
 
@@ -146,8 +146,16 @@ describe('create request', () => {
     const gated = recordingWallet(CREATOR);
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, false), adapter: gated.adapter });
     await fillAndReview('1');
-    expect(await screen.findByText('Transactions are switched off')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Create request in wallet' })).toBeNull();
+    // A short status under a visibly inactive action, not a warning card.
+    const status = await screen.findByTestId('signing-off-status');
+    expect(status.textContent).toBe('Preview · Transactions off');
+    const create = screen.getByRole('button', { name: 'Create request in wallet' }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    expect(create.getAttribute('aria-describedby')).toBe(status.id);
+    expect(screen.queryByText('Transactions are switched off')).toBeNull();
+    await act(async () => {
+      fireEvent.click(create);
+    });
     expect(gated.signed).toHaveLength(0);
   });
 
@@ -177,7 +185,7 @@ describe('create request', () => {
     const { adapter, signed } = recordingWallet(CREATOR);
     renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter });
     await fillAndReview('0.1');
-    const review = must((await screen.findByRole('heading', { name: 'Check before you sign' })).closest('section'), 'review');
+    const review = must((await screen.findByRole('heading', { name: 'Payment request' })).closest('section'), 'review');
     expect(within(review).getByText('Anyone may pay')).toBeTruthy();
     expect(within(review).getByText('Storage bond')).toBeTruthy();
     expect(within(review).getByText('0.00586')).toBeTruthy(); // exact bond from the quote
@@ -185,6 +193,34 @@ describe('create request', () => {
     expect(within(review).getAllByText(/NEAR Testnet/).length).toBeGreaterThan(0);
     expect(within(review).getAllByText(CREATOR).length).toBeGreaterThan(0);
     expect(within(review).getByText('100000000000000000000000')).toBeTruthy(); // exact yocto in technical details
+    expect(within(review).getByRole('button', { name: 'Create request in wallet' })).toBeTruthy();
+    expect(signed).toHaveLength(0);
+  });
+
+  it('keeps the real cost and any payer restriction on the default review view, details collapsed', async () => {
+    const chain = installChain({ contractId: CONTRACT, blockTimestampNs: CHAIN_NOW });
+    const { adapter, signed } = recordingWallet(CREATOR);
+    renderWithChain(<CreateRequest />, { setup: readySetup(chain, true), adapter });
+    await fillAndReview('0.1', { payer: 'bob.testnet' });
+    const review = must((await screen.findByRole('heading', { name: 'Payment request' })).closest('section'), 'review');
+    // Default view (outside the collapsed details): recipient, deadline, restriction and cost.
+    const summary = within(review).getByTestId('review-summary');
+    expect(summary.closest('details')).toBeNull();
+    expect(within(summary).getByText(CREATOR)).toBeTruthy();
+    expect(within(summary).getByText('Payable until')).toBeTruthy();
+    expect(within(summary).getByText('Who can pay')).toBeTruthy();
+    expect(within(summary).getByText('bob.testnet')).toBeTruthy();
+    expect(within(summary).getByText('Fee')).toBeTruthy();
+    expect(within(summary).getByText('0.00586')).toBeTruthy(); // exact non-refundable deposit from the quote
+    expect(within(summary).getByText('Not refunded · network fee in wallet')).toBeTruthy();
+    // Technical values live in one collapsed section.
+    const details = must(review.querySelector('details'), 'details');
+    expect(details.open).toBe(false);
+    expect(within(details).getByText('Transaction details')).toBeTruthy();
+    expect(within(details).getByText(CONTRACT)).toBeTruthy();
+    expect(within(details).getByText('30 Tgas')).toBeTruthy();
+    // No essay paragraphs on the default view.
+    expect(review.textContent).not.toContain('cannot be changed later');
     expect(within(review).getByRole('button', { name: 'Create request in wallet' })).toBeTruthy();
     expect(signed).toHaveLength(0);
   });
