@@ -1,82 +1,62 @@
-# Judge quick start — final review branch
+# Judge quick start (updated 2026-11-09)
 
-No wallet, seed phrase or funds needed. **G1 is a conditional Testnet release
-candidate; physical iPhone acceptance remains open; normal G1/G2 contract CI passed.
-Real G2 Handshake is NO-GO.** This guide does not authorize signing.
+No wallet, seed phrase or funds needed. **Taply is live at
+[https://taplyapp.xyz](https://taplyapp.xyz) as a public, read-only NEAR Testnet
+build: payment signing is off on the public site.** The real 0.1 NEAR Testnet
+payment from 2026-11-01 can be re-read and re-verified live.
 
-## Start locally
+## 1. In the browser (2 minutes)
 
-Use Node **24.22.2** and pnpm **11.5.0**. Installation needs package access;
-the production build may need Google Fonts access. Tests use offline fixtures
-except the explicitly skipped opt-in live test.
+Use a phone, or a desktop browser at about 390 × 844.
 
-```powershell
+| Step | Open | Expect |
+| --- | --- | --- |
+| 1 | [taplyapp.xyz](https://taplyapp.xyz) | English home, NEAR Testnet pill, **Connect wallet**. No login page. |
+| 2 | [taplyapp.xyz/demo](https://taplyapp.xyz/demo) | The whole payment journey with a **DEMO** stamp on every screen. Synthetic: nothing is read from or sent to the chain. |
+| 3 | [Pilot sale](https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502) | Read now from `taply-pay-pilot-1.testnet` at a finalized block: 0.1 NEAR to `taplytest.testnet`, sale code `KED 5E9`, **Paid per contract**. |
+| 4 | [Pilot receipt](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) | The verifier re-checks funding, transfer and callback receipts, code hash and keys: **Verified Paid**. If a public RPC is busy it says so, and the 2026-11-01 result appears as **"Archived record · not a live check"**, never as a fresh verification. |
+| 5 | Settings → Türkçe | Turkish everywhere; reload keeps it. English is the default for first visits. |
+
+Optional, with any NEAR Testnet wallet (Meteor, HERE, MyNearWallet…): connect,
+tap **Request**, enter an amount, **Continue**. The review shows amount,
+recipient, deadline and the real cost (non-refundable storage deposit; the
+wallet shows the network fee). **Create request in wallet** is disabled with
+"Payments not enabled yet". Nothing can be signed on the public site.
+
+## 2. What is real, what is synthetic
+
+| Screen | Data |
+| --- | --- |
+| `/pay/<id>`, `/receipt/<id>`, `/checkout/<account>`, wallet balance | **Real Testnet**, read live |
+| `/evidence/instant-pay-2026-11-01-receipt.json` | **Archived** verifier output from 2026-11-01 |
+| `/demo`, `/demo/handshake` | **Synthetic DEMO** |
+| `/contacts`, `/recurring`, `/split` | Local tools on your device; Split and Recurring only pre-fill normal requests |
+
+## 3. Locally (about 5 minutes plus install)
+
+Node **24.22.2**, pnpm **11.5.0**. Install needs package access; the build may
+fetch Google Fonts.
+
+```sh
 git clone https://github.com/KendineCrypto/taply.git
 cd taply
-git checkout feature/final-integration-review   # final reviewed branch (Draft PR to main); not a release tag
-git rev-parse HEAD                               # record the exact commit you judged
+git rev-parse HEAD                     # record the commit you judged (main = release/taplyapp)
 pnpm install --frozen-lockfile
-pnpm check
-pnpm --filter @taply/web dev
+pnpm check                             # brand, build, types, lint, all workspace tests
+node --test apps/api/test/*.test.mts   # standalone API tests (CI runs these too)
+cp apps/web/env/public-readonly.env.example apps/web/.env.local
+pnpm --filter @taply/web build && pnpm --filter @taply/web start
 ```
 
-`feature/final-integration-review` contains the implementation, the release
-docs, the [final safety review](FINAL_INTEGRATION_REVIEW.md), the F-01
-wallet-retry fix (`9db43fb`, `24cf04a`) and the final-build screenshots. It is
-a review branch, not a release tag or signing approval, and it is not merged
-into `main`. If it later moves, judge the exact commit recorded in the
-submission. The older published baseline `7443c01` (PR #10) does not contain
-the safety review or the F-01 fix.
+Then repeat section 1 on `http://localhost:3000`. Contract (Rust/WASM/sandbox)
+checks run in the `instant-pay-sandbox` GitHub workflow.
 
-Open [localhost demo](http://localhost:3000/demo). Walk through review, processing
-and receipt; every scene is **DEMO / synthetic**, not a new chain payment.
-No environment file or wallet connection is needed. Open Details for secondary
-explanations. The optional `/demo/handshake` is a synthetic preview only.
+## 4. Evidence and limits
 
-## Inspect the recorded real payment
-
-Open the [proof ledger](EVIDENCE.md) and
-[archived verifier JSON](evidence/instant-pay-2026-11-01-receipt.json).
-These record a real **0.1 Testnet NEAR** pilot payment to `taplytest.testnet`,
-not fresh verification from this release-preparation run.
-
-For optional current read-only inspection, stop the server and create
-`apps/web/.env.local` containing only:
-
-```dotenv
-NEXT_PUBLIC_TAPLY_NETWORK=near-testnet
-NEXT_PUBLIC_TAPLY_CONTRACT_ID=taply-pay-pilot-1.testnet
-NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH=BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B
-NEXT_PUBLIC_TAPLY_RPC_URL=https://archival-rpc.testnet.near.org
-NEXT_PUBLIC_TAPLY_RPC_PROVIDER_ID=near-archival-testnet
-NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off
-NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=off
-NEXT_PUBLIC_TAPLY_FLAG_MERCHANT=off
-NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY=off
-```
-
-Restart `pnpm --filter @taply/web dev`. Do not inherit signing overrides from
-another shell or env file. Production builds must be rebuilt after env changes.
-
-- [Read the pilot sale](http://localhost:3000/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502):
-  expect 0.1 NEAR, recipient `taplytest.testnet`, code `KED 5E9` and
-  **Paid per contract** if finalized reads succeed.
-- [Check the recorded funding proof](http://localhost:3000/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su):
-  **Verified Paid** requires successful funding, recipient transfer and callback
-  verification plus hash/key/finality checks. It is not guaranteed by opening a URL.
-- On missing history, throttling, timeout or offline status, keep the uncertain
-  result. Retry reads later; never pay again to make a demo succeed. Use the
-  archived proof with its original date if RPC is unavailable.
-
-## Evidence and limits
-
-[Final-build screenshots](../apps/web/docs/screenshots/final/) (on the final
-branch) show the offline production UI after the final polish, EN/TR at 390 px
-plus desktop; reproduce with `apps/web/scripts/final-shots.mjs`. Every payment
-state in them is DEMO/synthetic, not blockchain evidence. Older
-[Phase 7I screenshots](../apps/web/docs/screenshots/phase7i/) predate that polish. [Phase 7H screenshots](../apps/web/docs/screenshots/phase7h/)
-include historical pilot reads and labelled injected failures.
-
-[Release readiness](RELEASE_READINESS.md) records current tests, CI evidence and
-review steps. No public hosted demo, final tag, license or submitted entry is
-claimed. Browser emulation does not replace physical iPhone acceptance.
+- [Proof ledger](EVIDENCE.md) and the [archived verifier JSON](evidence/instant-pay-2026-11-01-receipt.json).
+- [Nightly release report 2026-11-09](NIGHTLY_RELEASE_REPORT_2026-11-09.md): production deployment, CI runs, browser results and what is still open.
+- Public signing stays off until a fresh owner-signed acceptance run
+  ([plan](TESTNET_ACCEPTANCE_PLAN.md)). Handshake (G2) and Protected Pay are
+  disabled. Not audited. Android is untested on a physical device.
+- If an RPC answers `429` or times out, the app keeps the uncertain result and
+  signs nothing. Retry later; never pay again to make a demo succeed.

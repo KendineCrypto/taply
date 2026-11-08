@@ -1,4 +1,22 @@
-# Final release candidate readiness — 2026-11-06
+# Release readiness
+
+## Current state — 2026-11-09
+
+- **Public read-only release is live** at https://taplyapp.xyz (Vercel
+  production, branch `release/taplyapp`). Payment signing, merchant signing,
+  Handshake and Protected Pay are off on the public site.
+- Exact deployment IDs, Git revisions, CI runs, browser results, rollback steps
+  and open items: [NIGHTLY_RELEASE_REPORT_2026-11-09.md](NIGHTLY_RELEASE_REPORT_2026-11-09.md).
+- Public Testnet signing requires the acceptance gate in
+  [TESTNET_ACCEPTANCE_PLAN.md](TESTNET_ACCEPTANCE_PLAN.md) (fresh owner-signed
+  G1 run on the protected QA build). It has not run yet.
+
+The 2026-11-06 report below is kept unchanged as the historical record of the
+release-candidate review.
+
+---
+
+## Final release candidate readiness — 2026-11-06
 
 **Prepared for review and a read-only judge demo; not approved for release or submission.**
 G1 Instant Pay has historical live Testnet proof and passing normal contract CI.

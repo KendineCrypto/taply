@@ -1,78 +1,47 @@
-# Final submission-readiness checklist
+# Submission-readiness checklist
 
-Updated 2026-11-06 on branch `feature/final-integration-review`. Checked boxes
-are preparation, not release approval. Nothing here has been merged, tagged,
-deployed, signed, paid, posted or submitted. Related:
-[release readiness](RELEASE_READINESS.md), [final safety review](FINAL_INTEGRATION_REVIEW.md),
-[demo, screenshots and X post](RELEASE_DEMO.md), [judge guide](JUDGE_QUICK_START.md).
+Updated 2026-11-09. Checked boxes are completed engineering facts, not a
+submission. Nothing has been posted or submitted. Related:
+[submission package](HACKATHON_SUBMISSION_PACKAGE.md),
+[nightly release report](NIGHTLY_RELEASE_REPORT_2026-11-09.md),
+[demo plan](RELEASE_DEMO.md), [judge guide](JUDGE_QUICK_START.md).
+History: the 2026-11-06 version of this file is in Git.
 
-## Official requirements (re-read 2026-11-06)
-
-Source: [nearhackathon.com/HACKATHON.md](https://nearhackathon.com/HACKATHON.md).
-Recheck on submission day. All times UTC.
+## Official requirements (re-read 2026-11-09)
 
 | Requirement | Rule | Taply status |
 | --- | --- | --- |
-| Deadline | Development ends and submissions close **2026-11-14 23:59 UTC**; judging from 2026-11-16 | Open |
-| Public repository | Public before the deadline and through judging (Q-014) | Public (checked 2026-11-05); recheck |
-| LICENSE file | "Any. MIT is fine. Repo stays public through judging; add a LICENSE file." (Q-014) | **Added 2026-11-08 on feature/monday-testnet-sprint: MIT, (c) 2026 KendineCrypto_, brand excluded (NOTICE)** |
-| Eligible history | Code from 2026-10-19 counts (Q-001); dedicated branch or tags plus a README section linking the diff (Q-003) | Repository starts 2026-10-29; judged branch + compare link in README |
-| AI / library disclosure | Allowed; list in README (Q-005) | README "How it was built" |
-| Testnet | Testnet-only projects are eligible for all tracks (Q-010) | NEAR Testnet only |
-| Demo post | Public X post saying it was built at NEAR HACKATHON, tagging @NEARProtocol and #NEARHackathon, with video or screenshots attached | Draft in [RELEASE_DEMO.md](RELEASE_DEMO.md) |
-| Local-only demo | "public repo, reproducible README, X post with a video; screenshots are not enough when judges cannot open the demo." (Q-012) | No hosted demo, so **a video is required** |
-| Projects per person | At most two, independent, each README names the other (Q-015) | Confirm |
-| Editing | No direct edits or resubmission (409); use [request changes](https://nearhackathon.com/request-changes) | — |
-| Screening | Claude Code and Codex screen for reproducibility; humans decide (Q-017) | README 5-minute judge path |
+| Deadline | 2026-11-14 23:59 UTC; judging from 2026-11-16 | Open |
+| Public repository | Public through judging (Q-014) | Public (checked 2026-11-09) |
+| LICENSE file | Any license; add a LICENSE file (Q-014) | **Done**: MIT, (c) 2026 KendineCrypto_; brand excluded in NOTICE |
+| Eligible history | Code from 2026-10-19 counts; README section linking the diff (Q-001, Q-003) | Repository starts 2026-10-29; README "Hackathon" section |
+| AI / library disclosure | List in README (Q-005) | README "How it was built" |
+| Testnet | Eligible for all tracks (Q-010) | NEAR Testnet only |
+| Demo | Public repo + reproducible README + X post with video; a hosted demo is a plus (Q-012) | **Hosted**: https://taplyapp.xyz; video still to attach |
+| X post | Says built at NEAR HACKATHON, tags @NEARProtocol and #NEARHackathon, video or screenshots | Draft ready, not posted |
+| Projects per person | Max two, READMEs name each other (Q-015) | Owner to confirm |
 
 ## Engineering — done
 
-- [x] F-01 wallet-retry fix (`9db43fb`, `24cf04a`): every uncertain wallet outcome, including a reported decline, stays blocking; legacy journal entries stay blocking after reload; only Taply's own pre-wallet checks are nonblocking; a declined sale creation unblocks only after a verified final read past its expiry.
-- [x] `pnpm check` exit 0: 1,226 workspace tests passed, 1 opt-in live skip; focused wallet/payment suites 382 passed.
-- [x] G1 isolation check passed; approved pins unchanged (SHA-256 `a13d932f…`, code hash `BrR6bioU…`, 345541 bytes). No contract, package, workflow, API, flag, env-example or lockfile change since the reviewed baseline.
-- [x] Final-build screenshots reviewed one by one; every synthetic payment screen shows DEMO; loopback share-link captures excluded; no PNG metadata.
-- [x] Gitleaks on the new commits and changed files: no leaks.
+- [x] Public read-only site live on https://taplyapp.xyz (HTTPS, `www` → apex, English default, Turkish persists).
+- [x] Production source = `release/taplyapp`; Vercel builds production only from that branch.
+- [x] No "Preview" wording on the public site; signing-off says "Payments not enabled yet" (EN/TR regression test).
+- [x] CI fixed on the release head (API tests could not load the Handshake reader); workspace, wallet-browser and contract sandbox workflows run on the exact head. Run IDs in the nightly report.
+- [x] Read-only G1 contract preflight 10/10 PASS on 2026-11-09.
+- [x] Re-audit of the F-01 wallet-retry fix by Claude Code on 2026-11-09 (nightly report §3). This is an AI code review, not a human or external security review.
+- [x] Production browser smoke; browsers, viewports and counts in the nightly report.
+- [x] README, judge guide, release readiness, evidence ledger and demo plan updated for 2026-11-09.
 
-## Engineering — open (disclose, do not hide)
+## Open (disclose, do not hide)
 
-- [ ] Normal PR CI on the final commit: workspace, wallet/browser and G1/G2 sandbox jobs actually ran and passed (skipped is not passed).
-- [ ] Independent security review of the F-01 fix and the cumulative branch.
-- [ ] Physical iPhone acceptance ([procedure](PHASE_7H_INTEGRATION_REPORT.md#exact-physical-iphone-acceptance-test-not-executed)), including that a wallet decline shows "Result unknown" and offers no repeat payment. Android untested.
-- [ ] Known UX limit after F-01: a declined payment can be retried only after the request is funded, cancelled or expired (default 15 min); a declined cancel or payout retry stays blocked on that device.
-- [ ] Review findings F-02 (main unprotected), F-03 (CI path coverage), F-04 (moderate dev-dependency advisory), F-05 (Handshake reader body limits), F-06 (production auth) remain open.
-- [ ] Keep G2, Handshake, Protected Pay, production auth and native signing disabled.
+- [ ] **Fresh owner-signed G1 acceptance** on the protected QA build before public signing ([plan](TESTNET_ACCEPTANCE_PLAN.md)).
+- [ ] Physical-device wallet decline / return check on that build. Android untested.
+- [ ] F-02 (`main` has no branch protection), F-03 (CI path coverage), F-06 (production auth for G2) remain open. F-04 has no production impact (`pnpm audit --prod` clean). F-05 fixed.
+- [ ] Keep G2 Handshake, Protected Pay, merchant signing, production auth and native signing disabled.
 
-## Owner decisions before publishing
+## Owner actions
 
-- [ ] **License:** approve MIT ([recommendation](LICENSE_RECOMMENDATION.md)) or another, the copyright holder(s) and year, and brand-asset treatment; then add `LICENSE` in a reviewed commit.
-- [ ] **Judged ref:** the Draft PR branch, or merge to `main` after review. Record the exact commit in the submission.
-- [ ] **Video:** record the 60-second plan in [RELEASE_DEMO.md](RELEASE_DEMO.md) with DEMO and historical captions.
-- [ ] **X post:** edit and publish the draft with the video attached; check it logged-out.
-- [ ] **Hosting (optional):** only with read-only flags, HTTPS and a real smoke test; keep up through 2026-11-18, ideally 2026-11-25.
-
-## Submission form — human only
-
-Collect real values privately; never commit them.
-
-- [ ] `projectName` 2–80 chars; `leadName` 2–80 chars.
-- [ ] `email` valid, ≤160 chars, at most 2 submissions per email.
-- [ ] `size` exactly `1`, `2 - 4`, `4 - 6`, `6 - 8` or `8+`.
-- [ ] `tracks` from `defi`, `thesis`, `privacy`, `business`, `swarms`, `security`, `agents`, `realworld`, `games`, `nfts`, `memecoins`, `social`, `open`; recommend `realworld`.
-- [ ] `nearAddress` lowercase **mainnet** prize account, 2–64 chars (unrelated to the Testnet app; the human provides it).
-- [ ] `projectUrl` public repository URL, ≤300 chars, submitted once.
-- [ ] `demoUrl` public X post URL, ≤300 chars, with the video attached.
-- [ ] `idea` 20–2000 chars (draft below).
-- [ ] `consent` true only after reading verbatim: “I agree that the organizers may use these details to review our submission and contact us about this hackathon.”
-- [ ] `requestId` UUID generated once and reused on retries. No other fields; never fill `website`.
-- [ ] Save the confirmation. On 409 do not resubmit; corrections go through request changes.
-
-## Idea text — draft (599 characters)
-
-Taply helps merchants and customers distinguish a submitted crypto payment from
-a verified recipient payout. Its NEAR Testnet Instant Pay flow uses unique sale
-requests, explicit external-wallet approval and independent funding, transfer
-and callback receipt verification. The repository contains a recorded real
-Testnet payment and a no-funds demo. Any uncertain wallet outcome, including a
-reported decline, blocks a repeat payment until the chain explains it. G1
-remains conditional pending physical iPhone acceptance and human release
-review. Live G2 Handshake and Protected Pay remain disabled.
+- [ ] Record or confirm the 60-second video; check it against "What is real today" in the submission package.
+- [ ] Publish the X post (+ reply) and check it logged-out.
+- [ ] Fill the form privately (name, email, team size, mainnet prize account) and submit once.
+- [ ] Keep taplyapp.xyz up through 2026-11-18 (ideally 2026-11-25).

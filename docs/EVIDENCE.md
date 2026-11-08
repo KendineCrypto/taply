@@ -71,6 +71,34 @@ upgrade authority and callback-stall limitations still apply.
 
 **Boundaries:** Successful CLI-initiated Testnet payment + independently checked receipt do **not** demonstrate mobile wallet redirect, Taply-native wallet signing, second-RPC-provider replication, the full multi-device pilot or a public beta. The native wallet signing gate remains OFF. The configured RPC is trusted (not light-client verification or an external security audit); retained FullAccess authority and callback-stall risks remain. No Mainnet funds involved.
 
+## Public read-only production on taplyapp.xyz — 2026-11-08/09
+
+**Observed by the release agent with unauthenticated HTTPS requests and read-only
+RPC calls. No transaction, signature or key was involved.**
+
+- Production deployment `dpl_mybW8sqwKCNc8uMQETrQMsTeEPEv` (Vercel, target
+  production), built from GitHub `release/taplyapp` at
+  `fef6a2fd8b5f4e3cefd088a93ba3a0e6d9d4d4f7` (build log: "Cloning
+  github.com/KendineCrypto/taply (Branch: release/taplyapp, Commit: fef6a2f)").
+  Later small fixes on the same branch are listed in the
+  [nightly release report](NIGHTLY_RELEASE_REPORT_2026-11-09.md).
+- `https://taplyapp.xyz` answers 200 without login; `www` and plain HTTP answer
+  308 to the apex. Let's Encrypt certificates for both names, valid to
+  2027-02-06. DNS at Unstoppable Domains: apex A `216.198.79.1`, `64.29.17.1`;
+  `www` CNAME `23943aca11e4c7b4.vercel-dns-017.com`.
+- Production configuration baked into the client bundle: `near-testnet`,
+  `taply-pay-pilot-1.testnet`, code hash `BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B`,
+  share origin `https://taplyapp.xyz`; Instant Pay, merchant, Handshake and
+  Protected Pay flags `off`.
+- Production browser smoke on 2026-11-09 (WebKit 390 px + 1280 px, Chromium 390 px):
+  the pilot receipt page showed a **fresh** Verified Paid for request
+  `9b9a5724…4502` / funding tx `CrzQ57Jx…` (live re-verification of the
+  2026-11-01 payment, not a new payment).
+- Read-only contract preflight `deploy-preflight.mjs post taply-pay-pilot-1.testnet`
+  on 2026-11-09: 10/10 PASS (approved code hash, one FullAccess key, Instant-only
+  capability, `testFaultBuild: false`, principal conserved: received
+  `320000000000000000000000` = paid + failed-held + in-flight).
+
 ## Feature ledger
 
 | Feature | Status | Contract/tx link | Test command/output | Known gaps |
