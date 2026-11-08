@@ -13,8 +13,12 @@
 export const COORDINATION_MAX_BODY_BYTES = 65_536;
 
 export class BoundedBodyError extends Error {
-  constructor(readonly reason: 'too_large' | 'malformed' | 'read_failed') {
+  // A plain field, not a parameter property: Node's type stripping (apps/api tests) rejects those.
+  readonly reason: 'too_large' | 'malformed' | 'read_failed';
+
+  constructor(reason: 'too_large' | 'malformed' | 'read_failed') {
     super(`bounded-body:${reason}`);
+    this.reason = reason;
     this.name = 'BoundedBodyError';
   }
 }

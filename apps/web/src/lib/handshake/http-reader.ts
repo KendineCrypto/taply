@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ApiErrorSchema, HandshakeSessionSchema, SessionEventSchema, parseStrictJson } from '@taply/shared';
-import { COORDINATION_MAX_BODY_BYTES, readBoundedText } from '@/lib/net/bounded-body';
+// Relative with extension: apps/api tests load this file directly with Node (no path aliases).
+import { COORDINATION_MAX_BODY_BYTES, readBoundedText } from '../net/bounded-body.ts';
 
 const Id = z.uuid();
 const Cursor = z.string().regex(/^(0|[1-9][0-9]*)$/).max(20);
