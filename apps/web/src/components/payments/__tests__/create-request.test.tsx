@@ -148,7 +148,7 @@ describe('create request', () => {
     await fillAndReview('1');
     // A short status under a visibly inactive action, not a warning card.
     const status = await screen.findByTestId('signing-off-status');
-    expect(status.textContent).toBe('Preview · Transactions off');
+    expect(status.textContent).toBe('Payments not enabled yet');
     const create = screen.getByRole('button', { name: 'Create request in wallet' }) as HTMLButtonElement;
     expect(create.disabled).toBe(true);
     expect(create.getAttribute('aria-describedby')).toBe(status.id);

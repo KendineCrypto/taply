@@ -209,7 +209,7 @@ describe('merchant POS (sale register)', () => {
     renderWithChain(<SaleRegister />, { setup: readySetup(chain, false), adapter });
     await createSale('1', '');
     // The action is visibly inactive with a short status; clicking it does nothing.
-    expect(screen.getByTestId('signing-off-status').textContent).toBe('Preview · Transactions off');
+    expect(screen.getByTestId('signing-off-status').textContent).toBe('Payments not enabled yet');
     const create = screen.getByRole('button', { name: 'Create request in wallet' }) as HTMLButtonElement;
     expect(create.disabled).toBe(true);
     await act(async () => fireEvent.click(create));

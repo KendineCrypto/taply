@@ -630,7 +630,7 @@ function ReviewStep({
   const restricted = terms.permittedPayerAccountId;
   // Setup problems are explained by PaymentsSetupNotice above; these two get a short status here.
   const blockedNote =
-    signingBlock === 'signing_flag_off' ? r.previewOff : signingBlock === 'contract_unverified' ? t.payment.signing.unverified.title : null;
+    signingBlock === 'signing_flag_off' ? r.paymentsOff : signingBlock === 'contract_unverified' ? t.payment.signing.unverified.title : null;
   const canSign = signingBlock === null;
   const Heading = sale ? 'h2' : 'h1';
 

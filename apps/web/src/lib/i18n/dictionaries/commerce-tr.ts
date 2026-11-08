@@ -83,7 +83,7 @@ export const commerceTr: CommerceCopy = {
       title: 'Profil doğrulanmadı',
       body: "Müşteriler hesabını görür; işletme adı doğrulanmamıştır.",
     },
-    preview: 'Önizleme',
+    preview: 'Ödeme sayfasını gör',
   },
 
   checkout: {

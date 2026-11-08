@@ -80,7 +80,7 @@ describe('/send', () => {
   it('checks the recipient on Testnet, shows the balance, reviews exactly, and never signs', async () => {
     const client = fakeClient(['bob.testnet']);
     const { signed } = await renderSend(client);
-    expect(screen.getByText('Sending is in preview')).toBeTruthy();
+    expect(screen.getByText('Sending not available yet')).toBeTruthy();
     expect(await screen.findByText('Available: 5 NEAR')).toBeTruthy();
 
     await type('To', 'bob.testnet');

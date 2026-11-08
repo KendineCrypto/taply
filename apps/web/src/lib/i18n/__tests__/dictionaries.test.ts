@@ -200,3 +200,29 @@ describe('commerce copy honesty (Phase 7D)', () => {
     }
   });
 });
+
+describe('deployment wording', () => {
+  // taplyapp.xyz is the public production site: no copy may call the app a "Preview".
+  // Exceptions: the two Handshake walkthroughs on /demo/handshake, both labelled DEMO, preview a feature.
+  const ALLOWED = /^(en|tr)\.commerce\.(demo\.|phase7g\.room\.preview)/;
+
+  it('never calls the app or a disabled action a "Preview" (EN and TR)', () => {
+    const hits: string[] = [];
+    const walk = (value: unknown, path: string) => {
+      if (typeof value === 'string') {
+        if (/preview|önizleme/i.test(value) && !ALLOWED.test(path)) hits.push(`${path}: ${value}`);
+        return;
+      }
+      if (value !== null && typeof value === 'object') {
+        for (const [key, child] of Object.entries(value)) walk(child, `${path}.${key}`);
+      }
+    };
+    for (const locale of LOCALES) walk(DICTIONARIES[locale], locale);
+    expect(hits).toEqual([]);
+  });
+
+  it('describes signing-off as payments not enabled, in both languages', () => {
+    expect(DICTIONARIES.en.oneTap.request.paymentsOff).toBe('Payments not enabled yet');
+    expect(DICTIONARIES.tr.oneTap.request.paymentsOff).toBe('Ödemeler henüz açık değil');
+  });
+});

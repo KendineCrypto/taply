@@ -97,7 +97,7 @@ describe('Tap sheet', () => {
     const actions = within(sheet).getAllByRole('button').filter((b) => b.getAttribute('aria-label') === null);
     expect(actions.map((b) => within(b).getAllByText(/./)[0]?.textContent)).toEqual(['Request', 'Pay', 'Send NEAR']);
     // Sending is honestly labelled as a preview.
-    expect(within(sheet).getByText(/Preview only: confirming a transfer is not available yet/)).toBeTruthy();
+    expect(within(sheet).getByText(/Not available yet: transfers cannot be confirmed/)).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
     fireEvent.click(within(sheet).getByText('Request'));
     expect(push).toHaveBeenCalledWith('/request/new');

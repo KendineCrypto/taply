@@ -1065,8 +1065,8 @@ export const en: Dictionary = {
     send: {
       subtitle: 'Send NEAR Testnet to another account.',
       preview: {
-        title: 'Sending is in preview',
-        body: 'Sending is not available yet.',
+        title: 'Sending not available yet',
+        body: 'Direct sending is not enabled in Taply yet.',
       },
       recipientLabel: 'To',
       recipientPlaceholder: 'name.testnet',
@@ -1280,7 +1280,7 @@ export const en: Dictionary = {
       close: 'Close',
       request: { label: 'Request', body: 'Ask for an exact amount with a link and QR code.' },
       pay: { label: 'Pay', body: 'Scan a payment QR code or open a payment link.' },
-      send: { label: 'Send NEAR', body: 'Preview only: confirming a transfer is not available yet.' },
+      send: { label: 'Send NEAR', body: 'Not available yet: transfers cannot be confirmed.' },
     },
     payLink: {
       title: 'Pay with link',
@@ -1387,7 +1387,7 @@ export const en: Dictionary = {
       payableUntil: 'Payable until',
       cost: 'Fee',
       costNote: 'Not refunded · network fee in wallet',
-      previewOff: 'Preview · Transactions off',
+      paymentsOff: 'Payments not enabled yet',
     },
     payment: {
       details: 'Details',

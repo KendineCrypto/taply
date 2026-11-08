@@ -83,7 +83,7 @@ export const commerceEn: CommerceCopy = {
       title: 'Profile not verified',
       body: "Customers see your account, not a verified business name.",
     },
-    preview: 'Preview',
+    preview: 'View checkout',
   },
 
   checkout: {

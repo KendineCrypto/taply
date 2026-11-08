@@ -869,8 +869,8 @@ export interface Dictionary {
       /** Default-view cost row: the non-refundable storage deposit (network fee shown by the wallet). */
       readonly cost: string;
       readonly costNote: string;
-      /** Short status under the inactive action when this build has signing off. */
-      readonly previewOff: string;
+      /** Short status under the inactive action when payment signing is off (any deployment, never "Preview"). */
+      readonly paymentsOff: string;
     };
     readonly payment: {
       readonly details: string;

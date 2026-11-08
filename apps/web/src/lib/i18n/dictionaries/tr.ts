@@ -1068,7 +1068,7 @@ export const tr: Dictionary = {
     send: {
       subtitle: 'Başka bir hesaba NEAR Testnet gönderin.',
       preview: {
-        title: 'Gönderme önizleme aşamasında',
+        title: 'Gönderme henüz kullanılamıyor',
         body: 'Gönderim henüz kapalı.',
       },
       recipientLabel: 'Alıcı',
@@ -1283,7 +1283,7 @@ export const tr: Dictionary = {
       close: 'Kapat',
       request: { label: 'İste', body: 'Bağlantı ve QR kodla tam tutar iste.' },
       pay: { label: 'Öde', body: 'Ödeme QR kodunu tara ya da ödeme bağlantısını aç.' },
-      send: { label: 'NEAR gönder', body: 'Yalnızca önizleme: transfer onayı henüz kullanılamıyor.' },
+      send: { label: 'NEAR gönder', body: 'Henüz kullanılamıyor: transfer onaylanamıyor.' },
     },
     payLink: {
       title: 'Bağlantıyla öde',
@@ -1390,7 +1390,7 @@ export const tr: Dictionary = {
       payableUntil: 'Son ödeme',
       cost: 'Ücret',
       costNote: 'İade edilmez · ağ ücreti cüzdanda',
-      previewOff: 'Önizleme · İşlem kapalı',
+      paymentsOff: 'Ödemeler henüz açık değil',
     },
     payment: {
       details: 'Ayrıntılar',
