@@ -3,12 +3,14 @@
 > **Your wallet. Your payment. One tap.**
 > NEAR **Testnet only**. No mainnet, no real funds, no bridges.
 
-**Live: [https://taplyapp.xyz](https://taplyapp.xyz)** — public, read-only NEAR Testnet build. No login, no wallet needed to look around.
+**Live: [https://taplyapp.xyz](https://taplyapp.xyz)** — public NEAR Testnet build with payments on. No login needed to look around; create a free `username.testnet` wallet in the app to pay.
 
 Taply is a mobile-first web app (PWA) that turns a NEAR Testnet wallet into a
 point of sale. A merchant creates one unique sale; the customer scans its QR,
 sees the exact amount and receiving account read from the chain, approves in
-their own wallet, and both phones check the receipt on chain by themselves.
+their own wallet (an external NEAR wallet or the built-in Taply Wallet), may pay
+with NEAR or another Testnet asset that is converted to NEAR first, and both
+phones check the receipt on chain by themselves.
 
 ## Status on 2026-11-09
 
@@ -20,22 +22,25 @@ their own wallet, and both phones check the receipt on chain by themselves.
 | Pay with other assets | The merchant asks for NEAR; the payer may pay with NEAR, USDC, USDT, NST, LNC or PEM (test tokens, converted to NEAR on Ref/Rhea Testnet first). The merchant always receives exactly the NEAR requested. |
 | Taply Wallet signing | **On for NEAR Testnet by the owner's explicit decision (2026-11-09), WITHOUT an independent security review.** Every signature needs an unlocked vault and a confirmation dialog showing the exact transaction. Test funds only. |
 | Real Testnet payment proof | A real 0.1 NEAR Instant Pay payment (2026-11-01) reached `FINAL_PAID` and **Verified Paid** in Taply's independent receipt verifier ([evidence](docs/EVIDENCE.md)). It can be re-read live on the site. |
-| Real browser proofs (2026-11-09) | Taply Wallet in Chromium on real Testnet paid a 0.2 NEAR request in NEAR and a 0.25 NEAR request with test USDC (both `FINAL_PAID`, exact payout) — [evidence](docs/evidence/taply-wallet-signing-2026-11-09/result.json). An external browser-wallet (Meteor) payment still needs a human run. |
+| Real browser proofs (2026-11-09) | **On taplyapp.xyz itself**, Chromium, fresh Taply Wallets: (1) paid a 0.2 NEAR request in NEAR and a 0.25 NEAR request with test USDC ([evidence](docs/evidence/production-taply-wallet-2026-11-09/result.json)); (2) one wallet **created** a 0.05 NEAR request in the app and a second wallet in another browser paid it ([evidence](docs/evidence/production-taply-wallet-2026-11-09/create-request-result.json)). All `FINAL_PAID` with the exact payout. An external browser-wallet (Meteor) payment still needs a human run. |
 | Disabled by design | Protected Pay (escrow), live two-phone Handshake (G2), merchant sale signing, sponsored gas |
 
-## For judges: 5 minutes, no wallet, no funds
+## For judges: 5 minutes
+
+No funds of your own are needed: the app creates a NEAR Testnet account with free test NEAR.
 
 | Do | See |
 | --- | --- |
-| Open [taplyapp.xyz](https://taplyapp.xyz) on a phone or a 390 px browser | Home in English; a NEAR Testnet pill in the header; **Connect wallet** |
-| Open [taplyapp.xyz/demo](https://taplyapp.xyz/demo) | The full payment journey, every screen stamped **DEMO** (synthetic, nothing sent) |
-| Open [the real pilot sale](https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502) | Read live from the Testnet contract: 0.1 NEAR to `taplytest.testnet`, sale code `KED 5E9`, **Paid per contract** |
-| Open [its receipt](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) | The independent verifier re-checks funding, transfer and callback receipts and shows **Verified Paid**, or, if a public RPC is busy, says so and shows the **archived** 2026-11-01 verifier record clearly labelled as archive |
-| Optional: connect any NEAR Testnet wallet, tap **Request**, enter an amount, **Continue** | The final review: amount, recipient, deadline and the real cost (non-refundable storage deposit, network fee in wallet). The create button is disabled on the public site |
+| Open [taplyapp.xyz](https://taplyapp.xyz) on a phone or a 390 px browser | **Welcome to Taply** with two choices: connect an existing wallet, or create a Taply Wallet |
+| **Choose a username** → accept → pick a name → set a password (8+ characters) | The 12-word Secret Recovery Phrase (hidden until tapped), then "*name*.testnet is live on NEAR Testnet" with 10 test NEAR — confirmed by a final chain read |
+| Tap **Request**, enter 0.05, create it, and open the payment link in a second browser with another Taply Wallet | The final review, then Taply's **Confirm transaction** dialog showing exactly what will be signed; after Confirm the request becomes **Paid per contract** and the receipt runs the independent verifier |
+| On the payment page choose **USDC** (or USDT, NST, LNC, PEM) | Enable → Get test USDC → Convert → Pay, each with its own confirmation; the recipient still receives exactly the NEAR requested |
+| Open [the real pilot sale](https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502) and [its receipt](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) | Read live from the Testnet contract: 0.1 NEAR to `taplytest.testnet`, **Paid per contract**, then **Verified Paid** (or the clearly labelled archived verifier record if a public RPC is busy) |
+| Open [taplyapp.xyz/demo](https://taplyapp.xyz/demo) | The full journey with synthetic data, every screen stamped **DEMO** |
 | Optional: Settings → Türkçe | The whole app in Turkish; the choice persists |
 | Read [docs/JUDGE_QUICK_START.md](docs/JUDGE_QUICK_START.md) | Local build and test commands, what each screen proves |
 
-Nothing on the site moves funds. DEMO screens are synthetic; the pilot sale and receipt are real Testnet data.
+Everything runs on NEAR Testnet with test tokens that have no real value. DEMO screens are synthetic.
 
 ## The problem
 
@@ -59,10 +64,14 @@ Payment-link tools solve part of it. What is still missing at a counter:
    code and the same status timeline. The code identifies the sale; it is
    **not** merchant authentication.
 4. **Explicit approval**: the customer approves exactly one
-   `pay_instant_native` call in their own external wallet.
-5. **Honest settlement states**: Ready for customer → Payment observed →
+   `pay_instant_native` call in their own wallet: an external NEAR wallet, or
+   Taply Wallet, which shows its own confirmation dialog before signing.
+5. **Pay with any supported asset**: the merchant always asks for NEAR; the
+   customer may instead convert test USDC, USDT, NST, LNC or PEM to NEAR on
+   Ref/Rhea Testnet first (a separate, clearly labelled approval).
+6. **Honest settlement states**: Ready for customer → Payment observed →
    Paid per contract. Nothing turns green until finalized chain state says so.
-6. **Verified Paid**: each phone runs Taply's independent receipt verifier
+7. **Verified Paid**: each phone runs Taply's independent receipt verifier
    against the funding, transfer and callback receipts, code hash and access
    keys. The merchant phone can find the funding transaction by itself.
 
@@ -78,23 +87,24 @@ have invented QR payments, payment links or escrow.
 | Network | NEAR **Testnet** only (genesis hash checked on every read) |
 | Contract | [`taply-pay-pilot-1.testnet`](https://testnet.nearblocks.io/address/taply-pay-pilot-1.testnet) |
 | Approved code hash | `BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B` (checked by the app before any signature) |
-| Asset | Native Testnet NEAR |
-| Wallets | External NEAR Testnet wallets via `@hot-labs/near-connect` |
+| Asset | Native Testnet NEAR (the payer may convert test USDC / USDT / NST / LNC / PEM first on `ref-finance-101.testnet`, curated pools only) |
+| Wallets | External NEAR Testnet wallets via `@hot-labs/near-connect`, or the built-in Taply Wallet (`username.testnet`, 12-word phrase, BIP-39 / NEAR path m/44'/397'/0') |
 
 ## Feature status (2026-11-09)
 
 | Feature | On taplyapp.xyz | Evidence |
 | --- | --- | --- |
-| Connect an external Testnet wallet, balance, receive address + QR | **Working** (read-only) | Live site; owner iPhone check 2026-11-09 |
+| First launch: external wallet or `username.testnet` Taply Wallet | **Working** | [production run](docs/evidence/production-2026-11-09-onboarding/phrase-result.json) |
+| Connect an external Testnet wallet, balance, receive address + QR | **Working** | Live site; owner iPhone check 2026-11-09 |
 | Real request/payment pages and receipts read from the contract | **Working** | [pilot sale](https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502) |
 | Independent receipt verifier (Verified Paid) with archival fallback | **Working**; archived record is labelled "Archived record · not a live check" | [EVIDENCE.md](docs/EVIDENCE.md) |
 | Request creation (cost disclosed) | **Working, signing on** | Live site |
-| Signed request creation and Instant payout `FINAL_PAID` | **Working on the public site**; Testnet verified (2026-11-01 and 2026-11-09 browser runs) | funding tx [`CrzQ57Jx…`](https://testnet.nearblocks.io/txns/CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) |
-| Pay a NEAR request with USDC / USDT / NST / LNC / PEM | **Working**: Ref/Rhea Testnet swap to NEAR, then the normal payment | [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json), [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json) |
+| Signed request creation and Instant payout `FINAL_PAID` | **Working on the public site**; Testnet verified (2026-11-01 pilot, 2026-11-09 production browser run) | funding tx [`CrzQ57Jx…`](https://testnet.nearblocks.io/txns/CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su), [production run](docs/evidence/production-taply-wallet-2026-11-09/result.json) |
+| Pay a NEAR request with USDC / USDT / NST / LNC / PEM | **Working**: Ref/Rhea Testnet swap to NEAR, then the normal payment | [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json), [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json), [in the browser on production](docs/evidence/production-taply-wallet-2026-11-09/result.json) |
 | QR scanner, pay-by-link | **Working** | Live site |
 | Merchant register and store QR (`/merchant`, `/checkout/<account>`) | **UI working; sale signing off** | Live site |
 | Contacts | **Working, local to the device** (no server) | `/contacts` |
-| Split Pay | **Preparation tool**: equal shares, then one normal request per person (needs signing to go on chain) | `/split` |
+| Split Pay | **Preparation tool**: equal shares, then one normal request per person (each signed on chain) | `/split` |
 | Recurring templates | **Preparation tool**: saved templates pre-fill a request; nothing runs automatically | `/recurring` |
 | DEMO journey | **Synthetic**, stamped DEMO | `/demo`, `/demo/handshake` |
 | Live two-phone Handshake (G2) | **Not live**; contract cannot bind sessions | [PHASE_7_SHARED_ROOM.md](docs/PHASE_7_SHARED_ROOM.md) |
@@ -102,22 +112,20 @@ have invented QR payments, payment links or escrow.
 | Taply Wallet: username.testnet, 12-word phrase, send, pay, swaps | **Working on NEAR Testnet**; owner decision, **no independent security review** | `/wallet/create` |
 | Social login, sponsored gas | **Disabled** | — |
 
-## Development branch: Testnet-verified candidates (not on taplyapp.xyz yet)
+## Contract candidates: Testnet-verified, not on taplyapp.xyz
 
-Branch `claude/kind-cerf-c4n261` adds isolated, **unreviewed** contract candidates (the G1 pilot is untouched)
-and proves them with real NEAR Testnet transactions from disposable automation accounts
+The repository also holds isolated, **unreviewed** contract candidates (the G1 pilot is untouched),
+proven with real NEAR Testnet transactions from disposable automation accounts
 ([evidence index](docs/RELEASE_EVIDENCE_INDEX.md), [AI review — not an audit](docs/SECURITY_REVIEW_2026-11-09.md)):
 
 | Capability | Testnet proof |
 | --- | --- |
-| Fresh G1 Instant Pay on the pilot | FINAL_PAID, exact payout, duplicate refused, Verified on 2 RPC providers |
 | Protected Pay (escrow) | real refund and real release on locked contract accounts; early release / late cancel / wrong canceller / double release refused |
 | NEP-141 token payments (TEST-ONLY token, no value) | exact token deltas, duplicate and fake-token transfers returned, token escrow refund |
 | Merchant sale bound to a Handshake session (G2) | contract session commitment = comparison code on both phones; replay refused; Verified |
-| Receipt verifier | whole-proof fallback to a second archival RPC (fixes "Could not reach the RPC") |
-| Verified Request chip | shows the provenance checks behind every request page |
 
-These capabilities stay **off** on the public site until the owner's wallet acceptance and a human security review.
+These stay **off** on the public site until a human security review. (The receipt verifier's archival fallback and
+the Verified Request chip from the same work are already live.)
 
 ## Run it locally
 
@@ -128,18 +136,22 @@ git clone https://github.com/KendineCrypto/taply.git
 cd taply                      # default branch main = the released source
 pnpm install --frozen-lockfile
 pnpm check                    # brand, build, types, lint and all workspace tests (no funds)
-cp apps/web/env/public-readonly.env.example apps/web/.env.local   # same read-only config as taplyapp.xyz
+cp apps/web/env/public-readonly.env.example apps/web/.env.local   # taplyapp.xyz config; set NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on to sign
 pnpm --filter @taply/web build && pnpm --filter @taply/web start  # http://localhost:3000
 ```
 
 - `/demo` works with no configuration. The pilot sale and receipt need the
-  read-only contract settings above.
+  contract settings above.
 - Public Testnet RPCs rate-limit per IP (`HTTP 429`). Taply then says the RPC is
   busy, waits as instructed and signs nothing; the receipt page falls back to the
   labelled archived record. Never pay again to make a demo succeed.
 - Signing is gated by `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on` **and** a passing
-  on-chain contract check at a fresh final block. Turning it on is an owner
-  decision ([acceptance plan](docs/TESTNET_ACCEPTANCE_PLAN.md)).
+  on-chain contract check at a fresh final block (production has it on, by owner
+  decision). Taply Wallet additionally needs an unlocked vault and the
+  confirmation dialog for every signature.
+- Real-browser Testnet proof you can re-run (creates disposable accounts):
+  `node docs/evidence/taply-wallet-signing-2026-11-09/taply-wallet-pay-e2e.mjs <baseUrl> <outDir> <playwright index.mjs> packages/near-client/testnet-e2e/lib.mjs`.
+  Other-asset payment without a browser: `node packages/near-client/testnet-e2e/token-pay.mjs USDT`.
 
 Contract checks (Rust/WASM/sandbox) run in CI (`instant-pay-sandbox`). The
 standalone API checks are `node --test apps/api/test/*.test.mts` (see
@@ -152,12 +164,13 @@ standalone API checks are `node --test apps/api/test/*.test.mts` (see
 - Public read-only contract check, re-run 2026-11-09, 10/10 PASS:
   `node apps/web/scripts/deploy-preflight.mjs post taply-pay-pilot-1.testnet --rpc https://test.rpc.fastnear.com`.
 - Nightly release report with the exact production deployment, CI runs and browser results: [`docs/NIGHTLY_RELEASE_REPORT_2026-11-09.md`](docs/NIGHTLY_RELEASE_REPORT_2026-11-09.md).
+- 2026-11-09 production evidence: [onboarding (`username.testnet` + 12 words)](docs/evidence/production-2026-11-09-onboarding/), [Taply Wallet pays in NEAR and with test USDC](docs/evidence/production-taply-wallet-2026-11-09/); other-asset runs: [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json), [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json). Session log: [`docs/AUTONOMOUS_PROGRESS.md`](docs/AUTONOMOUS_PROGRESS.md).
 
 ## Readiness gates
 
 | Gate | Meaning ([MILESTONES.md](docs/MILESTONES.md)) | State |
 | --- | --- | --- |
-| G1 | Real native NEAR request → signed settlement → verified `FINAL_PAID` | Historical Testnet proof exists; public read-only site live; **public signing waits for a fresh owner-signed acceptance run** |
+| G1 | Real native NEAR request → signed settlement → verified `FINAL_PAID` | **Met on Testnet**: public signing on; real browser payments on taplyapp.xyz (2026-11-09). An external-wallet (Meteor) human run is still to be recorded |
 | G2 | Merchant QR checkout + authenticated live two-device Handshake | **NO-GO**; not deployed |
 | G3 | Protected escrow: real refund and real release on Testnet | **Not met**; Protected Pay disabled |
 | G4 | Chain proof/receipt + adversarial and UX robustness | Software evidence exists; no external audit |
@@ -172,10 +185,13 @@ standalone API checks are `node --test apps/api/test/*.test.mts` (see
   on the page while it is unlocked could misuse it. NEAR Testnet test funds only.
 - **NEAR Intents has no Testnet**, so other-asset payments use Ref/Rhea Testnet
   pools; the tokens are test tokens with no real value.
-- **Declined signatures block a retry.** Wallets do not prove that a declined
-  or failed prompt sent nothing, so Taply treats it as "result unknown"; the same
-  payer can retry that request only after the chain shows it funded, cancelled
-  or expired (default 15 minutes).
+- **With an external wallet, a declined signature blocks a retry.** External
+  wallets do not prove that a declined or failed prompt sent nothing, so Taply
+  treats it as "result unknown"; the same payer can retry that request only after
+  the chain shows it funded, cancelled or expired (default 15 minutes). Taply
+  Wallet confirms before signing, so its "Reject" is reported as nothing sent.
+- **Other-asset payments are two approvals** (convert, then pay) and not atomic:
+  if the payer stops after converting, they simply keep the NEAR.
 - **Handshake is not live.** The sale code is not merchant authentication;
   merchants are shown by account ID only.
 - **Activity history** is this device's local journal; there is no indexer.
@@ -191,7 +207,8 @@ apps/web/              Next.js 16 PWA (TypeScript strict): POS, checkout, pay, r
 apps/api/              Session/room service (in-process Fetch handlers; production auth closed)
 contracts/payments/    Frozen G1 Instant Pay contract (deployed Testnet source)
 contracts/payments-merchant/ Isolated, unapproved G2 candidate; not deployed
-packages/near-client/  Typed, wallet-neutral NEAR RPC reads and call builders
+packages/near-client/  Typed NEAR RPC reads and call builders; encrypted Taply Wallet vault (BIP-39 phrase),
+                       reviewed signing backend, curated Ref/Rhea Testnet swap routes
 packages/shared/       Frozen protocol schemas, canonical hashing, sale/comparison codes
 docs/                  Protocol freeze, state machine, security, evidence, release reports
 ```
@@ -205,16 +222,20 @@ Protocol and design: [Protocol Freeze v1](docs/LEAD_PROTOCOL_FREEZE_v1.md),
 
 - **AI coding agents.** Most code and documentation was written by AI agents
   under human direction: **Claude Code** (Anthropic) for the frontend
-  (`apps/web`), release engineering and documentation, and **Codex** (OpenAI)
-  for the contract, backend and shared packages. A human owner directs the work
-  and performs every wallet approval and on-chain action. Allowed and disclosed
-  per HACKATHON.md Q-005.
+  (`apps/web`), the Taply Wallet onboarding/signing and swap work, release
+  engineering and documentation, and **Codex** (OpenAI) for the contract,
+  backend and shared packages. A human owner directs the work and makes every
+  product and release decision. Testnet evidence runs use disposable automation
+  accounts created from the public faucet; the owner's own wallets were never
+  used by an agent. Allowed and disclosed per HACKATHON.md Q-005.
 - **No template or pre-existing app** was used. The repository starts at
   `db10264` (2026-10-29), inside the eligible window (from 2026-10-19, Q-001).
 - **Runtime dependencies** (exact versions in `pnpm-lock.yaml` and
   `contracts/payments/Cargo.lock`): web `next`, `react`, `react-dom`,
   `@hot-labs/near-connect` (wallet selector), `jsqr` (QR decoding), `zod`;
-  near-client `near-api-js`, `lossless-json`, `jsonc-parser`, `zod`; shared
+  near-client `near-api-js`, `lossless-json`, `jsonc-parser`, `zod` (the
+  BIP-39 English wordlist is embedded as public data, checked against its
+  standard SHA-256); shared
   `zod`, `canonicalize`, `jsonc-parser`, `@noble/hashes`; contract `near-sdk`
   5.30.0, `borsh`. Tooling: TypeScript, Tailwind CSS, Vitest, Testing Library,
   ESLint. Browser QA used a separately installed Playwright (not a repository
