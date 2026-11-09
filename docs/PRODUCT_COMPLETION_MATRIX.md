@@ -19,7 +19,7 @@ States: LIVE · QA VERIFIED · CODE COMPLETE · PARTIAL · DEMO ONLY · BLOCKED 
 | NEP-141 contract path | QA VERIFIED (Testnet, automation), UNREVIEWED | TEST-ONLY token; instant exact deltas, duplicate returned, protected refund; sandbox 4/4 incl. fake token, unregistered recipient |
 | NEP-141 web | CODE COMPLETE for Protected requests (flag off) | Asset selector, verified symbols/decimals, ft_transfer_call journal; token Instant UI on the candidate NOT IMPLEMENTED |
 | Shared schema v1.1 (`nep141:` assets) | CODE COMPLETE | Backward compatible, native hashes unchanged, CI green |
-| Cross-token pay (pay A, receive B) | QA VERIFIED (Testnet automation) for test USDC → NEAR; behind the Instant Pay flag | Payer converts test USDC (`usdc.itachicara.testnet`, no real value) to native NEAR on Ref/Rhea Testnet pool 1103, then pays the unchanged NEAR request; merchant received exactly the requested NEAR (FINAL_PAID). NEAR Intents itself has no Testnet (mainnet only). |
+| Cross-token pay (pay A, receive B) | QA VERIFIED (Testnet automation) for USDC and USDT → NEAR; behind the Instant Pay flag | The merchant creates a normal NEAR request and picks nothing extra; the payer picks NEAR, USDC, USDT, NST, LNC or PEM (curated Ref/Rhea Testnet pools, test tokens with no real value), converts to native NEAR, then pays the unchanged NEAR request. USDC and USDT runs: FINAL_PAID, merchant delta exactly the requested NEAR. NEAR Intents itself has no Testnet. |
 | Contacts | LIVE (local) · Protected payer picker CODE COMPLETE | |
 | Split Pay | LIVE (preparation; settles via G1 requests) | Group "done" only when every share verified |
 | Recurring templates | LIVE (preparation; no auto-charge) | |

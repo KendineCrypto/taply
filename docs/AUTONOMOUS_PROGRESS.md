@@ -77,6 +77,17 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-09 — cloud session 2
 
+### Increment 11 — Any curated asset, merchant still asks only for NEAR (owner request)
+
+- Owner: "If I request NEAR, the payer should pay with whatever asset they want, not only USDC."
+  The merchant already picks nothing extra (a normal NEAR request); the payer chooses on the pay screen.
+- `TESTNET_SWAP_ROUTES`: USDC (pool 1103), USDT (1084), NST (602), LNC (395), PEM (461): the deepest Ref Testnet
+  pool vs wNEAR per token, no public mint, symbol/decimals pinned and re-checked on every read (all 5 read OK live).
+  Arbitrary tokens are refused (a fake or illiquid token could quote any price).
+- Web: "Pay with: NEAR | USDC | USDT | NST | LNC | PEM"; `TokenPay` is route-generic; EN/TR copy uses the symbol.
+- Real Testnet: USDT run `docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json` — 0.3765 USDT converted,
+  request FINAL_PAID, merchant delta exactly 0.3 NEAR (script `packages/near-client/testnet-e2e/token-pay.mjs <SYMBOL>`).
+
 ### Increment 10 — Live release + pay a NEAR request with test USDC (owner request)
 
 - **Release:** PR #15 merged (`01dc5de`), `release/taplyapp` fast-forwarded; verified on https://taplyapp.xyz with the
@@ -93,7 +104,7 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
   (separate wallet approval, FINAL outcome without failed receipts = converted; failure says USDC was returned;
   unknown blocks a blind retry), step 2 = the unchanged reviewed NEAR payment. "Enable test USDC" / "Get test USDC".
   WalletCall gained optional same-receiver `actions`; the Taply Wallet adapter refuses them. EN + TR.
-- **Real Testnet proof** (`packages/near-client/testnet-e2e/usdc-pay.mjs`, evidence
+- **Real Testnet proof** (`packages/near-client/testnet-e2e/token-pay.mjs USDC`, evidence
   `docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json`): merchant asked 0.3 NEAR; payer registered,
   bought 0.662 test USDC, converted 0.6376 USDC → 0.3015 NEAR (Ref log equals the predicted output), paid; request
   FINAL_PAID, merchant delta exactly 0.3 NEAR. Not a browser-wallet run (external wallets cannot run headless).

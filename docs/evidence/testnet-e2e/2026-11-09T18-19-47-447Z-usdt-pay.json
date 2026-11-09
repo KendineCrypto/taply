@@ -1,0 +1,54 @@
+{
+  "kind": "TAPLY_PAY_NEAR_REQUEST_WITH_TEST_TOKEN_TESTNET_PROOF",
+  "network": "near-testnet",
+  "asset": {
+    "exchange": "ref-finance-101.testnet",
+    "wrappedNear": "wrap.testnet",
+    "token": "usdt.itachicara.testnet",
+    "poolId": 1084,
+    "symbol": "USDT",
+    "decimals": 24
+  },
+  "note": "Disposable automation accounts. Test USDT (usdt.itachicara.testnet) has no real value. Ref pool 1084 on ref-finance-101.testnet.",
+  "contractId": "taply-pay-pilot-1.testnet",
+  "merchantAccountId": "taply-usdc-merchant-24ae078a.testnet",
+  "payerAccountId": "taply-usdc-payer-8c977353.testnet",
+  "requestedYocto": "300000000000000000000000",
+  "requestId": "44c96b20d3c0dd5f61ea237ab154e716e70ca749e9d0b6928ee5457a25c52f9c",
+  "createTransaction": "4THNwwF1CJgCZwG4kCAriGW81yqxxxzcn4AdX3mwKgf7",
+  "registerToken": {
+    "hash": "3c9AJTjCjSwRNenZz7NUGLWoSkKiVRyg7KYtcMTqzWo5",
+    "failed": false
+  },
+  "buyTestToken": {
+    "hash": "C9n4v2sMN8Njti8LqCoSwJvNkWDwMtwpEEWVrzqR6B6H",
+    "failed": false,
+    "nearSpentYocto": "315000000000000000000000",
+    "tokenHeld": "391046280509814288419588"
+  },
+  "convert": {
+    "hash": "B7yXvhjk6TskNLFQ5DWjWm2sJxRLhzezib6tLtz4w1Q8",
+    "failed": false,
+    "tokenIn": "376542958636655398571118",
+    "minNearOut": "300000000000000000000000",
+    "expectedNearOut": "301499994809916654752237",
+    "swappedLog": "Swapped 376542958636655398571118 usdt.itachicara.testnet for 301499994809916654752237 wrap.testnet",
+    "withdrawLog": "Withdraw 301499994809916654752237 yoctoNEAR from ref-finance-101.testnet",
+    "payerNativeDeltaYocto": "299818344145484154752236"
+  },
+  "payment": {
+    "hash": "v1FhEhVbXWMj5Atz1ib4JhPogr6popozm3eQkgtoGnv",
+    "finalStatus": "FINAL_PAID",
+    "latestOperation": {
+      "nonce": "1",
+      "kind": "INSTANT_PAYOUT",
+      "destinationAccountId": "taply-usdc-merchant-24ae078a.testnet",
+      "amountBaseUnits": "300000000000000000000000",
+      "status": "SUCCEEDED",
+      "startedAtNs": "1794248375825803106",
+      "resolvedAtNs": "1794248377063531218",
+      "failureCode": null
+    },
+    "merchantDeltaYocto": "300000000000000000000000"
+  }
+}

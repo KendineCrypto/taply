@@ -33,7 +33,8 @@ import { cameFromCheckout, isPosSale, journeyContext, journeySide, journeyStatus
 import { HashHexSchema } from '@/lib/protocol';
 import type { ContractRequest } from '@/lib/protocol';
 import { useNativeBalance } from '@/lib/near/use-native-balance';
-import { UsdcPay } from './UsdcPay';
+import { TESTNET_SWAP_ROUTES } from '@taply/near-client';
+import { TokenPay } from './TokenPay';
 import { displayableBalance } from '@/lib/near/balance';
 import { useWallet } from '@/lib/wallet/provider';
 import {
@@ -606,7 +607,7 @@ function PayReview({
   const { signingBlock, check, setup } = usePayments();
   const checkboxId = useId();
   const [confirmed, setConfirmed] = useState(false);
-  const [payWith, setPayWith] = useState<'near' | 'usdc'>('near');
+  const [payWith, setPayWith] = useState<string>('near');
   const balance = useNativeBalance(setup.status === 'ready' ? setup.reader : null, accountId);
   const verifiedBalance = displayableBalance(balance.view);
 
@@ -618,6 +619,7 @@ function PayReview({
   const low = verifiedBalance !== null && BigInt(verifiedBalance.balance.amountYoctoNear) < amount + GAS_MARGIN_YOCTO;
   const stillOpen = BigInt(observedAtNs) < BigInt(request.terms.fundingExpiresAtNs);
   const payGas = check.status === 'verified' ? check.config.gas.payInstantNative : null;
+  const payRoute = TESTNET_SWAP_ROUTES.find((r) => r.token === payWith);
 
   return (
     <Card as="section" className="journey-amount-glow flex flex-col gap-4 p-5">
@@ -658,8 +660,10 @@ function PayReview({
           {signingBlock === null && blocking === undefined && stillOpen && request.terms.assetId === 'near:native' && (
             <>
               <PayWithSwitch value={payWith} onChange={setPayWith} />
-              {payWith === 'usdc' && (
-                <UsdcPay
+              {payRoute !== undefined && (
+                <TokenPay
+                  key={payRoute.token}
+                  route={payRoute}
                   amountYocto={request.terms.amountBaseUnits}
                   signerAccountId={wallet.session.accountId}
                   signAndSend={signAndSend}
@@ -709,17 +713,14 @@ function PayReview({
   );
 }
 
-/** NEAR (default) or test USDC converted to NEAR first. The payment itself is always NEAR. */
-function PayWithSwitch({ value, onChange }: { readonly value: 'near' | 'usdc'; readonly onChange: (v: 'near' | 'usdc') => void }) {
+/** NEAR (default) or a curated Testnet token converted to NEAR first. The payment itself is always NEAR. */
+function PayWithSwitch({ value, onChange }: { readonly value: string; readonly onChange: (v: string) => void }) {
   const t = useT();
-  const options = [
-    { value: 'near' as const, label: t.usdcPay.near },
-    { value: 'usdc' as const, label: t.usdcPay.usdc },
-  ];
+  const options = [{ value: 'near', label: t.tokenPay.near }, ...TESTNET_SWAP_ROUTES.map((r) => ({ value: r.token, label: r.symbol }))];
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="eyebrow mb-1 text-[var(--text-muted)]">{t.usdcPay.payWith}</legend>
-      <div className="grid grid-cols-2 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]">
+      <legend className="eyebrow mb-1 text-[var(--text-muted)]">{t.tokenPay.payWith}</legend>
+      <div className="grid grid-cols-3 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]">
         {options.map((o) => (
           <button
             key={o.value}
@@ -734,6 +735,7 @@ function PayWithSwitch({ value, onChange }: { readonly value: 'near' | 'usdc'; r
           </button>
         ))}
       </div>
+      <p className="text-xs text-[var(--text-muted)]">{t.tokenPay.payWithNote}</p>
     </fieldset>
   );
 }
