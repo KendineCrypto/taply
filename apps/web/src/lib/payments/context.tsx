@@ -57,6 +57,8 @@ export type PaymentsSetup =
        * verifier above, never proof. Absent/null: no automatic search.
        */
       readonly locatorRpc?: LocatorRpc | null;
+      /** Second archival provider for the funding search, used only after a transient result. */
+      readonly locatorFallbackRpc?: LocatorRpc | null;
     };
 
 export type VerifiedCheck = {
@@ -137,6 +139,10 @@ function defaultSetup(): PaymentsSetup {
         : createFetchVerifierRpc({ rpcUrl: secondary.rpcUrl, providerId: secondary.rpcProviderId, rateLimitGate: createRateLimitGate() }),
     // Funding search (no hash known) runs on the fast archival provider; a found hash is only a candidate.
     locatorRpc: createFetchLocatorRpc({ rpcUrl: primary.rpcUrl, providerId: primary.rpcProviderId, rateLimitGate: primaryGate }),
+    locatorFallbackRpc:
+      secondary === null
+        ? null
+        : createFetchLocatorRpc({ rpcUrl: secondary.rpcUrl, providerId: secondary.rpcProviderId, rateLimitGate: createRateLimitGate() }),
   };
 }
 

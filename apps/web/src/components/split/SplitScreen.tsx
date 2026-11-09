@@ -322,6 +322,7 @@ function ChildVerification({ request, onVerified }: { readonly request: Contract
   const known = collectReferences(request, entries, { funding: null, retries: [] });
   const located = useFundingLocator({
     rpc: ready?.locatorRpc ?? null,
+    fallbackRpc: ready?.locatorFallbackRpc ?? null,
     contractId: ready?.contractId ?? '',
     request,
     enabled: known.funding === null,

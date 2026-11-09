@@ -256,3 +256,25 @@ export function isFundingCandidate(
     return false;
   }
 }
+
+/** Results that say nothing about the chain (provider trouble), so another provider may be asked. */
+const TRANSIENT_LOCATE: ReadonlySet<LocateResult['kind']> = new Set(['unavailable', 'history_unavailable', 'rate_limited', 'budget_exhausted']);
+
+/**
+ * Runs the WHOLE search on each provider in turn, moving on only after a transient
+ * result (real payment 7nb5J2Ss…: a single failed provider left the recipient on
+ * "Could not search the chain"). `found` / `not_found` / `not_applicable` are final.
+ * A found hash stays a candidate: the independent verifier still has to prove it.
+ */
+export async function locateAcrossProviders(
+  input: Omit<LocateInput, 'rpc'>,
+  rpcs: ReadonlyArray<LocatorRpc>,
+  locate: (input: LocateInput) => Promise<LocateResult> = locateFundingTransaction,
+): Promise<LocateResult> {
+  let last: LocateResult = { kind: 'unavailable', calls: 0 };
+  for (const rpc of rpcs) {
+    last = await locate({ ...input, rpc });
+    if (!TRANSIENT_LOCATE.has(last.kind)) return last;
+  }
+  return last;
+}

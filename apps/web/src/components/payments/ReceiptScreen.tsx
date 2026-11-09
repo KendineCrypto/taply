@@ -94,6 +94,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
   const missing = request === null ? 'elsewhere' : missingEvidence(request, entries, walletReturnsPending);
   const located = useFundingLocator({
     rpc: ready?.locatorRpc ?? null,
+    fallbackRpc: ready?.locatorFallbackRpc ?? null,
     contractId: ready?.contractId ?? '',
     request,
     enabled: known !== null && known.funding === null && missing !== 'matching',
