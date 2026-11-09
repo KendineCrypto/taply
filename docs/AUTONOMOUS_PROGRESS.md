@@ -77,6 +77,28 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-09 — cloud session 2
 
+### Increment 12 — Taply Wallet signing ON for NEAR Testnet (owner decision, no independent review)
+
+- Owner answered "Testnet'te aç" (2026-11-09). `TAPLY_WALLET_SIGNING_ENABLED = true`; README states the missing
+  independent security review.
+- near-client `wallet-backend.ts`: `prepareSwapTransaction` + `checkedSwapTransaction` (exact register / buy / sell
+  shapes of the curated routes, signer-only account args, deposits ≤ 0.05 NEAR for storage, gas ≤ 300 Tgas, no extra
+  actions); multi-action transactions journaled and reconciled action-by-action at FINAL. 3 new tests (15 refused
+  mutations), signer fixture maps all actions. near-client 240/240.
+- web: `ConfirmTransactionDialog` (exact receiver, action lines, attached NEAR, fee reserve) before every signature;
+  `UnlockDialog`; `WalletOverride` makes every `useWallet()` screen use Taply Wallet when it is the active wallet;
+  Taply send enabled; a Taply decline is `WalletDeclinedError` → "rejected, nothing was sent" (non-blocking).
+- **Real browser + real Testnet** (`docs/evidence/taply-wallet-signing-2026-11-09/`): wallet `taply-pay-805157.testnet`
+  created in Chromium, paid 0.2 NEAR in NEAR and 0.25 NEAR with test USDC (register → buy → convert → pay, 5 confirmations);
+  both requests FINAL_PAID with INSTANT_PAYOUT SUCCEEDED for the exact amount.
+
+### Production check after PR #17 (`98d2039`)
+
+- Owner screenshot: Vercel Production `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on` (changed ~4 h before; earlier notes
+  saying "off" are stale). Live check: a fresh 0.1 NEAR request `634da878…5e8f07` on taplyapp.xyz shows
+  "Ready to pay" with Connect wallet and no "Payments not enabled yet" (`docs/evidence/production-2026-11-09-onboarding/20-pay-page.png`).
+  The asset selector appears after a wallet connects; a real browser-wallet payment is still to be done by the owner.
+
 ### Increment 11 — Any curated asset, merchant still asks only for NEAR (owner request)
 
 - Owner: "If I request NEAR, the payer should pay with whatever asset they want, not only USDC."

@@ -1,6 +1,6 @@
 import type { PreparedContractCall, PreparedProtectedCall, PreparedTokenCall } from '@taply/near-client';
 import type { IntentTerms } from '@/lib/protocol';
-import { WalletNotDispatchedError } from '@/lib/wallet/adapter';
+import { WalletDeclinedError, WalletNotDispatchedError } from '@/lib/wallet/adapter';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
 import { JournalBlockedError, isBlocking } from './journal';
 import type { JournalEntry, JournalMethod, SubmissionJournal } from './journal';
@@ -64,7 +64,8 @@ export async function submitCall(input: {
   } catch (error) {
     if (error instanceof WalletNotDispatchedError) {
       const saved = await record(journal, target, { phase: 'USER_REJECTED', notDispatched: true });
-      return saved ? { kind: 'wrong_account' } : { kind: 'unknown' };
+      if (!saved) return { kind: 'unknown' };
+      return error instanceof WalletDeclinedError ? { kind: 'rejected' } : { kind: 'wrong_account' };
     }
     await record(journal, target, { phase: 'OUTCOME_UNKNOWN' });
     return { kind: 'unknown' };

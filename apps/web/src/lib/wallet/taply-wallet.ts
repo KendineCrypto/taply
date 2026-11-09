@@ -5,15 +5,18 @@ import {
 import type { LocalWalletIdentity, NearTestnetConfig, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall } from '@taply/near-client';
 import { encodeQr } from '@/lib/qr/encode';
 import { FLAGS } from '@/lib/flags/features';
-import { WalletError } from './adapter';
+import { WalletDeclinedError, WalletError, WalletNotDispatchedError } from './adapter';
 import type { WalletAdapter, WalletSession } from './adapter';
 import { requestTestnetAccount } from './testnet-account';
 import type { FaucetFailure, FaucetResult } from './testnet-account';
 
-/** Human security review + an independently tested SDK signer are prerequisites.
- * No env, query parameter, vault unlock or UI action can enable this constant.
+/** NEAR TESTNET ONLY. Enabled by the owner's explicit decision on 2026-11-09
+ * ("Testnet'te aç"), WITHOUT an independent security review (see README). The
+ * reviewed backend still requires an unlocked vault, a fresh final snapshot, an
+ * explicit per-transaction confirmation and, for contract/swap calls, the
+ * Instant Pay flag. No env, query parameter or UI state changes this constant.
  */
-export const TAPLY_WALLET_SIGNING_ENABLED = false as const;
+export const TAPLY_WALLET_SIGNING_ENABLED = true as const;
 
 export type TaplyWalletRead =
   | { readonly status: 'NOT_CREATED' }
@@ -147,17 +150,24 @@ export function createTaplyWalletController(input: {
     async signAndSendTransaction(signerAccountId, call) {
       if (!TAPLY_WALLET_SIGNING_ENABLED || !FLAGS.instantPay.enabled || !input.confirmTransaction) throw new WalletError('unavailable');
       if (!connected || !vault.unlocked || vault.getIdentity()?.accountId !== signerAccountId) throw new WalletError('no_account');
-      if (!['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName)) throw new WalletError('failed');
-      if (call.actions !== undefined) throw new WalletError('failed');
+      const payment = ['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName);
+      if (payment && call.actions !== undefined) throw new WalletError('failed');
       try {
-        const review = await backend.prepareContractCall({ ...call, methodName: call.methodName as PreparedContractCall['methodName'] });
+        // Payments: rebuilt from the approved contract. Anything else must be an
+        // exact curated swap shape (checkedSwapTransaction) or it is refused.
+        const review = payment
+          ? await backend.prepareContractCall({ ...call, methodName: call.methodName as PreparedContractCall['methodName'] })
+          : await backend.prepareSwapTransaction({ receiverId: call.receiverId,
+            actions: (call.actions ?? [call]).map((a) => ({ methodName: a.methodName, args: { ...a.args }, gas: a.gas, depositYocto: a.depositYocto })) });
         const outcome = await backend.submit(review.id, input.confirmTransaction);
         return outcome.kind === 'unknown'
           ? { kind: 'unknown', ...(outcome.transactionHash ? { transactionHash: outcome.transactionHash } : {}) }
           : { kind: 'submitted', transactionHash: outcome.transactionHash };
       } catch (error) {
-        if (error instanceof WalletEngineError && error.code === 'REVIEW_REJECTED') throw new WalletError('cancelled');
-        throw new WalletError('failed');
+        // prepare*/submit throw only BEFORE signing (after it they return
+        // "unknown"), so a throw here proves nothing was sent.
+        if (error instanceof WalletEngineError && error.code === 'REVIEW_REJECTED') throw new WalletDeclinedError();
+        throw new WalletNotDispatchedError();
       }
     },
   };

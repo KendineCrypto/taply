@@ -20,6 +20,7 @@ import { fill } from '@/lib/i18n';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { getNearClient } from '@/lib/near/client';
+import { WalletNotDispatchedError } from '@/lib/wallet/adapter';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
 
 /**
@@ -156,8 +157,9 @@ export function TokenPay({
     let outcome: SignOutcome;
     try {
       outcome = await signAndSend(toWalletCall(tx));
-    } catch {
-      setPhase({ kind: 'unknown' });
+    } catch (error) {
+      // Only an in-app wallet can prove nothing was sent (declined before signing).
+      setPhase({ kind: error instanceof WalletNotDispatchedError ? 'idle' : 'unknown' });
       return;
     }
     if (outcome.kind !== 'submitted') {

@@ -49,6 +49,16 @@ export class WalletNotDispatchedError extends WalletError {
   }
 }
 
+/** The person declined in an IN-APP wallet whose confirmation runs BEFORE any
+ * signing (Taply Wallet). Only that wallet may throw it: external SDK
+ * cancellations prove nothing about broadcast and stay "unknown". */
+export class WalletDeclinedError extends WalletNotDispatchedError {
+  constructor() {
+    super();
+    this.name = 'WalletDeclinedError';
+  }
+}
+
 /**
  * One contract call, exactly as `@taply/near-client` prepared it. The adapter
  * passes it to the wallet unchanged; the person approves or declines there.

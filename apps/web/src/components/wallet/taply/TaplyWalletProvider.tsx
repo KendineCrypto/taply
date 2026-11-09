@@ -3,10 +3,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { VaultError, WalletEngineError } from '@taply/near-client';
-import type { LocalWalletIdentity, WalletBalanceSnapshot } from '@taply/near-client';
+import type { LocalWalletIdentity, WalletBalanceSnapshot, WalletTransactionReview } from '@taply/near-client';
 import type { Dictionary } from '@/lib/i18n';
 import { CHAIN_CONFIG } from '@/lib/near/config';
-import { WalletError } from '@/lib/wallet/adapter';
+import { WalletError, WalletNotDispatchedError } from '@/lib/wallet/adapter';
+import type { SignOutcome, WalletCall, WalletErrorKind, WalletSession } from '@/lib/wallet/adapter';
+import { WalletOverride } from '@/lib/wallet/provider';
+import type { WalletValue } from '@/lib/wallet/provider';
+import { ConfirmTransactionDialog, UnlockDialog } from './TaplyDialogs';
+import { useWalletMode } from './mode';
 import { createTaplyWalletController, TaplyNameTakenError, TaplyPhraseMismatchError } from '@/lib/wallet/taply-wallet';
 
 /**
@@ -15,13 +20,15 @@ import { createTaplyWalletController, TaplyNameTakenError, TaplyPhraseMismatchEr
  *  - every key operation (generate, encrypt, unlock, lock, backup, restore)
  *    is a controller call; nothing cryptographic happens here;
  *  - only the ENCRYPTED backup string ever passes through (for download);
- *  - signing is not reachable: the controller's signer is hard-disabled and
- *    this provider never offers a sign or submit action;
+ *  - signing (NEAR Testnet, owner decision 2026-11-09) happens only inside the
+ *    controller, after the ConfirmTransactionDialog shows the exact reviewed
+ *    transaction and the person presses Confirm;
+ *  - when Taply Wallet is the active wallet (mode "taply"), every screen that
+ *    uses useWallet() (payments, requests, swaps) gets this wallet instead of
+ *    the external connector, through WalletOverride;
  *  - a LOCAL_ONLY identity is never presented as an on-chain account; a named
  *    `username.testnet` counts only after a FINAL read shows it holds the key.
  *
- * It is separate from the payments WalletProvider on purpose: Instant Pay keeps
- * using the external (NEAR Connect / Meteor) wallet.
  */
 
 export type TaplyWalletController = ReturnType<typeof createTaplyWalletController>;
@@ -40,6 +47,10 @@ export type TaplyWalletState =
   | { readonly status: 'provisioned'; readonly identity: LocalWalletIdentity; readonly balance: WalletBalanceSnapshot };
 
 type PreparedTransfer = Awaited<ReturnType<TaplyWalletController['prepareSend']>>;
+export type SendOutcome =
+  | { readonly kind: 'final'; readonly transactionHash: string; readonly succeeded: boolean }
+  | { readonly kind: 'unknown'; readonly transactionHash: string | null }
+  | { readonly kind: 'declined' };
 
 interface TaplyWalletValue {
   readonly state: TaplyWalletState;
@@ -63,8 +74,10 @@ interface TaplyWalletValue {
   readonly revealPhrase: (passphrase: string) => Promise<TaplyResult<readonly string[]>>;
   /** Import a recovery phrase (named account verified on chain first). */
   readonly restorePhrase: (phrase: string, passphrase: string, accountId?: string) => Promise<TaplyResult<LocalWalletIdentity>>;
-  /** Read-only review. There is deliberately no sign/submit counterpart. */
+  /** Read-only review (exact reserves) before sending. */
   readonly prepareSend: (receiverId: string, amountNear: string) => Promise<TaplyResult<PreparedTransfer>>;
+  /** Native NEAR transfer: unlock if needed, reviewed backend, confirmation dialog, one send, FINAL. */
+  readonly sendNear: (receiverId: string, amountNear: string) => Promise<TaplyResult<SendOutcome>>;
 }
 
 const KNOWN: ReadonlySet<string> = new Set([
@@ -84,10 +97,12 @@ export function taplyErrorCode(error: unknown): TaplyErrorCode {
   return 'UNKNOWN';
 }
 
-function defaultFactory(): TaplyWalletController | null {
+type Confirm = (review: WalletTransactionReview) => Promise<boolean>;
+
+function defaultFactory(confirmTransaction: Confirm): TaplyWalletController | null {
   if (!CHAIN_CONFIG.ok) return null;
   try {
-    return createTaplyWalletController({ config: CHAIN_CONFIG.client, storage: window.localStorage });
+    return createTaplyWalletController({ config: CHAIN_CONFIG.client, storage: window.localStorage, confirmTransaction });
   } catch {
     return null;
   }
@@ -101,8 +116,14 @@ export function TaplyWalletProvider({
 }: {
   readonly children: ReactNode;
   /** Tests inject the real controller with a deterministic chain reader. */
-  readonly factory?: () => TaplyWalletController | null;
+  readonly factory?: (confirmTransaction: Confirm) => TaplyWalletController | null;
 }) {
+  const [pendingReview, setPendingReview] = useState<{ review: WalletTransactionReview; resolve: (ok: boolean) => void } | null>(null);
+  const [unlockRequest, setUnlockRequest] = useState<{ resolve: (ok: boolean) => void } | null>(null);
+  const confirmTransaction = useCallback<Confirm>(
+    (review) => new Promise<boolean>((resolve) => setPendingReview({ review, resolve })),
+    [],
+  );
   const [controller, setController] = useState<TaplyWalletController | null | undefined>(undefined);
   const [state, setState] = useState<TaplyWalletState>({ status: 'checking' });
   const [unlocked, setUnlocked] = useState(false);
@@ -110,7 +131,7 @@ export function TaplyWalletProvider({
 
   // Created on the client only (it needs window, Web Crypto and storage).
   useEffect(() => {
-    const created = factory();
+    const created = factory(confirmTransaction);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client initialisation
     setController(created);
     if (created === null) return;
@@ -130,7 +151,7 @@ export function TaplyWalletProvider({
       unsubscribe();
       created.dispose();
     };
-  }, [factory]);
+  }, [factory, confirmTransaction]);
 
   useEffect(() => {
     if (controller === undefined || controller === null) return;
@@ -275,6 +296,24 @@ export function TaplyWalletProvider({
           return { ok: false, code: code === 'UNKNOWN' ? 'RPC_UNAVAILABLE' : code };
         }
       },
+      async sendNear(receiverId, amountNear) {
+        if (!controller) return missing;
+        try {
+          if (!controller.unlocked) {
+            const ok = await new Promise<boolean>((resolve) => setUnlockRequest({ resolve }));
+            if (!ok) return { ok: true, value: { kind: 'declined' } };
+          }
+          const review = await controller.prepareTransactionReview(receiverId, amountNear);
+          const result = await controller.confirmAndSend(review.id);
+          refresh();
+          return { ok: true, value: result.kind === 'final'
+            ? { kind: 'final', transactionHash: result.transactionHash, succeeded: result.outcome === 'SUCCEEDED' }
+            : { kind: 'unknown', transactionHash: result.transactionHash } };
+        } catch (error) {
+          if (error instanceof WalletEngineError && error.code === 'REVIEW_REJECTED') return { ok: true, value: { kind: 'declined' } };
+          return { ok: false, code: taplyErrorCode(error) };
+        }
+      },
       async prepareSend(receiverId, amountNear) {
         if (!controller) return missing;
         try {
@@ -286,7 +325,85 @@ export function TaplyWalletProvider({
     };
   }, [controller, state, unlocked, refresh]);
 
-  return <TaplyWalletContext.Provider value={value}>{children}</TaplyWalletContext.Provider>;
+  const [mode] = useWalletMode();
+  const [session, setSession] = useState<WalletSession | null>(null);
+  const [lastError, setLastError] = useState<WalletErrorKind | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  const override = useMemo<WalletValue | null>(() => {
+    if (mode !== 'taply') return null;
+    if (!controller) return { state: { status: 'disabled' }, connect: async () => {}, disconnect: async () => {}, dismissError: () => {},
+      signAndSend: async () => { throw new WalletNotDispatchedError(); } };
+    const active = unlocked ? session : null;
+    const connectNow = async () => {
+      try {
+        const next = await controller.adapter.connect();
+        setSession(next);
+        setLastError(null);
+      } catch (error) {
+        setSession(null);
+        setLastError(error instanceof WalletError ? error.kind : 'failed');
+      }
+    };
+    return {
+      state: active !== null ? { status: 'connected', session: active } : connecting ? { status: 'connecting' } : { status: 'disconnected', lastError },
+      async connect() {
+        setConnecting(true);
+        try {
+          if (!controller.unlocked) {
+            const ok = await new Promise<boolean>((resolve) => setUnlockRequest({ resolve }));
+            if (!ok) {
+              setLastError('cancelled');
+              return;
+            }
+          }
+          await connectNow();
+        } finally {
+          setConnecting(false);
+        }
+      },
+      async disconnect() {
+        controller.lock();
+        setUnlocked(false);
+        setSession(null);
+      },
+      dismissError: () => setLastError(null),
+      async signAndSend(call: WalletCall): Promise<SignOutcome> {
+        if (active === null || !controller.connected) throw new WalletNotDispatchedError();
+        return controller.adapter.signAndSendTransaction(active.accountId, call);
+      },
+    };
+  }, [mode, controller, unlocked, session, connecting, lastError]);
+
+  return (
+    <TaplyWalletContext.Provider value={value}>
+      <WalletOverride value={override}>{children}</WalletOverride>
+      {unlockRequest !== null && (
+        <UnlockDialog
+          onCancel={() => {
+            unlockRequest.resolve(false);
+            setUnlockRequest(null);
+          }}
+          onUnlock={async (password) => {
+            const result = await value.unlock(password);
+            if (!result.ok) return result.code;
+            unlockRequest.resolve(true);
+            setUnlockRequest(null);
+            return null;
+          }}
+        />
+      )}
+      {pendingReview !== null && (
+        <ConfirmTransactionDialog
+          review={pendingReview.review}
+          onDecide={(approved) => {
+            pendingReview.resolve(approved);
+            setPendingReview(null);
+          }}
+        />
+      )}
+    </TaplyWalletContext.Provider>
+  );
 }
 
 export function useTaplyWallet(): TaplyWalletValue {

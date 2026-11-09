@@ -15,10 +15,13 @@ their own wallet, and both phones check the receipt on chain by themselves.
 | | |
 | --- | --- |
 | Public site | **Live** at https://taplyapp.xyz (Vercel production, branch `release/taplyapp`, HTTPS, English by default, Turkish in Settings) |
-| Payment signing on the public site | **Off.** You can connect a Testnet wallet, browse every screen, prepare a request up to the final review and inspect real Testnet payments. The "Create request in wallet" / "Pay" actions are visibly disabled ("Payments not enabled yet"). |
+| Payment signing on the public site | **On** (NEAR Testnet; Vercel `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on`, set by the owner). Create a request and pay it with an external wallet (NEAR Connect) or with Taply Wallet. |
+| Onboarding | First launch: connect an external wallet **or** pick a username and get a real `username.testnet` Taply Wallet (faucet-created, confirmed on chain) with a 12-word recovery phrase. No sponsored gas. |
+| Pay with other assets | The merchant asks for NEAR; the payer may pay with NEAR, USDC, USDT, NST, LNC or PEM (test tokens, converted to NEAR on Ref/Rhea Testnet first). The merchant always receives exactly the NEAR requested. |
+| Taply Wallet signing | **On for NEAR Testnet by the owner's explicit decision (2026-11-09), WITHOUT an independent security review.** Every signature needs an unlocked vault and a confirmation dialog showing the exact transaction. Test funds only. |
 | Real Testnet payment proof | A real 0.1 NEAR Instant Pay payment (2026-11-01) reached `FINAL_PAID` and **Verified Paid** in Taply's independent receipt verifier ([evidence](docs/EVIDENCE.md)). It can be re-read live on the site. |
-| Why signing is off | It is turned on only after a fresh owner-signed G1 acceptance run on a protected build (create, pay, decline, wallet return, receipt). See [docs/NIGHTLY_RELEASE_REPORT_2026-11-09.md](docs/NIGHTLY_RELEASE_REPORT_2026-11-09.md). |
-| Disabled by design | Protected Pay (escrow), live two-phone Handshake (G2), merchant sale signing, Taply-native wallet signing, sponsored gas |
+| Real browser proofs (2026-11-09) | Taply Wallet in Chromium on real Testnet paid a 0.2 NEAR request in NEAR and a 0.25 NEAR request with test USDC (both `FINAL_PAID`, exact payout) — [evidence](docs/evidence/taply-wallet-signing-2026-11-09/result.json). An external browser-wallet (Meteor) payment still needs a human run. |
+| Disabled by design | Protected Pay (escrow), live two-phone Handshake (G2), merchant sale signing, sponsored gas |
 
 ## For judges: 5 minutes, no wallet, no funds
 
@@ -85,9 +88,10 @@ have invented QR payments, payment links or escrow.
 | Connect an external Testnet wallet, balance, receive address + QR | **Working** (read-only) | Live site; owner iPhone check 2026-11-09 |
 | Real request/payment pages and receipts read from the contract | **Working** | [pilot sale](https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502) |
 | Independent receipt verifier (Verified Paid) with archival fallback | **Working**; archived record is labelled "Archived record · not a live check" | [EVIDENCE.md](docs/EVIDENCE.md) |
-| Request creation up to the final review (cost disclosed) | **Working, signing off** | Live site |
-| Signed request creation and Instant payout `FINAL_PAID` | **Testnet verified historically (2026-11-01)**; **off** on the public site until fresh acceptance | funding tx [`CrzQ57Jx…`](https://testnet.nearblocks.io/txns/CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) |
-| QR scanner, pay-by-link | **Working** (opens real requests; paying is off) | Live site |
+| Request creation (cost disclosed) | **Working, signing on** | Live site |
+| Signed request creation and Instant payout `FINAL_PAID` | **Working on the public site**; Testnet verified (2026-11-01 and 2026-11-09 browser runs) | funding tx [`CrzQ57Jx…`](https://testnet.nearblocks.io/txns/CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) |
+| Pay a NEAR request with USDC / USDT / NST / LNC / PEM | **Working**: Ref/Rhea Testnet swap to NEAR, then the normal payment | [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json), [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json) |
+| QR scanner, pay-by-link | **Working** | Live site |
 | Merchant register and store QR (`/merchant`, `/checkout/<account>`) | **UI working; sale signing off** | Live site |
 | Contacts | **Working, local to the device** (no server) | `/contacts` |
 | Split Pay | **Preparation tool**: equal shares, then one normal request per person (needs signing to go on chain) | `/split` |
@@ -95,7 +99,8 @@ have invented QR payments, payment links or escrow.
 | DEMO journey | **Synthetic**, stamped DEMO | `/demo`, `/demo/handshake` |
 | Live two-phone Handshake (G2) | **Not live**; contract cannot bind sessions | [PHASE_7_SHARED_ROOM.md](docs/PHASE_7_SHARED_ROOM.md) |
 | Protected Pay (escrow, refund, release) | **Disabled** | — |
-| Taply-native wallet signing, direct send, social login, sponsored gas | **Disabled** | — |
+| Taply Wallet: username.testnet, 12-word phrase, send, pay, swaps | **Working on NEAR Testnet**; owner decision, **no independent security review** | `/wallet/create` |
+| Social login, sponsored gas | **Disabled** | — |
 
 ## Development branch: Testnet-verified candidates (not on taplyapp.xyz yet)
 
@@ -162,7 +167,11 @@ standalone API checks are `node --test apps/api/test/*.test.mts` (see
 - **Testnet only. Not audited.** Configured-RPC trust model (not a light
   client). The pilot contract keeps a FullAccess key; the verifier refuses a
   receipt if the contract's keys changed during the payment window.
-- **Public signing is off** until fresh acceptance evidence exists.
+- **Taply Wallet is not independently security-reviewed.** Its key lives in the
+  browser (encrypted with the password; recovery = 12 words). A malicious script
+  on the page while it is unlocked could misuse it. NEAR Testnet test funds only.
+- **NEAR Intents has no Testnet**, so other-asset payments use Ref/Rhea Testnet
+  pools; the tokens are test tokens with no real value.
 - **Declined signatures block a retry.** Wallets do not prove that a declined
   or failed prompt sent nothing, so Taply treats it as "result unknown"; the same
   payer can retry that request only after the chain shows it funded, cancelled
