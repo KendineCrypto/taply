@@ -97,6 +97,23 @@ have invented QR payments, payment links or escrow.
 | Protected Pay (escrow, refund, release) | **Disabled** | — |
 | Taply-native wallet signing, direct send, social login, sponsored gas | **Disabled** | — |
 
+## Development branch: Testnet-verified candidates (not on taplyapp.xyz yet)
+
+Branch `claude/kind-cerf-c4n261` adds isolated, **unreviewed** contract candidates (the G1 pilot is untouched)
+and proves them with real NEAR Testnet transactions from disposable automation accounts
+([evidence index](docs/RELEASE_EVIDENCE_INDEX.md), [AI review — not an audit](docs/SECURITY_REVIEW_2026-11-09.md)):
+
+| Capability | Testnet proof |
+| --- | --- |
+| Fresh G1 Instant Pay on the pilot | FINAL_PAID, exact payout, duplicate refused, Verified on 2 RPC providers |
+| Protected Pay (escrow) | real refund and real release on locked contract accounts; early release / late cancel / wrong canceller / double release refused |
+| NEP-141 token payments (TEST-ONLY token, no value) | exact token deltas, duplicate and fake-token transfers returned, token escrow refund |
+| Merchant sale bound to a Handshake session (G2) | contract session commitment = comparison code on both phones; replay refused; Verified |
+| Receipt verifier | whole-proof fallback to a second archival RPC (fixes "Could not reach the RPC") |
+| Verified Request chip | shows the provenance checks behind every request page |
+
+These capabilities stay **off** on the public site until the owner's wallet acceptance and a human security review.
+
 ## Run it locally
 
 Requirements: Node **24.22.2** (`.node-version`) and pnpm **11.5.0**.
