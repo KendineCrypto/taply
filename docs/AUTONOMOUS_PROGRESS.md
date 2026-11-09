@@ -77,6 +77,12 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-09 — cloud session 2
 
+### Production proof after PR #18 (`abd101b`)
+
+- Same real-browser script against **https://taplyapp.xyz**: wallet `taply-pay-7ab603.testnet` created on production,
+  paid 0.2 NEAR in NEAR and 0.25 NEAR with test USDC (5 confirmation dialogs); both FINAL_PAID, INSTANT_PAYOUT
+  SUCCEEDED, merchant deltas exactly 0.2 and 0.25 NEAR (`docs/evidence/production-taply-wallet-2026-11-09/`).
+
 ### Increment 12 — Taply Wallet signing ON for NEAR Testnet (owner decision, no independent review)
 
 - Owner answered "Testnet'te aç" (2026-11-09). `TAPLY_WALLET_SIGNING_ENABLED = true`; README states the missing
