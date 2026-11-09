@@ -1,6 +1,6 @@
 # Product completion matrix
 
-Updated 2026-11-09 (cloud session, branch `claude/kind-cerf-c4n261`).
+Updated 2026-11-09 (cloud session, branch `claude/kind-cerf-c4n261`, pushed to GitHub).
 "Prod" = https://taplyapp.xyz (`release/taplyapp` @ `b67b278`, docs-only `22765d7` on main).
 Evidence levels (freeze proof hierarchy): docs/mock < unit tests < sandbox < live Testnet < reproducible E2E.
 
@@ -11,9 +11,9 @@ Evidence levels (freeze proof hierarchy): docs/mock < unit tests < sandbox < liv
 | Merchant register / store QR / POS UI | Done (UI) | Unit + browser QA | UI on, sale signing off | G1 signing + G2 |
 | Live Handshake (two phones) | Service + UI exist; demo synthetic | Unit tests, DEMO | Off | G2: F-06 production auth, merchant contract candidate review |
 | Merchant-bound contract (`contracts/payments-merchant`) | Candidate | Unit + sandbox in CI | Not deployed | Lead review |
-| **Protected Pay contract** (`contracts/payments-protected`) | **Candidate (this session)** | **24 unit tests + 3 real-node sandbox tests (exact refund and release amounts); all states parse with the frozen shared schema** | Not deployed | Human escrow review, live Testnet refund + release |
+| **Protected Pay contract** (`contracts/payments-protected`) | **Candidate (this session)** | **24 unit tests + 3 real-node sandbox tests (exact refund and release amounts), green locally and in GitHub CI; all states parse with the frozen shared schema** | Not deployed | Human escrow review, live Testnet refund + release |
 | **Protected Pay near-client builders + reader** | **Candidate (this session)** | 9 unit tests on real contract outputs | Not used by prod | Same as above |
-| **Protected Pay web flow** (`/protected/new`, `/protected/[id]`) | **Done behind flag (this session)**: consent, LOCKED-NOT-PAID, countdown, cancel/release/retry, journal + wallet-return | 27 component/logic tests | Off (`security_gate`; no contract configured) | Same as above + a QA build with a fresh Testnet deployment |
+| **Protected Pay web flow** (`/protected/new`, `/protected/[id]`) | **Done behind flag (this session)**: consent, LOCKED-NOT-PAID, countdown, cancel/release/retry, journal + wallet-return, cancel-window-passed / low-balance / wrong-payer states, payer from Contacts | 32 component/logic tests; CI green on GitHub | Off (`security_gate`; no contract configured) | Same as above + a QA build with a fresh Testnet deployment |
 | NEP-141 tokens | Not implemented; [change request](NEP141_CHANGE_REQUEST.md) written | Docs only | Off | Lead approval of shared asset schema, then contract + sandbox fake-token tests |
 | Contacts | Done, local-only | Unit tests | On | — |
 | Split Pay | Preparation tool (one request per share) | Unit tests | On | Needs G1 signing to settle |

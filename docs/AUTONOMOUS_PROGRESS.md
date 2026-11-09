@@ -40,6 +40,11 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   | workspace-check (dispatch) | 42575006152 | success |
   | wallet-browser-check (dispatch) | 42575009603 | success |
 
+- CI on `56b16c4` (latest code head): workspace-check run 42575469782 **success**
+  (pnpm check, standalone API tests, production Webpack build). Run 42575348658 on
+  `9cda935` was auto-cancelled by the workflow's concurrency rule when 56b16c4 was dispatched.
+  Local `pnpm check` on 56b16c4: exit 0 (shared 92, near-client 216, web 1,145 + 1 skipped).
+
   Only `protected-pay-candidate` runs on push for this branch; the others are
   branch-filtered to `main`/`feature/*`, so they are dispatched manually.
 - Protected screen, CLAUDE.md required error states:
