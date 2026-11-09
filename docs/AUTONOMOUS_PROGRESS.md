@@ -27,7 +27,14 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   `taply-e2e-9c2eeea4.testnet`; (5) token Instant UI on the candidate; (6) owner G1 acceptance.
 - Local Redis for tests: `redis-server` binary (tests skip if absent).
 
-## NEXT TASK (owner request 2026-11-09): onboarding = external wallet OR `username.testnet` Taply Wallet
+## DONE on `claude/beautiful-gates-c6fhhh` (not yet merged): onboarding = external wallet OR `username.testnet` Taply Wallet
+
+Status 2026-11-09 (see "Increment 8" below): steps 1, 2, 3 and the browser part of 5 are done and proven on real
+Testnet. **Still open:** step 4 (Taply Wallet signing stays hard-off: `TAPLY_WALLET_SIGNING_ENABLED = false`
+needs the documented human signer review, so the new account can receive and show its balance but not send);
+step 5 PR → main → release/taplyapp → taplyapp.xyz verification (no PR opened; needs the owner's go-ahead).
+
+Original spec:
 
 Owner decision: **no gasless/sponsored gas** (Testnet). First launch must offer exactly two choices:
 (1) connect an external wallet (existing near-connect flow), (2) pick a username → a real `username.testnet`
@@ -67,6 +74,39 @@ Evidence supporting activation: automated G1 Testnet proof 2026-11-09 (FINAL_PAI
 refused, Verified on 2 providers); signing path unit/browser CI green. NOT verified by an agent: a real
 browser-wallet (wallet selector) signature — run TESTNET_ACCEPTANCE_PLAN.md once after enabling.
 Rollback: set the variable back to `off` and redeploy (or Instant Rollback to the previous deployment).
+
+## 2026-11-09 — cloud session 2
+
+### Increment 8 — First launch: external wallet or `username.testnet` Taply Wallet (no gasless)
+
+Branch `claude/beautiful-gates-c6fhhh` (from `main` 9788d8c + the spec commit).
+
+- near-client `wallet-vault.ts`: `create(password, accountId?)` binds a named `*.testnet` ID
+  (`NamedTestnetAccountSchema`, AAD-authenticated); implicit IDs must still equal the key;
+  `rebindAccount(password, accountId)` re-seals the same key under another name (fresh salt/IV, stays locked).
+  `LocalWalletIdentity.provisioning` is `LOCAL_ONLY | ON_CHAIN`; the vault itself only reports LOCAL_ONLY.
+- near-client `wallet-chain.ts`: `accountExists` and `provisioning` (`view_account` + `view_access_key_list`
+  at ONE final block → `ACCOUNT_NOT_FOUND` / `KEY_NOT_ON_ACCOUNT` / `ON_CHAIN`, FullAccess required).
+- web `lib/wallet/testnet-account.ts`: username rules (a-z0-9, `_`/`-` only between, 2–40 + `.testnet`),
+  faucet POST (no credentials/referrer/redirects, 30 s timeout, coarse outcome only).
+- web controller: `isAccountAvailable`, `createNamed`, `activate()` (one faucet call per tab, then FINAL polling;
+  faucet success alone is never success → `PENDING`), `rebindName` (refused once ON_CHAIN or if the new name exists);
+  `read()` reports `nameTaken` when the name exists under another key.
+- UI: create flow = understand → username (FINAL availability) → passphrase → faucet + on-chain proof →
+  mandatory encrypted backup → home in Taply mode. `/wallet` shows "Finish account setup" / "Choose another
+  username" for unconfirmed or pre-username wallets. `/` shows the two-way chooser when no wallet is connected
+  and no vault exists. EN + TR copy. Receive no longer says a transfer creates a named account.
+
+| Command | Result |
+| --- | --- |
+| `pnpm check` (Node 24.22.2) | **exit 0**: shared 93, near-client 226, web 1,180 passed + 1 skipped |
+| near-client `node --test test/wallet-vault.test.mjs test/wallet-chain.test.mjs` | 19/19 (new: named bind, ID refusals, rebind, cancel, provisioning, accountExists) |
+| web new tests | `testnet-account.test.ts`, controller activation (6), UI create/rate-limit/name-taken/receive, `first-launch.test.tsx` (4) |
+| Local production build + Playwright (390×844) against **real Testnet** | created `taply-onb-535271.testnet` from the browser: 1 faucet call, FINAL `view_access_key_list` shows the vault key `ed25519:CaHhae12…R7Hp` as FullAccess, balance 10 NEAR at block 276941373, home shows "Active on NEAR Testnet"; backup file has no private fields |
+
+Evidence: `docs/evidence/onboarding-2026-11-09/` (screenshots, `result.json`, `onboard-e2e.mjs`).
+One flaky timing test (`coming back to the tab re-verifies an aged contract check`, 5 s timeout) failed once
+under load in a parallel run and passed alone and in the next full run; unrelated to this change.
 
 ## 2026-11-09 — cloud session 1
 

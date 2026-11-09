@@ -1,0 +1,14 @@
+{
+  "accountId": "taply-onb-535271.testnet",
+  "vaultAccountId": "taply-onb-535271.testnet",
+  "publicKey": "ed25519:CaHhae1248b9b3nKV6zBGuUU7YHn2eQtmidb1x1SR7Hp",
+  "backupFile": "taply-testnet-wallet-backup-taply-onb-535271.testnet.json",
+  "faucetCalls": 1,
+  "faucetBody": "{\"newAccountId\":\"taply-onb-535271.testnet\",\"newAccountPublicKey\":\"ed25519:CaHhae1248b9b3nKV6zBGuUU7YHn2eQtmidb1x1SR7Hp\"}",
+  "chain": {
+    "amountYocto": "10000000000000000000000000",
+    "blockHeight": 276941373,
+    "keyPermission": "FullAccess"
+  },
+  "vaultHasPrivate": false
+}
