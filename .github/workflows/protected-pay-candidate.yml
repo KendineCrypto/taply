@@ -30,9 +30,9 @@ env:
 
 jobs:
   validate:
-    name: fmt, unit tests, clippy, WASM, wire schema
+    name: fmt, unit tests, clippy, WASM, sandbox, wire schema
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -62,12 +62,25 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: WASM build (candidate, not approved)
         run: bash scripts/build.sh
+      - name: Sandbox format and clippy
+        working-directory: contracts/payments-protected/sandbox
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --all-targets -- -D warnings
+      # Real local NEAR node: actual refund and release transfers, gas measured.
+      - name: Sandbox suite (3 tests, sequential)
+        run: |
+          bash scripts/sandbox.sh
+          grep -q "test result: ok. 3 passed; 0 failed" artifacts/sandbox-tests.log
+          grep -a MEASURE artifacts/sandbox-tests.log >> "$GITHUB_STEP_SUMMARY" || true
       - name: Build @taply/shared
         working-directory: .
         run: |
           npm install -g pnpm@11.5.0
           pnpm install --frozen-lockfile
           pnpm --filter @taply/shared run build
-      - name: Wire-schema check
+      - name: Wire-schema check (unit-test and sandbox records)
         working-directory: .
-        run: node contracts/payments-protected/scripts/check-wire.mjs
+        run: |
+          node contracts/payments-protected/scripts/check-wire.mjs
+          node contracts/payments-protected/scripts/check-wire.mjs sandbox

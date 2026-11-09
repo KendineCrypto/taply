@@ -26,6 +26,33 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 - Baseline `pnpm check` on `22765d7` (Node 24.22.2): **exit 0** — shared 92/92,
   near-client 207/207, web 1,112 passed + 1 skipped (73 files).
 
+### Increment 3 — Protected Pay on a real local NEAR node (sandbox)
+
+- `contracts/payments-protected/sandbox/` (near-workspaces 0.24.0, near-sandbox 2.14.0):
+  real refund, real release, consent/exact-principal enforcement. 3/3 pass.
+  Payer refund delta is **exactly** principal − 1 yoctoNEAR − gas burnt;
+  recipient release delta is **exactly** the principal.
+- **Bug found and fixed:** the candidate crate was missing `.cargo/config.toml`
+  (`--cfg near`, `target-cpu=mvp`). Without it near-sdk silently compiled
+  pure-Rust fallbacks (no `panic_utf8`/`sha256` host imports), so every error
+  became a bare `unreachable` trap. Unit tests could not see this. Copied G1's file.
+- New WASM: 372967 bytes, sha256 `93489848…e69b` (replaces the increment-1
+  build, which lacked the flag). Candidate, not approved.
+- Gas burnt (local node): create 3.11 Tgas, fund 2.75 Tgas, cancel 5.96 Tgas,
+  release 5.93 Tgas. Storage record 612 bytes (0.00612 NEAR bond).
+- `scripts/sandbox.sh`, `check-wire.mjs sandbox` (3 real-node records parse with
+  the frozen shared schema); CI workflow runs the sandbox suite.
+- Local-only workaround: the container caps open files at 20,000; nearcore wants
+  65,535. A scratchpad `LD_PRELOAD` shim (not in the repo) reported the limit
+  change as successful. CI runners do not need it.
+
+| Command | Result |
+| --- | --- |
+| `cargo test --locked --lib` (candidate) | 24 passed |
+| `bash scripts/sandbox.sh` (with local shim) | **3 passed** |
+| `node scripts/check-wire.mjs` / `… sandbox` | 8 / 3 records valid |
+| `cargo clippy` (crate + sandbox), `cargo fmt --check` | clean |
+
 ### Increment 2 — Protected Pay web flow (flag off) + NEP-141 change request
 
 New / changed (all behind `protectedPay`, default OFF; production sets no Protected variables):
@@ -88,12 +115,12 @@ Results observed in this session:
 | Mutation: allow cancel at exact cutoff | caught (1 test fails) |
 | Mutation: don't count locked principal | caught (8 tests fail) |
 | `cargo clippy --locked --all-targets -- -D warnings` | clean |
-| `bash scripts/build.sh` | WASM 385,149 bytes, sha256 `244f5d66…2df5` (candidate, not approved) |
+| `bash scripts/build.sh` | WASM 385,149 bytes, sha256 `244f5d66…2df5` — **superseded in increment 3** (built without `--cfg near`) |
 | `node contracts/payments-protected/scripts/check-wire.mjs` | 8 records, states OPEN, LOCKED, REFUND_IN_FLIGHT, REFUND_FAILED_RECOVERABLE, CANCELLED_REFUNDED, RELEASE_IN_FLIGHT, RELEASE_FAILED_RECOVERABLE, FINAL_PAID — all parse with the **unchanged** shared schema |
 | `node contracts/payments/scripts/check-isolation.mjs` | frozen G1 inputs unchanged |
 | `node --test test/protected.test.mjs` (near-client) | 7/7 |
 
 Not done / open:
 
-- No sandbox (near-workspaces) run for the candidate yet: gas and storage are not measured.
+- (Resolved in increment 3: sandbox run, gas measured.)
 - Not deployed anywhere. Needs Codex/lead review (files outside `apps/web`) and human escrow review.

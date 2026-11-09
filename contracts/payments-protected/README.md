@@ -60,14 +60,38 @@ Events: `request_locked`, `refund_started`, `refund_succeeded`,
 1. **Transfer-success + callback-failure** stays in flight forever (same
    fail-closed policy as G1). No admin override exists; this may strand an
    obligation. Needs an agreed reconciliation design.
-2. Gas (`SETTLE_GAS` 50 Tgas, `FUND_PROTECTED_GAS` 20 Tgas, callback 15 Tgas)
-   and the storage size are copied/estimated, **not measured** on a sandbox
-   node for this crate yet.
+2. Gas floors (`SETTLE_GAS` 50 Tgas, `FUND_PROTECTED_GAS` 20 Tgas, callback
+   15 Tgas) are generous versus the sandbox measurements below, but they were
+   measured on a local node only, not on Testnet. The storage record is 612
+   bytes (quote: 0.00612 NEAR bond).
 3. Release is permissionless after the cutoff (freeze section 4). A griefer
    can only trigger the payout the recipient was owed anyway, but pays gas.
 4. The contract account must not hold a FullAccess key in any real
    deployment of escrow (the G1 pilot does; the verifier detects key changes).
 5. No external audit.
+
+## Sandbox evidence (local NEAR node, 2026-11-09)
+
+`sandbox/tests/protected.rs` runs the release WASM on a real `near-sandbox`
+2.14.0 node (no Testnet, disposable local accounts). 3/3 passing:
+
+| Test | What the runtime proved |
+| --- | --- |
+| `real_refund_before_cutoff_returns_principal_to_payer` | Recipient and stranger cancel → `PAYER_ONLY`; payer cancel → `CANCELLED_REFUNDED`; payer balance delta is **exactly** principal − 1 yoctoNEAR − gas burnt; release after the cutoff → `NOT_LOCKED`; accounting refunded = principal |
+| `real_release_only_at_or_after_cutoff_pays_recipient` | Early release → `CANCELLATION_WINDOW_OPEN`; cancel after cutoff → `CANCELLATION_WINDOW_CLOSED`; stranger release → `FINAL_PAID`; recipient balance delta is **exactly** the principal |
+| `consent_and_exact_principal_are_enforced_by_the_runtime` | Wrong accepted window → `CANCEL_DURATION_NOT_ACCEPTED`; instant path → `WRONG_MODE`; second funding → `NOT_OPEN` |
+
+Measured gas burnt (whole transaction incl. transfer + callback receipts):
+create 3.11 Tgas, fund 2.75 Tgas, cancel (refund) 5.96 Tgas, release 5.93 Tgas.
+
+The sandbox run caught a real build bug: without `.cargo/config.toml`
+(`--cfg near`, `target-cpu=mvp`, copied from G1) near-sdk compiles pure-Rust
+fallbacks and every error code becomes a bare `unreachable` trap. Fixed.
+
+Local container note: this cloud container caps open files at 20,000 and
+nearcore asks for 65,535, so the local run used a scratchpad-only
+`LD_PRELOAD` shim that reports the limit change as successful. CI runners
+have the normal limit and run the suite unmodified.
 
 ## Commands
 
@@ -77,7 +101,8 @@ cargo fmt --all --check
 cargo test --locked --lib -- --test-threads=1   # 24 tests (15 G1 + 9 Protected)
 cargo clippy --locked --all-targets -- -D warnings
 bash scripts/build.sh                            # wasm32 release build + sha256
-pnpm --filter @taply/shared build && node scripts/check-wire.mjs   # from repo root
+bash scripts/sandbox.sh                          # real local node: refund + release (3 tests)
+pnpm --filter @taply/shared build && node scripts/check-wire.mjs && node scripts/check-wire.mjs sandbox
 ```
 
 CI: `.github/workflows/protected-pay-candidate.yml`.

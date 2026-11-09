@@ -33,7 +33,7 @@ progress log as needing Codex/lead review before merge.
 | 2 | near-client Protected call builders (`packages/near-client/src/protected.ts`) | G3 | **Done (candidate)** |
 | 3 | Web: Protected journal methods + reconciliation + consent/countdown/cancel/release/retry UI behind `protectedPay` flag (`/protected/[id]`) | G3 | **Done (flag off)** |
 | 4 | Web: request creation with Protected mode + duration (flag-gated, `/protected/new`) | G3 | **Done (flag off)** |
-| 5 | Sandbox (near-workspaces) run of the candidate: measured gas/storage, real refund + release on a local node | G3 | In progress (see progress log) |
+| 5 | Sandbox (near-workspaces) run of the candidate: measured gas/storage, real refund + release on a local node | G3 | **Done (local node)**: 3/3, gas measured; Testnet proof is owner-only |
 | 6 | NEP-141 design + candidate (`ft_on_transfer`, allowlist, exact amount, unused return, payout callback) | P2 | Change request written ([NEP141_CHANGE_REQUEST.md](NEP141_CHANGE_REQUEST.md)); code waits for lead approval of the shared asset schema |
 | 7 | G1 acceptance support: anything the owner's signed run on the QA build needs | G1 | Owner-blocked (needs owner wallets) |
 | 8 | Handshake/merchant G2: F-06 production auth, merchant candidate review | G2 | Blocked on review; not started here |
