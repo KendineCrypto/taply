@@ -1,6 +1,7 @@
 import type { Dictionary } from '../types';
 import { commerceTr } from './commerce-tr';
 import { toolsTr } from './tools-tr';
+import { protectedTr } from './protected-tr';
 
 /**
  * Turkish (secondary locale).
@@ -14,6 +15,19 @@ import { toolsTr } from './tools-tr';
 export const tr: Dictionary = {
   commerce: commerceTr,
   tools: toolsTr,
+  protectedFlow: protectedTr,
+  verifiedRequest: {
+    verified: 'Doğrulanmış talep',
+    unverified: 'Tam doğrulanmadı',
+    checks: {
+      testnet: "NEAR Testnet'ten okundu (genesis kontrol edildi)",
+      approved_contract: 'Onaylı Taply kontratı',
+      code_hash: 'Kontrat kodu onaylı özetle aynı',
+      final_block: 'Güncel kesin bloktan okundu',
+      terms_hash: 'Terimler değişmez özetleriyle aynı',
+    },
+    notIdentity: 'Terimlerin kaynağını kanıtlar, alıcının kim olduğunu değil. Ödeme kanıtı makbuzdur.',
+  },
   locale: 'tr',
   localeName: 'Türkçe',
 
@@ -1055,6 +1069,10 @@ export const tr: Dictionary = {
         pay_instant_native: 'Ödeme',
         retry_native_transfer: 'Ödeme yeniden denendi',
         cancel_unfunded: 'Talep iptal edildi',
+        fund_protected_native: 'Korumalı ödeme (kilitli)',
+        cancel_protected: 'Korumalı ödeme iptali',
+        release_protected: 'Korumalı ödeme aktarımı',
+        ft_transfer_call: 'Token ödemesi',
       },
       phase: {
         AWAITING_SIGNATURE: 'Cüzdan bekleniyor',

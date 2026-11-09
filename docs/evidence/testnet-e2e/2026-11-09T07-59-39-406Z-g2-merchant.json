@@ -1,0 +1,84 @@
+{
+  "kind": "TAPLY_G2_MERCHANT_BOUND_SALE_AUTOMATED_TESTNET_PROOF",
+  "network": "near-testnet",
+  "note": "UNREVIEWED merchant candidate on its own disposable account; automation accounts; no session service involved.",
+  "contractId": "taply-e2e-9c2eeea4.testnet",
+  "codeHash": "2QiZFmd5Lfjetk287KeS22jJEL82ACD95GnUuFRfqd8K",
+  "accessKeys": 0,
+  "deploySteps": {},
+  "merchantAccountId": "taply-e2e-a27b8f57.testnet",
+  "customerAccountId": "taply-e2e-91a75bb1.testnet",
+  "requestId": "ac890357fe619b1b156326b713436a76a295ed1b9bdc8b2cc06514a23e2b1347",
+  "termsHash": "27c0faaa52370d6248bd77ee65d6575b0914e45dce5d3c578ca87f1d1f41a499",
+  "sessionBinding": {
+    "id": "60abbdd9-633a-4f03-ab44-92677e94da87",
+    "nonce": "af5744c785aebf4306a1b7f4025d4586573e89fad53282944c90c78bb755fa7d",
+    "expiresAtNs": "1794211190161332938"
+  },
+  "sessionCommitment": "161612d3bd259e5417310ddfa17146afa5301291414d5db37a8bcd7e361e9a94",
+  "comparisonCode": "2RB15M",
+  "contractSessionCommitment": "161612d3bd259e5417310ddfa17146afa5301291414d5db37a8bcd7e361e9a94",
+  "create": "J51nUgZsnoExaU8g4df1pSBPHqh9QKYPegFEcBnCg3dQ",
+  "openStatus": "OPEN",
+  "replaySameSession": {
+    "failure": "view quote_create_request: wasm execution failed with error: HostError(GuestPanic { panic_msg: \"SESSION_ALREADY_USED\" })",
+    "hash": null
+  },
+  "funding": "379pZmM4yWuTafJoixw7pyED68suTP8Vid7M1VhSyKA9",
+  "final": {
+    "terms": {
+      "schemaVersion": "taply.intent.v1",
+      "id": "ac890357fe619b1b156326b713436a76a295ed1b9bdc8b2cc06514a23e2b1347",
+      "network": "near-testnet",
+      "contractId": "taply-e2e-9c2eeea4.testnet",
+      "creationNonce": "822e42fa81462f1339c958d7fa82ce36bfeb26b94ddca7b69889f68ca7170beb",
+      "creatorAccountId": "taply-e2e-a27b8f57.testnet",
+      "assetId": "near:native",
+      "amountBaseUnits": "15000000000000000000000",
+      "mode": "instant",
+      "cancelDurationNs": null,
+      "fundingExpiresAtNs": "1794211990161332938",
+      "permittedPayerAccountId": null,
+      "merchantAccountId": "taply-e2e-a27b8f57.testnet",
+      "memo": "Taply G2 POS sale proof",
+      "sessionBinding": {
+        "id": "60abbdd9-633a-4f03-ab44-92677e94da87",
+        "nonce": "af5744c785aebf4306a1b7f4025d4586573e89fad53282944c90c78bb755fa7d",
+        "expiresAtNs": "1794211190161332938"
+      }
+    },
+    "termsHash": "27c0faaa52370d6248bd77ee65d6575b0914e45dce5d3c578ca87f1d1f41a499",
+    "sessionCommitment": "161612d3bd259e5417310ddfa17146afa5301291414d5db37a8bcd7e361e9a94",
+    "recipientAccountId": "taply-e2e-a27b8f57.testnet",
+    "status": "FINAL_PAID",
+    "revision": "3",
+    "createdAtNs": "1794211103515161248",
+    "payerAccountId": "taply-e2e-91a75bb1.testnet",
+    "fundedAtNs": "1794211127627867912",
+    "cancelUntilNs": null,
+    "settlementBranch": "RECIPIENT",
+    "latestOperation": {
+      "nonce": "1",
+      "kind": "INSTANT_PAYOUT",
+      "destinationAccountId": "taply-e2e-a27b8f57.testnet",
+      "amountBaseUnits": "15000000000000000000000",
+      "status": "SUCCEEDED",
+      "startedAtNs": "1794211127627867912",
+      "resolvedAtNs": "1794211128798860623",
+      "failureCode": null
+    }
+  },
+  "merchantBalanceDelta": "15000000000000000000000",
+  "verification": [
+    {
+      "providerId": "near-public-testnet",
+      "kind": "verified",
+      "reason": null
+    },
+    {
+      "providerId": "fastnear-testnet",
+      "kind": "verified",
+      "reason": null
+    }
+  ]
+}

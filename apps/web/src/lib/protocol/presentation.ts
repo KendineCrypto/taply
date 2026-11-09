@@ -80,9 +80,11 @@ export const LOCAL_PHASES: ReadonlyArray<LocalPhase> = [
  * fixed yoctoNEAR exponent.
  */
 export interface DisplayAsset {
-  readonly id: 'near:native';
-  readonly symbol: 'NEAR';
-  readonly decimals: 24;
+  /** `near:native` or `nep141:<token account>` (shared schema v1.1). */
+  readonly id: string;
+  /** Token symbols come ONLY from a contract's verified allowlist, never from the token itself. */
+  readonly symbol: string;
+  readonly decimals: number;
 }
 
 export const NEAR_NATIVE: DisplayAsset = { id: 'near:native', symbol: 'NEAR', decimals: 24 };

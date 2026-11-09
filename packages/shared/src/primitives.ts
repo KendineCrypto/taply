@@ -31,7 +31,17 @@ export const HashHexSchema = z.string().regex(/^[0-9a-f]{64}$/);
 export const AccountIdSchema = z.string().min(2).max(64)
   .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/);
 export const NetworkSchema = z.literal("near-testnet");
-export const AssetIdSchema = z.literal("near:native");
+// Asset IDs (schema evolution v1.1, backward compatible): native NEAR as before,
+// or a NEP-141 token by its contract account. Syntax only: which tokens a contract
+// accepts is its own immutable allowlist; clients must also check it.
+export const NATIVE_ASSET_ID = "near:native" as const;
+export const Nep141AssetIdSchema = z.string().max(71)
+  .regex(/^nep141:[a-z0-9]+(?:[._-][a-z0-9]+)*$/)
+  .refine((v) => v.length - 7 >= 2 && v.length - 7 <= 64, "Token account length");
+export const AssetIdSchema = z.union([z.literal(NATIVE_ASSET_ID), Nep141AssetIdSchema]);
+export function nep141TokenOf(assetId: string): string | null {
+  return Nep141AssetIdSchema.safeParse(assetId).success ? assetId.slice(7) : null;
+}
 export const PayModeSchema = z.enum(["instant", "protected"]);
 export const SessionIdSchema = z.string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);

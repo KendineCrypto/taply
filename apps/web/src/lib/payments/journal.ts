@@ -18,7 +18,18 @@ import type { JournalLock } from './journal-lock';
 
 export const JOURNAL_STORAGE_KEY = 'taply.journal.v1';
 
-export const JOURNAL_METHODS = ['create_request', 'pay_instant_native', 'retry_native_transfer', 'cancel_unfunded'] as const;
+export const JOURNAL_METHODS = [
+  'create_request',
+  'pay_instant_native',
+  'retry_native_transfer',
+  'cancel_unfunded',
+  // Protected Pay (G3 candidate). Only reachable behind the protectedPay flag.
+  'fund_protected_native',
+  'cancel_protected',
+  'release_protected',
+  // NEP-141 funding: sent to the TOKEN contract (entry.contractId = token account).
+  'ft_transfer_call',
+] as const;
 export type JournalMethod = (typeof JOURNAL_METHODS)[number];
 
 /**

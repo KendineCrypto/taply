@@ -1,0 +1,39 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "ce3b1fbc90db7e119cbbb7049706046b96ca230366dde1ce4871507e910a2b38",
+    "network": "near-testnet",
+    "contractId": "payments.fixture.testnet",
+    "creationNonce": "0000000000000000000000000000000000000000000000000000000000000028",
+    "creatorAccountId": "alice.testnet",
+    "assetId": "nep141:tusd.fixture.testnet",
+    "amountBaseUnits": "2500000",
+    "mode": "protected",
+    "cancelDurationNs": "60000000000",
+    "fundingExpiresAtNs": "1793520900000000000",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "aa6571edf7fda803b3bd173c83f9adf96d1fd9f8e2bfab092fa4f36e9859ab47",
+  "sessionCommitment": null,
+  "recipientAccountId": "alice.testnet",
+  "status": "FINAL_PAID",
+  "revision": "4",
+  "createdAtNs": "1793520000000000000",
+  "payerAccountId": "bob.testnet",
+  "fundedAtNs": "1793520000000000001",
+  "cancelUntilNs": "1793520060000000001",
+  "settlementBranch": "RECIPIENT",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "PROTECTED_RELEASE",
+    "destinationAccountId": "alice.testnet",
+    "amountBaseUnits": "2500000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1793520060000000001",
+    "resolvedAtNs": "1793520100000000000",
+    "failureCode": null
+  }
+}

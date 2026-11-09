@@ -109,7 +109,14 @@ test("Instant/no-session terms have no cancellation or comparison commitment", (
   assert.equal(calculateSessionCommitment(instant), null);
   assert.throws(() => calculateTermsHash({ ...instant, cancelDurationNs: "60000000000" }));
   assert.throws(() => calculateTermsHash({ ...a, mode: "milestone" }));
-  assert.throws(() => calculateTermsHash({ ...a, assetId: "nep141:fake.testnet" }));
+});
+
+test("asset ids: native unchanged, NEP-141 by token account, anything else rejected", () => {
+  // v1.1 evolution: a token asset is valid syntax (the contract allowlist decides).
+  const token = { ...a, assetId: "nep141:tusd.taply-e2e.testnet" };
+  assert.notEqual(calculateTermsHash(token), calculateTermsHash(a));
+  for (const bad of ["nep141:", "nep141:Fake.testnet", "ft:usdc.testnet", "nep141:a", "NEAR:native", "nep141:x..y", `nep141:${"a".repeat(65)}`])
+    assert.equal(IntentTermsSchema.safeParse({ ...a, assetId: bad }).success, false, bad);
 });
 
 for (const duration of [null, "0", "59999999999", "3600000000001", "bad"]) {

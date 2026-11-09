@@ -27,6 +27,9 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_EXPLORER_BASE_URL?: string;
     readonly NEXT_PUBLIC_TAPLY_VERIFIER_RPC_URL?: string;
     readonly NEXT_PUBLIC_TAPLY_VERIFIER_RPC_PROVIDER_ID?: string;
+    /** Second archival verifier provider ('off' disables; default FastNEAR archival). Read-only. */
+    readonly NEXT_PUBLIC_TAPLY_VERIFIER_FALLBACK_RPC_URL?: string;
+    readonly NEXT_PUBLIC_TAPLY_VERIFIER_FALLBACK_RPC_PROVIDER_ID?: string;
     /** Public Testnet JSON-RPC endpoint (HTTPS, CORS-enabled, no credentials). */
     readonly NEXT_PUBLIC_TAPLY_RPC_URL?: string;
     /** Label recorded on every observation so provenance is visible. */
@@ -46,5 +49,16 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_FLAG_CONTACTS?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_RECURRING?: string;
     readonly NEXT_PUBLIC_TAPLY_FLAG_SPLIT?: string;
+
+    /**
+     * Protected Pay (G3 CANDIDATE) escrow contract. Separate from the G1 pilot,
+     * which cannot hold escrow; both must be set together. Ignored unless
+     * NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY=on. Never set in production until the
+     * contract is reviewed and refund + release are proven on Testnet.
+     */
+    readonly NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID?: string;
+    readonly NEXT_PUBLIC_TAPLY_PROTECTED_CODE_HASH?: string;
+    /** 'on' only on a protected QA build: allows signing against the UNREVIEWED candidate. */
+    readonly NEXT_PUBLIC_TAPLY_PROTECTED_QA?: string;
   }
 }

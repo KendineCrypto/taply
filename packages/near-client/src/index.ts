@@ -33,3 +33,10 @@ export { applyRoomCatchUp, RoomCatchUpSchema } from "./room-sync.js";
 export type { RoomClientScope, RoomClientState } from "./room-sync.js";
 export { MerchantContractConfigSchema, prepareMerchantCreateRequest, prepareMerchantPayInstantNative } from "./merchant.js";
 export type { MerchantContractConfig } from "./merchant.js";
+export {
+  PROTECTED_CONSENT_VERSION, PROTECTED_CONTRACT_VERSION, PROTECTED_MINIMUM_GAS, ProtectedContractConfigSchema,
+  FT_TRANSFER_CALL_GAS, assetAllowed, createProtectedReader, prepareCancelProtected, prepareCreateCandidateInstantRequest,
+  prepareTokenFunding, prepareTokenStorageDeposit, prepareCreateProtectedRequest, prepareFundProtectedNative, prepareReleaseProtected,
+  prepareRetryProtectedTransfer, protectedConfigProblems,
+} from "./protected.js";
+export type { PreparedProtectedCall, PreparedTokenCall, ProtectedConfigProblem, ProtectedContractConfig, ProtectedReader } from "./protected.js";

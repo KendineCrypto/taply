@@ -1,0 +1,289 @@
+{
+  "kind": "TAPLY_NEP141_CANDIDATE_AUTOMATED_TESTNET_PROOF",
+  "network": "near-testnet",
+  "note": "TEST-ONLY token with no value; UNREVIEWED candidate contract; disposable automation accounts, not owner wallets.",
+  "token": {
+    "accountId": "taply-e2e-826c3e79.testnet",
+    "codeHash": "4WtMAoc8TzK6ntvgr5wfYPwekHmZG7JMRgV9sacGywv8",
+    "wasmSha256": "343af69c135fddfe0ecacf54a6aea2672a39fa6c4d5ef1b72defd52977243a71",
+    "accessKeys": 0,
+    "steps": {
+      "deploy": "4W49SCY9ixrkY3TsQ5bxtFA4VuAq23DA6jMeuzD7TGzV",
+      "init": "694XbjwVfQMw6vHbCuiRkKsERtDjup1o4nrjoY3zAC7e",
+      "deleteKey": "4yzXDYxxWnwGYF8AtyKYZskSk7aZMyXLZbDC69TXnuSj"
+    },
+    "metadata": {
+      "spec": "ft-1.0.0",
+      "name": "Taply Test Dollar (TEST ONLY, no value)",
+      "symbol": "tUSD-TEST",
+      "icon": null,
+      "reference": null,
+      "reference_hash": null,
+      "decimals": 6
+    }
+  },
+  "contract": {
+    "accountId": "taply-e2e-6cdaf61b.testnet",
+    "codeHash": "Ea5REQGAgRUiL6JzbKMY5sRRn2E4oPs3i1oFHPsSz29A",
+    "wasmSha256": "c9a1178942abfc23f0ec6bbd0ed9065b91922cbea84933cc18da966f156a1535",
+    "accessKeys": 0,
+    "steps": {
+      "deploy": "3YEGpD1WHTHNuqvcwfSxPLg3Fn79XoCDaqLbk4eS8qst",
+      "init": "EFTZVpLPkuY3rwr9ichYhhXYVNGdDdgnwQ6SE6GjAVno",
+      "deleteKey": "EnC4onBJaSmDszx44DkUkYwAXQuZGtmGeTnEa13gbdHq"
+    },
+    "config": {
+      "schemaVersion": "taply.contract-config.v1",
+      "contractVersion": "0.5.0-g3-candidate",
+      "network": "near-testnet",
+      "contractId": "taply-e2e-6cdaf61b.testnet",
+      "intentVersion": "taply.intent.v1",
+      "eventVersion": "0.4.0",
+      "capabilities": {
+        "instantNative": true,
+        "protectedPay": true,
+        "handshake": false,
+        "merchantProfiles": false,
+        "nep141": true,
+        "sponsoredGas": false
+      },
+      "tokens": [
+        {
+          "assetId": "nep141:taply-e2e-826c3e79.testnet",
+          "accountId": "taply-e2e-826c3e79.testnet",
+          "decimals": 6,
+          "symbol": "tUSD-TEST"
+        }
+      ],
+      "quoteVersion": "1",
+      "storageByteCostYocto": "10000000000000000000",
+      "gas": {
+        "createRequest": "30000000000000",
+        "payInstantNative": "50000000000000",
+        "retryNativeTransfer": "50000000000000",
+        "cancelUnfunded": "15000000000000",
+        "callback": "15000000000000",
+        "fundProtectedNative": "20000000000000",
+        "cancelProtected": "50000000000000",
+        "releaseProtected": "50000000000000",
+        "ftOnTransfer": "40000000000000",
+        "ftTransfer": "15000000000000"
+      },
+      "protected": {
+        "consentVersion": "taply.protected-consent.v1",
+        "minCancelDurationNs": "60000000000",
+        "maxCancelDurationNs": "3600000000000",
+        "cutoffRule": "CANCEL_IF_BLOCK_TIME_LT_CUTOFF_RELEASE_IF_GTE",
+        "reviewStatus": "UNREVIEWED_NOT_FOR_REAL_FUNDS"
+      },
+      "storageRefundPolicy": "PERMANENT_RECORD_NO_WITHDRAWAL",
+      "unknownCallbackPolicy": "IN_FLIGHT_NO_RETRY_NO_ADMIN_OVERRIDE",
+      "testFaultBuild": false
+    }
+  },
+  "payerAccountId": "taply-e2e-78a7df93.testnet",
+  "recipientAccountId": "taply-e2e-e20fed0c.testnet",
+  "storageRegistrations": {
+    "taply-e2e-6cdaf61b.testnet": "8kgzoaMaVtHReTJfmqBW6jqCX2cEeFmWcKys7yNfRTfJ",
+    "taply-e2e-e20fed0c.testnet": "6zqY5RqBWgcpBcmxSYDCXG4cqGFZSiDkDkWfuTyK8WJ9"
+  },
+  "amountBaseUnits": "2500000",
+  "instantFlow": {
+    "requestId": "ae7f6c7644f696228285f9d79d31c668e8cb9220d58db532e9e0e1f52fda40e1",
+    "create": "9QQug8jcxLdo31fKKz65WPVFCUjV1tnekb4yp7mH7Wox",
+    "ftTransferCall": "HhXDEW5fnwuMfmtatVCRReL2EQRCdXHeMJw6pXk1rFZA",
+    "ftTransferCallGasBurnt": "12851270261419",
+    "final": {
+      "terms": {
+        "schemaVersion": "taply.intent.v1",
+        "id": "ae7f6c7644f696228285f9d79d31c668e8cb9220d58db532e9e0e1f52fda40e1",
+        "network": "near-testnet",
+        "contractId": "taply-e2e-6cdaf61b.testnet",
+        "creationNonce": "f48ea7ced93467528b16dd4d357acc893cb52c210441b5ebc529b3ed9902f251",
+        "creatorAccountId": "taply-e2e-e20fed0c.testnet",
+        "assetId": "nep141:taply-e2e-826c3e79.testnet",
+        "amountBaseUnits": "2500000",
+        "mode": "instant",
+        "cancelDurationNs": null,
+        "fundingExpiresAtNs": "1794210626105085291",
+        "permittedPayerAccountId": null,
+        "merchantAccountId": null,
+        "memo": "Taply NEP-141 instant proof",
+        "sessionBinding": null
+      },
+      "termsHash": "abbb9ecb778314f76afbc16c5a468c9830a8b2ef7305c64d1807677ed69b0aea",
+      "sessionCommitment": null,
+      "recipientAccountId": "taply-e2e-e20fed0c.testnet",
+      "status": "FINAL_PAID",
+      "revision": "3",
+      "createdAtNs": "1794209738980233732",
+      "payerAccountId": "taply-e2e-78a7df93.testnet",
+      "fundedAtNs": "1794209760459788905",
+      "cancelUntilNs": null,
+      "settlementBranch": "RECIPIENT",
+      "latestOperation": {
+        "nonce": "1",
+        "kind": "INSTANT_PAYOUT",
+        "destinationAccountId": "taply-e2e-e20fed0c.testnet",
+        "amountBaseUnits": "2500000",
+        "status": "SUCCEEDED",
+        "startedAtNs": "1794209760459788905",
+        "resolvedAtNs": "1794209761682039454",
+        "failureCode": null
+      }
+    },
+    "payoutFtTransfers": [
+      {
+        "receiptId": "6hniaPVpg5mcS4JnEpTwHDAdoXnsLQD8bSHuffdqLiLf",
+        "args": {
+          "receiver_id": "taply-e2e-e20fed0c.testnet",
+          "amount": "2500000",
+          "memo": "Taply settlement"
+        }
+      }
+    ],
+    "balancesBefore": {
+      "payer": "1000000000",
+      "recipient": "0",
+      "contract": "0"
+    },
+    "balancesAfter": {
+      "payer": "997500000",
+      "recipient": "2500000",
+      "contract": "0"
+    },
+    "duplicate": {
+      "hash": "Ggqhm5xzmb3dYpG3BYyznRWcrd78KHpgcYHDuomTJZVg",
+      "payerBalanceAfter": "997500000"
+    }
+  },
+  "protectedRefundFlow": {
+    "requestId": "6687e98a6cffb413ff2d73c7f025b47de77d3f8bc760440be1260b48c7f2c7d4",
+    "create": "7787Bz4Jfbwr5Rvrjp3qCSJJ3FwKUrKPCVCfxNU2oLb3",
+    "ftTransferCall": "FuFnF5cKEB367pqKUUEBmpUTSWoTUg91QUDnB1vyEwXK",
+    "lockedView": {
+      "terms": {
+        "schemaVersion": "taply.intent.v1",
+        "id": "6687e98a6cffb413ff2d73c7f025b47de77d3f8bc760440be1260b48c7f2c7d4",
+        "network": "near-testnet",
+        "contractId": "taply-e2e-6cdaf61b.testnet",
+        "creationNonce": "d6178fb8b941726619f59ff17d485fb37eb66b4817fbe27a167368bce6e4489d",
+        "creatorAccountId": "taply-e2e-e20fed0c.testnet",
+        "assetId": "nep141:taply-e2e-826c3e79.testnet",
+        "amountBaseUnits": "2500000",
+        "mode": "protected",
+        "cancelDurationNs": "60000000000",
+        "fundingExpiresAtNs": "1794210694881340255",
+        "permittedPayerAccountId": null,
+        "merchantAccountId": null,
+        "memo": "Taply NEP-141 protected refund proof",
+        "sessionBinding": null
+      },
+      "termsHash": "16880c53b06820aa47abab1fad9afd96c7d7cffc15514a19a3cff4bc1b0f73ea",
+      "sessionCommitment": null,
+      "recipientAccountId": "taply-e2e-e20fed0c.testnet",
+      "status": "LOCKED",
+      "revision": "2",
+      "createdAtNs": "1794209807621954106",
+      "payerAccountId": "taply-e2e-78a7df93.testnet",
+      "fundedAtNs": "1794209822676835128",
+      "cancelUntilNs": "1794209882676835128",
+      "settlementBranch": null,
+      "latestOperation": null
+    },
+    "contractHeldWhileLocked": "2500000",
+    "cancel": "B43XpNWHNbREVPrqJBgtvgtZzwvfMEesV49R6jJBF1xM",
+    "refundFtTransfers": [
+      {
+        "receiptId": "CsgQnMoAeVMvfL7zb2majzYt7qyhW9aEABmH7s3rREsa",
+        "args": {
+          "receiver_id": "taply-e2e-78a7df93.testnet",
+          "amount": "2500000",
+          "memo": "Taply settlement"
+        }
+      }
+    ],
+    "final": {
+      "terms": {
+        "schemaVersion": "taply.intent.v1",
+        "id": "6687e98a6cffb413ff2d73c7f025b47de77d3f8bc760440be1260b48c7f2c7d4",
+        "network": "near-testnet",
+        "contractId": "taply-e2e-6cdaf61b.testnet",
+        "creationNonce": "d6178fb8b941726619f59ff17d485fb37eb66b4817fbe27a167368bce6e4489d",
+        "creatorAccountId": "taply-e2e-e20fed0c.testnet",
+        "assetId": "nep141:taply-e2e-826c3e79.testnet",
+        "amountBaseUnits": "2500000",
+        "mode": "protected",
+        "cancelDurationNs": "60000000000",
+        "fundingExpiresAtNs": "1794210694881340255",
+        "permittedPayerAccountId": null,
+        "merchantAccountId": null,
+        "memo": "Taply NEP-141 protected refund proof",
+        "sessionBinding": null
+      },
+      "termsHash": "16880c53b06820aa47abab1fad9afd96c7d7cffc15514a19a3cff4bc1b0f73ea",
+      "sessionCommitment": null,
+      "recipientAccountId": "taply-e2e-e20fed0c.testnet",
+      "status": "CANCELLED_REFUNDED",
+      "revision": "4",
+      "createdAtNs": "1794209807621954106",
+      "payerAccountId": "taply-e2e-78a7df93.testnet",
+      "fundedAtNs": "1794209822676835128",
+      "cancelUntilNs": "1794209882676835128",
+      "settlementBranch": "PAYER",
+      "latestOperation": {
+        "nonce": "1",
+        "kind": "PROTECTED_REFUND",
+        "destinationAccountId": "taply-e2e-78a7df93.testnet",
+        "amountBaseUnits": "2500000",
+        "status": "SUCCEEDED",
+        "startedAtNs": "1794209840784857945",
+        "resolvedAtNs": "1794209841637832671",
+        "failureCode": null
+      }
+    },
+    "payerBalanceBefore": "997500000",
+    "payerBalanceAfter": "997500000"
+  },
+  "accounting": {
+    "receivedPrincipalYocto": "0",
+    "confirmedPaidYocto": "0",
+    "inFlightPrincipalYocto": "0",
+    "failedHeldPrincipalYocto": "0",
+    "lockedPrincipalYocto": "0",
+    "refundedPrincipalYocto": "0",
+    "permanentStorageBondsYocto": "12100000000000000000000",
+    "authenticationDepositsYocto": "1",
+    "requestCount": "2",
+    "runtimeStorageBytes": "429752",
+    "tokens": [
+      {
+        "assetId": "nep141:taply-e2e-826c3e79.testnet",
+        "received": "5000000",
+        "confirmedPaid": "2500000",
+        "inFlight": "0",
+        "failedHeld": "0",
+        "locked": "0",
+        "refunded": "2500000"
+      }
+    ],
+    "runtimeStorageCostYocto": "4297520000000000000000000",
+    "runtimeAccountBalanceYocto": "10008753090160849399999999",
+    "inFlightMayAlreadyHaveTransferred": true
+  },
+  "result": {
+    "instant": {
+      "status": "FINAL_PAID",
+      "payerDelta": "-2500000",
+      "recipientDelta": "2500000",
+      "contractDelta": "0",
+      "duplicateRefunded": true
+    },
+    "protectedRefund": {
+      "lockedStatus": "LOCKED",
+      "contractHeldWhileLocked": "2500000",
+      "status": "CANCELLED_REFUNDED",
+      "payerNetDelta": "0"
+    }
+  }
+}

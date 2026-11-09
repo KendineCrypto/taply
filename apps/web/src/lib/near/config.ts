@@ -1,5 +1,6 @@
 import type { NearTestnetConfig } from '@taply/near-client';
 import { AccountIdSchema } from '@/lib/protocol';
+import { DEFAULT_FALLBACK_VERIFIER } from '@/lib/verify/fallback';
 
 /**
  * Frontend chain configuration.
@@ -42,6 +43,12 @@ export type ChainConfigResult =
        * VerifiedReceipt names the provider it was checked through.
        */
       readonly verifier: { readonly rpcUrl: string; readonly rpcProviderId: string };
+      /**
+       * Second read-only archival provider, tried only when the verifier RPC
+       * fails transiently; each proof still comes from ONE provider. Default:
+       * FastNEAR archival unless it already is the verifier; 'off' disables.
+       */
+      readonly verifierFallback: { readonly rpcUrl: string; readonly rpcProviderId: string } | null;
       readonly explorerBaseUrl: string;
       readonly contract: ContractSetting;
     }
@@ -99,6 +106,8 @@ export function resolveChainConfig(env: {
   readonly explorerBaseUrl?: string | undefined;
   readonly verifierRpcUrl?: string | undefined;
   readonly verifierRpcProviderId?: string | undefined;
+  readonly verifierFallbackRpcUrl?: string | undefined;
+  readonly verifierFallbackRpcProviderId?: string | undefined;
   readonly contractId?: string | undefined;
   readonly contractCodeHash?: string | undefined;
 }): ChainConfigResult {
@@ -128,11 +137,23 @@ export function resolveChainConfig(env: {
     verifier = { rpcUrl: env.verifierRpcUrl, rpcProviderId: env.verifierRpcProviderId };
   }
 
+  let verifierFallback: { rpcUrl: string; rpcProviderId: string } | null = { ...DEFAULT_FALLBACK_VERIFIER };
+  if (env.verifierFallbackRpcUrl === 'off') verifierFallback = null;
+  else if (env.verifierFallbackRpcUrl || env.verifierFallbackRpcProviderId) {
+    if (!env.verifierFallbackRpcUrl || !isPlainHttpsUrl(env.verifierFallbackRpcUrl)
+      || !env.verifierFallbackRpcProviderId || !PROVIDER_ID.test(env.verifierFallbackRpcProviderId)) {
+      return { ok: false, reason: 'invalid_verifier_rpc' };
+    }
+    verifierFallback = { rpcUrl: env.verifierFallbackRpcUrl, rpcProviderId: env.verifierFallbackRpcProviderId };
+  }
+  if (verifierFallback !== null && verifierFallback.rpcUrl === verifier.rpcUrl) verifierFallback = null;
+
   return {
     ok: true,
     explorerBaseUrl,
     contract,
     verifier,
+    verifierFallback,
     client: {
       network: 'near-testnet',
       rpcUrl,
@@ -154,6 +175,8 @@ export const CHAIN_CONFIG: ChainConfigResult = resolveChainConfig({
   explorerBaseUrl: process.env.NEXT_PUBLIC_TAPLY_EXPLORER_BASE_URL,
   verifierRpcUrl: process.env.NEXT_PUBLIC_TAPLY_VERIFIER_RPC_URL,
   verifierRpcProviderId: process.env.NEXT_PUBLIC_TAPLY_VERIFIER_RPC_PROVIDER_ID,
+  verifierFallbackRpcUrl: process.env.NEXT_PUBLIC_TAPLY_VERIFIER_FALLBACK_RPC_URL,
+  verifierFallbackRpcProviderId: process.env.NEXT_PUBLIC_TAPLY_VERIFIER_FALLBACK_RPC_PROVIDER_ID,
   contractId: process.env.NEXT_PUBLIC_TAPLY_CONTRACT_ID,
   contractCodeHash: process.env.NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH,
 });

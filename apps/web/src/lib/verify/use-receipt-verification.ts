@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import type { ContractRequest, VerifiedReceipt } from '@/lib/protocol';
-import { verifyInstantReceipt } from './instant-receipt';
 import type { VerificationFailure } from './instant-receipt';
 import { nextAutoRetryDelay } from './retry-policy';
 import type { ReceiptReferences } from './references';
 import type { VerifierRpc } from './rpc';
+import { verifyAcrossProviders } from './fallback';
 
 export type VerificationView =
   /** The contract does not report FINAL_PAID: there is nothing to verify. */
@@ -37,6 +37,8 @@ export type VerificationView =
  */
 export function useReceiptVerification(input: {
   readonly rpc: VerifierRpc | null;
+  /** Optional second provider; used only when `rpc` fails transiently (lib/verify/fallback.ts). */
+  readonly fallbackRpc?: VerifierRpc | null;
   readonly contractId: string;
   readonly approvedCodeHash: string;
   readonly request: ContractRequest | null;
@@ -44,13 +46,14 @@ export function useReceiptVerification(input: {
   readonly generation: number;
 }): VerificationView {
   const { rpc, contractId, approvedCodeHash, request, references, generation } = input;
+  const fallbackRpc = input.fallbackRpc ?? null;
   const applicable = request !== null && request.status === 'FINAL_PAID';
   const funding = references?.funding ?? null;
   const retries = references?.retries ?? [];
   const complete = references?.complete === true;
   const key =
     applicable && rpc !== null && complete && funding !== null
-      ? JSON.stringify([contractId, approvedCodeHash, rpc.providerId, request.terms.id, request.termsHash,
+      ? JSON.stringify([contractId, approvedCodeHash, rpc.providerId, fallbackRpc?.providerId ?? null, request.terms.id, request.termsHash,
           request.latestOperation?.nonce, funding, retries, generation])
       : null;
   const [result, setResult] = useState<{
@@ -71,14 +74,10 @@ export function useReceiptVerification(input: {
         return;
       }
       waitingForVisible = false;
-      const outcome = await verifyInstantReceipt({
-        rpc,
-        contractId,
-        approvedCodeHash,
-        requestId: request.terms.id,
-        fundingTransaction: funding,
-        retryTransactions: retries,
-      });
+      const outcome = await verifyAcrossProviders(
+        { contractId, approvedCodeHash, requestId: request.terms.id, fundingTransaction: funding, retryTransactions: retries },
+        fallbackRpc === null ? [rpc] : [rpc, fallbackRpc],
+      );
       if (!active) return;
       if (outcome.kind === 'verified') {
         setResult({ key, view: { kind: 'verified', receipt: outcome.receipt } });
@@ -114,7 +113,7 @@ export function useReceiptVerification(input: {
     };
     // `key` captures the contract/version, request terms/operation, references and generation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, rpc, contractId, approvedCodeHash]);
+  }, [key, rpc, fallbackRpc, contractId, approvedCodeHash]);
 
   if (!applicable) return { kind: 'not_applicable' };
   if (rpc === null) return { kind: 'unavailable' };
