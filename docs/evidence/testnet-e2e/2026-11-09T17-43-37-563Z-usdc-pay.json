@@ -1,0 +1,46 @@
+{
+  "kind": "TAPLY_PAY_NEAR_REQUEST_WITH_TEST_USDC_TESTNET_PROOF",
+  "network": "near-testnet",
+  "note": "Disposable automation accounts. Test USDC (usdc.itachicara.testnet) has no real value. Ref pool 1103 on ref-finance-101.testnet.",
+  "contractId": "taply-pay-pilot-1.testnet",
+  "merchantAccountId": "taply-usdc-merchant-93a0898c.testnet",
+  "payerAccountId": "taply-usdc-payer-e1bce3eb.testnet",
+  "requestedYocto": "300000000000000000000000",
+  "requestId": "202382bbcf1c0ae31b52b4339fa53b21ef97866fa2a1e1ce840976a1f0a4ce37",
+  "createTransaction": "DFobMKwR3GD3TRptRwHDSJBSxboFHNsn7reaqxXtfyeP",
+  "registerUsdc": {
+    "hash": "6gZQj4xCWJffYvn8ofySrSXzvrfkZzYu66bTZxofwfon",
+    "failed": false
+  },
+  "buyTestUsdc": {
+    "hash": "4HjTnvQeWAXJMse7tqCvEXFwkWdojSXjQFCyXEbK6shu",
+    "failed": false,
+    "nearSpentYocto": "315000000000000000000000",
+    "usdcHeld": "662115650657219736816124"
+  },
+  "convert": {
+    "hash": "4Az9LRyvjJpjFFzPX6Mgrqr9P8ehVffnEJZnMHkNaUKk",
+    "failed": false,
+    "usdcIn": "637558531724580610980533",
+    "minNearOut": "300000000000000000000000",
+    "expectedNearOut": "301499983488499729780675",
+    "swappedLog": "Swapped 637558531724580610980533 usdc.itachicara.testnet for 301499983488499729780675 wrap.testnet",
+    "withdrawLog": "Withdraw 301499983488499729780675 yoctoNEAR from ref-finance-101.testnet",
+    "payerNativeDeltaYocto": "299842559421791629780674"
+  },
+  "payment": {
+    "hash": "8dT7K9kvjbUYtnscF7gWwugKv7PXPbCm8fM6K43CE4rR",
+    "finalStatus": "FINAL_PAID",
+    "latestOperation": {
+      "nonce": "1",
+      "kind": "INSTANT_PAYOUT",
+      "destinationAccountId": "taply-usdc-merchant-93a0898c.testnet",
+      "amountBaseUnits": "300000000000000000000000",
+      "status": "SUCCEEDED",
+      "startedAtNs": "1794246205864155637",
+      "resolvedAtNs": "1794246207080745926",
+      "failureCode": null
+    },
+    "merchantDeltaYocto": "300000000000000000000000"
+  }
+}

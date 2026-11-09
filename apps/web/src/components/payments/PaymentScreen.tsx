@@ -33,6 +33,7 @@ import { cameFromCheckout, isPosSale, journeyContext, journeySide, journeyStatus
 import { HashHexSchema } from '@/lib/protocol';
 import type { ContractRequest } from '@/lib/protocol';
 import { useNativeBalance } from '@/lib/near/use-native-balance';
+import { UsdcPay } from './UsdcPay';
 import { displayableBalance } from '@/lib/near/balance';
 import { useWallet } from '@/lib/wallet/provider';
 import {
@@ -601,10 +602,11 @@ function PayReview({
   readonly onPay: (signer: string) => void;
 }) {
   const t = useT();
-  const { state: wallet } = useWallet();
+  const { state: wallet, signAndSend } = useWallet();
   const { signingBlock, check, setup } = usePayments();
   const checkboxId = useId();
   const [confirmed, setConfirmed] = useState(false);
+  const [payWith, setPayWith] = useState<'near' | 'usdc'>('near');
   const balance = useNativeBalance(setup.status === 'ready' ? setup.reader : null, accountId);
   const verifiedBalance = displayableBalance(balance.view);
 
@@ -653,6 +655,19 @@ function PayReview({
         <InlineNotice copy={t.payment.review.payingYourself} tone="neutral" />
       ) : (
         <>
+          {signingBlock === null && blocking === undefined && stillOpen && request.terms.assetId === 'near:native' && (
+            <>
+              <PayWithSwitch value={payWith} onChange={setPayWith} />
+              {payWith === 'usdc' && (
+                <UsdcPay
+                  amountYocto={request.terms.amountBaseUnits}
+                  signerAccountId={wallet.session.accountId}
+                  signAndSend={signAndSend}
+                  onConverted={balance.refresh}
+                />
+              )}
+            </>
+          )}
           {low && <InlineNotice copy={t.payment.review.balanceLow} />}
           <AttemptGuard blocking={blocking} />
           {signingBlock !== null ? (
@@ -691,6 +706,35 @@ function PayReview({
         </>
       )}
     </Card>
+  );
+}
+
+/** NEAR (default) or test USDC converted to NEAR first. The payment itself is always NEAR. */
+function PayWithSwitch({ value, onChange }: { readonly value: 'near' | 'usdc'; readonly onChange: (v: 'near' | 'usdc') => void }) {
+  const t = useT();
+  const options = [
+    { value: 'near' as const, label: t.usdcPay.near },
+    { value: 'usdc' as const, label: t.usdcPay.usdc },
+  ];
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="eyebrow mb-1 text-[var(--text-muted)]">{t.usdcPay.payWith}</legend>
+      <div className="grid grid-cols-2 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={value === o.value}
+            onClick={() => onChange(o.value)}
+            className={`min-h-[44px] rounded-[10px] px-2 text-sm font-semibold transition-colors ${
+              value === o.value ? 'bg-[var(--text-primary)] text-[var(--taply-night)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 

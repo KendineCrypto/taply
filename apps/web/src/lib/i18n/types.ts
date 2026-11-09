@@ -665,6 +665,36 @@ export interface Dictionary {
   };
 
   /** Phase 4D: native Taply Wallet (encrypted local vault, signing disabled). */
+  /** Pay a NEAR request with Testnet USDC (Ref/Rhea Testnet swap, then the normal payment). */
+  readonly usdcPay: {
+    readonly title: string;
+    readonly body: string;
+    readonly payWith: string;
+    readonly near: string;
+    readonly usdc: string;
+    readonly tokenLabel: string;
+    readonly merchantGets: string;
+    readonly yourBalance: string;
+    readonly quote: string;
+    readonly quoteNote: string;
+    readonly refresh: string;
+    readonly enable: string;
+    readonly enableNote: string;
+    readonly notEnough: string;
+    readonly getTest: string;
+    readonly getTestNote: string;
+    readonly convert: string;
+    readonly waitingWallet: string;
+    readonly confirming: string;
+    readonly converted: string;
+    readonly failed: string;
+    readonly unknown: string;
+    readonly checkAgain: string;
+    readonly loadFailed: string;
+    readonly priceImpact: string;
+    readonly gasNote: string;
+  };
+
   readonly walletNative: {
     readonly switchLabel: string;
     readonly external: string;

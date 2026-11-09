@@ -1,0 +1,11 @@
+{
+  "accountId": "taply-srp-a43816.testnet",
+  "vaultVersion": 2,
+  "words": 12,
+  "copiedMatches": true,
+  "publicKey": "ed25519:FoehNwy5DVSAK5QVSmLABAyL26Za9oyem31unanD9Ezm",
+  "onChainPermission": "FullAccess",
+  "importedSameKey": true,
+  "backupDownloads": 0,
+  "phraseInStorage": false
+}

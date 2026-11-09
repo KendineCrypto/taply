@@ -142,12 +142,10 @@ export function createNearConnectAdapter(rpcUrl: string): WalletAdapter {
           network: 'testnet',
           signerId: signerAccountId,
           receiverId: call.receiverId,
-          actions: [
-            {
-              type: 'FunctionCall',
-              params: { methodName: call.methodName, args: { ...call.args }, gas: call.gas, deposit: call.depositYocto },
-            },
-          ],
+          actions: (call.actions ?? [call]).map((a) => ({
+            type: 'FunctionCall' as const,
+            params: { methodName: a.methodName, args: { ...a.args }, gas: a.gas, deposit: a.depositYocto },
+          })),
         });
         const transactionHash = transactionHashOf(outcome);
         return transactionHash === null ? { kind: 'unknown' } : { kind: 'submitted', transactionHash };
