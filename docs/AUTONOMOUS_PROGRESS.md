@@ -19,8 +19,8 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 - Cloud environment `taply` (personal) allows NEAR Testnet RPCs, the faucet helper and taplyapp.xyz.
 - Testnet automation: `packages/near-client/testnet-e2e/` (keys in `~/.taply-automation`, never in git).
 - Evidence index: [RELEASE_EVIDENCE_INDEX.md](RELEASE_EVIDENCE_INDEX.md).
-- Next: web token UI + Protected QA wiring for the token-enabled candidate; merchant POS/Handshake durable
-  session service; consumer features; final Turkish report `docs/TAPLY_FINAL_PRODUCT_COMPLETION_REPORT.md`.
+- Next: Verified Requests indicator; token Instant UI on the candidate; Handshake listener + host (blocked on
+  infrastructure); owner G1 acceptance; release PR to `main` after review.
 - No background processes left running.
 
 ## 2026-11-09 — cloud session 1
@@ -35,6 +35,17 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   `feature/pilot-core`, `feature/ux-reliability` are superseded by `main`.
 - Baseline `pnpm check` on `22765d7` (Node 24.22.2): **exit 0** — shared 92/92,
   near-client 207/207, web 1,112 passed + 1 skipped (73 files).
+
+### Increment 6 — Token web, Protected QA against live Testnet, G2 sale, final report
+
+- `4640e9d` token-aware Protected screens (asset selector, verified symbols/decimals, ft_transfer_call journal).
+- `06086cd` local production build with QA env read the live token candidate (screenshots in `docs/evidence/qa-2026-11-09/`).
+- `cc58cbb` G2 merchant-bound sale on real Testnet (session commitment matches, replay refused, Verified).
+- CI on `cc58cbb`: workspace-check 42582870958 success, wallet-browser-check 42582874420 success,
+  instant-pay-sandbox 42582878091 started (G1 frozen suite + shared v1.1 wire check).
+  protected-pay-candidate 42579962510 success on `b9b76eb` (7 sandbox tests).
+- Local `pnpm check` on `cc58cbb`: exit 0 (shared 93, near-client 219, web 1,153 + 1 skipped).
+- Final Turkish report: [TAPLY_FINAL_PRODUCT_COMPLETION_REPORT.md](TAPLY_FINAL_PRODUCT_COMPLETION_REPORT.md).
 
 ### Increment 5 — Real Testnet proofs, NEP-141, verifier fallback (master mandate)
 
