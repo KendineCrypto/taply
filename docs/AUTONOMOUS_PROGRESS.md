@@ -27,6 +27,36 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   `taply-e2e-9c2eeea4.testnet`; (5) token Instant UI on the candidate; (6) owner G1 acceptance.
 - Local Redis for tests: `redis-server` binary (tests skip if absent).
 
+## NEXT TASK (owner request 2026-11-09): onboarding = external wallet OR `username.testnet` Taply Wallet
+
+Owner decision: **no gasless/sponsored gas** (Testnet). First launch must offer exactly two choices:
+(1) connect an external wallet (existing near-connect flow), (2) pick a username → a real `username.testnet`
+account is created instantly and becomes the user's Taply Wallet. Owner said: no approvals needed, finish it.
+
+Verified facts for the implementation:
+- `helper.testnet.near.org/account` (POST `{newAccountId, newAccountPublicKey}`) creates a funded top-level
+  `.testnet` account (10 test NEAR); CORS preflight from `https://taplyapp.xyz` returns 204 with
+  `access-control-allow-origin: https://taplyapp.xyz` → callable directly from the browser (no server, no secret).
+  Proven in `packages/near-client/testnet-e2e/lib.mjs#createFaucetAccount`.
+- Vault today only supports implicit accounts: `wallet-vault.ts` schema refines `accountId === publicKeyHex`
+  (line ~26) and `create(password)` sets `accountId: publicKeyHex`.
+
+Steps:
+1. near-client `EncryptedTestnetVault.create(password, accountId?)`: allow a named `*.testnet` accountId
+   (AccountIdSchema, ends with `.testnet`, 2–64 chars); relax the refine to "implicit ⇒ equals pubkey"; keep AAD
+   binding of metadata; add `provisioning: "ON_CHAIN"` once the account is confirmed by a final `view_account`
+   whose access keys include the vault's public key (`view_access_key`). Tests in near-client.
+2. web: availability check (`view_account` → UNKNOWN_ACCOUNT = available), username rules (lowercase a-z0-9 _ -,
+   2–40 chars + `.testnet`), create vault (password + encrypted backup download) → POST faucet with
+   `ed25519:<base58 pubkey>` → poll final `view_account` + `view_access_key` → mark provisioned → mode `taply`.
+   Handle: name taken, faucet 4xx/5xx/rate limit (keep local vault, offer retry; never claim the account exists).
+3. First-launch chooser on `/` when no wallet is connected and no vault exists (EN/TR copy), reusing
+   `ConnectWalletButton` and `components/wallet/taply/CreateWalletFlow.tsx`.
+4. Native signing: `TaplySend` already uses the reviewed wallet backend; verify a real transfer from the new
+   account with a disposable run; keep Instant Pay signing on the single shared review path.
+5. Tests (vitest + near-client), local production build browser test creating a real `*.testnet` account, PR →
+   main → release/taplyapp, verify on taplyapp.xyz.
+
 ## Owner action to make Instant Pay usable on taplyapp.xyz (verified blocker)
 
 Production sets `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off` in Vercel (Production scope). An explicit `off`
