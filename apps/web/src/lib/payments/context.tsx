@@ -7,7 +7,7 @@ import { contractConfigProblems } from '@taply/near-client';
 import type { ContractConfig, ContractConfigProblem, NearTestnetClient, RpcErrorCode } from '@taply/near-client';
 import { FLAGS } from '@/lib/flags/features';
 import { getNearClient } from '@/lib/near/client';
-import { CHAIN_CONFIG } from '@/lib/near/config';
+import { CHAIN_CONFIG, verifierProviders } from '@/lib/near/config';
 import { createFetchLocatorRpc, createFetchVerifierRpc } from '@/lib/verify/rpc';
 import { createRateLimitGate } from '@/lib/verify/rate-limit';
 import type { LocatorRpc, VerifierRpc } from '@/lib/verify/rpc';
@@ -120,8 +120,9 @@ function defaultSetup(): PaymentsSetup {
   if (contract.status === 'invalid') return { status: 'invalid_config' };
   const reader = getNearClient();
   if (reader === null) return { status: 'chain_unavailable' };
-  // One cool-down for both readers of this RPC: a 429 seen by either pauses both.
-  const rateLimitGate = createRateLimitGate();
+  const { primary, secondary } = verifierProviders(CHAIN_CONFIG);
+  // One cool-down per provider, shared by the verifier and the locator that use it.
+  const primaryGate = createRateLimitGate();
   return {
     status: 'ready',
     contractId: contract.accountId,
@@ -129,24 +130,13 @@ function defaultSetup(): PaymentsSetup {
     reader,
     signingFlag: FLAGS.instantPay.enabled,
     explorerBaseUrl: CHAIN_CONFIG.explorerBaseUrl,
-    verifierRpc: createFetchVerifierRpc({
-      rpcUrl: CHAIN_CONFIG.verifier.rpcUrl,
-      providerId: CHAIN_CONFIG.verifier.rpcProviderId,
-      rateLimitGate,
-    }),
+    verifierRpc: createFetchVerifierRpc({ rpcUrl: primary.rpcUrl, providerId: primary.rpcProviderId, rateLimitGate: primaryGate }),
     verifierFallbackRpc:
-      CHAIN_CONFIG.verifierFallback === null
+      secondary === null
         ? null
-        : createFetchVerifierRpc({
-            rpcUrl: CHAIN_CONFIG.verifierFallback.rpcUrl,
-            providerId: CHAIN_CONFIG.verifierFallback.rpcProviderId,
-            rateLimitGate: createRateLimitGate(),
-          }),
-    locatorRpc: createFetchLocatorRpc({
-      rpcUrl: CHAIN_CONFIG.verifier.rpcUrl,
-      providerId: CHAIN_CONFIG.verifier.rpcProviderId,
-      rateLimitGate,
-    }),
+        : createFetchVerifierRpc({ rpcUrl: secondary.rpcUrl, providerId: secondary.rpcProviderId, rateLimitGate: createRateLimitGate() }),
+    // Funding search (no hash known) runs on the fast archival provider; a found hash is only a candidate.
+    locatorRpc: createFetchLocatorRpc({ rpcUrl: primary.rpcUrl, providerId: primary.rpcProviderId, rateLimitGate: primaryGate }),
   };
 }
 

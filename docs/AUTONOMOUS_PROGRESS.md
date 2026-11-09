@@ -15,13 +15,28 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 
 ## Current checkpoint (keep updated)
 
-- Branch `claude/kind-cerf-c4n261`; production `release/taplyapp` = `22765d7` (untouched).
-- Cloud environment `taply` (personal) allows NEAR Testnet RPCs, the faucet helper and taplyapp.xyz.
-- Testnet automation: `packages/near-client/testnet-e2e/` (keys in `~/.taply-automation`, never in git).
-- Evidence index: [RELEASE_EVIDENCE_INDEX.md](RELEASE_EVIDENCE_INDEX.md).
-- Next: Verified Requests indicator; token Instant UI on the candidate; Handshake listener + host (blocked on
-  infrastructure); owner G1 acceptance; release PR to `main` after review.
-- No background processes left running.
+- **Production:** `release/taplyapp` = `main` = `8817673` (PR #12 merged), verified live on taplyapp.xyz
+  (Verified Request chip, receipt Verified Paid via the archival fallback, Protected routes present but disabled,
+  no secret patterns in public JS). Previous production rollback target: `22765d7` / `dpl_mybW8sqwKCNc8uMQETrQMsTeEPEv`.
+- **Dev branch:** `claude/kind-cerf-c4n261` (ahead of main by docs only).
+- **Handshake progress:** `apps/api/src/redis-store.mts` (encrypted, atomic MGET + Lua CAS, TTL, Upstash REST via
+  KV_REST_API_URL/KV_REST_API_TOKEN, key from TAPLY_SESSION_ENCRYPTION_KEY) — tested on a real redis-server.
+- **Next (in order):** (1) async variant of `SessionEngine` transactions on `RedisDurableStore` (sessions.mts is
+  synchronous today); (2) Next.js route handlers under `apps/web/src/app/api/handshake/*` (server-only env, Preview);
+  (3) merchant/customer UI on `/s/[sessionId]` with ≤2 s polling; (4) two-browser test + G2 sale on
+  `taply-e2e-9c2eeea4.testnet`; (5) token Instant UI on the candidate; (6) owner G1 acceptance.
+- Local Redis for tests: `redis-server` binary (tests skip if absent).
+
+## Owner action to make Instant Pay usable on taplyapp.xyz (verified blocker)
+
+Production sets `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off` in Vercel (Production scope). An explicit `off`
+is a kill switch that code cannot override (lib/flags/features.ts), so public G1 signing can only be enabled in
+Vercel: Project `taply` → Settings → Environment Variables → Production → set
+`NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on` → Redeploy the current production deployment (8817673).
+Evidence supporting activation: automated G1 Testnet proof 2026-11-09 (FINAL_PAID, exact payout, duplicate
+refused, Verified on 2 providers); signing path unit/browser CI green. NOT verified by an agent: a real
+browser-wallet (wallet selector) signature — run TESTNET_ACCEPTANCE_PLAN.md once after enabling.
+Rollback: set the variable back to `off` and redeploy (or Instant Rollback to the previous deployment).
 
 ## 2026-11-09 — cloud session 1
 

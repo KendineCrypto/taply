@@ -190,3 +190,22 @@ export function explorerAccountUrl(explorerBaseUrl: string, accountId: string): 
 export function explorerTransactionUrl(explorerBaseUrl: string, transactionHash: string): string {
   return `${explorerBaseUrl}/txns/${encodeURIComponent(transactionHash)}`;
 }
+
+/**
+ * Provider order for the receipt verifier and the funding locator.
+ *
+ * Measured on the real payment 7nb5J2Ss… (2026-11-09): one full proof took ~40 s on
+ * archival-rpc.testnet.near.org (and browsers saw HTTP 429 without CORS headers,
+ * i.e. an opaque network error) vs ~2.4 s on FastNEAR archival. So the FastNEAR
+ * archival endpoint (`verifierFallback`) is tried FIRST and the configured
+ * verifier becomes the whole-proof fallback. Each proof still comes from one
+ * provider; with the fallback set to 'off' the configured verifier is used alone.
+ */
+export function verifierProviders(config: Extract<ChainConfigResult, { ok: true }>): {
+  readonly primary: { readonly rpcUrl: string; readonly rpcProviderId: string };
+  readonly secondary: { readonly rpcUrl: string; readonly rpcProviderId: string } | null;
+} {
+  return config.verifierFallback === null
+    ? { primary: config.verifier, secondary: null }
+    : { primary: config.verifierFallback, secondary: config.verifier };
+}

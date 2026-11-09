@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { verifyAcrossProviders } from '../fallback';
 import type { VerificationResult } from '../instant-receipt';
 import type { VerifierRpc } from '../rpc';
-import { resolveChainConfig } from '@/lib/near/config';
+import { resolveChainConfig, verifierProviders } from '@/lib/near/config';
 
 const rpc = (providerId: string): VerifierRpc => ({ providerId, call: async () => null });
 const input = { contractId: 'c.testnet', approvedCodeHash: 'h', requestId: 'r', fundingTransaction: { hash: 'x', signerAccountId: 'p.testnet' }, retryTransactions: [] };
@@ -42,5 +42,25 @@ describe('verifier fallback config', () => {
     const same = resolveChainConfig({ verifierRpcUrl: 'https://archival-rpc.testnet.fastnear.com', verifierRpcProviderId: 'fastnear' });
     expect(same.ok && same.verifierFallback).toBe(null);
     expect(resolveChainConfig({ ...base, verifierFallbackRpcUrl: 'http://insecure', verifierFallbackRpcProviderId: 'x' }).ok).toBe(false);
+  });
+});
+
+describe('verifier provider order (real payment 7nb5J2Ss…: ~40 s + browser 429/CORS on near.org archival)', () => {
+  const prod = { verifierRpcUrl: 'https://archival-rpc.testnet.near.org', verifierRpcProviderId: 'near-archival' };
+  it('fast FastNEAR archival first for verifier and locator; configured archival is the whole-proof fallback', () => {
+    const c = resolveChainConfig(prod);
+    if (!c.ok) throw Error('config');
+    expect(verifierProviders(c)).toEqual({
+      primary: { rpcUrl: 'https://archival-rpc.testnet.fastnear.com', rpcProviderId: 'fastnear-archival-testnet' },
+      secondary: { rpcUrl: 'https://archival-rpc.testnet.near.org', rpcProviderId: 'near-archival' },
+    });
+  });
+  it("'off' keeps the configured verifier alone; FastNEAR as configured verifier is not duplicated", () => {
+    const off = resolveChainConfig({ ...prod, verifierFallbackRpcUrl: 'off' });
+    if (!off.ok) throw Error('config');
+    expect(verifierProviders(off)).toEqual({ primary: { rpcUrl: prod.verifierRpcUrl, rpcProviderId: 'near-archival' }, secondary: null });
+    const same = resolveChainConfig({ verifierRpcUrl: 'https://archival-rpc.testnet.fastnear.com', verifierRpcProviderId: 'fastnear' });
+    if (!same.ok) throw Error('config');
+    expect(verifierProviders(same).secondary).toBe(null);
   });
 });
