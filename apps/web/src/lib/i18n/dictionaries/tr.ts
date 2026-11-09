@@ -1055,6 +1055,9 @@ export const tr: Dictionary = {
         pay_instant_native: 'Ödeme',
         retry_native_transfer: 'Ödeme yeniden denendi',
         cancel_unfunded: 'Talep iptal edildi',
+        fund_protected_native: 'Korumalı ödeme (kilitli)',
+        cancel_protected: 'Korumalı ödeme iptali',
+        release_protected: 'Korumalı ödeme aktarımı',
       },
       phase: {
         AWAITING_SIGNATURE: 'Cüzdan bekleniyor',

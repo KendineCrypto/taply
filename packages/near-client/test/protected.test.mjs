@@ -109,3 +109,42 @@ test('every candidate fixture is a valid frozen ContractRequest', () => {
     assert.equal(record.terms.mode, 'protected');
   }
 });
+
+import { createProtectedReader } from '../dist/index.js';
+import { HASH, HASH2, account, block, status } from './helpers.mjs';
+
+function reader({ codeHash = HASH, callBlockHash = HASH, contractId = CONTRACT, answer = fixture('protected-config') } = {}) {
+  const calls = [];
+  const fetch = async (_url, init) => {
+    const request = JSON.parse(init.body);
+    calls.push(request.method + ':' + (request.params?.request_type ?? ''));
+    let result;
+    if (request.method === 'status') result = status;
+    else if (request.method === 'block') result = block;
+    else if (request.params.request_type === 'view_account') result = { ...account, code_hash: codeHash };
+    else result = { result: Array.from(new TextEncoder().encode(JSON.stringify(answer))), logs: [], block_hash: callBlockHash, block_height: 123 };
+    return Response.json({ jsonrpc: '2.0', id: request.id, result });
+  };
+  const r = createProtectedReader({ network: 'near-testnet', rpcUrl: 'https://rpc.testnet.near.org', rpcProviderId: 'testnet-public',
+    contract: { accountId: contractId, expectedCodeHash: HASH } }, fetch, () => new Date('2026-10-29T12:00:00.000Z'));
+  return { r, calls };
+}
+
+test('reader: candidate config is read at one final block after the code-hash check', async () => {
+  const { r, calls } = reader();
+  const read = await r.readConfig();
+  assert.equal(read.error, null);
+  assert.equal(read.observation.assurance, 'verified_final');
+  assert.equal(read.observation.data.contractVersion, '0.5.0-g3-candidate');
+  assert.deepEqual(calls.slice(-3), ['block:', 'query:view_account', 'query:call_function']);
+});
+
+test('reader: wrong code hash, unanchored view or wrong contract fail closed', async () => {
+  assert.equal((await reader({ codeHash: HASH2 }).r.readConfig()).error.code, 'CONTRACT_CODE_MISMATCH');
+  assert.equal((await reader({ callBlockHash: HASH2 }).r.readConfig()).error.code, 'EVIDENCE_MISMATCH');
+  const g1 = { ...fixture('protected-config'), contractVersion: '0.4.0' };
+  assert.equal((await reader({ answer: g1 }).r.readConfig()).error.code, 'RPC_MALFORMED_RESPONSE');
+  const other = { ...fixture('protected-config'), contractId: 'other.testnet' };
+  assert.equal((await reader({ answer: other }).r.readConfig()).observation.data, null);
+  assert.throws(() => reader({ contractId: 'taply-pay-pilot-1.testnet' }), (e) => e.code === 'INVALID_CONFIG');
+});

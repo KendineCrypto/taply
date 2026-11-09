@@ -1,4 +1,4 @@
-import type { PreparedContractCall } from '@taply/near-client';
+import type { PreparedContractCall, PreparedProtectedCall } from '@taply/near-client';
 import type { IntentTerms } from '@/lib/protocol';
 import { WalletNotDispatchedError } from '@/lib/wallet/adapter';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
@@ -27,7 +27,7 @@ export type SubmitResult =
 
 export async function submitCall(input: {
   readonly journal: SubmissionJournal | null;
-  readonly call: PreparedContractCall;
+  readonly call: PreparedContractCall | PreparedProtectedCall;
   readonly signerAccountId: string;
   readonly requestId: string;
   readonly termsHash: string;
@@ -147,11 +147,28 @@ export function reconcile(entry: JournalEntry, view: PaymentView, startedAtNs: b
     case 'retry_native_transfer': {
       const op = request.latestOperation;
       // A newer operation, or no longer failed: the retry was used or superseded.
-      if (request.status !== 'PAYOUT_FAILED_RECOVERABLE' || op === null || op.nonce !== entry.operationNonce) {
+      // Covers Instant payouts and Protected refund/release retries alike.
+      if (!request.status.endsWith('_FAILED_RECOVERABLE') || op === null || op.nonce !== entry.operationNonce) {
         return 'resolved';
       }
       return 'pending';
     }
+    case 'fund_protected_native':
+      // Locked or cancelled by anyone: this request can no longer be funded twice.
+      if (request.status !== 'OPEN') return 'resolved';
+      if (observedAtNs >= BigInt(request.terms.fundingExpiresAtNs)) return 'resolved';
+      return 'pending';
+    case 'cancel_protected':
+      // A branch was committed (refund or release), so this attempt is explained.
+      if (request.status !== 'LOCKED') return 'resolved';
+      // Still LOCKED at a final block at/after the cutoff: the contract refuses any
+      // cancellation from now on, so the attempt can never take effect.
+      if (request.cancelUntilNs !== null && observedAtNs >= BigInt(request.cancelUntilNs)) return 'resolved';
+      return 'pending';
+    case 'release_protected':
+      // Release has no deadline: only a committed branch explains the attempt.
+      if (request.status !== 'LOCKED') return 'resolved';
+      return 'pending';
     default:
       return 'pending';
   }

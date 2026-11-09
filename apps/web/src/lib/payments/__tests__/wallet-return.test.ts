@@ -415,6 +415,24 @@ describe('matchTransaction', () => {
     expect(await matchTransaction(txRpc({ [TX]: tx }), TX, await entry())).toBe(expected);
   });
 
+  it('protected methods: release matches on id alone; cancel and fund need the terms hash', async () => {
+    const journal = new SubmissionJournal(memoryStorage(), clock(), inProcessJournalLock());
+    const begin = (method: 'release_protected' | 'cancel_protected' | 'fund_protected_native') =>
+      journal.begin({ method, network: 'near-testnet', contractId: CONTRACT, requestId: ID, termsHash: openRestricted.termsHash,
+        signerAccountId: PAYER, terms: null, operationNonce: null });
+    const tx = (method: string, args: Record<string, unknown>) => txRpc({ [TX]: { signer: PAYER, receiver: CONTRACT, method, args } });
+    const release = await begin('release_protected');
+    expect(await matchTransaction(tx('release_protected', { id: ID }), TX, release)).toBe('match');
+    expect(await matchTransaction(tx('release_protected', { id: ID, extra: 1 }), TX, release)).toBe('mismatch');
+    expect(await matchTransaction(tx('release_protected', { id: '0'.repeat(64) }), TX, release)).toBe('mismatch');
+    const cancel = await begin('cancel_protected');
+    expect(await matchTransaction(tx('cancel_protected', { id: ID, expectedTermsHash: openRestricted.termsHash }), TX, cancel)).toBe('match');
+    expect(await matchTransaction(tx('cancel_protected', { id: ID, expectedTermsHash: '0'.repeat(64) }), TX, cancel)).toBe('mismatch');
+    const fund = await begin('fund_protected_native');
+    expect(await matchTransaction(tx('fund_protected_native', { id: ID, expectedTermsHash: openRestricted.termsHash,
+      acceptedCancelDurationNs: '60000000000', consentVersion: 'taply.protected-consent.v1' }), TX, fund)).toBe('match');
+  });
+
   it('create_request matches on terms.id', async () => {
     const storage = memoryStorage();
     const journal = new SubmissionJournal(storage, clock(), inProcessJournalLock());

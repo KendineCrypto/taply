@@ -28,7 +28,12 @@ const METHOD_ICON: Readonly<Record<JournalEntry['method'], IconName>> = {
   pay_instant_native: 'send',
   retry_native_transfer: 'refresh',
   cancel_unfunded: 'x',
+  fund_protected_native: 'shield',
+  cancel_protected: 'x',
+  release_protected: 'send',
 };
+
+const PROTECTED_METHODS: ReadonlySet<JournalEntry['method']> = new Set(['fund_protected_native', 'cancel_protected', 'release_protected']);
 
 const PHASE_TONE: Readonly<Record<JournalEntry['phase'], string>> = {
   AWAITING_SIGNATURE: 'text-[var(--tone-caution-fg)] bg-[var(--tone-caution-bg)]',
@@ -82,7 +87,7 @@ export function RecentActivity({ preview = true }: { readonly preview?: boolean 
               style={{ '--i': i } as CSSProperties}
             >
               <Link
-                href={`/pay/${entry.requestId}`}
+                href={`${PROTECTED_METHODS.has(entry.method) ? '/protected' : '/pay'}/${entry.requestId}`}
                 className="pressable -mx-1 flex min-h-[64px] items-center gap-3 rounded-[var(--radius-control)] px-2 py-2.5 hover:bg-[var(--tone-neutral-bg)]"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--surface-2)] text-[var(--text-primary)]">

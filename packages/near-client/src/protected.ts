@@ -4,8 +4,12 @@ import {
   MIN_CANCEL_DURATION_NS, PositiveU64Schema, U128Schema, U64Schema, calculateTermsHash,
   type ContractRequest, type IntentTerms,
 } from "@taply/shared";
+import { parseStrictJson } from "@taply/shared";
+import { buildClient } from "./client.js";
 import { CreateQuoteSchema, type CreateQuote } from "./contract.js";
-import { NearClientError } from "./rpc.js";
+import { NearClientError, createRpc, parseConfig, publicError, type Fetch } from "./rpc.js";
+import type { NearTestnetClient, NearTestnetConfig, ReadResult } from "./types.js";
+import { AccountSchema, BlockSchema, CallResultSchema } from "./validation.js";
 
 /**
  * Protected Pay (G3) CANDIDATE contract seam: contracts/payments-protected.
@@ -203,4 +207,58 @@ export function prepareRetryProtectedTransfer(input: {
   if (input.signerAccountId !== beneficiary || op.destinationAccountId !== beneficiary) refuse();
   return { receiverId: input.contractId, methodName: "retry_native_transfer", gas: input.config.gas.retryNativeTransfer,
     depositYocto: "1", args: checkedArgs("retry_native_transfer", { id: r.terms.id, expectedOperationNonce: op.nonce }) };
+}
+
+export interface ProtectedReader {
+  /** Generic reads (network, request, quote, receipts) pinned to the candidate code hash. */
+  readonly client: NearTestnetClient;
+  /** `get_config` of the candidate at one final block where the code hash matched. */
+  readConfig(): Promise<ReadResult<ProtectedContractConfig>>;
+}
+
+/**
+ * Reader for an operator-configured candidate deployment. Refuses the G1 pilot.
+ * The config read repeats buildClient's anchoring rules: network check, then
+ * code hash and view at the SAME final block.
+ */
+export function createProtectedReader(input: NearTestnetConfig, fetcher: Fetch = (url, init) => globalThis.fetch(url, init),
+  now: () => Date = () => new Date()): ProtectedReader {
+  const config = parseConfig(input);
+  if (config.contract === null || config.contract.accountId === PILOT_CONTRACT_ID) throw new NearClientError("INVALID_CONFIG", false);
+  const contract = config.contract;
+  const client = buildClient(config, fetcher, false, now);
+  const rpc = createRpc(config, fetcher);
+  const parse = <T>(schema: z.ZodType<T>, value: unknown): T => {
+    const result = schema.safeParse(value);
+    if (!result.success) throw new NearClientError("RPC_MALFORMED_RESPONSE");
+    return result.data;
+  };
+  const readConfig = async (): Promise<ReadResult<ProtectedContractConfig>> => {
+    const network = await client.checkNetwork();
+    if (network.error !== null) return { observation: { ...network.observation, data: null }, error: network.error };
+    try {
+      const block = parse(BlockSchema, await rpc("block", { finality: "final" }));
+      const anchored = (v: { block_hash: string; block_height: string }) => {
+        if (v.block_hash !== block.hash || v.block_height !== block.height) throw new NearClientError("EVIDENCE_MISMATCH");
+      };
+      const code = parse(AccountSchema, await rpc("query", { request_type: "view_account", account_id: contract.accountId, block_id: block.hash }));
+      anchored(code);
+      if (code.code_hash !== contract.expectedCodeHash) throw new NearClientError("CONTRACT_CODE_MISMATCH");
+      const call = parse(CallResultSchema, await rpc("query", { request_type: "call_function", account_id: contract.accountId,
+        method_name: "get_config", args_base64: btoa("{}"), block_id: block.hash }));
+      anchored(call);
+      let decoded: unknown;
+      try { decoded = parseStrictJson(Uint8Array.from(call.result)); } catch { throw new NearClientError("RPC_MALFORMED_RESPONSE"); }
+      const data = parse(ProtectedContractConfigSchema, decoded);
+      if (data.contractId !== contract.accountId) throw new NearClientError("EVIDENCE_MISMATCH");
+      return { observation: { source: "rpc", assurance: "verified_final", data, observedBlock: block,
+        checkedAt: now().toISOString(), stale: false, rpcAvailable: true }, error: null };
+    } catch (cause) {
+      const error = cause instanceof NearClientError ? cause : new NearClientError("RPC_MALFORMED_RESPONSE");
+      const mismatch = ["CONTRACT_CODE_MISMATCH", "EVIDENCE_MISMATCH"].includes(error.code);
+      return { observation: { source: "rpc", assurance: mismatch ? "mismatch" : "unknown", data: null, observedBlock: null,
+        checkedAt: now().toISOString(), stale: false, rpcAvailable: error.rpcAvailable }, error: publicError(error, config.rpcProviderId) };
+    }
+  };
+  return Object.freeze({ client, readConfig });
 }

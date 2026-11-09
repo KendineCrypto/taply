@@ -601,7 +601,7 @@ export interface Dictionary {
       readonly explorer: string;
     };
     readonly activity: {
-      readonly method: Readonly<Record<'create_request' | 'pay_instant_native' | 'retry_native_transfer' | 'cancel_unfunded', string>>;
+      readonly method: Readonly<Record<import('@/lib/payments/journal').JournalMethod, string>>;
       readonly phase: Readonly<Record<'AWAITING_SIGNATURE' | 'USER_REJECTED' | 'OUTCOME_UNKNOWN' | 'SUBMITTED' | 'RESOLVED', string>>;
       readonly open: string;
     };

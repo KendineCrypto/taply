@@ -1052,6 +1052,9 @@ export const en: Dictionary = {
         pay_instant_native: 'Payment',
         retry_native_transfer: 'Payout retry',
         cancel_unfunded: 'Request cancelled',
+        fund_protected_native: 'Protected payment (locked)',
+        cancel_protected: 'Protected payment cancel',
+        release_protected: 'Protected payment release',
       },
       phase: {
         AWAITING_SIGNATURE: 'Waiting for wallet',

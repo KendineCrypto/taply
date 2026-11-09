@@ -238,6 +238,10 @@ export async function matchTransaction(rpc: VerifierRpc, hash: string, entry: Jo
   if (entry.method === 'retry_native_transfer') {
     return record['expectedOperationNonce'] === entry.operationNonce ? 'match' : 'mismatch';
   }
+  // release_protected carries only the id (anyone may release after the cutoff).
+  if (entry.method === 'release_protected') {
+    return Object.keys(record).length === 1 ? 'match' : 'mismatch';
+  }
   return record['expectedTermsHash'] === entry.termsHash ? 'match' : 'mismatch';
 }
 
