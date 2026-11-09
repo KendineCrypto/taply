@@ -36,6 +36,15 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 - Baseline `pnpm check` on `22765d7` (Node 24.22.2): **exit 0** — shared 92/92,
   near-client 207/207, web 1,112 passed + 1 skipped (73 files).
 
+### Increment 7 — Integration round
+
+- `f92465e` R-1 fix (token payout result length) + `docs/SECURITY_REVIEW_2026-11-09.md` (AI review, not audit).
+- `974ce74` reviewed-fix candidate `taply-e2e-ce38a238.testnet` re-proven (NEP-141 + native refund/release).
+- `0cf93a2` Verified Request chip (live check on the real pilot sale).
+- `4f0c1d1` Handshake deployment decision + README dev-branch evidence table.
+- Draft PR #12 to `main` (CI via pull_request triggers).
+- QA env for Protected: contract `taply-e2e-ce38a238.testnet`, code hash `963iSEB8XFKeUMY1gmj5bCuA2JMVD55ksjdLfCwiPA84`.
+
 ### Increment 6 — Token web, Protected QA against live Testnet, G2 sale, final report
 
 - `4640e9d` token-aware Protected screens (asset selector, verified symbols/decimals, ft_transfer_call journal).

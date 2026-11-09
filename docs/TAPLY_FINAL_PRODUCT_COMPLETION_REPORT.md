@@ -119,8 +119,8 @@ all proven on @NEARProtocol Testnet. taplyapp.xyz #NEARHackathon"
 1. G1 imzalı kabul turu (QA derlemesi, kendi iki cüzdanı, ~20 dk) → üretimde imzayı açma kararı.
 2. Bu dalın incelenip `main`/`release/taplyapp`'e alınması (doğrulayıcı düzeltmesi salt-okunur, düşük risk).
 3. Protected QA derlemesi için Vercel'de dal ortam değişkenleri:
-   `NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY=on`, `NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID=taply-e2e-6cdaf61b.testnet`,
-   `NEXT_PUBLIC_TAPLY_PROTECTED_CODE_HASH=Ea5REQGAgRUiL6JzbKMY5sRRn2E4oPs3i1oFHPsSz29A`, `NEXT_PUBLIC_TAPLY_PROTECTED_QA=on`
+   `NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY=on`, `NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID=taply-e2e-ce38a238.testnet`,
+   `NEXT_PUBLIC_TAPLY_PROTECTED_CODE_HASH=963iSEB8XFKeUMY1gmj5bCuA2JMVD55ksjdLfCwiPA84`, `NEXT_PUBLIC_TAPLY_PROTECTED_QA=on`
    (yalnızca korumalı önizleme; üretimde asla).
 4. Handshake sunucusu için barındırma hesabı.
 5. Video kaydı, X gönderisi ve başvuru.
@@ -132,3 +132,20 @@ NEP-141 ve oturuma bağlı mağaza satışı gerçek Testnet işlemleriyle kanı
 kalıyor: sahibin fiziksel cüzdan kabulü ve emanet kontratları için insan güvenlik incelemesi gerekiyor. Canlı
 iki cihazlı Handshake servisi barındırma nedeniyle engelli. Ürün "tamamen uygulanmış" değil; güçlü, kanıtlı bir
 hackathon prototipi.
+
+
+---
+
+## Ek: Entegrasyon turu (9 Kasım 2026, ikinci oturum)
+
+- **PR:** https://github.com/KendineCrypto/taply/pull/12 (taslak, `claude/kind-cerf-c4n261` → `main`).
+- **Güvenlik incelemesi:** `docs/SECURITY_REVIEW_2026-11-09.md` — yapay zekâ incelemesi, **denetim değildir**.
+  R-1 düzeltildi (token ödemesinin dönüş değeri başarıyı "bilinmiyor" yapıyordu → fon takılabilirdi);
+  R-2 (transfer başarılı + callback başarısız) açık kapı olarak kaldı.
+- **Düzeltilmiş aday yeniden kanıtlandı:** `taply-e2e-ce38a238.testnet` (kod özeti `963iSEB8…`, 0 anahtar):
+  NEP-141 anında + tekrar iade + korumalı token iadesi; yerel NEAR iade + aktarım + 4 red. QA bu kontrata bakmalı.
+- **Doğrulanmış Talep rozeti** ödeme sayfasında (gerçek pilot satışında "Verified request" görüldü).
+- **Handshake kararı:** `docs/HANDSHAKE_DEPLOYMENT_DECISION.md` — Vercel + ücretsiz Upstash Redis/Neon seçildi;
+  sahip tarafından sağlanması gereken tam yapılandırma yazıldı. Depolama kimlik bilgisi olmadan test edilemeyen
+  kalıcı katman gönderilmedi.
+- **Üretim:** yine değişmedi (bu oturumda Vercel erişimi yok). Sürüm adayı = PR #12'nin başı.
