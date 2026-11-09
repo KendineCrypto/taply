@@ -429,7 +429,15 @@ impl Payments {
         require!(kind == r.branch.kind(&r.terms.mode), "WRONG_OPERATION_KIND");
         require!(env::promise_results_count() == 1, "UNKNOWN_PROMISE_RESULT");
         // Native Transfer returns empty bytes. TooLong/unknown is NOT Failed.
-        let success = match env::promise_result_checked(0, 0) {
+        // Native Transfer returns empty bytes. NEP-141 ft_transfer returns nothing by the
+        // standard, but a token's return value must not turn a SUCCESS into "unknown"
+        // (that would strand the obligation in flight), so token payouts accept a small value.
+        let max_len = if nep141_token(&r.terms.asset_id).is_some() {
+            256
+        } else {
+            0
+        };
+        let success = match env::promise_result_checked(0, max_len) {
             Ok(_) => true,
             Err(PromiseError::Failed) => false,
             Err(_) => env::panic_str("UNKNOWN_PROMISE_RESULT"),

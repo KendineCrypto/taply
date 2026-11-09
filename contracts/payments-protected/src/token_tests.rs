@@ -416,3 +416,27 @@ fn protected_token_release_after_cutoff() {
     assert_eq!(status(&t), Status::Paid);
     snapshot("token-protected-final-paid", &load(&t.id).view());
 }
+
+#[test]
+fn token_payout_success_with_a_return_value_is_still_success() {
+    let mut c = contract();
+    let t = token_terms(50, "instant");
+    create(&mut c, &t);
+    let _ = ft_in(
+        &mut c,
+        TOKEN,
+        "bob.testnet",
+        AMOUNT,
+        msg(&t, "pay_instant"),
+        NOW + 1,
+    );
+    ctx(
+        CONTRACT,
+        CONTRACT,
+        0,
+        NOW + 100 * S,
+        vec![PromiseResult::Successful(b"\"ok\"".to_vec())],
+    );
+    assert!(c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into()));
+    assert_eq!(status(&t), Status::Paid);
+}
