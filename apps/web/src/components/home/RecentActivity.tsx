@@ -32,9 +32,10 @@ const METHOD_ICON: Readonly<Record<JournalEntry['method'], IconName>> = {
   fund_protected_native: 'shield',
   cancel_protected: 'x',
   release_protected: 'send',
+  ft_transfer_call: 'shield',
 };
 
-const PROTECTED_METHODS: ReadonlySet<JournalEntry['method']> = new Set(['fund_protected_native', 'cancel_protected', 'release_protected']);
+const PROTECTED_METHODS: ReadonlySet<JournalEntry['method']> = new Set(['fund_protected_native', 'cancel_protected', 'release_protected', 'ft_transfer_call']);
 
 /** Protected entries (any method, including retries and creation) open the Protected view. */
 function hrefFor(entry: JournalEntry): string {

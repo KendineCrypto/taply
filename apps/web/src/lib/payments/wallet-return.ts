@@ -190,8 +190,23 @@ function requestIdOf(method: JournalEntry['method'], args: unknown): string | nu
     const id = (terms as Record<string, unknown>)['id'];
     return typeof id === 'string' ? id : null;
   }
+  if (method === 'ft_transfer_call') return tokenMessage(record)?.id ?? null;
   const id = record['id'];
   return typeof id === 'string' ? id : null;
+}
+
+/** The strict Taply msg inside an ft_transfer_call (parsed, never trusted beyond matching). */
+function tokenMessage(record: Record<string, unknown>): { id: string; expectedTermsHash: string } | null {
+  const msg = record['msg'];
+  if (typeof msg !== 'string' || msg.length > 1024) return null;
+  try {
+    const parsed = JSON.parse(msg) as Record<string, unknown>;
+    return typeof parsed['id'] === 'string' && typeof parsed['expectedTermsHash'] === 'string'
+      ? { id: parsed['id'], expectedTermsHash: parsed['expectedTermsHash'] }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -237,6 +252,9 @@ export async function matchTransaction(rpc: VerifierRpc, hash: string, entry: Jo
   }
   if (entry.method === 'retry_native_transfer') {
     return record['expectedOperationNonce'] === entry.operationNonce ? 'match' : 'mismatch';
+  }
+  if (entry.method === 'ft_transfer_call') {
+    return tokenMessage(record)?.expectedTermsHash === entry.termsHash ? 'match' : 'mismatch';
   }
   // release_protected carries only the id (anyone may release after the cutoff).
   if (entry.method === 'release_protected') {

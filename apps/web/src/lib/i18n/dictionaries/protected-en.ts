@@ -27,6 +27,8 @@ export const protectedEn: ProtectedFlowCopy = {
   inconsistent: { title: 'Chain data did not add up', body: 'The read failed a consistency check, so every action is withheld.' },
   staleReview: { title: 'Review again', body: 'The chain moved on since you reviewed. The screen was refreshed; check it and try again.' },
   refused: { title: 'Not possible right now', body: 'The contract would refuse this step in its current state. Nothing was sent.' },
+  unsupportedAsset: { title: 'Unsupported asset', body: 'This request uses a token the contract does not list. Nothing is offered.' },
+  tokenNotes: 'Token payment: your wallet sends exactly this amount with ft_transfer_call. If the contract refuses it, the token returns it in full. The recipient must be registered with the token to receive it; otherwise the payout is held and can be retried.',
   consentTitle: 'Review before locking',
   consentWithDuration:
     'You can cancel for {duration} starting when this payment funds on-chain; on-chain execution time determines whether cancellation succeeds. Release requires a separate transaction after that period.',
@@ -64,6 +66,8 @@ export const protectedEn: ProtectedFlowCopy = {
   create: {
     amountLabel: 'Amount (NEAR)',
     amountHint: 'Exact Testnet NEAR the payer locks.',
+    amountTokenLabel: 'Amount (token)',
+    assetLabel: 'Asset',
     windowLabel: 'Payer can cancel for',
     windowHint: 'Starts when the payment locks on chain. Signed into the request and cannot change.',
     payerLabel: 'Only this payer (optional)',
@@ -75,7 +79,7 @@ export const protectedEn: ProtectedFlowCopy = {
     openRequest: 'Open request',
     errors: {
       amount_required: 'Enter an amount.',
-      amount_invalid: 'Use digits and at most 24 decimals.',
+      amount_invalid: 'Use digits and no more decimals than this asset allows.',
       amount_zero: 'The amount must be more than zero.',
       memo_too_long: 'The note is too long.',
       payer_invalid: 'Not a valid NEAR account ID.',

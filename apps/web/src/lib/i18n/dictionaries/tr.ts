@@ -1060,6 +1060,7 @@ export const tr: Dictionary = {
         fund_protected_native: 'Korumalı ödeme (kilitli)',
         cancel_protected: 'Korumalı ödeme iptali',
         release_protected: 'Korumalı ödeme aktarımı',
+        ft_transfer_call: 'Token ödemesi',
       },
       phase: {
         AWAITING_SIGNATURE: 'Cüzdan bekleniyor',

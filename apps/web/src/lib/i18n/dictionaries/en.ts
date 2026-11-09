@@ -1057,6 +1057,7 @@ export const en: Dictionary = {
         fund_protected_native: 'Protected payment (locked)',
         cancel_protected: 'Protected payment cancel',
         release_protected: 'Protected payment release',
+        ft_transfer_call: 'Token payment',
       },
       phase: {
         AWAITING_SIGNATURE: 'Waiting for wallet',

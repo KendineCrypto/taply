@@ -15,6 +15,8 @@ import refunded from '../../../../packages/near-client/test/fixtures/protected-c
 import releaseInFlight from '../../../../packages/near-client/test/fixtures/protected-release-in-flight.json';
 import releaseFailed from '../../../../packages/near-client/test/fixtures/protected-release-failed.json';
 import paid from '../../../../packages/near-client/test/fixtures/protected-final-paid.json';
+import tokenConfig from '../../../../packages/near-client/test/fixtures/token-config.json';
+import tokenLocked from '../../../../packages/near-client/test/fixtures/token-protected-locked.json';
 
 export const PROTECTED_CONTRACT = 'payments.fixture.testnet';
 export const PROTECTED = {
@@ -27,4 +29,9 @@ export const PROTECTED = {
   releaseInFlight: releaseInFlight as unknown as ContractRequest,
   releaseFailed: releaseFailed as unknown as ContractRequest,
   paid: paid as unknown as ContractRequest,
+  tokenConfig: tokenConfig as unknown as ProtectedContractConfig,
+  tokenLocked: tokenLocked as unknown as ContractRequest,
+  /** The same token request before funding (fields a LOCKED read adds are cleared). */
+  tokenOpen: { ...(tokenLocked as unknown as ContractRequest), status: 'OPEN', payerAccountId: null, fundedAtNs: null,
+    cancelUntilNs: null, revision: '1' } as ContractRequest,
 } as const;

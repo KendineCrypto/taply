@@ -19,6 +19,8 @@ export interface ProtectedFlowCopy {
   readonly inconsistent: ErrorCopy;
   readonly staleReview: ErrorCopy;
   readonly refused: ErrorCopy;
+  readonly unsupportedAsset: ErrorCopy;
+  readonly tokenNotes: string;
   readonly consentTitle: string;
   /** `{duration}` is replaced with the signed cancellation window. */
   readonly consentWithDuration: string;
@@ -51,6 +53,8 @@ export interface ProtectedFlowCopy {
   readonly create: {
     readonly amountLabel: string;
     readonly amountHint: string;
+    readonly amountTokenLabel: string;
+    readonly assetLabel: string;
     readonly windowLabel: string;
     readonly windowHint: string;
     readonly payerLabel: string;

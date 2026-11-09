@@ -11,7 +11,7 @@ import { ProtectedScreen } from '../ProtectedScreen';
 const cutoff = BigInt(PROTECTED.locked.cancelUntilNs ?? '0');
 const ready = (qaBuild: boolean): ProtectedSetup => ({ status: 'ready', contractId: PROTECTED_CONTRACT, expectedCodeHash: CODE_HASH, qaBuild });
 
-function fakeReader(request: ContractRequest, atNs: bigint, balanceYocto = '100000000000000000000000000'): ProtectedReader {
+function fakeReader(request: ContractRequest, atNs: bigint, balanceYocto = '100000000000000000000000000', config = PROTECTED.config): ProtectedReader {
   const block = { hash: BLOCK_HASH, height: '1000', timestampNs: atNs.toString() };
   const observation = { source: 'rpc' as const, assurance: 'verified_final' as const, observedBlock: block,
     checkedAt: '2026-11-09T12:00:00.000Z', stale: false, rpcAvailable: true };
@@ -24,15 +24,15 @@ function fakeReader(request: ContractRequest, atNs: bigint, balanceYocto = '1000
         error: null,
       }),
     } as unknown as ProtectedReader['client'],
-    readConfig: async () => ({ observation: { ...observation, data: PROTECTED.config }, error: null }),
+    readConfig: async () => ({ observation: { ...observation, data: config }, error: null }),
   };
 }
 
-function show(request: ContractRequest, atNs: bigint, account: string | null, setup: ProtectedSetup = ready(true), balanceYocto?: string, storage = memoryStorage()) {
+function show(request: ContractRequest, atNs: bigint, account: string | null, setup: ProtectedSetup = ready(true), balanceYocto?: string, storage = memoryStorage(), config = PROTECTED.config) {
   // Device clock = the observed block time, so the read counts as fresh.
   vi.setSystemTime(new Date(Number.parseInt((atNs / 1_000_000n).toString(), 10)));
   const wallet = recordingWallet(account);
-  renderWithChain(<ProtectedScreen id={request.terms.id} setup={setup} reader={fakeReader(request, atNs, balanceYocto)} />, {
+  renderWithChain(<ProtectedScreen id={request.terms.id} setup={setup} reader={fakeReader(request, atNs, balanceYocto, config)} />, {
     // The G1 payments setup is irrelevant here; only its journal is used.
     setup: { status: 'not_configured' },
     adapter: wallet.adapter,
@@ -182,6 +182,40 @@ describe('ProtectedScreen error states', () => {
     }] }));
     show(PROTECTED.locked, cutoff + 1n, 'bob.testnet', ready(true), undefined, storage);
     expect(await screen.findByText('Cancellation window closed')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Cancel and refund me/ })).toBeNull();
+  });
+});
+
+describe('ProtectedScreen NEP-141 tokens', () => {
+  const tokenCutoff = BigInt(PROTECTED.tokenLocked.cancelUntilNs ?? '0');
+  it('shows the token amount with the contract-verified symbol and decimals', async () => {
+    show(PROTECTED.tokenLocked, tokenCutoff - 30_000_000_000n, 'bob.testnet', ready(true), undefined, memoryStorage(), PROTECTED.tokenConfig);
+    expect(await screen.findByText('LOCKED - NOT PAID', { selector: 'p' })).toBeTruthy();
+    expect(await screen.findByText('tUSD-TEST')).toBeTruthy();
+    expect(screen.queryByText('NEAR', { selector: 'span' })).toBeNull();
+  });
+
+  it('funding a token request is ft_transfer_call on the TOKEN with 1 yocto and a strict msg', async () => {
+    const at = BigInt(PROTECTED.tokenOpen.createdAtNs);
+    const { signed } = show(PROTECTED.tokenOpen, at, 'bob.testnet', ready(true), undefined, memoryStorage(), PROTECTED.tokenConfig);
+    expect(await screen.findByText(/ft_transfer_call/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole('checkbox'));
+    const lock = await screen.findByRole('button', { name: /Lock payment in wallet/ });
+    await waitFor(() => expect(lock).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(lock);
+    });
+    await waitFor(() => expect(signed).toHaveLength(1));
+    const call = signed[0]?.call;
+    expect(call).toMatchObject({ receiverId: 'tusd.fixture.testnet', methodName: 'ft_transfer_call', depositYocto: '1',
+      args: { receiver_id: PROTECTED_CONTRACT, amount: PROTECTED.tokenOpen.terms.amountBaseUnits } });
+    expect(JSON.parse(String(call?.args['msg']))).toEqual({ id: PROTECTED.tokenOpen.terms.id, expectedTermsHash: PROTECTED.tokenOpen.termsHash,
+      action: 'fund_protected', acceptedCancelDurationNs: '60000000000', consentVersion: 'taply.protected-consent.v1' });
+  });
+
+  it('a token the verified config does not list is refused, never shown as NEAR', async () => {
+    show(PROTECTED.tokenLocked, tokenCutoff - 1n, 'bob.testnet');
+    expect(await screen.findByText('Unsupported asset')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Cancel and refund me/ })).toBeNull();
   });
 });

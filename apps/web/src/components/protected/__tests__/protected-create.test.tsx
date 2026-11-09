@@ -13,9 +13,9 @@ const observation = { source: 'rpc' as const, assurance: 'verified_final' as con
   observedBlock: { hash: BLOCK_HASH, height: '1000', timestampNs: NOW_NS.toString() },
   checkedAt: '2026-11-09T12:00:00.000Z', stale: false, rpcAvailable: true };
 
-function reader(quotes: IntentTerms[]): ProtectedReader {
+function reader(quotes: IntentTerms[], config = PROTECTED.config): ProtectedReader {
   return {
-    readConfig: async () => ({ observation: { ...observation, data: PROTECTED.config }, error: null }),
+    readConfig: async () => ({ observation: { ...observation, data: config }, error: null }),
     client: {
       quoteCreateRequest: async (terms: IntentTerms) => {
         quotes.push(terms);
@@ -69,6 +69,29 @@ describe('ProtectedCreate', () => {
     expect((screen.getByLabelText('Only this payer (optional)') as HTMLInputElement).value).toBe('bob.testnet');
     expect(await screen.findByTestId('contact-match')).toBeTruthy();
     window.localStorage.clear();
+  });
+
+  it('a token request uses the verified token decimals and asset id', async () => {
+    const quotes: IntentTerms[] = [];
+    const { adapter, signed } = recordingWallet('alice.testnet');
+    renderWithChain(
+      <ProtectedCreate setup={{ status: 'ready', contractId: PROTECTED_CONTRACT, expectedCodeHash: CODE_HASH, qaBuild: true }} reader={reader(quotes, PROTECTED.tokenConfig)} />,
+      { setup: { status: 'not_configured' }, adapter, storage: memoryStorage(), now: () => Date.now() },
+    );
+    fireEvent.change(await screen.findByLabelText('Asset'), { target: { value: 'nep141:tusd.fixture.testnet' } });
+    fireEvent.change(screen.getByLabelText('Amount (token)'), { target: { value: '2.5' } });
+    const create = await screen.findByRole('button', { name: /Create Protected request in wallet/ });
+    await waitFor(() => expect(create).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(create);
+    });
+    await waitFor(() => expect(signed).toHaveLength(1));
+    expect(quotes[0]).toMatchObject({ assetId: 'nep141:tusd.fixture.testnet', amountBaseUnits: '2500000', mode: 'protected' });
+    // Too many decimals for a 6-decimal token is refused before any wallet prompt.
+    fireEvent.change(screen.getByLabelText('Amount (token)'), { target: { value: '0.0000001' } });
+    fireEvent.click(create);
+    expect(await screen.findByText('Use digits and no more decimals than this asset allows.')).toBeTruthy();
+    expect(signed).toHaveLength(1);
   });
 
   it('cannot create while the flag is off', () => {

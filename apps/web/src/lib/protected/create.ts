@@ -32,6 +32,8 @@ export function buildProtectedTerms(input: {
   /** Timestamp of a fresh finalized block, never the browser clock. */
   readonly chainNowNs: string;
   readonly window: CancelWindow;
+  /** `near:native` (default) or an allowlisted `nep141:<token>`. */
+  readonly assetId?: string;
 }): { readonly terms: IntentTerms; readonly termsHash: string } {
   const duration = CANCEL_WINDOWS[input.window];
   if (duration < MIN_CANCEL_DURATION_NS || duration > MAX_CANCEL_DURATION_NS) throw new RangeError('cancel window out of range');
@@ -48,7 +50,7 @@ export function buildProtectedTerms(input: {
     contractId: input.contractId,
     creationNonce: input.creationNonce,
     creatorAccountId: input.creatorAccountId,
-    assetId: 'near:native',
+    assetId: input.assetId ?? 'near:native',
     amountBaseUnits: input.form.amountBaseUnits,
     mode: 'protected',
     cancelDurationNs: duration.toString(),

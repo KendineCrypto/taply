@@ -27,6 +27,8 @@ export const protectedTr: ProtectedFlowCopy = {
   inconsistent: { title: 'Zincir verisi tutarsız', body: 'Okuma tutarlılık kontrolünden geçmedi; tüm işlemler durduruldu.' },
   staleReview: { title: 'Tekrar incele', body: 'İncelemenden sonra zincir ilerledi. Ekran yenilendi; kontrol edip tekrar dene.' },
   refused: { title: 'Şu an mümkün değil', body: 'Kontrat mevcut durumda bu adımı reddederdi. Hiçbir şey gönderilmedi.' },
+  unsupportedAsset: { title: 'Desteklenmeyen varlık', body: 'Bu talep kontratın listelemediği bir token kullanıyor. Hiçbir işlem sunulmuyor.' },
+  tokenNotes: 'Token ödemesi: cüzdanın tam bu tutarı ft_transfer_call ile gönderir. Kontrat reddederse token tamamını iade eder. Alıcının almak için tokene kayıtlı olması gerekir; değilse ödeme bekletilir ve yeniden denenebilir.',
   consentTitle: 'Kilitlemeden önce incele',
   consentWithDuration:
     'Ödeme zincirde fonlandığı andan itibaren {duration} boyunca iptal edebilirsin; iptalin başarılı olup olmadığını zincirdeki işlem zamanı belirler. Bu sürenin ardından aktarım için ayrı bir işlem gerekir.',
@@ -64,6 +66,8 @@ export const protectedTr: ProtectedFlowCopy = {
   create: {
     amountLabel: 'Tutar (NEAR)',
     amountHint: 'Ödeyenin kilitleyeceği tam Testnet NEAR.',
+    amountTokenLabel: 'Tutar (token)',
+    assetLabel: 'Varlık',
     windowLabel: 'Ödeyenin iptal süresi',
     windowHint: 'Ödeme zincirde kilitlenince başlar. Talebe imzalanır ve değişmez.',
     payerLabel: 'Yalnızca bu ödeyen (isteğe bağlı)',
@@ -75,7 +79,7 @@ export const protectedTr: ProtectedFlowCopy = {
     openRequest: 'Talebi aç',
     errors: {
       amount_required: 'Bir tutar gir.',
-      amount_invalid: 'Rakam kullan, en fazla 24 ondalık.',
+      amount_invalid: 'Rakam kullan; bu varlığın izin verdiğinden fazla ondalık kullanma.',
       amount_zero: 'Tutar sıfırdan büyük olmalı.',
       memo_too_long: 'Not çok uzun.',
       payer_invalid: 'Geçerli bir NEAR hesap kimliği değil.',

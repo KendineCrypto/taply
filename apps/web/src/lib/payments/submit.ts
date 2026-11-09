@@ -1,4 +1,4 @@
-import type { PreparedContractCall, PreparedProtectedCall } from '@taply/near-client';
+import type { PreparedContractCall, PreparedProtectedCall, PreparedTokenCall } from '@taply/near-client';
 import type { IntentTerms } from '@/lib/protocol';
 import { WalletNotDispatchedError } from '@/lib/wallet/adapter';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
@@ -27,7 +27,7 @@ export type SubmitResult =
 
 export async function submitCall(input: {
   readonly journal: SubmissionJournal | null;
-  readonly call: PreparedContractCall | PreparedProtectedCall;
+  readonly call: PreparedContractCall | PreparedProtectedCall | PreparedTokenCall;
   readonly signerAccountId: string;
   readonly requestId: string;
   readonly termsHash: string;
@@ -155,6 +155,11 @@ export function reconcile(entry: JournalEntry, view: PaymentView, startedAtNs: b
     }
     case 'fund_protected_native':
       // Locked or cancelled by anyone: this request can no longer be funded twice.
+      if (request.status !== 'OPEN') return 'resolved';
+      if (observedAtNs >= BigInt(request.terms.fundingExpiresAtNs)) return 'resolved';
+      return 'pending';
+    case 'ft_transfer_call':
+      // Token funding: same rule as native funding. A refused transfer is returned by the token.
       if (request.status !== 'OPEN') return 'resolved';
       if (observedAtNs >= BigInt(request.terms.fundingExpiresAtNs)) return 'resolved';
       return 'pending';

@@ -6,8 +6,10 @@ import {
   prepareFundProtectedNative,
   prepareReleaseProtected,
   prepareRetryProtectedTransfer,
+  prepareTokenFunding,
 } from '@taply/near-client';
-import type { PreparedProtectedCall, ProtectedContractConfig, ProtectedReader } from '@taply/near-client';
+import type { PreparedProtectedCall, PreparedTokenCall, ProtectedContractConfig, ProtectedReader } from '@taply/near-client';
+import { displayAssetFor } from '@/lib/protected/assets';
 import { AccountId, Amount } from '@/components/primitives/Amount';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { Card, DetailRow } from '@/components/primitives/Surface';
@@ -29,7 +31,7 @@ import { mapChainState } from '@/lib/payments/map-chain-state';
 import type { MapInput } from '@/lib/payments/map-chain-state';
 import { dateToNs, reconcile, submitCall } from '@/lib/payments/submit';
 import type { SubmitResult } from '@/lib/payments/submit';
-import { HashHexSchema, NEAR_NATIVE } from '@/lib/protocol';
+import { HashHexSchema } from '@/lib/protocol';
 import { PROTECTED_SETUP, defaultProtectedReader, useProtectedContract, useProtectedRequest } from '@/lib/protected/hooks';
 import type { ProtectedSetup } from '@/lib/protected/setup';
 import { useWallet } from '@/lib/wallet/provider';
@@ -139,7 +141,7 @@ function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly se
   const blocking = (method: JournalMethod) =>
     attempts.some((a) => a.entry.method === method && a.entry.signerAccountId === accountId && a.state !== 'resolved');
 
-  const run = async (make: (config: ProtectedContractConfig) => PreparedProtectedCall, operationNonce?: string) => {
+  const run = async (make: (config: ProtectedContractConfig) => PreparedProtectedCall | PreparedTokenCall, operationNonce?: string) => {
     if (view?.kind !== 'ok' || accountId === null || busy) return;
     setNotice(null);
     setResult(null);
@@ -159,7 +161,7 @@ function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly se
         refresh();
         return;
       }
-      let call: PreparedProtectedCall;
+      let call: PreparedProtectedCall | PreparedTokenCall;
       try {
         call = make(fresh.config);
       } catch {
@@ -197,6 +199,7 @@ function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly se
         accountId={accountId}
         contractId={setup.contractId}
         balanceReader={reader?.client ?? null}
+        config={check.status === 'verified' ? check.config : null}
         cancelSent={cancelSent}
         canSign={canSign}
         busy={busy}
@@ -221,6 +224,7 @@ function Body({
   accountId,
   contractId,
   balanceReader,
+  config,
   cancelSent,
   canSign,
   busy,
@@ -232,11 +236,12 @@ function Body({
   readonly accountId: string | null;
   readonly contractId: string;
   readonly balanceReader: ProtectedReader['client'] | null;
+  readonly config: ProtectedContractConfig | null;
   readonly cancelSent: boolean;
   readonly canSign: boolean;
   readonly busy: boolean;
   readonly blocking: (method: JournalMethod) => boolean;
-  readonly onRun: (make: (config: ProtectedContractConfig) => PreparedProtectedCall, operationNonce?: string) => Promise<void>;
+  readonly onRun: (make: (config: ProtectedContractConfig) => PreparedProtectedCall | PreparedTokenCall, operationNonce?: string) => Promise<void>;
 }) {
   const t = useT();
   const c = t.protectedFlow;
@@ -245,7 +250,9 @@ function Body({
   const locked = view?.kind === 'ok' && view.request.status === 'LOCKED';
   const now = useNow(1000, locked);
   const fundable = view?.kind === 'ok' && view.request.status === 'OPEN';
-  const balance = useNativeBalance(fundable ? balanceReader : null, accountId);
+  const nativeAsset = view?.kind === 'ok' && view.request.terms.assetId === 'near:native';
+  // Token balances are checked by the token contract itself; the NEAR balance only matters for native requests.
+  const balance = useNativeBalance(fundable && nativeAsset ? balanceReader : null, accountId);
   const verifiedBalance = displayableBalance(balance.view);
 
   if (view === null) {
@@ -261,6 +268,10 @@ function Body({
   if (view.kind === 'inconsistent') return <InlineNotice copy={c.inconsistent} tone="danger" />;
 
   const { request, response, observedAtNs } = view;
+  const asset = displayAssetFor(request.terms.assetId, config);
+  const isToken = request.terms.assetId !== 'near:native';
+  // An asset the verified config does not name is never shown or paid as anything else.
+  if (asset === null && config !== null) return <InlineNotice copy={c.unsupportedAsset} tone="danger" />;
   const input: MapInput = {
     state: request.status,
     observation: response.observation,
@@ -309,7 +320,7 @@ function Body({
         </p>
         <dl>
           <DetailRow label={c.fields.amount} emphasis>
-            <Amount baseUnits={request.terms.amountBaseUnits} asset={NEAR_NATIVE} />
+            {asset === null ? <Spinner /> : <Amount baseUnits={request.terms.amountBaseUnits} asset={asset} />}
           </DetailRow>
           <DetailRow label={c.fields.recipient}>
             <AccountId accountId={request.recipientAccountId} />
@@ -367,24 +378,28 @@ function Body({
           </label>
           {notPermitted && <InlineNotice copy={t.errors.PAYER_MISMATCH} tone="danger" />}
           {low && !notPermitted && <InlineNotice copy={t.payment.review.balanceLow} />}
+          {isToken && <p className="text-xs text-[var(--text-muted)]">{c.tokenNotes}</p>}
           {accountId === null ? (
             <ConnectWalletButton />
           ) : (
             <Button
               size="lg"
               block
-              disabled={disabled || !ack || notPermitted || blocking('fund_protected_native')}
+              disabled={disabled || !ack || notPermitted || blocking(isToken ? 'ft_transfer_call' : 'fund_protected_native')}
               onClick={() =>
-                void onRun((config) =>
-                  prepareFundProtectedNative({
-                    contractId,
-                    config,
-                    request,
-                    signerAccountId: accountId,
-                    observedAtNs,
-                    // Exactly what this screen showed; the builder refuses anything else.
-                    acceptedCancelDurationNs: duration,
-                  }),
+                void onRun((verified) =>
+                  isToken
+                    ? // NEP-141: ft_transfer_call on the allowlisted token; a refused transfer is returned in full.
+                      prepareTokenFunding({ contractId, config: verified, request, signerAccountId: accountId, observedAtNs, acceptedCancelDurationNs: duration })
+                    : prepareFundProtectedNative({
+                        contractId,
+                        config: verified,
+                        request,
+                        signerAccountId: accountId,
+                        observedAtNs,
+                        // Exactly what this screen showed; the builder refuses anything else.
+                        acceptedCancelDurationNs: duration,
+                      }),
                 )
               }
             >

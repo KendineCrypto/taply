@@ -27,6 +27,8 @@ export const JOURNAL_METHODS = [
   'fund_protected_native',
   'cancel_protected',
   'release_protected',
+  // NEP-141 funding: sent to the TOKEN contract (entry.contractId = token account).
+  'ft_transfer_call',
 ] as const;
 export type JournalMethod = (typeof JOURNAL_METHODS)[number];
 
