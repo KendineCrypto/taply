@@ -45,7 +45,9 @@ import {
   SigningBlockNotice,
   SubmitResultNotice,
   TransactionLink,
+  VerifiedRequestChip,
 } from './PaymentParts';
+import { requestProvenance } from '@/lib/verify/provenance';
 
 /** Conservative gas margin for the low-balance warning (50 Tgas at Testnet prices is far below this). */
 const GAS_MARGIN_YOCTO = 10_000_000_000_000_000_000_000n; // 0.01 NEAR
@@ -402,8 +404,16 @@ function RequestView({
   const showsReview = ctaKinds.has('review_and_pay');
   const terminal = request.status === 'FINAL_PAID' || request.status === 'CANCELLED_UNFUNDED' || response.fundingEligibility === 'EXPIRED';
 
+  const provenanceFacts = requestProvenance({
+    request,
+    observation: response.observation,
+    expectedContractId: contractId,
+    codeHashVerified: check.status === 'verified',
+  });
+
   return (
     <>
+      <VerifiedRequestChip provenance={provenanceFacts} />
       {stage !== null ? (
         <SharedSession
           side={side}

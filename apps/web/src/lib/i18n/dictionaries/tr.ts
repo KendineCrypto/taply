@@ -16,6 +16,18 @@ export const tr: Dictionary = {
   commerce: commerceTr,
   tools: toolsTr,
   protectedFlow: protectedTr,
+  verifiedRequest: {
+    verified: 'Doğrulanmış talep',
+    unverified: 'Tam doğrulanmadı',
+    checks: {
+      testnet: "NEAR Testnet'ten okundu (genesis kontrol edildi)",
+      approved_contract: 'Onaylı Taply kontratı',
+      code_hash: 'Kontrat kodu onaylı özetle aynı',
+      final_block: 'Güncel kesin bloktan okundu',
+      terms_hash: 'Terimler değişmez özetleriyle aynı',
+    },
+    notIdentity: 'Terimlerin kaynağını kanıtlar, alıcının kim olduğunu değil. Ödeme kanıtı makbuzdur.',
+  },
   locale: 'tr',
   localeName: 'Türkçe',
 

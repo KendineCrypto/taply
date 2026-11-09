@@ -18,6 +18,18 @@ export const en: Dictionary = {
   commerce: commerceEn,
   tools: toolsEn,
   protectedFlow: protectedEn,
+  verifiedRequest: {
+    verified: 'Verified request',
+    unverified: 'Not fully verified',
+    checks: {
+      testnet: 'Read from NEAR Testnet (genesis checked)',
+      approved_contract: 'The approved Taply contract',
+      code_hash: 'Contract code matches the approved hash',
+      final_block: 'Read at a fresh final block',
+      terms_hash: 'Terms match their immutable hash',
+    },
+    notIdentity: 'Proves where these terms come from, not who the recipient is. Payment proof is the receipt.',
+  },
   locale: 'en',
   localeName: 'English',
 

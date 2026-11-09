@@ -55,6 +55,12 @@ export interface Dictionary {
   /** Monday sprint: Contacts, recurring templates, Split Pay. */
   readonly tools: ToolsCopy;
   readonly protectedFlow: ProtectedFlowCopy;
+  readonly verifiedRequest: {
+    readonly verified: string;
+    readonly unverified: string;
+    readonly checks: Readonly<Record<'testnet' | 'approved_contract' | 'code_hash' | 'final_block' | 'terms_hash', string>>;
+    readonly notIdentity: string;
+  };
   readonly localeName: string;
 
   readonly app: {

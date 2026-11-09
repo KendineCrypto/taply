@@ -19,6 +19,7 @@ import { NEAR_NATIVE } from '@/lib/protocol';
 import type { BlockRef, ContractRequest, IntentTerms } from '@/lib/protocol';
 import { RequestTicket } from '@/components/experience/RequestTicket';
 import { saleCode } from '@/lib/merchant/journey';
+import type { RequestProvenance } from '@/lib/verify/provenance';
 
 /**
  * Contract configuration problems that stop every payment screen. Null when reads may proceed.
@@ -319,5 +320,29 @@ export function BackToPayment({ id }: { readonly id: string }) {
     <ButtonLink href={`/pay/${id}`} variant="ghost" block>
       {t.payment.receipt.backToPayment}
     </ButtonLink>
+  );
+}
+
+/** Compact "Verified request" chip with the checks behind it (lib/verify/provenance.ts). */
+export function VerifiedRequestChip({ provenance }: { readonly provenance: RequestProvenance }) {
+  const t = useT();
+  const c = t.verifiedRequest;
+  return (
+    <details className="disclosure rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 py-1" data-testid="verified-request">
+      <summary className="flex min-h-[var(--tap-target)] items-center gap-2 text-sm">
+        <Icon name={provenance.verified ? 'shield' : 'alert'} size={16} className={provenance.verified ? 'text-[var(--taply-lime)]' : 'text-[var(--tone-caution-fg)]'} />
+        <span className="font-medium">{provenance.verified ? c.verified : c.unverified}</span>
+        <Icon name="chevron" size={14} className="disclosure-chevron ml-auto text-[var(--text-muted)]" />
+      </summary>
+      <ul className="flex flex-col gap-1 pb-2 text-xs text-[var(--text-secondary)]">
+        {provenance.passed.map((k) => (
+          <li key={k}>✓ {c.checks[k]}</li>
+        ))}
+        {provenance.failed.map((k) => (
+          <li key={k} className="text-[var(--tone-caution-fg)]">✗ {c.checks[k]}</li>
+        ))}
+        <li className="text-[var(--text-muted)]">{c.notIdentity}</li>
+      </ul>
+    </details>
   );
 }
