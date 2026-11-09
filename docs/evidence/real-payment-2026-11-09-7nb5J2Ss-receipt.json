@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "taply.receipt.v1",
+  "requestId": "7e7ccd8d54028fe26bce61cec6a441276bb51377b712b2bd8854e00ee557618d",
+  "termsHash": "0a9c02343fb02a514956637923f2f730db70fea5220066204cecd9c0c407abdc",
+  "sessionId": null,
+  "network": "near-testnet",
+  "contractId": "taply-pay-pilot-1.testnet",
+  "contractCodeHash": "BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B",
+  "mode": "instant",
+  "finalStatus": "FINAL_PAID",
+  "payerAccountId": "taplytestmobile.testnet",
+  "recipientAccountId": "taplytesttest.testnet",
+  "settlementBeneficiaryAccountId": "taplytesttest.testnet",
+  "assetId": "near:native",
+  "amountBaseUnits": "50000000000000000000000",
+  "operationNonce": "1",
+  "fundingTransaction": {
+    "hash": "7nb5J2Ss6zhy9ybehchbj8aXMyp8NVhq4fH5QZ14bZfz",
+    "signerAccountId": "taplytestmobile.testnet"
+  },
+  "fundingReceipt": {
+    "receiptId": "3RKQ1PqN74JBBDG8ihtf8T14JkRe6rF58KjrWHKtUAZ9",
+    "executorAccountId": "taply-pay-pilot-1.testnet",
+    "block": {
+      "hash": "4JmzaAZmCaSvfq1AYgHXute24kJQx3uem7EoJVTiz6b9",
+      "height": "276922319",
+      "timestampNs": "1794228615698590817"
+    },
+    "outcome": "SUCCESS"
+  },
+  "settlementTransaction": {
+    "hash": "7nb5J2Ss6zhy9ybehchbj8aXMyp8NVhq4fH5QZ14bZfz",
+    "signerAccountId": "taplytestmobile.testnet"
+  },
+  "transferReceipt": {
+    "receiptId": "Fidf5XBap9y1Bi6rSNc2GN68VnnxUYzX4GHayYF3Gyfn",
+    "executorAccountId": "taplytesttest.testnet",
+    "block": {
+      "hash": "B9yaC5QdTnhH7sLYWnhkJvMrmpoKzpA6fQreYhmpVwke",
+      "height": "276922320",
+      "timestampNs": "1794228616279850746"
+    },
+    "outcome": "SUCCESS"
+  },
+  "callbackReceipt": {
+    "receiptId": "3qqk9rBoJRrh6SMfbTiUoqDHWZjEmYrTPnyAdTiNFUDT",
+    "executorAccountId": "taply-pay-pilot-1.testnet",
+    "block": {
+      "hash": "AMj7qkaMFf1tBmYiFGEcK6LRy7oeEKSMydEkvTDHHFJQ",
+      "height": "276922321",
+      "timestampNs": "1794228616815467525"
+    },
+    "outcome": "SUCCESS"
+  },
+  "contractStateBlock": {
+    "hash": "DTKUS5BTNtt4AnjWsbYT8DpFMP1onZSYiwqVyk1Mh4JW",
+    "height": "276929051",
+    "timestampNs": "1794232590087518512"
+  },
+  "verification": {
+    "state": "verified_final",
+    "executionFinality": "FINAL",
+    "trustModel": "configured-rpc",
+    "rpcProviderId": "fastnear-archival",
+    "checkedAt": "2026-11-09T13:56:33.867Z"
+  }
+}
