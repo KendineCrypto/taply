@@ -64,7 +64,7 @@ fn instant_terms(n: u64) -> IntentTerms {
 }
 fn contract() -> Payments {
     context(CONTRACT, 0, NOW, vec![]);
-    Payments::new()
+    Payments::new(vec![])
 }
 fn amount(t: &IntentTerms) -> u128 {
     decimal128(&t.amount_base_units)

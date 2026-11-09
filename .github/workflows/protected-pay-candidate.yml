@@ -8,6 +8,7 @@ on:
   push:
     paths:
       - contracts/payments-protected/**
+      - contracts/test-token/**
       - packages/shared/**
       - .github/workflows/protected-pay-candidate.yml
   pull_request:
@@ -58,6 +59,11 @@ jobs:
         run: cargo fmt --all --check
       - name: Unit tests
         run: cargo test --locked --lib -- --test-threads=1 --color never
+      - name: Test token format and clippy
+        working-directory: contracts/test-token
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --all-targets -- -D warnings
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: WASM build (candidate, not approved)
@@ -68,10 +74,11 @@ jobs:
           cargo fmt --all --check
           cargo clippy --locked --all-targets -- -D warnings
       # Real local NEAR node: actual refund and release transfers, gas measured.
-      - name: Sandbox suite (3 tests, sequential)
+      - name: Sandbox suite (3 protected + 4 NEP-141 tests, sequential)
         run: |
           bash scripts/sandbox.sh
           grep -q "test result: ok. 3 passed; 0 failed" artifacts/sandbox-tests.log
+          grep -q "test result: ok. 4 passed; 0 failed" artifacts/sandbox-tests.log
           grep -a MEASURE artifacts/sandbox-tests.log >> "$GITHUB_STEP_SUMMARY" || true
       - name: Build @taply/shared
         working-directory: .
@@ -84,3 +91,5 @@ jobs:
         run: |
           node contracts/payments-protected/scripts/check-wire.mjs
           node contracts/payments-protected/scripts/check-wire.mjs sandbox
+          node contracts/payments-protected/scripts/check-wire.mjs token
+          node contracts/payments-protected/scripts/check-wire.mjs sandbox-token

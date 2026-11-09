@@ -38,7 +38,7 @@ fn terms(n: u64) -> IntentTerms {
 }
 fn contract() -> Payments {
     context("payments.fixture.testnet", 0, NOW, vec![]);
-    Payments::new()
+    Payments::new(vec![])
 }
 fn create(c: &mut Payments, t: &IntentTerms) {
     context("alice.testnet", 0, NOW, vec![]);

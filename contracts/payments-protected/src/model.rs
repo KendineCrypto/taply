@@ -57,6 +57,13 @@ pub const MIN_CANCEL_DURATION_NS: u64 = 60_000_000_000;
 pub const MAX_CANCEL_DURATION_NS: u64 = 3_600_000_000_000;
 pub const CONSENT_VERSION: &str = "taply.protected-consent.v1";
 
+/// `nep141:<token account>` -> token account. The allowlist is checked by the contract.
+pub fn nep141_token(asset_id: &str) -> Option<AccountId> {
+    asset_id
+        .strip_prefix("nep141:")
+        .and_then(|t| t.parse().ok())
+}
+
 pub fn decimal128(s: &str) -> u128 {
     require!(
         !s.is_empty()
@@ -145,7 +152,10 @@ impl IntentTerms {
             self.creator_account_id != self.contract_id,
             "SELF_RECIPIENT"
         );
-        require!(self.asset_id == "near:native", "TOKEN_DISABLED");
+        require!(
+            self.asset_id == "near:native" || nep141_token(&self.asset_id).is_some(),
+            "TOKEN_DISABLED"
+        );
         match self.mode.as_str() {
             "instant" => require!(self.cancel_duration_ns.is_none(), "INVALID_CANCEL_DURATION"),
             "protected" => {
@@ -323,7 +333,7 @@ impl Record {
                 "status": status,
                 "startedAtNs": self.started_at.to_string(),
                 "resolvedAtNs": (!self.status.in_flight()).then(|| self.resolved_at.to_string()),
-                "failureCode": self.status.failed().then_some("NATIVE_TRANSFER_FAILED")
+                "failureCode": self.status.failed().then_some(if nep141_token(&self.terms.asset_id).is_some() { "FT_TRANSFER_FAILED" } else { "NATIVE_TRANSFER_FAILED" })
             })
         });
         let branch = match self.branch {
@@ -419,4 +429,44 @@ pub struct FundProtectedArgs {
     pub expected_terms_hash: String,
     pub accepted_cancel_duration_ns: String,
     pub consent_version: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(
+    crate = "near_sdk::serde",
+    rename_all = "camelCase",
+    deny_unknown_fields
+)]
+pub struct TokenSpec {
+    pub account_id: AccountId,
+    pub decimals: u8,
+    pub symbol: String,
+}
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+pub struct NewArgs {
+    pub tokens: Vec<TokenSpec>,
+}
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+pub struct FtOnTransferArgs {
+    pub sender_id: AccountId,
+    pub amount: near_sdk::json_types::U128,
+    pub msg: String,
+}
+/// Strict `msg` for ft_transfer_call. It can name a request but never a payee.
+#[derive(Deserialize)]
+#[serde(
+    crate = "near_sdk::serde",
+    rename_all = "camelCase",
+    deny_unknown_fields
+)]
+pub struct FtMessage {
+    pub id: String,
+    pub expected_terms_hash: String,
+    pub action: String,
+    #[serde(default)]
+    pub accepted_cancel_duration_ns: Option<String>,
+    #[serde(default)]
+    pub consent_version: Option<String>,
 }

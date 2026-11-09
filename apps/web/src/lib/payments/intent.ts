@@ -69,6 +69,8 @@ export function buildPaymentView(input: {
       : { kind: 'not_found', observedAtNs: block.timestampNs };
   }
   if (request.terms.contractId !== expectedContractId) return { kind: 'wrong_contract' };
+  // The G1 pilot is native NEAR only; a token request here can only be a forgery or misroute.
+  if (request.terms.assetId !== 'near:native') return { kind: 'wrong_contract' };
 
   const now = BigInt(block.timestampNs);
   const fresh =

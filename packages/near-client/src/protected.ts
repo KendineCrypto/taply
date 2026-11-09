@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  AccountIdSchema, ContractMethodArgs, ContractRequestSchema, IntentTermsSchema, MAX_CANCEL_DURATION_NS,
+  AccountIdSchema, ContractMethodArgs, Nep141AssetIdSchema, nep141TokenOf, ContractRequestSchema, IntentTermsSchema, MAX_CANCEL_DURATION_NS,
   MIN_CANCEL_DURATION_NS, PositiveU64Schema, U128Schema, U64Schema, calculateTermsHash,
   type ContractRequest, type IntentTerms,
 } from "@taply/shared";
@@ -41,7 +41,13 @@ export const ProtectedContractConfigSchema = z.strictObject({
     createRequest: PositiveU64Schema, payInstantNative: PositiveU64Schema,
     retryNativeTransfer: PositiveU64Schema, cancelUnfunded: PositiveU64Schema, callback: PositiveU64Schema,
     fundProtectedNative: PositiveU64Schema, cancelProtected: PositiveU64Schema, releaseProtected: PositiveU64Schema,
+    ftOnTransfer: PositiveU64Schema.optional(), ftTransfer: PositiveU64Schema.optional(),
   }),
+  // NEP-141 allowlist fixed at contract init (absent on the first candidate build).
+  tokens: z.array(z.strictObject({
+    assetId: Nep141AssetIdSchema, accountId: AccountIdSchema,
+    decimals: z.number().int().min(0).max(24), symbol: z.string().regex(/^[A-Za-z0-9-]{1,16}$/),
+  })).max(8).optional(),
   protected: z.strictObject({
     consentVersion: z.literal(PROTECTED_CONSENT_VERSION),
     minCancelDurationNs: z.literal(MIN_CANCEL_DURATION_NS.toString()),
@@ -81,7 +87,10 @@ export function protectedConfigProblems(config: ProtectedContractConfig, expecte
   if (config.testFaultBuild) problems.push("TEST_FAULT_BUILD");
   if (!config.capabilities.protectedPay) problems.push("PROTECTED_DISABLED");
   const { handshake, merchantProfiles, nep141, sponsoredGas } = config.capabilities;
-  if (handshake || merchantProfiles || nep141 || sponsoredGas) problems.push("UNSUPPORTED_CAPABILITY");
+  if (handshake || merchantProfiles || sponsoredGas) problems.push("UNSUPPORTED_CAPABILITY");
+  // nep141 must agree with a consistent allowlist; tokens without the flag (or the reverse) is malformed.
+  const tokens = config.tokens ?? [];
+  if (nep141 !== tokens.length > 0 || tokens.some((t) => t.assetId !== `nep141:${t.accountId}`)) problems.push("UNSUPPORTED_CAPABILITY");
   if (config.quoteVersion !== "1") problems.push("UNSUPPORTED_QUOTE_VERSION");
   const { gas } = config;
   if (BigInt(gas.createRequest) < PROTECTED_MINIMUM_GAS.createRequest
@@ -112,7 +121,7 @@ function protectedTerms(contractId: string, terms: IntentTerms): IntentTerms {
   const value = parsed.data;
   // Candidate: native Protected only, no merchant/session binding.
   if (value.contractId !== contractId || value.mode !== "protected" || value.cancelDurationNs === null
-    || value.assetId !== "near:native" || value.merchantAccountId !== null || value.sessionBinding !== null) refuse();
+    || value.merchantAccountId !== null || value.sessionBinding !== null) refuse();
   return value;
 }
 
@@ -139,6 +148,7 @@ export function prepareCreateProtectedRequest(input: {
   contractId: string; config: ProtectedContractConfig; terms: IntentTerms; quote: CreateQuote; signerAccountId: string;
 }): PreparedProtectedCall {
   const terms = protectedTerms(input.contractId, input.terms);
+  if (!assetAllowed(input.config, terms.assetId)) refuse();
   const quote = CreateQuoteSchema.safeParse(input.quote);
   if (!quote.success) refuse();
   const { requestId, termsHash, quoteVersion, depositYocto, gas } = quote.data;
@@ -159,6 +169,7 @@ export function prepareFundProtectedNative(input: {
 }): PreparedProtectedCall {
   const r = request(input.contractId, input.request);
   const terms = r.terms;
+  if (terms.assetId !== "near:native") refuse();
   if (r.status !== "OPEN" || observed(input.observedAtNs) >= BigInt(terms.fundingExpiresAtNs)) refuse();
   if (terms.permittedPayerAccountId !== null && terms.permittedPayerAccountId !== input.signerAccountId) refuse();
   if (input.acceptedCancelDurationNs !== terms.cancelDurationNs) refuse();
@@ -261,4 +272,86 @@ export function createProtectedReader(input: NearTestnetConfig, fetcher: Fetch =
     }
   };
   return Object.freeze({ client, readConfig });
+}
+
+/** True for native NEAR or a token on the contract's own verified allowlist. */
+export function assetAllowed(config: ProtectedContractConfig, assetId: string): boolean {
+  if (assetId === "near:native") return true;
+  return (config.tokens ?? []).some((t) => t.assetId === assetId);
+}
+
+/** Instant terms for the candidate (native or allowlisted token). */
+function candidateInstantTerms(contractId: string, terms: IntentTerms): IntentTerms {
+  if (contractId === PILOT_CONTRACT_ID) refuse();
+  const parsed = IntentTermsSchema.safeParse(terms);
+  if (!parsed.success) refuse();
+  const value = parsed.data;
+  if (value.contractId !== contractId || value.mode !== "instant" || value.cancelDurationNs !== null
+    || value.merchantAccountId !== null || value.sessionBinding !== null) refuse();
+  return value;
+}
+
+/** Recipient signs a token (or native) Instant request on the candidate. */
+export function prepareCreateCandidateInstantRequest(input: {
+  contractId: string; config: ProtectedContractConfig; terms: IntentTerms; quote: CreateQuote; signerAccountId: string;
+}): PreparedProtectedCall {
+  const terms = candidateInstantTerms(input.contractId, input.terms);
+  if (!assetAllowed(input.config, terms.assetId)) refuse();
+  const quote = CreateQuoteSchema.safeParse(input.quote);
+  if (!quote.success) refuse();
+  const { requestId, termsHash, quoteVersion, depositYocto, gas } = quote.data;
+  if (input.signerAccountId !== terms.creatorAccountId) refuse();
+  if (requestId !== terms.id || termsHash !== calculateTermsHash(terms) || quoteVersion !== input.config.quoteVersion) refuse();
+  return { receiverId: input.contractId, methodName: "create_request", gas, depositYocto,
+    args: checkedArgs("create_request", { terms, quoteVersion }) };
+}
+
+/** A NEP-141 call on the TOKEN contract (not on Taply's contract). */
+export interface PreparedTokenCall {
+  receiverId: string;
+  methodName: "ft_transfer_call" | "storage_deposit";
+  args: Record<string, unknown>;
+  gas: string;
+  depositYocto: string;
+}
+
+/** Gas for ft_transfer_call: token transfer + Taply ft_on_transfer + payout + callback + resolve. */
+export const FT_TRANSFER_CALL_GAS = "100000000000000";
+
+/**
+ * Payer funds a token request: `ft_transfer_call` on the allowlisted token with
+ * EXACTLY the principal, 1 yoctoNEAR (NEP-141), receiver = Taply's contract, and
+ * a strict msg naming only the request. The contract re-checks token, payer,
+ * amount, terms and (Protected) the accepted window; on any failure the token
+ * returns the whole amount to the payer.
+ */
+export function prepareTokenFunding(input: {
+  contractId: string; config: ProtectedContractConfig; request: ContractRequest; signerAccountId: string;
+  observedAtNs: string; acceptedCancelDurationNs?: string;
+}): PreparedTokenCall {
+  const parsed = ContractRequestSchema.safeParse(input.request);
+  if (!parsed.success) refuse();
+  const r = parsed.data;
+  const terms = r.terms.mode === "protected" ? protectedTerms(input.contractId, r.terms) : candidateInstantTerms(input.contractId, r.terms);
+  const token = nep141TokenOf(terms.assetId);
+  if (token === null || !assetAllowed(input.config, terms.assetId)) refuse();
+  if (r.status !== "OPEN" || observed(input.observedAtNs) >= BigInt(terms.fundingExpiresAtNs)) refuse();
+  if (terms.permittedPayerAccountId !== null && terms.permittedPayerAccountId !== input.signerAccountId) refuse();
+  const msg: Record<string, string> = { id: terms.id, expectedTermsHash: r.termsHash,
+    action: terms.mode === "protected" ? "fund_protected" : "pay_instant" };
+  if (terms.mode === "protected") {
+    if (input.acceptedCancelDurationNs !== terms.cancelDurationNs) refuse();
+    msg.acceptedCancelDurationNs = terms.cancelDurationNs!;
+    msg.consentVersion = PROTECTED_CONSENT_VERSION;
+  }
+  return { receiverId: token, methodName: "ft_transfer_call", gas: FT_TRANSFER_CALL_GAS, depositYocto: "1",
+    args: { receiver_id: input.contractId, amount: terms.amountBaseUnits, memo: null, msg: JSON.stringify(msg) } };
+}
+
+/** NEP-145 registration so an account can RECEIVE the token (payout/refund). */
+export function prepareTokenStorageDeposit(input: { tokenAccountId: string; accountId: string; depositYocto: string }): PreparedTokenCall {
+  if (!AccountIdSchema.safeParse(input.tokenAccountId).success || !AccountIdSchema.safeParse(input.accountId).success
+    || !/^[1-9][0-9]{0,38}$/.test(input.depositYocto)) refuse();
+  return { receiverId: input.tokenAccountId, methodName: "storage_deposit", gas: "10000000000000",
+    depositYocto: input.depositYocto, args: { account_id: input.accountId, registration_only: true } };
 }

@@ -1,0 +1,30 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "7f574f5527b7aa4e70315117a05b1d531100145a885d931f45633b98ee8b26b5",
+    "network": "near-testnet",
+    "contractId": "payments.fixture.testnet",
+    "creationNonce": "000000000000000000000000000000000000000000000000000000000000001e",
+    "creatorAccountId": "alice.testnet",
+    "assetId": "nep141:tusd.fixture.testnet",
+    "amountBaseUnits": "2500000",
+    "mode": "protected",
+    "cancelDurationNs": "60000000000",
+    "fundingExpiresAtNs": "1793520900000000000",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "6faf888dc368d5bee681309dccbd7719585096ef21155d604e291ed8bb3ff1b7",
+  "sessionCommitment": null,
+  "recipientAccountId": "alice.testnet",
+  "status": "LOCKED",
+  "revision": "2",
+  "createdAtNs": "1793520000000000000",
+  "payerAccountId": "bob.testnet",
+  "fundedAtNs": "1793520000000000001",
+  "cancelUntilNs": "1793520060000000001",
+  "settlementBranch": null,
+  "latestOperation": null
+}

@@ -35,7 +35,8 @@ export { MerchantContractConfigSchema, prepareMerchantCreateRequest, prepareMerc
 export type { MerchantContractConfig } from "./merchant.js";
 export {
   PROTECTED_CONSENT_VERSION, PROTECTED_CONTRACT_VERSION, PROTECTED_MINIMUM_GAS, ProtectedContractConfigSchema,
-  createProtectedReader, prepareCancelProtected, prepareCreateProtectedRequest, prepareFundProtectedNative, prepareReleaseProtected,
+  FT_TRANSFER_CALL_GAS, assetAllowed, createProtectedReader, prepareCancelProtected, prepareCreateCandidateInstantRequest,
+  prepareTokenFunding, prepareTokenStorageDeposit, prepareCreateProtectedRequest, prepareFundProtectedNative, prepareReleaseProtected,
   prepareRetryProtectedTransfer, protectedConfigProblems,
 } from "./protected.js";
-export type { PreparedProtectedCall, ProtectedConfigProblem, ProtectedContractConfig, ProtectedReader } from "./protected.js";
+export type { PreparedProtectedCall, PreparedTokenCall, ProtectedConfigProblem, ProtectedContractConfig, ProtectedReader } from "./protected.js";

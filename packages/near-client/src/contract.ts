@@ -124,7 +124,8 @@ function instantTerms(contractId: string, terms: IntentTerms): IntentTerms {
   if (!parsed.success) refuse();
   const value = parsed.data;
   // Phase 2B contract: native Instant only, no merchant/session binding.
-  if (value.contractId !== contractId || value.mode !== "instant" || value.cancelDurationNs !== null
+  // G1 is native NEAR only; a token asset must never reach a native call.
+  if (value.contractId !== contractId || value.mode !== "instant" || value.cancelDurationNs !== null || value.assetId !== "near:native"
     || value.merchantAccountId !== null || value.sessionBinding !== null) refuse();
   return value;
 }

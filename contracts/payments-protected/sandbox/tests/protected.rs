@@ -43,7 +43,7 @@ async fn setup() -> Result<(Worker<Sandbox>, Contract, Account, Account, Account
         .dev_deploy(&std::fs::read("../artifacts/payments-protected.wasm")?)
         .await?;
     c.call("new")
-        .args_json(json!({}))
+        .args_json(json!({"tokens": []}))
         .max_gas()
         .transact()
         .await?

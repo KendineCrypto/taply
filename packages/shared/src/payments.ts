@@ -22,7 +22,7 @@ export const OperationRecordSchema = z.strictObject({
   status: z.enum(["IN_FLIGHT", "FAILED", "SUCCEEDED"]),
   startedAtNs: U64Schema,
   resolvedAtNs: U64Schema.nullable(),
-  failureCode: z.literal("NATIVE_TRANSFER_FAILED").nullable(),
+  failureCode: z.enum(["NATIVE_TRANSFER_FAILED", "FT_TRANSFER_FAILED"]).nullable(),
 }).superRefine((op, ctx) => {
   const issue = (message: string) => ctx.addIssue({ code: "custom", message });
   if ((op.status === "IN_FLIGHT") !== (op.resolvedAtNs === null)) issue("Only in-flight operations have no resolution time");
@@ -84,6 +84,8 @@ export const ContractRequestSchema = z.strictObject({
   if (request.settlementBranch !== (refund ? "PAYER" : "RECIPIENT") || op.kind !== kind) issue("Branch/operation mismatch");
   if (op.destinationAccountId !== (refund ? request.payerAccountId : request.recipientAccountId)) issue("Operation beneficiary mismatch");
   if (op.amountBaseUnits !== terms.amountBaseUnits) issue("Operation principal mismatch");
+  if (op.failureCode !== null && (op.failureCode === "FT_TRANSFER_FAILED") !== (terms.assetId !== "near:native"))
+    issue("Failure code does not match the asset");
   const expectedStatus = request.status.endsWith("_IN_FLIGHT") ? "IN_FLIGHT"
     : request.status.endsWith("_FAILED_RECOVERABLE") ? "FAILED" : "SUCCEEDED";
   if (op.status !== expectedStatus) issue("Operation result does not match payment state");

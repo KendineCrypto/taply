@@ -148,3 +148,51 @@ test('reader: wrong code hash, unanchored view or wrong contract fail closed', a
   assert.equal((await reader({ answer: other }).r.readConfig()).observation.data, null);
   assert.throws(() => reader({ contractId: 'taply-pay-pilot-1.testnet' }), (e) => e.code === 'INVALID_CONFIG');
 });
+
+import { assetAllowed, prepareTokenFunding, prepareTokenStorageDeposit, preparePayInstantNative as g1Pay } from '../dist/index.js';
+
+const TOKEN_CONFIG = ProtectedContractConfigSchema.parse(fixture('token-config'));
+const TOKEN_OPEN = fixture('token-instant-open');
+const TOKEN_LOCKED = fixture('token-protected-locked');
+
+test('token config: allowlisted token is consistent; still UNREVIEWED_CANDIDATE only', () => {
+  assert.deepEqual(protectedConfigProblems(TOKEN_CONFIG, CONTRACT), ['UNREVIEWED_CANDIDATE']);
+  assert.equal(assetAllowed(TOKEN_CONFIG, 'nep141:tusd.fixture.testnet'), true);
+  assert.equal(assetAllowed(TOKEN_CONFIG, 'nep141:evil.testnet'), false);
+  // nep141 flag without tokens (or a mismatched asset id) is malformed.
+  assert.ok(protectedConfigProblems({ ...TOKEN_CONFIG, tokens: [] }, CONTRACT).includes('UNSUPPORTED_CAPABILITY'));
+  assert.ok(protectedConfigProblems({ ...TOKEN_CONFIG, tokens: [{ ...TOKEN_CONFIG.tokens[0], assetId: 'nep141:other.testnet' }] }, CONTRACT)
+    .includes('UNSUPPORTED_CAPABILITY'));
+});
+
+test('token funding: ft_transfer_call on the TOKEN, exact amount, 1 yocto, strict msg without payee', () => {
+  const call = prepareTokenFunding({ contractId: CONTRACT, config: TOKEN_CONFIG, request: TOKEN_OPEN, signerAccountId: 'bob.testnet',
+    observedAtNs: TOKEN_OPEN.createdAtNs });
+  assert.equal(call.receiverId, 'tusd.fixture.testnet');
+  assert.equal(call.methodName, 'ft_transfer_call');
+  assert.equal(call.depositYocto, '1');
+  assert.equal(call.args.receiver_id, CONTRACT);
+  assert.equal(call.args.amount, TOKEN_OPEN.terms.amountBaseUnits);
+  assert.deepEqual(JSON.parse(call.args.msg), { id: TOKEN_OPEN.terms.id, expectedTermsHash: TOKEN_OPEN.termsHash, action: 'pay_instant' });
+  refused(() => prepareTokenFunding({ contractId: CONTRACT, config: { ...TOKEN_CONFIG, tokens: [] }, request: TOKEN_OPEN,
+    signerAccountId: 'bob.testnet', observedAtNs: TOKEN_OPEN.createdAtNs }));
+  refused(() => prepareTokenFunding({ contractId: CONTRACT, config: TOKEN_CONFIG, request: TOKEN_OPEN, signerAccountId: 'bob.testnet',
+    observedAtNs: TOKEN_OPEN.terms.fundingExpiresAtNs }));
+  refused(() => prepareTokenFunding({ contractId: CONTRACT, config: TOKEN_CONFIG, request: TOKEN_LOCKED, signerAccountId: 'bob.testnet',
+    observedAtNs: TOKEN_LOCKED.createdAtNs, acceptedCancelDurationNs: '60000000000' }));
+  // A native NEAR funding call can never be built for a token request.
+  refused(() => prepareFundProtectedNative({ contractId: CONTRACT, config: TOKEN_CONFIG, request: { ...TOKEN_LOCKED, status: 'OPEN' },
+    signerAccountId: 'bob.testnet', observedAtNs: TOKEN_LOCKED.createdAtNs, acceptedCancelDurationNs: '60000000000' }));
+  assert.deepEqual(prepareTokenStorageDeposit({ tokenAccountId: 'tusd.fixture.testnet', accountId: 'bob.testnet', depositYocto: '1250000000000000000000' }).args,
+    { account_id: 'bob.testnet', registration_only: true });
+});
+
+test('G1 builders refuse token terms outright', () => {
+  const g1Config = { schemaVersion: 'taply.contract-config.v1', contractVersion: '0.4.0', network: 'near-testnet', contractId: CONTRACT,
+    intentVersion: 'taply.intent.v1', eventVersion: '0.4.0',
+    capabilities: { instantNative: true, protectedPay: false, handshake: false, merchantProfiles: false, nep141: false, sponsoredGas: false },
+    quoteVersion: '1', storageByteCostYocto: '10000000000000000000',
+    gas: { createRequest: '30000000000000', payInstantNative: '50000000000000', retryNativeTransfer: '50000000000000', cancelUnfunded: '15000000000000', callback: '15000000000000' },
+    storageRefundPolicy: 'PERMANENT_RECORD_NO_WITHDRAWAL', unknownCallbackPolicy: 'IN_FLIGHT_NO_RETRY_NO_ADMIN_OVERRIDE', testFaultBuild: false };
+  refused(() => g1Pay({ contractId: CONTRACT, config: g1Config, request: TOKEN_OPEN, signerAccountId: 'bob.testnet', observedAtNs: TOKEN_OPEN.createdAtNs }));
+});

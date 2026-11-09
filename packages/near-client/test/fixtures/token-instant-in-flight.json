@@ -1,0 +1,39 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "f2b1bb29f3e4dac95612f3b6e5eb11c5b3d29264d7c5cc40efd0b91d7a43ccf1",
+    "network": "near-testnet",
+    "contractId": "payments.fixture.testnet",
+    "creationNonce": "000000000000000000000000000000000000000000000000000000000000000a",
+    "creatorAccountId": "alice.testnet",
+    "assetId": "nep141:tusd.fixture.testnet",
+    "amountBaseUnits": "2500000",
+    "mode": "instant",
+    "cancelDurationNs": null,
+    "fundingExpiresAtNs": "1793520900000000000",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "7a651861c3a006c705c67a833d299dd1b7977f29c91ddff456f74f920922451a",
+  "sessionCommitment": null,
+  "recipientAccountId": "alice.testnet",
+  "status": "PAYOUT_IN_FLIGHT",
+  "revision": "2",
+  "createdAtNs": "1793520000000000000",
+  "payerAccountId": "bob.testnet",
+  "fundedAtNs": "1793520000000000002",
+  "cancelUntilNs": null,
+  "settlementBranch": "RECIPIENT",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "INSTANT_PAYOUT",
+    "destinationAccountId": "alice.testnet",
+    "amountBaseUnits": "2500000",
+    "status": "IN_FLIGHT",
+    "startedAtNs": "1793520000000000002",
+    "resolvedAtNs": null,
+    "failureCode": null
+  }
+}
