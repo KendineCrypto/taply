@@ -683,6 +683,7 @@ export interface Dictionary {
       readonly localOnly: ErrorCopy;
       readonly provisioned: ErrorCopy;
       readonly unknown: ErrorCopy;
+      readonly nameTaken: ErrorCopy;
     };
     readonly lock: {
       readonly locked: string;
@@ -738,7 +739,66 @@ export interface Dictionary {
       readonly restoreButton: string;
       readonly restored: string;
     };
-    readonly errors: Readonly<Record<'BAD_PASSWORD_OR_DATA' | 'PASSWORD_POLICY' | 'ALREADY_EXISTS' | 'INVALID_RECORD' | 'STORAGE_UNAVAILABLE' | 'CRYPTO_UNAVAILABLE' | 'CANCELLED' | 'LOCKED' | 'ACCOUNT_NOT_PROVISIONED' | 'INVALID_ADDRESS' | 'INVALID_AMOUNT' | 'INSUFFICIENT_AVAILABLE_BALANCE' | 'NETWORK_MISMATCH' | 'RPC_UNAVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN', string>>;
+    readonly errors: Readonly<Record<'BAD_PASSWORD_OR_DATA' | 'PASSWORD_POLICY' | 'ALREADY_EXISTS' | 'INVALID_RECORD' | 'STORAGE_UNAVAILABLE' | 'CRYPTO_UNAVAILABLE' | 'CANCELLED' | 'LOCKED' | 'ACCOUNT_NOT_PROVISIONED' | 'INVALID_ADDRESS' | 'INVALID_AMOUNT' | 'INSUFFICIENT_AVAILABLE_BALANCE' | 'NETWORK_MISMATCH' | 'RPC_UNAVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN' | 'INVALID_ACCOUNT_ID' | 'NAME_TAKEN' | 'FAUCET_RATE_LIMITED' | 'FAUCET_REJECTED' | 'FAUCET_UNAVAILABLE' | 'PROVISIONING_PENDING' | 'INVALID_PHRASE' | 'NO_RECOVERY_PHRASE' | 'PHRASE_ACCOUNT_NOT_FOUND' | 'PHRASE_NOT_FOR_ACCOUNT', string>>;
+    /** Secret Recovery Phrase (Phantom-style, 12 words). */
+    readonly phrase: {
+      readonly title: string;
+      readonly body: string;
+      readonly warning: string;
+      readonly reveal: string;
+      readonly hide: string;
+      readonly copy: string;
+      readonly copied: string;
+      readonly saved: string;
+      readonly continue: string;
+      readonly compatible: string;
+      readonly showTitle: string;
+      readonly showBody: string;
+      readonly showButton: string;
+      readonly importTitle: string;
+      readonly importBody: string;
+      readonly phraseLabel: string;
+      readonly wordCount: string;
+      readonly usernameOptional: string;
+      readonly importButton: string;
+      readonly importing: string;
+      readonly newPassword: string;
+      readonly legacyTitle: string;
+    };
+    /** username.testnet onboarding (no sponsored gas). */
+    readonly username: {
+      readonly title: string;
+      readonly body: string;
+      readonly label: string;
+      readonly rules: string;
+      readonly problems: Readonly<Record<'too_short' | 'too_long' | 'invalid_chars' | 'bad_separator', string>>;
+      readonly check: string;
+      readonly checking: string;
+      readonly available: string;
+      readonly taken: string;
+      readonly activatingTitle: string;
+      readonly activatingBody: string;
+      readonly activeTitle: string;
+      readonly activeBody: string;
+      readonly notYetTitle: string;
+      readonly keptLocal: string;
+      readonly retry: string;
+      readonly pickAnother: string;
+      readonly rebindTitle: string;
+      readonly rebindBody: string;
+      readonly rebindButton: string;
+      readonly finishSetup: string;
+      readonly noGas: string;
+    };
+    /** First launch on `/` when no wallet is connected and no Taply Wallet exists. */
+    readonly chooser: {
+      readonly title: string;
+      readonly body: string;
+      readonly external: ErrorCopy;
+      readonly taply: ErrorCopy;
+      readonly taplyCta: string;
+      readonly restore: string;
+    };
     readonly send: {
       readonly notActive: ErrorCopy;
       readonly available: string;
@@ -753,6 +813,7 @@ export interface Dictionary {
     };
     readonly receive: {
       readonly localOnlyNote: string;
+      readonly namedPendingNote: string;
     };
     readonly paymentsNote: string;
     readonly createdAlready: string;

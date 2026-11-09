@@ -9,18 +9,24 @@ import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
 import { useTaplyWallet } from './TaplyWalletProvider';
 import type { TaplyErrorCode } from './TaplyWalletProvider';
-import { BackupDownloadButton, PassphraseField, TaplyErrorNotice, TaplyStatusBadge } from './TaplyWalletUi';
+import { PassphraseField, TaplyErrorNotice, TaplyStatusBadge } from './TaplyWalletUi';
+import { PhraseGrid } from './RecoveryPhrase';
+import { ActivationPanel, UsernameForm } from './UsernameActivation';
 import { useWalletMode } from './mode';
 import { passphraseProblem, passphraseStrength } from './passphrase';
 import type { PassphraseStrength } from './passphrase';
 
 /**
- * Create Taply Wallet: 1) understand the risks, 2) choose a passphrase,
- * 3) download the encrypted backup and confirm (mandatory before finishing).
- * Key generation and encryption happen inside the controller; the new wallet
- * is LOCAL ONLY and locked.
+ * Create Taply Wallet (owner decision 2026-11-09): 1) understand the risks,
+ * 2) choose a free `username.testnet` (FINAL availability read), 3) create a
+ * password: a 12-word Secret Recovery Phrase is generated and the wallet is
+ * encrypted on this device, bound to that name, 4) the user saves the phrase
+ * (Phantom-style, no backup file), then the Testnet faucet creates the account
+ * and FINAL reads confirm it holds the key.
+ * The wallet stays locked throughout; nothing is called "active" before step 4
+ * is confirmed on chain. No sponsored gas.
  */
-type Step = 'understand' | 'passphrase' | 'backup';
+type Step = 'understand' | 'username' | 'passphrase' | 'phrase' | 'activate';
 
 const STRENGTH_STYLE: Readonly<Record<PassphraseStrength, { bars: number; color: string }>> = {
   weak: { bars: 1, color: 'bg-[var(--taply-clay)]' },
@@ -35,21 +41,23 @@ export function CreateWalletFlow() {
   const c = n.createFlow;
   const router = useRouter();
   const [, setMode] = useWalletMode();
-  const { state, create } = useTaplyWallet();
+  const { state, createNamed, revealPhrase } = useTaplyWallet();
   const [step, setStep] = useState<Step>('understand');
+  const [accountId, setAccountId] = useState('');
+  const [createdHere, setCreatedHere] = useState(false);
   const [acks, setAcks] = useState([false, false, false]);
   const [passphrase, setPassphrase] = useState('');
   const [repeat, setRepeat] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<TaplyErrorCode | null>(null);
-  const [downloaded, setDownloaded] = useState(false);
+  const [words, setWords] = useState<readonly string[]>([]);
   const [saved, setSaved] = useState(false);
   const passId = useId();
   const repeatId = useId();
   const savedId = useId();
 
   if (state.status === 'unavailable') return <InlineNotice copy={n.unavailable} tone="neutral" />;
-  if (step !== 'backup' && (state.status === 'local_only' || state.status === 'provisioned' || state.status === 'unknown')) {
+  if (!createdHere && (state.status === 'local_only' || state.status === 'provisioned' || state.status === 'unknown')) {
     return (
       <InlineNotice
         copy={{ title: n.createdAlready, body: n.restoreFlow.restored }}
@@ -59,7 +67,7 @@ export function CreateWalletFlow() {
     );
   }
 
-  const stepIndex = step === 'understand' ? 1 : step === 'passphrase' ? 2 : 3;
+  const stepIndex = step === 'understand' ? 1 : step === 'username' ? 2 : step === 'passphrase' ? 3 : 4;
   const problem = passphraseProblem(passphrase);
   const strength = passphraseStrength(passphrase);
   const mismatch = repeat !== '' && repeat !== passphrase;
@@ -69,8 +77,8 @@ export function CreateWalletFlow() {
     <div className="flex flex-col gap-5">
       <div>
         <p className="eyebrow text-[var(--text-muted)]">{fill(c.stepOf, { n: String(stepIndex) })}</p>
-        <div className="mt-2 grid grid-cols-3 gap-1" aria-hidden="true">
-          {[1, 2, 3].map((i) => (
+        <div className="mt-2 grid grid-cols-4 gap-1" aria-hidden="true">
+          {[1, 2, 3, 4].map((i) => (
             <span key={i} className={`h-1 rounded-full transition-colors duration-300 ${i <= stepIndex ? 'bg-[var(--taply-lime)]' : 'bg-[var(--border-subtle)]'}`} />
           ))}
         </div>
@@ -92,9 +100,32 @@ export function CreateWalletFlow() {
               {label}
             </label>
           ))}
-          <Button size="lg" block disabled={!acks.every(Boolean)} onClick={() => setStep('passphrase')}>
+          <Button size="lg" block disabled={!acks.every(Boolean)} onClick={() => setStep('username')}>
             {c.continue}
             <Icon name="arrow-right" size={18} />
+          </Button>
+        </section>
+      )}
+
+      {step === 'username' && (
+        <section key="username" className="animate-page flex flex-col gap-4" aria-labelledby="username-title">
+          <div className="flex flex-col gap-1.5">
+            <h2 id="username-title" className="text-xl font-semibold tracking-tight">
+              {n.username.title}
+            </h2>
+            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{n.username.body}</p>
+          </div>
+          <UsernameForm
+            submitLabel={c.continue}
+            onAvailable={(id) => {
+              setAccountId(id);
+              setStep('passphrase');
+            }}
+          />
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">{n.username.noGas}</p>
+          <Button variant="ghost" block onClick={() => setStep('understand')}>
+            <Icon name="arrow-left" size={18} />
+            {c.back}
           </Button>
         </section>
       )}
@@ -110,21 +141,33 @@ export function CreateWalletFlow() {
             if (!canCreate) return;
             setBusy(true);
             setError(null);
-            const result = await create(passphrase);
-            setBusy(false);
+            setCreatedHere(true);
+            const result = await createNamed(passphrase, accountId);
             if (!result.ok) {
+              setBusy(false);
+              setCreatedHere(false);
               setError(result.code);
               return;
             }
-            // The passphrase is not kept once the vault exists.
+            const phrase = await revealPhrase(passphrase);
+            setBusy(false);
+            // The password is not kept once the vault exists.
             setPassphrase('');
             setRepeat('');
-            setStep('backup');
+            if (!phrase.ok) {
+              setError(phrase.code);
+              return;
+            }
+            setWords(phrase.value);
+            setStep('phrase');
           }}
         >
           <h2 id="pass-title" className="text-xl font-semibold tracking-tight">
             {c.passTitle}
           </h2>
+          <p className="text-sm text-[var(--text-secondary)]">
+            {n.identityLabel}: <span className="chain-id break-all text-[var(--text-primary)]">{accountId}</span>
+          </p>
           <PassphraseField
             id={passId}
             label={c.passLabel}
@@ -171,61 +214,78 @@ export function CreateWalletFlow() {
             {busy ? <Spinner /> : <Icon name="shield" size={18} />}
             {busy ? c.creating : c.createButton}
           </Button>
-          <Button variant="ghost" block disabled={busy} onClick={() => setStep('understand')}>
+          <Button variant="ghost" block disabled={busy} onClick={() => setStep('username')}>
             <Icon name="arrow-left" size={18} />
             {c.back}
           </Button>
         </form>
       )}
 
-      {step === 'backup' && (
-        <section key="backup" className="animate-page flex flex-col gap-4" aria-labelledby="backup-title">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id="backup-title" className="text-xl font-semibold tracking-tight">
-                {c.createdTitle}
-              </h2>
-              <TaplyStatusBadge state={state} />
-            </div>
-            <p className="text-sm text-[var(--text-secondary)]">{c.createdBody}</p>
+      {step === 'phrase' && (
+        <section key="phrase" className="animate-page flex flex-col gap-4" aria-labelledby="phrase-title">
+          <div className="flex flex-col gap-1.5">
+            <h2 id="phrase-title" className="text-xl font-semibold tracking-tight">
+              {n.phrase.title}
+            </h2>
+            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{n.phrase.body}</p>
           </div>
-          <div className="flex flex-col gap-2 border-l-2 border-[var(--tone-caution-border)] py-1 pl-4" role="note">
-            <p className="flex items-center gap-2 font-semibold text-[var(--tone-caution-fg)]">
-              <Icon name="alert" size={18} />
-              {n.backup.title}
-            </p>
-            <p className="text-sm leading-relaxed text-[var(--text-primary)]">{n.backup.body}</p>
-            <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{n.backup.fileWarning}</p>
-          </div>
-          <BackupDownloadButton onDownloaded={() => setDownloaded(true)} />
-          <label htmlFor={savedId} className={`flex min-h-[var(--tap-target)] items-start gap-3 text-sm leading-relaxed ${downloaded ? 'cursor-pointer' : 'text-[var(--text-muted)]'}`}>
+          <PhraseGrid words={words} />
+          <p className="flex items-start gap-2 text-sm font-medium text-[var(--tone-caution-fg)]" role="note">
+            <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
+            {n.phrase.warning}
+          </p>
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">{n.phrase.compatible}</p>
+          <label htmlFor={savedId} className="flex min-h-[var(--tap-target)] cursor-pointer items-start gap-3 text-sm leading-relaxed">
             <input
               id={savedId}
               type="checkbox"
               checked={saved}
-              disabled={!downloaded}
               onChange={(e) => setSaved(e.target.checked)}
               className="mt-0.5 size-5 shrink-0 accent-[var(--taply-lime)]"
-              aria-describedby={downloaded ? undefined : `${savedId}-required`}
             />
-            {n.backup.confirm}
+            {n.phrase.saved}
           </label>
-          {!downloaded && (
-            <p id={`${savedId}-required`} className="text-xs text-[var(--text-muted)]">
-              {n.backup.required}
-            </p>
-          )}
           <Button
             size="lg"
             block
-            disabled={!downloaded || !saved}
+            disabled={!saved}
             onClick={() => {
-              setMode('taply');
-              router.push('/wallet');
+              // Drop the words from memory once the user confirmed saving them.
+              setWords([]);
+              setStep('activate');
             }}
           >
-            {n.backup.finish}
+            {n.phrase.continue}
+            <Icon name="arrow-right" size={18} />
           </Button>
+        </section>
+      )}
+
+      {step === 'activate' && (
+        <section key="activate" className="animate-page flex flex-col gap-4" aria-labelledby="activate-title">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="activate-title" className="text-xl font-semibold tracking-tight">
+              {state.status === 'provisioned' ? fill(n.username.activeTitle, { account: state.identity.accountId }) : c.createdTitle}
+            </h2>
+            <TaplyStatusBadge state={state} />
+          </div>
+          {state.status === 'provisioned' ? (
+            <>
+              <p className="text-sm text-[var(--text-secondary)]">{n.username.activeBody}</p>
+              <Button
+                size="lg"
+                block
+                onClick={() => {
+                  setMode('taply');
+                  router.push('/');
+                }}
+              >
+                {n.backup.finish}
+              </Button>
+            </>
+          ) : (
+            <ActivationPanel autoStart />
+          )}
         </section>
       )}
     </div>

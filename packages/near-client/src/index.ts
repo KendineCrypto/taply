@@ -6,8 +6,11 @@ export function createNearTestnetClient(config: NearTestnetConfig): NearTestnetC
 }
 export { NearClientError, TESTNET_GENESIS_HASH } from "./rpc.js";
 export { parseRpcJsonWithIntegers } from "./validation.js";
-export { EncryptedTestnetVault, VaultError, VAULT_STORAGE_KEY, VAULT_UNLOCK_MS } from "./wallet-vault.js";
+export { EncryptedTestnetVault, VaultError, VAULT_STORAGE_KEY, VAULT_UNLOCK_MS, NamedTestnetAccountSchema, isNamedTestnetAccount } from "./wallet-vault.js";
 export type { LocalWalletIdentity, VaultStorage } from "./wallet-vault.js";
+export { MIN_PASSWORD_LENGTH } from "./wallet-vault.js";
+export { normalizePhrase, recoveryPhrasePublicKeyHex, RECOVERY_WORDS } from "./recovery-phrase.js";
+export { BIP39_ENGLISH } from "./bip39-english.js";
 export { createWalletChain, ed25519PublicKeyFromHex } from "./wallet-chain.js";
 export type { WalletChain } from "./wallet-chain.js";
 export { WalletAttemptJournal } from "./wallet-journal.js";

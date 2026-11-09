@@ -27,6 +27,43 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   `taply-e2e-9c2eeea4.testnet`; (5) token Instant UI on the candidate; (6) owner G1 acceptance.
 - Local Redis for tests: `redis-server` binary (tests skip if absent).
 
+## DONE on `claude/beautiful-gates-c6fhhh` (not yet merged): onboarding = external wallet OR `username.testnet` Taply Wallet
+
+Status 2026-11-09 (see "Increment 8" below): steps 1, 2, 3 and the browser part of 5 are done and proven on real
+Testnet. **Still open:** step 4 (Taply Wallet signing stays hard-off: `TAPLY_WALLET_SIGNING_ENABLED = false`
+needs the documented human signer review, so the new account can receive and show its balance but not send);
+step 5 PR → main → release/taplyapp → taplyapp.xyz verification (no PR opened; needs the owner's go-ahead).
+
+Original spec:
+
+Owner decision: **no gasless/sponsored gas** (Testnet). First launch must offer exactly two choices:
+(1) connect an external wallet (existing near-connect flow), (2) pick a username → a real `username.testnet`
+account is created instantly and becomes the user's Taply Wallet. Owner said: no approvals needed, finish it.
+
+Verified facts for the implementation:
+- `helper.testnet.near.org/account` (POST `{newAccountId, newAccountPublicKey}`) creates a funded top-level
+  `.testnet` account (10 test NEAR); CORS preflight from `https://taplyapp.xyz` returns 204 with
+  `access-control-allow-origin: https://taplyapp.xyz` → callable directly from the browser (no server, no secret).
+  Proven in `packages/near-client/testnet-e2e/lib.mjs#createFaucetAccount`.
+- Vault today only supports implicit accounts: `wallet-vault.ts` schema refines `accountId === publicKeyHex`
+  (line ~26) and `create(password)` sets `accountId: publicKeyHex`.
+
+Steps:
+1. near-client `EncryptedTestnetVault.create(password, accountId?)`: allow a named `*.testnet` accountId
+   (AccountIdSchema, ends with `.testnet`, 2–64 chars); relax the refine to "implicit ⇒ equals pubkey"; keep AAD
+   binding of metadata; add `provisioning: "ON_CHAIN"` once the account is confirmed by a final `view_account`
+   whose access keys include the vault's public key (`view_access_key`). Tests in near-client.
+2. web: availability check (`view_account` → UNKNOWN_ACCOUNT = available), username rules (lowercase a-z0-9 _ -,
+   2–40 chars + `.testnet`), create vault (password + encrypted backup download) → POST faucet with
+   `ed25519:<base58 pubkey>` → poll final `view_account` + `view_access_key` → mark provisioned → mode `taply`.
+   Handle: name taken, faucet 4xx/5xx/rate limit (keep local vault, offer retry; never claim the account exists).
+3. First-launch chooser on `/` when no wallet is connected and no vault exists (EN/TR copy), reusing
+   `ConnectWalletButton` and `components/wallet/taply/CreateWalletFlow.tsx`.
+4. Native signing: `TaplySend` already uses the reviewed wallet backend; verify a real transfer from the new
+   account with a disposable run; keep Instant Pay signing on the single shared review path.
+5. Tests (vitest + near-client), local production build browser test creating a real `*.testnet` account, PR →
+   main → release/taplyapp, verify on taplyapp.xyz.
+
 ## Owner action to make Instant Pay usable on taplyapp.xyz (verified blocker)
 
 Production sets `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off` in Vercel (Production scope). An explicit `off`
@@ -37,6 +74,64 @@ Evidence supporting activation: automated G1 Testnet proof 2026-11-09 (FINAL_PAI
 refused, Verified on 2 providers); signing path unit/browser CI green. NOT verified by an agent: a real
 browser-wallet (wallet selector) signature — run TESTNET_ACCEPTANCE_PLAN.md once after enabling.
 Rollback: set the variable back to `off` and redeploy (or Instant Rollback to the previous deployment).
+
+## 2026-11-09 — cloud session 2
+
+### Increment 9 — Phantom-style Secret Recovery Phrase replaces the backup file (owner request)
+
+Owner: "Phantom has no encrypted-backup-file step; make ours the same."
+
+- near-client: `recovery-phrase.ts` (BIP-39 English 12 words + SLIP-10 Ed25519 at NEAR path m/44'/397'/0',
+  Web Crypto only; wordlist checked against the standard SHA-256). Vault record **v2** stores only the 16-byte
+  entropy, AES-GCM encrypted, derivation authenticated in AAD. `create` now makes v2; new
+  `revealRecoveryPhrase(password)` and `restoreFromRecoveryPhrase(phrase, password, accountId?)`;
+  `recoveryPhrasePublicKeyHex` preview. v1 (random key + file backup) vaults still unlock, rebind and restore.
+  Unlock never exports a private key (the signer fixture's export guard caught a first draft that did).
+- Unlock password minimum is now **8 characters** (Phantom-style); recovery is the phrase, not the password.
+- web: create flow = understand → username → password → 12 words (hidden until tapped, copy, "I saved it")
+  → faucet + FINAL proof → Finish. No file download. `/wallet` has "Show recovery phrase" (password first);
+  older wallets keep the encrypted-file backup. Restore page = "Import recovery phrase" (+ username; a FINAL
+  read must show the phrase's key on that account before anything is stored), legacy file restore under a
+  disclosure. EN + TR copy.
+
+| Command | Result |
+| --- | --- |
+| `pnpm check` | **exit 0**: shared 93, near-client 232, web 1,182 passed + 1 skipped |
+| near-client vectors | 3 phrases derive exactly the keys near-seed-phrase 0.2.1 (MyNearWallet/Meteor) derives |
+| Local prod build + Playwright, **real Testnet** (`phrase-e2e.mjs`) | `taply-srp-3d91fc.testnet` created: vault v2, 12 words, copy matched, 0 file downloads, key `ed25519:Vp6gFtY5…kQN` FullAccess on chain; a fresh browser imported the same phrase → same key, "Active on NEAR Testnet"; that phrase cross-checked with near-seed-phrase → same key. Phrase never committed. |
+
+`onboard-e2e.mjs` / `result.json` / screenshots 01–04 are the earlier file-backup flow (superseded).
+
+### Increment 8 — First launch: external wallet or `username.testnet` Taply Wallet (no gasless)
+
+Branch `claude/beautiful-gates-c6fhhh` (from `main` 9788d8c + the spec commit).
+
+- near-client `wallet-vault.ts`: `create(password, accountId?)` binds a named `*.testnet` ID
+  (`NamedTestnetAccountSchema`, AAD-authenticated); implicit IDs must still equal the key;
+  `rebindAccount(password, accountId)` re-seals the same key under another name (fresh salt/IV, stays locked).
+  `LocalWalletIdentity.provisioning` is `LOCAL_ONLY | ON_CHAIN`; the vault itself only reports LOCAL_ONLY.
+- near-client `wallet-chain.ts`: `accountExists` and `provisioning` (`view_account` + `view_access_key_list`
+  at ONE final block → `ACCOUNT_NOT_FOUND` / `KEY_NOT_ON_ACCOUNT` / `ON_CHAIN`, FullAccess required).
+- web `lib/wallet/testnet-account.ts`: username rules (a-z0-9, `_`/`-` only between, 2–40 + `.testnet`),
+  faucet POST (no credentials/referrer/redirects, 30 s timeout, coarse outcome only).
+- web controller: `isAccountAvailable`, `createNamed`, `activate()` (one faucet call per tab, then FINAL polling;
+  faucet success alone is never success → `PENDING`), `rebindName` (refused once ON_CHAIN or if the new name exists);
+  `read()` reports `nameTaken` when the name exists under another key.
+- UI: create flow = understand → username (FINAL availability) → passphrase → faucet + on-chain proof →
+  mandatory encrypted backup → home in Taply mode. `/wallet` shows "Finish account setup" / "Choose another
+  username" for unconfirmed or pre-username wallets. `/` shows the two-way chooser when no wallet is connected
+  and no vault exists. EN + TR copy. Receive no longer says a transfer creates a named account.
+
+| Command | Result |
+| --- | --- |
+| `pnpm check` (Node 24.22.2) | **exit 0**: shared 93, near-client 226, web 1,180 passed + 1 skipped |
+| near-client `node --test test/wallet-vault.test.mjs test/wallet-chain.test.mjs` | 19/19 (new: named bind, ID refusals, rebind, cancel, provisioning, accountExists) |
+| web new tests | `testnet-account.test.ts`, controller activation (6), UI create/rate-limit/name-taken/receive, `first-launch.test.tsx` (4) |
+| Local production build + Playwright (390×844) against **real Testnet** | created `taply-onb-535271.testnet` from the browser: 1 faucet call, FINAL `view_access_key_list` shows the vault key `ed25519:CaHhae12…R7Hp` as FullAccess, balance 10 NEAR at block 276941373, home shows "Active on NEAR Testnet"; backup file has no private fields |
+
+Evidence: `docs/evidence/onboarding-2026-11-09/` (screenshots, `result.json`, `onboard-e2e.mjs`).
+One flaky timing test (`coming back to the tab re-verifies an aged contract check`, 5 s timeout) failed once
+under load in a parallel run and passed alone and in the next full run; unrelated to this change.
 
 ## 2026-11-09 — cloud session 1
 
