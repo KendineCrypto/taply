@@ -104,6 +104,7 @@ export function ReceiptScreen({ id }: { readonly id: string }) {
     request === null || known === null ? null : candidate === null ? known : collectReferences(request, entries, { ...hints, funding: candidate });
   const verification = useReceiptVerification({
     rpc: ready?.verifierRpc ?? null,
+    fallbackRpc: ready?.verifierFallbackRpc ?? null,
     contractId: ready?.contractId ?? '',
     approvedCodeHash: ready?.expectedCodeHash ?? '',
     request,

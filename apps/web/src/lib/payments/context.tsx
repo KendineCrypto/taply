@@ -49,6 +49,8 @@ export type PaymentsSetup =
       readonly explorerBaseUrl: string;
       /** Read-only RPC for the independent receipt verifier; null disables Verified Paid. */
       readonly verifierRpc: VerifierRpc | null;
+      /** Second archival provider, used only after a transient verifier failure. */
+      readonly verifierFallbackRpc?: VerifierRpc | null;
       /**
        * Phase 7G: read-only `block`/`chunk` reads that locate a funding
        * transaction from chain data. Its result is only a candidate for the
@@ -132,6 +134,14 @@ function defaultSetup(): PaymentsSetup {
       providerId: CHAIN_CONFIG.verifier.rpcProviderId,
       rateLimitGate,
     }),
+    verifierFallbackRpc:
+      CHAIN_CONFIG.verifierFallback === null
+        ? null
+        : createFetchVerifierRpc({
+            rpcUrl: CHAIN_CONFIG.verifierFallback.rpcUrl,
+            providerId: CHAIN_CONFIG.verifierFallback.rpcProviderId,
+            rateLimitGate: createRateLimitGate(),
+          }),
     locatorRpc: createFetchLocatorRpc({
       rpcUrl: CHAIN_CONFIG.verifier.rpcUrl,
       providerId: CHAIN_CONFIG.verifier.rpcProviderId,

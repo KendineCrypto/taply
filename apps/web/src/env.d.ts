@@ -27,6 +27,9 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_EXPLORER_BASE_URL?: string;
     readonly NEXT_PUBLIC_TAPLY_VERIFIER_RPC_URL?: string;
     readonly NEXT_PUBLIC_TAPLY_VERIFIER_RPC_PROVIDER_ID?: string;
+    /** Second archival verifier provider ('off' disables; default FastNEAR archival). Read-only. */
+    readonly NEXT_PUBLIC_TAPLY_VERIFIER_FALLBACK_RPC_URL?: string;
+    readonly NEXT_PUBLIC_TAPLY_VERIFIER_FALLBACK_RPC_PROVIDER_ID?: string;
     /** Public Testnet JSON-RPC endpoint (HTTPS, CORS-enabled, no credentials). */
     readonly NEXT_PUBLIC_TAPLY_RPC_URL?: string;
     /** Label recorded on every observation so provenance is visible. */

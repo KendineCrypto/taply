@@ -331,6 +331,7 @@ function ChildVerification({ request, onVerified }: { readonly request: Contract
   const references = candidate === null ? known : collectReferences(request, entries, { funding: candidate, retries: [] });
   const view = useReceiptVerification({
     rpc: ready?.verifierRpc ?? null,
+    fallbackRpc: ready?.verifierFallbackRpc ?? null,
     contractId: ready?.contractId ?? '',
     approvedCodeHash: ready?.expectedCodeHash ?? '',
     request,
