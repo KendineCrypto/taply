@@ -6,9 +6,10 @@ import { BlockSchema, CallResultSchema } from "./validation.js";
 import type { NearTestnetConfig } from "./types.js";
 
 /**
- * Pay a NEAR request with Testnet USDC: the payer converts USDC to native NEAR
- * on Ref Finance (Rhea) Testnet, then pays the request with the unchanged,
- * reviewed `pay_instant_native` path. The merchant always receives NEAR.
+ * Pay a NEAR request with another Testnet asset (USDC, USDT, ...): the payer
+ * converts it to native NEAR on Ref Finance (Rhea) Testnet, then pays the request
+ * with the unchanged, reviewed `pay_instant_native` path. The merchant always
+ * receives NEAR and never has to choose the payer's asset.
  *
  * Pinned route, verified on real Testnet (docs/evidence/usdc-swap-2026-11-09):
  * - exchange `ref-finance-101.testnet`, wrapped NEAR `wrap.testnet`;
@@ -20,15 +21,32 @@ import type { NearTestnetConfig } from "./types.js";
  * wanted NEAR. If the price moves past the buffer, Ref fails the swap and the
  * token refunds the whole input (NEP-141 resolve).
  */
-export const TESTNET_USDC_ROUTE = Object.freeze({
-  exchange: "ref-finance-101.testnet",
-  wrappedNear: "wrap.testnet",
-  token: "usdc.itachicara.testnet",
-  poolId: 1103,
-  symbol: "USDC",
-  decimals: 24,
-});
-export type SwapRoute = typeof TESTNET_USDC_ROUTE;
+export interface SwapRoute {
+  readonly exchange: "ref-finance-101.testnet";
+  readonly wrappedNear: "wrap.testnet";
+  readonly token: string;
+  readonly poolId: number;
+  readonly symbol: string;
+  readonly decimals: number;
+}
+const route = (token: string, poolId: number, symbol: string, decimals: number): SwapRoute =>
+  Object.freeze({ exchange: "ref-finance-101.testnet", wrappedNear: "wrap.testnet", token, poolId, symbol, decimals });
+
+export const TESTNET_USDC_ROUTE = route("usdc.itachicara.testnet", 1103, "USDC", 24);
+/**
+ * Curated payment assets (Ref Testnet simple pools vs wNEAR, scanned 2026-11-09):
+ * the deepest pool per token, tokens without a public mint, symbol and decimals
+ * pinned and re-checked on every read. All are TEST tokens with no real value.
+ * Arbitrary tokens are refused on purpose: a fake or illiquid token could quote
+ * any price.
+ */
+export const TESTNET_SWAP_ROUTES: readonly SwapRoute[] = Object.freeze([
+  TESTNET_USDC_ROUTE,
+  route("usdt.itachicara.testnet", 1084, "USDT", 24),
+  route("nst.deganstable.testnet", 602, "NST", 6),
+  route("lnc.factory.tokenhub.testnet", 395, "LNC", 18),
+  route("token.pembrock.testnet", 461, "PEM", 18),
+]);
 
 /** Ref call gas: transfer + swap + unwrap + native transfer + resolve (~35 Tgas observed). */
 export const SWAP_GAS = "200000000000000";

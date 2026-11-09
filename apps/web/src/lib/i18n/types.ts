@@ -665,13 +665,13 @@ export interface Dictionary {
   };
 
   /** Phase 4D: native Taply Wallet (encrypted local vault, signing disabled). */
-  /** Pay a NEAR request with Testnet USDC (Ref/Rhea Testnet swap, then the normal payment). */
-  readonly usdcPay: {
+  /** Pay a NEAR request with another Testnet asset (Ref/Rhea Testnet swap, then the normal NEAR payment). */
+  readonly tokenPay: {
     readonly title: string;
     readonly body: string;
     readonly payWith: string;
+    readonly payWithNote: string;
     readonly near: string;
-    readonly usdc: string;
     readonly tokenLabel: string;
     readonly merchantGets: string;
     readonly yourBalance: string;

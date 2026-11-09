@@ -10,9 +10,8 @@ import {
   quoteExactNearForToken,
   quoteTokenForExactNear,
   SwapError,
-  TESTNET_USDC_ROUTE,
 } from '@taply/near-client';
-import type { PreparedSwapTransaction, SellQuote, SwapSnapshot } from '@taply/near-client';
+import type { PreparedSwapTransaction, SellQuote, SwapRoute, SwapSnapshot } from '@taply/near-client';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
@@ -24,9 +23,11 @@ import { getNearClient } from '@/lib/near/client';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
 
 /**
- * "Pay with test USDC" for a NEAR request (owner request 2026-11-09).
+ * "Pay with <asset>" for a NEAR request (owner request 2026-11-09): the merchant
+ * asks for NEAR and never picks the payer's asset; the payer chooses NEAR or one
+ * of the curated Testnet tokens (TESTNET_SWAP_ROUTES).
  *
- * Step 1 converts Testnet USDC to native NEAR on Rhea (Ref) Testnet with a
+ * Step 1 converts the token to native NEAR on Rhea (Ref) Testnet with a
  * separate, clearly labelled wallet approval; step 2 is the unchanged, reviewed
  * NEAR payment below. The recipient always receives exactly the requested NEAR.
  * Nothing here is called "paid": success means a FINAL swap without failed
@@ -35,15 +36,15 @@ import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
 
 export type SwapTxResult = 'success' | 'failed' | 'pending';
 
-export interface UsdcPayDeps {
+export interface TokenPayDeps {
   readonly read: (payerAccountId: string) => Promise<SwapSnapshot>;
   readonly observe: (transactionHash: string, signerAccountId: string) => Promise<SwapTxResult>;
   readonly sleep: (ms: number) => Promise<void>;
 }
 
-function defaultDeps(): UsdcPayDeps | null {
+function defaultDeps(route: SwapRoute): TokenPayDeps | null {
   if (!CHAIN_CONFIG.ok) return null;
-  const reader = createSwapReader(CHAIN_CONFIG.client);
+  const reader = createSwapReader(CHAIN_CONFIG.client, undefined, route);
   const client = getNearClient();
   if (client === null) return null;
   return {
@@ -83,24 +84,27 @@ type Phase =
   | { readonly kind: 'unknown' }
   | { readonly kind: 'converted' };
 
-export function UsdcPay({
+export function TokenPay({
+  route,
   amountYocto,
   signerAccountId,
   signAndSend,
   onConverted,
   deps: injected,
 }: {
+  readonly route: SwapRoute;
   readonly amountYocto: string;
   readonly signerAccountId: string;
   readonly signAndSend: (call: WalletCall) => Promise<SignOutcome>;
   /** Called after a confirmed conversion so the NEAR balance is re-read. */
   readonly onConverted?: () => void;
-  readonly deps?: UsdcPayDeps | null;
+  readonly deps?: TokenPayDeps | null;
 }) {
   const t = useT();
-  const u = t.usdcPay;
+  const u = t.tokenPay;
+  const sym = { symbol: route.symbol };
   const { locale } = useLocale();
-  const deps = useMemo(() => (injected === undefined ? defaultDeps() : injected), [injected]);
+  const deps = useMemo(() => (injected === undefined ? defaultDeps(route) : injected), [injected, route]);
   const [snapshot, setSnapshot] = useState<SwapSnapshot | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
@@ -116,9 +120,9 @@ export function UsdcPay({
     } catch (error) {
       if (mine !== generation.current) return;
       setSnapshot(null);
-      setLoadError(error instanceof SwapError && error.code === 'PRICE_IMPACT_TOO_HIGH' ? u.priceImpact : u.loadFailed);
+      setLoadError(error instanceof SwapError && error.code === 'PRICE_IMPACT_TOO_HIGH' ? u.priceImpact : fill(u.loadFailed, { symbol: route.symbol }));
     }
-  }, [deps, signerAccountId, u.loadFailed, u.priceImpact]);
+  }, [deps, signerAccountId, u.loadFailed, u.priceImpact, route.symbol]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial chain read
@@ -132,7 +136,7 @@ export function UsdcPay({
     };
   }, []);
 
-  const usdc = (base: string) => formatBaseUnits(base, TESTNET_USDC_ROUTE.decimals, { locale, maxFractionDigits: 4 }).display;
+  const tokenAmount = (base: string) => formatBaseUnits(base, route.decimals, { locale, maxFractionDigits: 4 }).display;
   const near = (base: string | bigint) => formatBaseUnits(base.toString(), 24, { locale, maxFractionDigits: 4 }).display;
 
   let quote: SellQuote | null = null;
@@ -141,7 +145,7 @@ export function UsdcPay({
     try {
       quote = quoteTokenForExactNear(snapshot, amountYocto, DEFAULT_SLIPPAGE_BPS);
     } catch (error) {
-      quoteProblem = error instanceof SwapError && error.code === 'PRICE_IMPACT_TOO_HIGH' ? u.priceImpact : u.loadFailed;
+      quoteProblem = error instanceof SwapError && error.code === 'PRICE_IMPACT_TOO_HIGH' ? u.priceImpact : fill(u.loadFailed, sym);
     }
   }
   const purchaseNear = testUsdcPurchaseNear(BigInt(amountYocto));
@@ -191,18 +195,18 @@ export function UsdcPay({
   const enough = quote !== null && tokenBalance >= BigInt(quote.tokenIn);
 
   return (
-    <section className="flex flex-col gap-3 rounded-[var(--radius-control)] p-4 ring-1 ring-[var(--border-strong)]" aria-labelledby="usdc-pay-title">
+    <section className="flex flex-col gap-3 rounded-[var(--radius-control)] p-4 ring-1 ring-[var(--border-strong)]" aria-labelledby="token-pay-title">
       <div>
-        <h3 id="usdc-pay-title" className="font-semibold">
-          {u.title}
+        <h3 id="token-pay-title" className="font-semibold">
+          {fill(u.title, sym)}
         </h3>
-        <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{u.body}</p>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">{fill(u.tokenLabel, { token: TESTNET_USDC_ROUTE.token })}</p>
+        <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{fill(u.body, sym)}</p>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">{fill(u.tokenLabel, { symbol: route.symbol, token: route.token })}</p>
       </div>
 
       {deps === null || loadError !== null ? (
         <InlineNotice
-          copy={{ title: u.title, body: loadError ?? u.loadFailed }}
+          copy={{ title: fill(u.title, sym), body: loadError ?? fill(u.loadFailed, sym) }}
           action={
             <Button variant="secondary" onClick={() => void load()}>
               <Icon name="refresh" size={16} />
@@ -222,8 +226,10 @@ export function UsdcPay({
               <dd className="font-semibold">{near(amountYocto)} NEAR</dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-[var(--text-muted)]">{u.yourBalance}</dt>
-              <dd>{usdc(snapshot.payer.tokenBalance)} USDC</dd>
+              <dt className="text-[var(--text-muted)]">{fill(u.yourBalance, sym)}</dt>
+              <dd>
+                {tokenAmount(snapshot.payer.tokenBalance)} {route.symbol}
+              </dd>
             </div>
           </dl>
           {quoteProblem !== null ? (
@@ -232,8 +238,10 @@ export function UsdcPay({
             </p>
           ) : quote !== null ? (
             <div className="flex flex-col gap-1" aria-live="polite">
-              <p className="text-base font-semibold">{fill(u.quote, { usdc: usdc(quote.tokenIn), near: near(quote.minNearOut) })}</p>
-              <p className="text-xs leading-relaxed text-[var(--text-muted)]">{fill(u.quoteNote, { slippage: (DEFAULT_SLIPPAGE_BPS / 100).toString() })}</p>
+              <p className="text-base font-semibold">{fill(u.quote, { amount: tokenAmount(quote.tokenIn), symbol: route.symbol, near: near(quote.minNearOut) })}</p>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                {fill(u.quoteNote, { slippage: (DEFAULT_SLIPPAGE_BPS / 100).toString(), symbol: route.symbol })}
+              </p>
             </div>
           ) : null}
 
@@ -264,13 +272,13 @@ export function UsdcPay({
           ) : !snapshot.payer.tokenRegistered ? (
             <div className="flex flex-col gap-2">
               <Button size="lg" block variant="secondary" onClick={() => void run(prepareTokenRegistration(snapshot), false)}>
-                {u.enable}
+                {fill(u.enable, sym)}
               </Button>
               <p className="text-xs text-[var(--text-muted)]">{fill(u.enableNote, { near: near(snapshot.tokenStorageMinYocto) })}</p>
             </div>
           ) : quote !== null && !enough ? (
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-[var(--tone-caution-fg)]">{u.notEnough}</p>
+              <p className="text-sm text-[var(--tone-caution-fg)]">{fill(u.notEnough, sym)}</p>
               <Button
                 size="lg"
                 block
@@ -283,19 +291,19 @@ export function UsdcPay({
                   }
                 }}
               >
-                {fill(u.getTest, { near: near(purchaseNear) })}
+                {fill(u.getTest, { symbol: route.symbol, near: near(purchaseNear) })}
               </Button>
-              <p className="text-xs text-[var(--text-muted)]">{u.getTestNote}</p>
+              <p className="text-xs text-[var(--text-muted)]">{fill(u.getTestNote, sym)}</p>
             </div>
           ) : quote !== null ? (
             <Button size="lg" block onClick={() => void run(prepareSellTokenForNear(snapshot, quote), true)}>
-              {fill(u.convert, { usdc: usdc(quote.tokenIn) })}
+              {fill(u.convert, { amount: tokenAmount(quote.tokenIn), symbol: route.symbol })}
             </Button>
           ) : null}
 
           {phase.kind === 'failed' && (
             <p role="alert" className="text-sm text-[var(--tone-danger-fg)]">
-              {u.failed}
+              {fill(u.failed, sym)}
             </p>
           )}
           {phase.kind !== 'converted' && !busy && (

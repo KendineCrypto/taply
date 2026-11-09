@@ -1,10 +1,14 @@
-// Real NEAR Testnet proof: the merchant asks for NEAR, the payer pays with test USDC.
+// Real NEAR Testnet proof: the merchant asks for NEAR, the payer pays with another test asset.
+// Usage: node usdc-pay.mjs [USDC|USDT|NST|LNC|PEM]
 // Uses the SAME near-client builders the web app uses (ref-swap.ts) and the
 // frozen pilot contract's pay_instant_native. Disposable automation accounts only.
 import { mkdirSync } from 'node:fs';
 import { actions } from 'near-api-js';
 import { assertTestnet, buildTerms, call, createFaucetAccount, finalBlock, finalTx, failureOf, loadAccount, TGAS, view, viewAccount, writeEvidence } from './lib.mjs';
-import { createSwapReader, prepareBuyToken, prepareSellTokenForNear, prepareTokenRegistration, quoteExactNearForToken, quoteTokenForExactNear } from '../dist/ref-swap.js';
+import { createSwapReader, prepareBuyToken, prepareSellTokenForNear, prepareTokenRegistration, quoteExactNearForToken, quoteTokenForExactNear, TESTNET_SWAP_ROUTES } from '../dist/ref-swap.js';
+
+const ROUTE = TESTNET_SWAP_ROUTES.find((r) => r.symbol === (process.argv[2] ?? 'USDC'));
+if (!ROUTE) throw new Error('unknown asset');
 
 const CONTRACT = 'taply-pay-pilot-1.testnet';
 const APPROVED_CODE_HASH = 'BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B';
@@ -15,7 +19,7 @@ if ((await viewAccount(CONTRACT)).code_hash !== APPROVED_CODE_HASH) throw new Er
 const merchantId = await createFaucetAccount('taply-usdc-merchant');
 const payerId = await createFaucetAccount('taply-usdc-payer');
 const merchant = loadAccount(merchantId), payer = loadAccount(payerId);
-const swap = createSwapReader({ network: 'near-testnet', rpcUrl: 'https://rpc.testnet.near.org', rpcProviderId: 'near-public-testnet', contract: null });
+const swap = createSwapReader({ network: 'near-testnet', rpcUrl: 'https://rpc.testnet.near.org', rpcProviderId: 'near-public-testnet', contract: null }, undefined, ROUTE);
 const sendTx = async (tx) => {
   const sent = await payer.signAndSendTransaction({ receiverId: tx.receiverId, waitUntil: 'EXECUTED_OPTIMISTIC', throwOnFailure: false,
     actions: tx.actions.map((a) => actions.functionCall(a.methodName, a.args, BigInt(a.gas), BigInt(a.depositYocto))) });
@@ -27,7 +31,7 @@ const sendTx = async (tx) => {
 
 // Merchant: NEAR request.
 const block = await finalBlock();
-const { terms, termsHash } = buildTerms({ contractId: CONTRACT, creator: merchantId, amount: AMOUNT, nowNs: block.timestampNs, memo: 'Taply: pay a NEAR request with test USDC' });
+const { terms, termsHash } = buildTerms({ contractId: CONTRACT, creator: merchantId, amount: AMOUNT, nowNs: block.timestampNs, memo: `Taply: pay a NEAR request with test ${ROUTE.symbol}` });
 const quote = await view(CONTRACT, 'quote_create_request', { terms });
 const created = await call(merchant, CONTRACT, 'create_request', { terms, quoteVersion: quote.quoteVersion }, { deposit: BigInt(quote.depositYocto), gas: BigInt(quote.gas) });
 if (created.failure) throw new Error(`create failed ${created.failure}`);
@@ -58,18 +62,18 @@ const final = await view(CONTRACT, 'get_request', { id: terms.id });
 const merchantAfter = BigInt((await viewAccount(merchantId)).amount);
 
 const result = {
-  kind: 'TAPLY_PAY_NEAR_REQUEST_WITH_TEST_USDC_TESTNET_PROOF', network: 'near-testnet',
-  note: 'Disposable automation accounts. Test USDC (usdc.itachicara.testnet) has no real value. Ref pool 1103 on ref-finance-101.testnet.',
+  kind: 'TAPLY_PAY_NEAR_REQUEST_WITH_TEST_TOKEN_TESTNET_PROOF', network: 'near-testnet', asset: ROUTE,
+  note: `Disposable automation accounts. Test ${ROUTE.symbol} (${ROUTE.token}) has no real value. Ref pool ${ROUTE.poolId} on ref-finance-101.testnet.`,
   contractId: CONTRACT, merchantAccountId: merchantId, payerAccountId: payerId, requestedYocto: AMOUNT, requestId: terms.id,
   createTransaction: created.hash,
-  registerUsdc: { hash: register.hash, failed: register.failed },
-  buyTestUsdc: { hash: buy.hash, failed: buy.failed, nearSpentYocto: buyNear, usdcHeld },
-  convert: { hash: sell.hash, failed: sell.failed, usdcIn: sellQuote.tokenIn, minNearOut: sellQuote.minNearOut, expectedNearOut: sellQuote.expectedNearOut,
+  registerToken: { hash: register.hash, failed: register.failed },
+  buyTestToken: { hash: buy.hash, failed: buy.failed, nearSpentYocto: buyNear, tokenHeld: usdcHeld },
+  convert: { hash: sell.hash, failed: sell.failed, tokenIn: sellQuote.tokenIn, minNearOut: sellQuote.minNearOut, expectedNearOut: sellQuote.expectedNearOut,
     swappedLog, withdrawLog, payerNativeDeltaYocto: nearAfter - nearBefore },
   payment: { hash: paid.hash, finalStatus: final.status, latestOperation: final.latestOperation, merchantDeltaYocto: merchantAfter - merchantBefore },
 };
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 mkdirSync(new URL('../../../docs/evidence/testnet-e2e/', import.meta.url), { recursive: true });
-const out = new URL(`../../../docs/evidence/testnet-e2e/${stamp}-usdc-pay.json`, import.meta.url);
+const out = new URL(`../../../docs/evidence/testnet-e2e/${stamp}-${ROUTE.symbol.toLowerCase()}-pay.json`, import.meta.url);
 writeEvidence(out, result);
 console.log(JSON.stringify({ ...result, evidence: out.pathname }, (k, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
