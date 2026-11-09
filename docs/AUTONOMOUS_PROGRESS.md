@@ -32,9 +32,16 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   commits `b4286f1`, `983c456`, `3d9d7c8`, `c1a7c9f` were pushed unchanged to
   `origin/claude/kind-cerf-c4n261` (verified: remote head = local head
   `c1a7c9f`; `main` and `release/taplyapp` still `22765d7`).
-- CI on `c1a7c9f`: `protected-pay-candidate` (push, run 42574928267),
-  `workspace-check` (dispatch, run 42575006152), `wallet-browser-check`
-  (dispatch, run 42575009603). Results recorded below when final.
+- CI on `c1a7c9f` (all **success**):
+
+  | Workflow | Run | Result |
+  | --- | --- | --- |
+  | protected-pay-candidate (push) | 42574928267 | success — G1 isolation, fmt, 24 unit tests, clippy, WASM, sandbox clippy, **sandbox 3/3 on the GitHub runner (no local shim)**, wire check (unit + sandbox records) |
+  | workspace-check (dispatch) | 42575006152 | success |
+  | wallet-browser-check (dispatch) | 42575009603 | success |
+
+  Only `protected-pay-candidate` runs on push for this branch; the others are
+  branch-filtered to `main`/`feature/*`, so they are dispatched manually.
 - Protected screen, CLAUDE.md required error states:
   - **Cancellation window passed**: a cancel this device sent that lost the race
     (still LOCKED at a final block at/after the cutoff, or release committed) now
@@ -44,6 +51,8 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   - **Wrong payer**: a signed payer restriction to another account shows
     "Different payer required" and disables locking.
   - Tampered terms (hash mismatch) fail closed (test added).
+- `/protected/new` payer field: "Choose from contacts" (existing local picker;
+  copies the exact account ID) + exact-match / look-alike hint.
 - `apps/web` tests: 1,144 passed, 1 skipped (was 1,140); eslint and tsc clean.
 
 ### Increment 3 — Protected Pay on a real local NEAR node (sandbox)

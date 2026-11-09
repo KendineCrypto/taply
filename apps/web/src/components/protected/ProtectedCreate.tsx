@@ -20,6 +20,9 @@ import type { CancelWindow } from '@/lib/protected/create';
 import { PROTECTED_SETUP, defaultProtectedReader, useProtectedContract } from '@/lib/protected/hooks';
 import type { ProtectedSetup } from '@/lib/protected/setup';
 import { useWallet } from '@/lib/wallet/provider';
+import { ContactMatch, ContactPicker } from '@/components/contacts/ContactPicker';
+import { FLAGS } from '@/lib/flags/features';
+import { useContactBook } from '@/lib/contacts/use-contacts';
 import { ProtectedSetupNotice, windowLabel } from './ProtectedScreen';
 
 /**
@@ -57,6 +60,10 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
   const [problem, setProblem] = useState<'stale' | 'quote' | 'refused' | null>(null);
   const [created, setCreated] = useState<{ readonly id: string; readonly result: SubmitResult } | null>(null);
   const gate = check.status === 'verified' ? check.gate : null;
+  // Local address book: choosing copies the exact account ID; nothing is trusted by name.
+  const contactsOn = FLAGS.contacts.enabled;
+  const book = useContactBook();
+  const contacts = contactsOn ? book.contacts : [];
 
   const submit = async () => {
     if (accountId === null || busy || reader === null) return;
@@ -150,6 +157,8 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
             onChange={(e) => setPayer(e.target.value)}
           />
           <p className="text-xs text-[var(--text-muted)]">{c.create.payerHint}</p>
+          {contactsOn && <ContactPicker contacts={contacts} onPick={setPayer} />}
+          {contactsOn && <ContactMatch accountId={payer} contacts={contacts} />}
         </div>
         {errors.length > 0 && (
           <ul role="alert" className="flex flex-col gap-1 text-sm text-[var(--tone-danger-fg)]">

@@ -55,6 +55,22 @@ describe('ProtectedCreate', () => {
     expect(await screen.findByRole('link', { name: 'Open request' })).toHaveProperty('href', expect.stringContaining(`/protected/${terms?.id}`));
   });
 
+  it('the payer field can be filled from saved contacts (exact account ID copied)', async () => {
+    window.localStorage.setItem('taply.contacts.v1', JSON.stringify({ version: 1, contacts: [{
+      id: 'contact-0001', label: 'Bob', accountId: 'bob.testnet', createdAt: '2026-11-01T00:00:00.000Z', updatedAt: '2026-11-01T00:00:00.000Z',
+    }] }));
+    const { adapter } = recordingWallet('alice.testnet');
+    renderWithChain(
+      <ProtectedCreate setup={{ status: 'ready', contractId: PROTECTED_CONTRACT, expectedCodeHash: CODE_HASH, qaBuild: true }} reader={reader([])} />,
+      { setup: { status: 'not_configured' }, adapter, storage: memoryStorage(), now: () => Date.now() },
+    );
+    fireEvent.click(await screen.findByTestId('contact-picker-open'));
+    fireEvent.click(await screen.findByRole('button', { name: /Bob/ }));
+    expect((screen.getByLabelText('Only this payer (optional)') as HTMLInputElement).value).toBe('bob.testnet');
+    expect(await screen.findByTestId('contact-match')).toBeTruthy();
+    window.localStorage.clear();
+  });
+
   it('cannot create while the flag is off', () => {
     const { adapter } = recordingWallet('alice.testnet');
     renderWithChain(<ProtectedCreate setup={{ status: 'flag_off' }} reader={null} />, { setup: { status: 'not_configured' }, adapter });
