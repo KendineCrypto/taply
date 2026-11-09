@@ -1,0 +1,39 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "e8dbef6b2d4aa630faa7de377c0c538369ca57d7aa6f78e72ce71deb436a1c3e",
+    "network": "near-testnet",
+    "contractId": "payments.fixture.testnet",
+    "creationNonce": "0000000000000000000000000000000000000000000000000000000000000006",
+    "creatorAccountId": "alice.testnet",
+    "assetId": "near:native",
+    "amountBaseUnits": "1000000000000000000000000",
+    "mode": "protected",
+    "cancelDurationNs": "60000000000",
+    "fundingExpiresAtNs": "1793520900000000000",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "a39b41784994b03bb4efd33852113ecc17901ce617f7200764f4f965dc0b6b5f",
+  "sessionCommitment": null,
+  "recipientAccountId": "alice.testnet",
+  "status": "REFUND_FAILED_RECOVERABLE",
+  "revision": "4",
+  "createdAtNs": "1793520000000000000",
+  "payerAccountId": "bob.testnet",
+  "fundedAtNs": "1793520001000000000",
+  "cancelUntilNs": "1793520061000000000",
+  "settlementBranch": "PAYER",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "PROTECTED_REFUND",
+    "destinationAccountId": "bob.testnet",
+    "amountBaseUnits": "1000000000000000000000000",
+    "status": "FAILED",
+    "startedAtNs": "1793520060999999990",
+    "resolvedAtNs": "1793520060999999995",
+    "failureCode": "NATIVE_TRANSFER_FAILED"
+  }
+}

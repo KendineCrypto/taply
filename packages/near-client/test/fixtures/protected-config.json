@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "taply.contract-config.v1",
+  "contractVersion": "0.5.0-g3-candidate",
+  "network": "near-testnet",
+  "contractId": "payments.fixture.testnet",
+  "intentVersion": "taply.intent.v1",
+  "eventVersion": "0.4.0",
+  "capabilities": {
+    "instantNative": true,
+    "protectedPay": true,
+    "handshake": false,
+    "merchantProfiles": false,
+    "nep141": false,
+    "sponsoredGas": false
+  },
+  "quoteVersion": "1",
+  "storageByteCostYocto": "10000000000000000000",
+  "gas": {
+    "createRequest": "30000000000000",
+    "payInstantNative": "50000000000000",
+    "retryNativeTransfer": "50000000000000",
+    "cancelUnfunded": "15000000000000",
+    "callback": "15000000000000",
+    "fundProtectedNative": "20000000000000",
+    "cancelProtected": "50000000000000",
+    "releaseProtected": "50000000000000"
+  },
+  "protected": {
+    "consentVersion": "taply.protected-consent.v1",
+    "minCancelDurationNs": "60000000000",
+    "maxCancelDurationNs": "3600000000000",
+    "cutoffRule": "CANCEL_IF_BLOCK_TIME_LT_CUTOFF_RELEASE_IF_GTE",
+    "reviewStatus": "UNREVIEWED_NOT_FOR_REAL_FUNDS"
+  },
+  "storageRefundPolicy": "PERMANENT_RECORD_NO_WITHDRAWAL",
+  "unknownCallbackPolicy": "IN_FLIGHT_NO_RETRY_NO_ADMIN_OVERRIDE",
+  "testFaultBuild": false
+}
