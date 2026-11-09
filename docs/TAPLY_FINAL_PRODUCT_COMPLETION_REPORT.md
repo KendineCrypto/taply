@@ -89,9 +89,9 @@ Talepler: sözleşme/kod özeti/terim kontrolleri ve makbuz doğrulayıcı var; 
 Commit'ler (`22765d7..cc58cbb`), en önemlileri: `b4286f1` G3 aday, `3d9d7c8` Protected web, `c1a7c9f` sandbox +
 `--cfg near` düzeltmesi, `66eec39` G1 Testnet kanıtı, `f7ad5d3` G3 Testnet kanıtı, `b9b76eb` NEP-141 kontrat/şema/
 sandbox, `29a762a` NEP-141 Testnet kanıtı, `cecc48a` doğrulayıcı yedeği, `4640e9d` token destekli web, `cc58cbb`
-G2 Testnet kanıtı. CI: `protected-pay-candidate` #1 ve #2 başarılı (#2 = NEP-141 dahil 7 sandbox testi);
-`workspace-check` ve `wallet-browser-check` önceki başlarda başarılı; son baş için sonuçlar
-[AUTONOMOUS_PROGRESS.md](AUTONOMOUS_PROGRESS.md)'de. Yerel: shared 93, near-client 220+, web 1.153 test geçti.
+G2 Testnet kanıtı. CI (hepsi başarılı): `protected-pay-candidate` 42574928267 ve 42579962510 (NEP-141 dahil 7 sandbox testi);
+`cc58cbb` üzerinde `workspace-check` 42582870958, `wallet-browser-check` 42582874420 ve `instant-pay-sandbox`
+42582878091 (dondurulmuş G1 + mağaza sandbox paketleri, şema v1.1 ile tel kontrolü). Yerel: shared 93, near-client 220+, web 1.153 test geçti.
 PR açılmadı (inceleme için `main`'e PR önerilir).
 
 ## J. Kullanıcı deneyimi

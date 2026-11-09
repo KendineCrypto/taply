@@ -42,7 +42,7 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 - `06086cd` local production build with QA env read the live token candidate (screenshots in `docs/evidence/qa-2026-11-09/`).
 - `cc58cbb` G2 merchant-bound sale on real Testnet (session commitment matches, replay refused, Verified).
 - CI on `cc58cbb`: workspace-check 42582870958 success, wallet-browser-check 42582874420 success,
-  instant-pay-sandbox 42582878091 started (G1 frozen suite + shared v1.1 wire check).
+  instant-pay-sandbox 42582878091 **success** (frozen G1 + merchant sandbox suites and wire check pass with shared v1.1).
   protected-pay-candidate 42579962510 success on `b9b76eb` (7 sandbox tests).
 - Local `pnpm check` on `cc58cbb`: exit 0 (shared 93, near-client 219, web 1,153 + 1 skipped).
 - Final Turkish report: [TAPLY_FINAL_PRODUCT_COMPLETION_REPORT.md](TAPLY_FINAL_PRODUCT_COMPLETION_REPORT.md).
