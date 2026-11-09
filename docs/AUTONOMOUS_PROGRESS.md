@@ -13,6 +13,16 @@ pnpm check                                   # whole workspace
 cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 ```
 
+## Current checkpoint (keep updated)
+
+- Branch `claude/kind-cerf-c4n261`; production `release/taplyapp` = `22765d7` (untouched).
+- Cloud environment `taply` (personal) allows NEAR Testnet RPCs, the faucet helper and taplyapp.xyz.
+- Testnet automation: `packages/near-client/testnet-e2e/` (keys in `~/.taply-automation`, never in git).
+- Evidence index: [RELEASE_EVIDENCE_INDEX.md](RELEASE_EVIDENCE_INDEX.md).
+- Next: web token UI + Protected QA wiring for the token-enabled candidate; merchant POS/Handshake durable
+  session service; consumer features; final Turkish report `docs/TAPLY_FINAL_PRODUCT_COMPLETION_REPORT.md`.
+- No background processes left running.
+
 ## 2026-11-09 — cloud session 1
 
 ### Starting point (inspected, not assumed)
@@ -25,6 +35,20 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   `feature/pilot-core`, `feature/ux-reliability` are superseded by `main`.
 - Baseline `pnpm check` on `22765d7` (Node 24.22.2): **exit 0** — shared 92/92,
   near-client 207/207, web 1,112 passed + 1 skipped (73 files).
+
+### Increment 5 — Real Testnet proofs, NEP-141, verifier fallback (master mandate)
+
+- Network: created personal environment `taply` (Testnet RPCs, faucet helper, taplyapp.xyz,
+  later archival-rpc.testnet.near.org). Faucet gives 10 test NEAR per disposable account.
+- `66eec39` G1 automated proof on the frozen pilot: FINAL_PAID, exact +0.01, duplicate refused,
+  Verified on both providers.
+- `f7ad5d3` G3 candidate on its own locked account: real refund and real release, 4 refusals.
+- `b9b76eb` NEP-141: TEST-ONLY token crate, token support in the candidate (allowlist at init,
+  ft_on_transfer, ft_transfer payouts, per-token ledgers), shared schema v1.1 (`nep141:<account>`,
+  `FT_TRANSFER_FAILED`; native hashes unchanged), near-client token builders, sandbox 4/4.
+- `29a762a` NEP-141 on real Testnet: token instant payment exact, duplicate returned, protected refund.
+- `cecc48a` Receipt verifier: whole-proof fallback to FastNEAR archival after a transient failure.
+  Live root cause: ~12 sequential reads at ~3.5 s each on archival-rpc.testnet.near.org.
 
 ### Increment 4 — Pushed to GitHub; Protected error states
 
