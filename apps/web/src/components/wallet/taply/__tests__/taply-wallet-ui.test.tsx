@@ -1,7 +1,7 @@
 import { webcrypto } from 'node:crypto';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WalletBalanceSnapshot, WalletChain } from '@taply/near-client';
+import type { WalletBalanceSnapshot, WalletChain, WalletTransactionReview } from '@taply/near-client';
 import { createTaplyWalletController } from '@/lib/wallet/taply-wallet';
 import type { FaucetResult } from '@/lib/wallet/testnet-account';
 import { installChain, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
@@ -292,23 +292,59 @@ describe('manage Taply Wallet (real controller)', () => {
   }, 60_000);
 });
 
-describe('send from Taply Wallet (review only)', () => {
-  it('provisioned: exact review with reserves; confirming is disabled and nothing is signed', async () => {
-    const c = controller(true);
-    await c.create(PASS);
-    const wallet = render(<TaplySend />, c);
+describe('send from Taply Wallet (NEAR Testnet signing, owner decision)', () => {
+  it('unlock dialog, then the confirmation dialog shows the exact transfer; Reject sends nothing', async () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => void values.set(k, v) };
+    const snapshot = vi.fn(async (accountId: string, publicKey: string): Promise<WalletBalanceSnapshot | null> => ({
+      network: 'near-testnet', accountId, publicKey, nonce: '1', blockHash: '1'.repeat(32), blockHeight: '275000000',
+      blockTimestampNs: (BigInt(Date.now()) * 1_000_000n).toString(), amountYocto: '2000000000000000000000000', storageUsageBytes: '182',
+      storageByteCostYocto: '10000000000000000000', gasPriceYocto: '100000000',
+    }));
+    const chain: WalletChain = { snapshot, checkNetwork: vi.fn(async () => {}), receiverExists: vi.fn(async () => {}),
+      accountExists: vi.fn(async () => true), provisioning: vi.fn(async () => 'ON_CHAIN' as const) };
+    let made: ReturnType<typeof createTaplyWalletController> | null = null;
+    const factory = (confirmTransaction: (r: WalletTransactionReview) => Promise<boolean>) => {
+      made = createTaplyWalletController({ config, storage, crypto: webcrypto as unknown as Crypto, chain, confirmTransaction });
+      controllers.push(made);
+      return made;
+    };
+    // Create the vault first with a throwaway controller on the same storage.
+    const seed = createTaplyWalletController({ config, storage, crypto: webcrypto as unknown as Crypto, chain });
+    controllers.push(seed);
+    await seed.createNamed(PASS, 'sender.testnet');
+    const chainSetup = installChain({ contractId: 'pay.testnet' });
+    const wallet = recordingWallet(null);
+    renderWithChain(<TaplySend />, { setup: readySetup(chainSetup, false), adapter: wallet.adapter, taply: factory });
+
     fireEvent.change(await screen.findByLabelText('To', {}, SLOW), { target: { value: 'receiver.testnet' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '0.1' } });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Review/ }));
     });
-    expect(await screen.findByRole('heading', { name: 'Review transfer' }, SLOW)).toBeTruthy();
-    expect(screen.getByText('receiver.testnet')).toBeTruthy();
-    expect(screen.getByText('Gas reserve (not a fee)')).toBeTruthy();
-    const confirm = screen.getByRole('button', { name: 'Confirm and send' }) as HTMLButtonElement;
-    expect(confirm.disabled).toBe(true);
-    expect(screen.getByText(/Taply Wallet signing is switched off/)).toBeTruthy();
+    const confirm = (await screen.findByRole('button', { name: 'Confirm and send' }, SLOW)) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    // Locked: the unlock dialog comes first.
+    const unlock = within(await screen.findByRole('dialog', { name: 'Unlock Taply Wallet to pay' }, SLOW));
+    fireEvent.change(unlock.getByLabelText('Password'), { target: { value: PASS } });
+    await act(async () => {
+      fireEvent.click(unlock.getByRole('button', { name: /^Unlock$/ }));
+    });
+    const dialog = within(await screen.findByRole('dialog', { name: 'Confirm transaction' }, SLOW));
+    expect(dialog.getByText('Send NEAR')).toBeTruthy();
+    expect(dialog.getByText('sender.testnet')).toBeTruthy();
+    expect(dialog.getByText('receiver.testnet')).toBeTruthy();
+    expect(dialog.getByText('0.1 NEAR')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(dialog.getByRole('button', { name: 'Reject' }));
+    });
+    expect(await screen.findByText('You rejected it. Nothing was sent.', {}, SLOW)).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(wallet.signed).toEqual([]);
+    expect(made).not.toBeNull();
   }, 60_000);
 
   it('rejects an amount beyond the available balance with an accessible error', async () => {
@@ -442,6 +478,6 @@ describe('unavailable browsers', () => {
     render(<WalletOnboarding />, c);
     expect((await screen.findByRole('link', { name: /Create Taply Wallet/ })).getAttribute('href')).toBe('/wallet/create');
     expect(screen.getByRole('link', { name: /Restore Taply Wallet/ }).getAttribute('href')).toBe('/wallet/restore');
-    expect(screen.getAllByText('Testnet · sending off')).toHaveLength(2);
+    expect(screen.getAllByText('Testnet · you confirm each transaction')).toHaveLength(2);
   });
 });

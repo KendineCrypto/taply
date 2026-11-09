@@ -2,7 +2,7 @@ import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { TESTNET_GENESIS_HASH, createNearTestnetClient } from '@taply/near-client';
-import type { ContractConfig } from '@taply/near-client';
+import type { ContractConfig, WalletTransactionReview } from '@taply/near-client';
 import { calculateTermsHash } from '@/lib/protocol';
 import type { ContractRequest, IntentTerms } from '@/lib/protocol';
 import { I18nProvider } from '@/lib/i18n/provider';
@@ -247,7 +247,7 @@ export function renderWithChain(
     storage?: JournalStorage;
     locale?: Locale;
     /** Taply Wallet controller factory. Default: none (the provider reports "unavailable"). */
-    taply?: () => TaplyWalletController | null;
+    taply?: (confirmTransaction: (review: WalletTransactionReview) => Promise<boolean>) => TaplyWalletController | null;
     /** Default: an in-process mutex (jsdom has no Web Locks). Pass null to test the fail-closed path. */
     journalLock?: JournalLock | null;
     /** Device clock. Default: the fake chain's block time, so reads are fresh. */

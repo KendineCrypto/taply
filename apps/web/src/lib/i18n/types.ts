@@ -845,6 +845,37 @@ export interface Dictionary {
       readonly localOnlyNote: string;
       readonly namedPendingNote: string;
     };
+    /** Per-transaction confirmation (Taply Wallet signs only after this). */
+    readonly confirm: {
+      readonly title: string;
+      readonly body: string;
+      readonly from: string;
+      readonly to: string;
+      readonly action: string;
+      readonly amount: string;
+      readonly fee: string;
+      readonly feeValue: string;
+      readonly network: string;
+      readonly sell: string;
+      readonly buy: string;
+      readonly register: string;
+      readonly transfer: string;
+      readonly contract: string;
+      readonly expires: string;
+      readonly reject: string;
+      readonly approve: string;
+      readonly unlockTitle: string;
+      readonly unlockBody: string;
+      readonly cancel: string;
+      readonly sent: string;
+      readonly failed: string;
+      readonly declined: string;
+      readonly payRequest: string;
+      readonly createRequest: string;
+      readonly cancelRequest: string;
+      readonly retryPayout: string;
+      readonly tinyDeposit: string;
+    };
     readonly paymentsNote: string;
     readonly createdAlready: string;
     readonly nativeChip: string;

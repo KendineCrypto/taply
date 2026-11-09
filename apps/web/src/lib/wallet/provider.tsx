@@ -19,7 +19,7 @@ export type WalletState =
   | { readonly status: 'connecting' }
   | { readonly status: 'connected'; readonly session: WalletSession };
 
-interface WalletValue {
+export interface WalletValue {
   readonly state: WalletState;
   readonly connect: () => Promise<void>;
   readonly disconnect: () => Promise<void>;
@@ -133,4 +133,13 @@ export function useWallet(): WalletValue {
 export function useAccountId(): string | null {
   const { state } = useWallet();
   return state.status === 'connected' ? state.session.accountId : null;
+}
+
+/**
+ * Replaces the wallet for everything below it (Taply Wallet when it is the
+ * active wallet). `null` keeps the outer (external) wallet.
+ */
+export function WalletOverride({ value, children }: { readonly value: WalletValue | null; readonly children: ReactNode }) {
+  if (value === null) return <>{children}</>;
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }

@@ -45,7 +45,10 @@ or performed by this work. No Taply payment has occurred.
 
 ## Gates and integration
 
-TAPLY_WALLET_SIGNING_ENABLED remains hard-coded false. Contract calls additionally
+TAPLY_WALLET_SIGNING_ENABLED is now true for NEAR TESTNET ONLY, by the owner's explicit
+decision on 2026-11-09, without an independent security review. Every signature needs an
+unlocked vault, a fresh final snapshot and the ConfirmTransactionDialog; curated Ref/Rhea
+swap shapes are accepted only through checkedSwapTransaction (near-client). Contract calls additionally
 require the existing Instant Pay flag and an explicit confirmation callback.
 Neither vault unlock, storage/query values nor env values bypass the local gate.
 No Claude-owned UI component/style was modified. UI confirmation wiring and real

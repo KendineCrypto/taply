@@ -42,13 +42,14 @@ export async function signerFixture() {
     const tx = state.tx.transaction;
     const hash = baseEncode(state.hash);
     const status = state.failed ? { Failure: { ActionError: { index: 0, kind: { AccountDoesNotExist: { account_id: tx.receiverId } } } } } : { SuccessValue: '' };
-    const action = tx.actions[0];
-    const rpcAction = action.transfer ? { Transfer: { deposit: action.transfer.deposit.toString() } } : { FunctionCall: {
+    const rpcActions = tx.actions.map((action) => action.transfer ? { Transfer: { deposit: action.transfer.deposit.toString() } } : { FunctionCall: {
       method_name: action.functionCall.methodName, args: base64Encode(new Uint8Array(action.functionCall.args)), gas: Number(action.functionCall.gas), deposit: action.functionCall.deposit.toString(),
-    } };
+    } });
+    const rpcAction = rpcActions[0];
     if (state.forgeAction && rpcAction.Transfer) rpcAction.Transfer.deposit = '2';
+    if (state.forgeAction && rpcAction.FunctionCall && rpcActions.length > 1) rpcAction.FunctionCall.deposit = '2';
     return { final_execution_status: 'FINAL', status,
-      transaction: { hash, signer_id: tx.signerId, receiver_id: tx.receiverId, public_key: tx.publicKey.toString(), nonce: Number(tx.nonce), actions: [rpcAction] },
+      transaction: { hash, signer_id: tx.signerId, receiver_id: tx.receiverId, public_key: tx.publicKey.toString(), nonce: Number(tx.nonce), actions: rpcActions },
       transaction_outcome: outcome(hash, tx.signerId, { SuccessReceiptId: HASH2 }, [HASH2]),
       receipts_outcome: [outcome(HASH2, tx.receiverId, status)], receipts: [],
     };

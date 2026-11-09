@@ -12,15 +12,15 @@ import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { NEAR_NATIVE } from '@/lib/protocol';
 import { useTaplyWallet } from './TaplyWalletProvider';
-import type { TaplyErrorCode } from './TaplyWalletProvider';
+import type { SendOutcome, TaplyErrorCode } from './TaplyWalletProvider';
 import { TaplyErrorNotice } from './TaplyWalletUi';
 import { useWalletMode } from './mode';
 
 /**
- * Native transfer review from Taply Wallet. `prepareSend` (controller) checks
- * the receiver on NEAR Testnet, converts the amount exactly and applies storage
- * and gas reserves. There is no sign action here; the controller's
- * `TAPLY_WALLET_SIGNING_ENABLED` is hard-coded false and no UI state changes it.
+ * Native transfer from Taply Wallet. `prepareSend` (controller) checks the
+ * receiver on NEAR Testnet, converts the amount exactly and applies storage and
+ * gas reserves; "Confirm and send" goes through the reviewed backend and the
+ * Taply confirmation dialog (NEAR Testnet only, owner decision 2026-11-09).
  */
 type Prepared = { readonly receiverId: string; readonly depositYocto: string; readonly availableYocto: string; readonly storageReserveYocto: string; readonly gasReserveYocto: string };
 
@@ -30,7 +30,9 @@ export function TaplySend() {
   const n = t.walletNative;
   const s = t.walletUx.send;
   const [, setMode] = useWalletMode();
-  const { state, prepareSend, refresh } = useTaplyWallet();
+  const { state, prepareSend, sendNear, refresh } = useTaplyWallet();
+  const [sending, setSending] = useState(false);
+  const [outcome, setOutcome] = useState<SendOutcome | null>(null);
   const receiverId = useId();
   const amountId = useId();
   const [receiver, setReceiver] = useState('');
@@ -90,14 +92,59 @@ export function TaplySend() {
         <dd className="text-right">{value}</dd>
       </div>
     );
+    if (outcome !== null && outcome.kind !== 'declined') {
+      const ok = outcome.kind === 'final' && outcome.succeeded;
+      return (
+        <section className="surface-card flex flex-col gap-3 p-5" aria-live="polite">
+          <p className={`flex items-center gap-2 font-semibold ${ok ? 'text-[var(--taply-lime)]' : 'text-[var(--tone-caution-fg)]'}`}>
+            <Icon name={ok ? 'check' : 'alert'} size={18} />
+            {ok ? n.confirm.sent : outcome.kind === 'final' ? n.confirm.failed : t.payment.signing.unknown.title}
+          </p>
+          {outcome.transactionHash !== null && <p className="chain-id break-all text-xs text-[var(--text-muted)]">{outcome.transactionHash}</p>}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setPrepared(null);
+              setOutcome(null);
+              setAmount('');
+              setReceiver('');
+            }}
+          >
+            {t.walletUx.send.sendAnother}
+          </Button>
+        </section>
+      );
+    }
     return (
+      <>
+      {outcome?.kind === 'declined' && <p role="status" className="mb-3 text-sm text-[var(--text-secondary)]">{n.confirm.declined}</p>}
       <SendReview
         recipientAccountId={prepared.receiverId}
         amountYocto={prepared.depositYocto}
-        // This component has no sign action at all: confirming stays unavailable until a
-        // reviewed signer exists (controller TAPLY_WALLET_SIGNING_ENABLED is hard-coded false).
-        confirm={{ available: false, reason: n.send.signingOff }}
-        onEdit={() => setPrepared(null)}
+        confirm={
+          sending
+            ? { available: false, reason: n.confirm.title }
+            : {
+                available: true,
+                label: t.walletUx.send.confirm,
+                onConfirm: async () => {
+                  setSending(true);
+                  setOutcome(null);
+                  const result = await sendNear(prepared.receiverId, amount.trim().replace(',', '.'));
+                  setSending(false);
+                  if (!result.ok) {
+                    setError(result.code);
+                    setPrepared(null);
+                    return;
+                  }
+                  setOutcome(result.value);
+                },
+              }
+        }
+        onEdit={() => {
+          setPrepared(null);
+          setOutcome(null);
+        }}
         details={
           <>
             {row(t.experience.from, <span className="chain-id break-all">{state.identity.accountId}</span>)}
@@ -107,6 +154,7 @@ export function TaplySend() {
           </>
         }
       />
+      </>
     );
   }
 

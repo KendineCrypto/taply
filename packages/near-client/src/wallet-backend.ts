@@ -15,15 +15,80 @@ import { WalletAttemptJournal } from "./wallet-journal.js";
 import { OneShotWalletProvider } from "./wallet-sdk-rpc.js";
 import { WalletEngineError, prepareNativeNearTransfer, spendingBudget, WALLET_MAX_CALL_GAS } from "./wallet-transfer.js";
 import type { WalletBalanceSnapshot } from "./wallet-transfer.js";
+import { TESTNET_SWAP_ROUTES } from "./ref-swap.js";
 
 export const APPROVED_PAYMENT_CODE_HASH = "BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B";
 export const WALLET_REVIEW_TTL_MS = 60_000;
 export interface WalletTransactionReview {
-  readonly id: string; readonly network: "near-testnet"; readonly kind: "native_transfer" | "contract_call";
+  readonly id: string; readonly network: "near-testnet"; readonly kind: "native_transfer" | "contract_call" | "token_swap";
   readonly signerAccountId: string; readonly publicKey: string; readonly receiverId: string;
   readonly depositYocto: string; readonly gas: string; readonly methodName: string | null; readonly argsJson: string | null;
   readonly nonce: string; readonly blockHash: string; readonly storageReserveYocto: string;
   readonly gasReserveYocto: string; readonly availableYocto: string; readonly expiresAtMs: number;
+  /** token_swap only: every function call of the transaction, canonical JSON. */
+  readonly actionsJson?: string;
+}
+/** One function call of a token-swap transaction (ref-swap.ts builders). */
+export interface WalletFunctionCall { readonly methodName: string; readonly args: Record<string, unknown>; readonly gas: string; readonly depositYocto: string }
+/** A Ref/Rhea Testnet swap transaction for a curated route (TESTNET_SWAP_ROUTES). */
+export interface PreparedWalletSwap { readonly receiverId: string; readonly actions: readonly WalletFunctionCall[] }
+
+const REF_EXCHANGE = "ref-finance-101.testnet";
+const WRAPPED_NEAR = "wrap.testnet";
+const MAX_STORAGE_DEPOSIT = 50_000_000_000_000_000_000_000n; // 0.05 NEAR
+const MAX_SWAP_GAS = 300_000_000_000_000n;
+const U128_TEXT = /^[1-9][0-9]{0,38}$/;
+const sameJson = (a: unknown, b: unknown) => canonicalJson(a) === canonicalJson(b);
+/**
+ * Exact-shape check for swap transactions: only the curated routes, only the
+ * register / buy (wrap + swap) / sell (swap + native unwrap) shapes ref-swap.ts
+ * builds, the signer as the only account in arguments, bounded deposits and gas.
+ * Anything else, including an arbitrary token or pool, is CALL_NOT_ALLOWED.
+ */
+export function checkedSwapTransaction(candidate: PreparedWalletSwap, signerAccountId: string): PreparedWalletSwap {
+  const refuse = (): never => { throw new WalletEngineError("CALL_NOT_ALLOWED"); };
+  const parsed = JSON.parse(canonicalJson(candidate)) as PreparedWalletSwap;
+  const acts = parsed.actions;
+  if (!Array.isArray(acts) || acts.length < 1 || acts.length > 3) refuse();
+  for (const a of acts) {
+    if (typeof a.methodName !== "string" || typeof a.args !== "object" || a.args === null || !U128_TEXT.test(a.gas) || BigInt(a.gas) > MAX_SWAP_GAS ||
+      !(U128_TEXT.test(a.depositYocto))) refuse();
+  }
+  const registration = (a: WalletFunctionCall) => a.methodName === "storage_deposit" &&
+    sameJson(a.args, { account_id: signerAccountId, registration_only: true }) && BigInt(a.depositYocto) <= MAX_STORAGE_DEPOSIT;
+  const swapMsg = (msg: unknown, tokenIn: string, tokenOut: string, amount: string, unwrap: boolean) => {
+    if (typeof msg !== "string") return false;
+    let m: unknown; try { m = JSON.parse(msg); } catch { return false; }
+    const route = TESTNET_SWAP_ROUTES.find((r) => r.token === (tokenIn === WRAPPED_NEAR ? tokenOut : tokenIn));
+    if (!route || typeof m !== "object" || m === null) return false;
+    const action = (m as { actions?: unknown[] }).actions?.[0] as Record<string, unknown> | undefined;
+    if (!action || typeof action.min_amount_out !== "string" || !U128_TEXT.test(action.min_amount_out)) return false;
+    const expected = { force: 0, actions: [{ pool_id: route.poolId, token_in: tokenIn, token_out: tokenOut, amount_in: amount, min_amount_out: action.min_amount_out }],
+      ...(unwrap ? { skip_unwrap_near: false } : {}) };
+    return sameJson(m, expected);
+  };
+  const route = TESTNET_SWAP_ROUTES.find((r) => r.token === parsed.receiverId);
+  if (route) {
+    if (acts.length !== 1) refuse();
+    const a = acts[0]!;
+    if (registration(a)) return parsed;
+    const args = a.args as { receiver_id?: unknown; amount?: unknown; msg?: unknown };
+    if (a.methodName === "ft_transfer_call" && a.depositYocto === "1" && Object.keys(args).sort().join() === "amount,msg,receiver_id" &&
+      args.receiver_id === REF_EXCHANGE && typeof args.amount === "string" && U128_TEXT.test(args.amount) &&
+      swapMsg(args.msg, route.token, WRAPPED_NEAR, args.amount, true)) return parsed;
+    return refuse();
+  }
+  if (parsed.receiverId !== WRAPPED_NEAR) refuse();
+  const rest = registration(acts[0]!) ? acts.slice(1) : acts;
+  if (rest.length !== 2) refuse();
+  const [wrap, swap] = rest as [WalletFunctionCall, WalletFunctionCall];
+  const args = swap.args as { receiver_id?: unknown; amount?: unknown; msg?: unknown };
+  let tokenOut: unknown = null;
+  try { tokenOut = (JSON.parse(String(args.msg)) as { actions?: Array<{ token_out?: unknown }> }).actions?.[0]?.token_out; } catch { refuse(); }
+  if (wrap.methodName !== "near_deposit" || !sameJson(wrap.args, {}) || swap.methodName !== "ft_transfer_call" || swap.depositYocto !== "1" ||
+    Object.keys(args).sort().join() !== "amount,msg,receiver_id" || args.receiver_id !== REF_EXCHANGE || args.amount !== wrap.depositYocto ||
+    typeof tokenOut !== "string" || !swapMsg(args.msg, WRAPPED_NEAR, tokenOut, wrap.depositYocto, false)) refuse();
+  return parsed;
 }
 export type WalletSubmission =
   | { readonly kind: "final"; readonly transactionHash: string; readonly outcome: "SUCCEEDED" | "FAILED"; readonly settlementProof: "NOT_VERIFIED" }
@@ -34,7 +99,7 @@ export interface WalletBackendPolicy {
   /** Mandatory browser Web Lock. Tests supply an isolated deterministic lock. */
   withExclusiveLock<T>(task: () => Promise<T>): Promise<T>;
 }
-type Plan = { review: WalletTransactionReview; bytes: Uint8Array<ArrayBuffer>; snapshot: WalletBalanceSnapshot; call: PreparedContractCall | null };
+type Plan = { review: WalletTransactionReview; bytes: Uint8Array<ArrayBuffer>; snapshot: WalletBalanceSnapshot; call: PreparedContractCall | null; swap: PreparedWalletSwap | null };
 type Reads = Pick<NearTestnetClient, "readContractConfig" | "quoteCreateRequest" | "readPaymentRequest" | "observeTransaction">;
 function fresh<T>(result: ReadResult<T>): { data: T; timestampNs: string } {
   const o = result.observation;
@@ -45,9 +110,13 @@ function fresh<T>(result: ReadResult<T>): { data: T; timestampNs: string } {
 const TxResponse = z.object({ final_execution_status: z.literal("FINAL"), transaction: z.object({
   hash: z.string(), signer_id: z.string(), receiver_id: z.string(), public_key: z.string(), nonce: z.union([z.number().int().safe(), z.bigint().nonnegative()]).transform(String), actions: z.array(z.unknown()).length(1),
 }), status: z.unknown() });
+const TxResponseAnyActions = z.object({ final_execution_status: z.literal("FINAL"), transaction: z.object({
+  hash: z.string(), signer_id: z.string(), receiver_id: z.string(), public_key: z.string(), nonce: z.union([z.number().int().safe(), z.bigint().nonnegative()]).transform(String), actions: z.array(z.unknown()).min(1).max(3),
+}), status: z.unknown() });
 
-/** Independent SDK backend. Default production caller binds BOTH approvals to
- * hard-disabled gates. No keys, signing state or policy is loaded from storage.
+/** Independent SDK backend. The caller binds BOTH approvals to its policy
+ * (Taply Wallet: enabled on NEAR Testnet by owner decision 2026-11-09, no
+ * independent security review). No keys, signing state or policy is loaded from storage.
  * Network dependencies are injectable for isolated offline tests only.
  */
 export function createReviewedWalletBackend(input: {
@@ -128,11 +197,29 @@ export function createReviewedWalletBackend(input: {
       throw new WalletEngineError("CALL_NOT_ALLOWED");
     return JSON.parse(canonicalJson(prepared)) as PreparedContractCall;
   };
-  const prepare = async (receiverId: string, amountNear: string | null, candidate: PreparedContractCall | null) => {
+  const prepare = async (receiverId: string, amountNear: string | null, candidate: PreparedContractCall | null, swapCandidate: PreparedWalletSwap | null = null) => {
     journal.assertClear();
     for (const [id, plan] of plans) if (now() >= plan.review.expiresAtMs) plans.delete(id);
     if (plans.size >= 20) throw new WalletEngineError("OUTCOME_UNRESOLVED");
     const state = await snapshot();
+    if (swapCandidate !== null) {
+      const swap = checkedSwapTransaction(swapCandidate, state.accountId);
+      await chain.receiverExists(swap.receiverId, state.blockHash);
+      const total = swap.actions.reduce((sum, a) => sum + BigInt(a.depositYocto), 0n).toString();
+      const budget = spendingBudget(state, total);
+      const encoded = swap.actions.map((a) => ({ ...a, argsJson: canonicalJson(a.args) }));
+      if (encoded.some((a) => new TextEncoder().encode(a.argsJson).byteLength > 8192)) throw new WalletEngineError("CALL_NOT_ALLOWED");
+      const tx = createTransaction(state.accountId, PublicKey.fromString(state.publicKey), swap.receiverId, BigInt(state.nonce) + 1n,
+        encoded.map((a) => actions.functionCall(a.methodName, new TextEncoder().encode(a.argsJson), BigInt(a.gas), BigInt(a.depositYocto))), baseDecode(state.blockHash));
+      const gasTotal = swap.actions.reduce((sum, a) => sum + BigInt(a.gas), 0n);
+      if (gasTotal > MAX_SWAP_GAS) throw new WalletEngineError("CALL_NOT_ALLOWED");
+      const review: WalletTransactionReview = Object.freeze({ id: crypto.randomUUID(), network: "near-testnet", kind: "token_swap",
+        signerAccountId: state.accountId, publicKey: state.publicKey, receiverId: swap.receiverId, depositYocto: total, gas: gasTotal.toString(),
+        methodName: swap.actions.map((a) => a.methodName).join("+"), argsJson: null, actionsJson: canonicalJson(swap.actions),
+        nonce: tx.nonce.toString(), blockHash: state.blockHash, ...budget, expiresAtMs: now() + WALLET_REVIEW_TTL_MS });
+      plans.set(review.id, { review, bytes: new Uint8Array(encodeTransaction(tx)), snapshot: state, call: null, swap });
+      return review;
+    }
     const call = candidate === null ? null : await checkedPayment(candidate);
     const native = call === null ? prepareNativeNearTransfer(state, receiverId, amountNear ?? "") : null;
     await chain.receiverExists(receiverId, state.blockHash);
@@ -146,7 +233,7 @@ export function createReviewedWalletBackend(input: {
     const review: WalletTransactionReview = Object.freeze({ id: crypto.randomUUID(), network: "near-testnet", kind: call === null ? "native_transfer" : "contract_call",
       signerAccountId: state.accountId, publicKey: state.publicKey, receiverId, depositYocto, gas: call?.gas ?? "0", methodName: call?.methodName ?? null,
       argsJson, nonce: tx.nonce.toString(), blockHash: state.blockHash, ...budget, expiresAtMs: now() + WALLET_REVIEW_TTL_MS });
-    plans.set(review.id, { review, bytes, snapshot: state, call });
+    plans.set(review.id, { review, bytes, snapshot: state, call, swap: null });
     return review;
   };
   const hashOf = async (bytes: Uint8Array) => baseEncode(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes))));
@@ -158,14 +245,17 @@ export function createReviewedWalletBackend(input: {
       const bytes = base64Decode(attempt.unsignedTransaction);
       const tx = Transaction.decode(bytes);
       if (await hashOf(bytes) !== attempt.transactionHash || tx.signerId !== attempt.accountId) throw new WalletEngineError("OUTCOME_UNRESOLVED");
-      const raw = TxResponse.parse(await provider.viewTransactionStatusWithReceipts({ txHash: attempt.transactionHash, accountId: attempt.accountId, waitUntil: "FINAL" }));
+      const multi = tx.actions.length > 1;
+      const raw = (multi ? TxResponseAnyActions : TxResponse).parse(await provider.viewTransactionStatusWithReceipts({ txHash: attempt.transactionHash, accountId: attempt.accountId, waitUntil: "FINAL" }));
       const t = raw.transaction;
       const action = tx.actions[0];
-      const expectedAction = action?.transfer ? { Transfer: { deposit: action.transfer.deposit.toString() } } : action?.functionCall ? {
-        FunctionCall: { method_name: action.functionCall.methodName, args: base64Encode(new Uint8Array(action.functionCall.args)), gas: Number(action.functionCall.gas), deposit: action.functionCall.deposit.toString() },
+      const expectedOf = (a: (typeof tx.actions)[number] | undefined) => a?.transfer ? { Transfer: { deposit: a.transfer.deposit.toString() } } : a?.functionCall ? {
+        FunctionCall: { method_name: a.functionCall.methodName, args: base64Encode(new Uint8Array(a.functionCall.args)), gas: Number(a.functionCall.gas), deposit: a.functionCall.deposit.toString() },
       } : null;
+      const expectedActions = tx.actions.map(expectedOf);
       if (t.hash !== attempt.transactionHash || t.signer_id !== tx.signerId || t.receiver_id !== tx.receiverId ||
-        t.public_key !== tx.publicKey.toString() || BigInt(t.nonce) !== tx.nonce || expectedAction === null || canonicalJson(t.actions[0]) !== canonicalJson(expectedAction))
+        t.public_key !== tx.publicKey.toString() || BigInt(t.nonce) !== tx.nonce || expectedActions.some((e) => e === null) ||
+        t.actions.length !== expectedActions.length || canonicalJson(t.actions) !== canonicalJson(expectedActions))
         throw new WalletEngineError("OUTCOME_UNRESOLVED");
       // Independent existing reader checks FINAL, the complete rooted outcome
       // graph and every receipt block. A hash or deposit alone never settles.
@@ -194,6 +284,8 @@ export function createReviewedWalletBackend(input: {
   return Object.freeze({
     prepareTransfer: (receiverId: string, amountNear: string) => prepare(receiverId, amountNear, null),
     prepareContractCall: (call: PreparedContractCall) => prepare(call.receiverId, null, JSON.parse(canonicalJson(call)) as PreparedContractCall),
+    /** Curated Ref/Rhea Testnet swap (register / buy / sell); exact shapes only. */
+    prepareSwapTransaction: (swap: PreparedWalletSwap) => prepare(swap.receiverId, null, null, swap),
     reconcile,
     async submit(reviewId: string, confirm: (review: WalletTransactionReview) => Promise<boolean>): Promise<WalletSubmission> {
       if (!input.policy.signingPermitted()) throw new WalletEngineError("SIGNING_DISABLED");
@@ -205,9 +297,10 @@ export function createReviewedWalletBackend(input: {
         journal.assertClear();
         if (!input.vault.unlocked) throw new WalletEngineError("LOCKED");
         if (now() >= plan.review.expiresAtMs) throw new WalletEngineError("REVIEW_EXPIRED");
-        if (plan.call && !input.policy.contractCallsPermitted()) throw new WalletEngineError("SIGNING_DISABLED");
+        const contractLike = plan.call !== null || plan.swap !== null;
+        if (contractLike && !input.policy.contractCallsPermitted()) throw new WalletEngineError("SIGNING_DISABLED");
         if (await confirm(plan.review) !== true) throw new WalletEngineError("REVIEW_REJECTED");
-        if (!input.policy.signingPermitted() || (plan.call && !input.policy.contractCallsPermitted())) throw new WalletEngineError("SIGNING_DISABLED");
+        if (!input.policy.signingPermitted() || (contractLike && !input.policy.contractCallsPermitted())) throw new WalletEngineError("SIGNING_DISABLED");
         if (!input.vault.unlocked) throw new WalletEngineError("LOCKED");
         if (now() >= plan.review.expiresAtMs) throw new WalletEngineError("REVIEW_EXPIRED");
         const current = await snapshot();
@@ -220,6 +313,7 @@ export function createReviewedWalletBackend(input: {
           BigInt(budget.storageReserveYocto) > BigInt(plan.review.storageReserveYocto)) throw new WalletEngineError("REVIEW_EXPIRED");
         await chain.receiverExists(plan.review.receiverId, current.blockHash);
         if (plan.call) await checkedPayment(plan.call);
+        if (plan.swap) checkedSwapTransaction(plan.swap, current.accountId);
         journal.begin(current.accountId, reviewId);
         let hash: string | null = null;
         try {
@@ -232,9 +326,9 @@ export function createReviewedWalletBackend(input: {
           // Must be durable BEFORE invoking the SDK transport, even on timeout.
           journal.update(reviewId, "SUBMITTED", hash, base64Encode(plan.bytes));
           broadcastHash = hash;
-          broadcastLease = signed.assertActive; broadcastExpiresAt = plan.review.expiresAtMs; broadcastIsContract = plan.call !== null;
+          broadcastLease = signed.assertActive; broadcastExpiresAt = plan.review.expiresAtMs; broadcastIsContract = contractLike;
           const response = await provider.sendTransactionUntil(signed.signedTransaction, "FINAL");
-          if (TxResponse.parse(response).transaction.hash !== hash) throw new WalletEngineError("OUTCOME_UNRESOLVED");
+          if ((plan.swap ? TxResponseAnyActions : TxResponse).parse(response).transaction.hash !== hash) throw new WalletEngineError("OUTCOME_UNRESOLVED");
         } catch {
           const attempt = journal.read();
           if (attempt?.phase === "RESERVED") journal.update(reviewId, "NOT_SENT");

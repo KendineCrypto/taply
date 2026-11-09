@@ -33,8 +33,9 @@ describe('Taply local wallet controller (not the default external connector)', (
     expect(await controller.read()).toEqual({ status: 'NOT_CREATED' });
     expect(await controller.adapter.restore()).toBeNull();
     expect(snapshot).not.toHaveBeenCalled();
-    expect(controller.signingEnabled).toBe(false);
-    expect(TAPLY_WALLET_SIGNING_ENABLED).toBe(false);
+    // NEAR Testnet signing is on by owner decision; it still needs unlock, review and confirmation.
+    expect(controller.signingEnabled).toBe(true);
+    expect(TAPLY_WALLET_SIGNING_ENABLED).toBe(true);
   });
   it('generated identity and its exact QR stay local only without an on-chain account', async () => {
     const { controller } = make(false);
