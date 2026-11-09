@@ -1,0 +1,193 @@
+{
+  "kind": "TAPLY_G1_INSTANT_AUTOMATED_TESTNET_PROOF",
+  "network": "near-testnet",
+  "note": "Disposable automation accounts, not owner wallets; not a physical-wallet acceptance run.",
+  "contractId": "taply-pay-pilot-1.testnet",
+  "contractCodeHash": "BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B",
+  "recipientAccountId": "taply-e2e-ae0435bf.testnet",
+  "payerAccountId": "taply-e2e-fed53747.testnet",
+  "amountYocto": "10000000000000000000000",
+  "requestId": "d4edcbfbee2a222d902e22b925d3dcd6b7fdd58a1af939c93e0b2eab9afd8022",
+  "termsHash": "243dd5bef3ee15fa6f8ca985c8b8d89002c58eacc380998b3e3125865319bb3a",
+  "createTransaction": {
+    "hash": "A5xd9ak9TwiTAgxoJgBonmaHNFVsePj59XYNHcCSm4LE",
+    "signerAccountId": "taply-e2e-ae0435bf.testnet",
+    "gasBurnt": "3330336932276",
+    "storageDepositYocto": "5780000000000000000000"
+  },
+  "openStatus": "OPEN",
+  "fundingTransaction": {
+    "hash": "7Ajta5TugRqXEWHqMEN8d34hnxQ6doGxqXwerpKNX2qz",
+    "signerAccountId": "taply-e2e-fed53747.testnet",
+    "gasBurnt": "6166454923552"
+  },
+  "finalStatus": "FINAL_PAID",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "INSTANT_PAYOUT",
+    "destinationAccountId": "taply-e2e-ae0435bf.testnet",
+    "amountBaseUnits": "10000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1794208328848731921",
+    "resolvedAtNs": "1794208330063376754",
+    "failureCode": null
+  },
+  "recipientBalanceDeltaYocto": "10000000000000000000000",
+  "duplicateFunding": {
+    "hash": "4WD9n11RemE1k56ynmEo5XnVXfzcrmrprTzkxg9tQhtw",
+    "refused": true,
+    "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}"
+  },
+  "verifierSourceSha256": {
+    "rpc": "f316aa4a58f1a3dc07752d8c4fbe1237767af5a4ebed4c32000317e6e3173e6b",
+    "verifier": "479b73e2f640e8066f5edf18745235535714e4ab2f54249ae88d5aef09337856"
+  },
+  "verification": [
+    {
+      "providerId": "near-public-testnet",
+      "result": {
+        "kind": "verified",
+        "receipt": {
+          "schemaVersion": "taply.receipt.v1",
+          "requestId": "d4edcbfbee2a222d902e22b925d3dcd6b7fdd58a1af939c93e0b2eab9afd8022",
+          "termsHash": "243dd5bef3ee15fa6f8ca985c8b8d89002c58eacc380998b3e3125865319bb3a",
+          "sessionId": null,
+          "network": "near-testnet",
+          "contractId": "taply-pay-pilot-1.testnet",
+          "contractCodeHash": "BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B",
+          "mode": "instant",
+          "finalStatus": "FINAL_PAID",
+          "payerAccountId": "taply-e2e-fed53747.testnet",
+          "recipientAccountId": "taply-e2e-ae0435bf.testnet",
+          "settlementBeneficiaryAccountId": "taply-e2e-ae0435bf.testnet",
+          "assetId": "near:native",
+          "amountBaseUnits": "10000000000000000000000",
+          "operationNonce": "1",
+          "fundingTransaction": {
+            "hash": "7Ajta5TugRqXEWHqMEN8d34hnxQ6doGxqXwerpKNX2qz",
+            "signerAccountId": "taply-e2e-fed53747.testnet"
+          },
+          "fundingReceipt": {
+            "receiptId": "HWDtU1F1iC17XKc8jkRzZTpbMvkE3k7i9HaZWReSSUyg",
+            "executorAccountId": "taply-pay-pilot-1.testnet",
+            "block": {
+              "hash": "9kdYjHgwR14vxowPQMHd5gZVJmZ24qANA4ixNjhYhFg7",
+              "height": "276888374",
+              "timestampNs": "1794208328848731921"
+            },
+            "outcome": "SUCCESS"
+          },
+          "settlementTransaction": {
+            "hash": "7Ajta5TugRqXEWHqMEN8d34hnxQ6doGxqXwerpKNX2qz",
+            "signerAccountId": "taply-e2e-fed53747.testnet"
+          },
+          "transferReceipt": {
+            "receiptId": "GTBqkcvfFjX8NvYV18pMHdbvKq1QTVJ67ZLxE7sNF8ax",
+            "executorAccountId": "taply-e2e-ae0435bf.testnet",
+            "block": {
+              "hash": "JC6GqPgfLiTEX7LXbAXD5ehymWBJ4NN69Jb9c859Tet5",
+              "height": "276888375",
+              "timestampNs": "1794208329506933404"
+            },
+            "outcome": "SUCCESS"
+          },
+          "callbackReceipt": {
+            "receiptId": "EpPTRmBj8jDtrJWZWjBqR3ubBpNCuxkPbPCG8RADZYMR",
+            "executorAccountId": "taply-pay-pilot-1.testnet",
+            "block": {
+              "hash": "1d7w6B7gDt2TZEzb19ubxPdz9P3CxAnReMWeU6ebzLC",
+              "height": "276888376",
+              "timestampNs": "1794208330063376754"
+            },
+            "outcome": "SUCCESS"
+          },
+          "contractStateBlock": {
+            "hash": "DpT3HcD2dWD9s6zVm4QRezxrSgC61MMRfBxi7DM7EwFa",
+            "height": "276888419",
+            "timestampNs": "1794208356126335179"
+          },
+          "verification": {
+            "state": "verified_final",
+            "executionFinality": "FINAL",
+            "trustModel": "configured-rpc",
+            "rpcProviderId": "near-public-testnet",
+            "checkedAt": "2026-11-09T07:13:10.445Z"
+          }
+        }
+      }
+    },
+    {
+      "providerId": "fastnear-testnet",
+      "result": {
+        "kind": "verified",
+        "receipt": {
+          "schemaVersion": "taply.receipt.v1",
+          "requestId": "d4edcbfbee2a222d902e22b925d3dcd6b7fdd58a1af939c93e0b2eab9afd8022",
+          "termsHash": "243dd5bef3ee15fa6f8ca985c8b8d89002c58eacc380998b3e3125865319bb3a",
+          "sessionId": null,
+          "network": "near-testnet",
+          "contractId": "taply-pay-pilot-1.testnet",
+          "contractCodeHash": "BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B",
+          "mode": "instant",
+          "finalStatus": "FINAL_PAID",
+          "payerAccountId": "taply-e2e-fed53747.testnet",
+          "recipientAccountId": "taply-e2e-ae0435bf.testnet",
+          "settlementBeneficiaryAccountId": "taply-e2e-ae0435bf.testnet",
+          "assetId": "near:native",
+          "amountBaseUnits": "10000000000000000000000",
+          "operationNonce": "1",
+          "fundingTransaction": {
+            "hash": "7Ajta5TugRqXEWHqMEN8d34hnxQ6doGxqXwerpKNX2qz",
+            "signerAccountId": "taply-e2e-fed53747.testnet"
+          },
+          "fundingReceipt": {
+            "receiptId": "HWDtU1F1iC17XKc8jkRzZTpbMvkE3k7i9HaZWReSSUyg",
+            "executorAccountId": "taply-pay-pilot-1.testnet",
+            "block": {
+              "hash": "9kdYjHgwR14vxowPQMHd5gZVJmZ24qANA4ixNjhYhFg7",
+              "height": "276888374",
+              "timestampNs": "1794208328848731921"
+            },
+            "outcome": "SUCCESS"
+          },
+          "settlementTransaction": {
+            "hash": "7Ajta5TugRqXEWHqMEN8d34hnxQ6doGxqXwerpKNX2qz",
+            "signerAccountId": "taply-e2e-fed53747.testnet"
+          },
+          "transferReceipt": {
+            "receiptId": "GTBqkcvfFjX8NvYV18pMHdbvKq1QTVJ67ZLxE7sNF8ax",
+            "executorAccountId": "taply-e2e-ae0435bf.testnet",
+            "block": {
+              "hash": "JC6GqPgfLiTEX7LXbAXD5ehymWBJ4NN69Jb9c859Tet5",
+              "height": "276888375",
+              "timestampNs": "1794208329506933404"
+            },
+            "outcome": "SUCCESS"
+          },
+          "callbackReceipt": {
+            "receiptId": "EpPTRmBj8jDtrJWZWjBqR3ubBpNCuxkPbPCG8RADZYMR",
+            "executorAccountId": "taply-pay-pilot-1.testnet",
+            "block": {
+              "hash": "1d7w6B7gDt2TZEzb19ubxPdz9P3CxAnReMWeU6ebzLC",
+              "height": "276888376",
+              "timestampNs": "1794208330063376754"
+            },
+            "outcome": "SUCCESS"
+          },
+          "contractStateBlock": {
+            "hash": "6zMkmJGjUnZFjT3e31yZoJ96RWsUzDg3eVDm9Y6iQ6Gt",
+            "height": "276888472",
+            "timestampNs": "1794208388701043330"
+          },
+          "verification": {
+            "state": "verified_final",
+            "executionFinality": "FINAL",
+            "trustModel": "configured-rpc",
+            "rpcProviderId": "fastnear-testnet",
+            "checkedAt": "2026-11-09T07:13:12.742Z"
+          }
+        }
+      }
+    }
+  ]
+}
