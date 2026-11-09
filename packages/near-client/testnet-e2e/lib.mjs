@@ -41,6 +41,8 @@ export async function finalBlock() {
 export async function view(contractId, method, args = {}) {
   const r = await rpc('query', { request_type: 'call_function', finality: 'final', account_id: contractId, method_name: method,
     args_base64: Buffer.from(JSON.stringify(args)).toString('base64') });
+  // A contract panic inside a view comes back as result.error, not as an RPC error.
+  if (r.error) throw new Error(`view ${method}: ${String(r.error).slice(0, 300)}`);
   return JSON.parse(Buffer.from(r.result).toString('utf8'));
 }
 
