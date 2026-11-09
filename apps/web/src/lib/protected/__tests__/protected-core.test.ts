@@ -7,7 +7,7 @@ import type { JournalEntry } from '@/lib/payments/journal';
 import { reconcile } from '@/lib/payments/submit';
 import { buildProtectedView } from '../view';
 import { protectedSigningGate, resolveProtectedSetup } from '../setup';
-import { durationSeconds, estimateCutoff, formatCountdown } from '../countdown';
+import { durationSeconds, estimateCutoff, formatCountdown } from '@/lib/format/countdown';
 
 const BLOCK = '11111111111111111111111111111113';
 const CODE = 'BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B';

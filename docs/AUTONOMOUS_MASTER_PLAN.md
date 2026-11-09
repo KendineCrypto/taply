@@ -31,13 +31,14 @@ progress log as needing Codex/lead review before merge.
 | --- | --- | --- | --- |
 | 1 | Protected Pay contract candidate (`contracts/payments-protected`) with full unit tests and cross-language wire check | G3 | **Done (candidate)** |
 | 2 | near-client Protected call builders (`packages/near-client/src/protected.ts`) | G3 | **Done (candidate)** |
-| 3 | Web: Protected journal methods + reconciliation + consent/countdown/cancel/release/retry UI behind `protectedPay` flag | G3 | Next |
-| 4 | Web: request creation with Protected mode + duration (flag-gated) | G3 | Queued |
-| 5 | Sandbox (near-workspaces) run of the candidate: measured gas/storage, real refund + release on a local node | G3 | Queued |
-| 6 | NEP-141 design + candidate (`ft_on_transfer`, allowlist, exact amount, unused return, payout callback) | P2 | Queued; freeze section 3 keeps `near:native` only, so this needs a shared-schema change request first |
+| 3 | Web: Protected journal methods + reconciliation + consent/countdown/cancel/release/retry UI behind `protectedPay` flag (`/protected/[id]`) | G3 | **Done (flag off)** |
+| 4 | Web: request creation with Protected mode + duration (flag-gated, `/protected/new`) | G3 | **Done (flag off)** |
+| 5 | Sandbox (near-workspaces) run of the candidate: measured gas/storage, real refund + release on a local node | G3 | In progress (see progress log) |
+| 6 | NEP-141 design + candidate (`ft_on_transfer`, allowlist, exact amount, unused return, payout callback) | P2 | Change request written ([NEP141_CHANGE_REQUEST.md](NEP141_CHANGE_REQUEST.md)); code waits for lead approval of the shared asset schema |
 | 7 | G1 acceptance support: anything the owner's signed run on the QA build needs | G1 | Owner-blocked (needs owner wallets) |
 | 8 | Handshake/merchant G2: F-06 production auth, merchant candidate review | G2 | Blocked on review; not started here |
 | 9 | Contacts/Split/Recurring polish, wallet improvements | P1 | Queued |
+| 10 | Protected QA deployment: fresh Testnet account, candidate WASM, QA build env (`NEXT_PUBLIC_TAPLY_PROTECTED_*`) | G3 | Owner-only (needs a Testnet account the owner controls) |
 
 ## Owner-only steps (cannot be done by an agent)
 

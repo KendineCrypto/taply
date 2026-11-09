@@ -1,6 +1,7 @@
 import type { Dictionary } from '../types';
 import { commerceTr } from './commerce-tr';
 import { toolsTr } from './tools-tr';
+import { protectedTr } from './protected-tr';
 
 /**
  * Turkish (secondary locale).
@@ -14,6 +15,7 @@ import { toolsTr } from './tools-tr';
 export const tr: Dictionary = {
   commerce: commerceTr,
   tools: toolsTr,
+  protectedFlow: protectedTr,
   locale: 'tr',
   localeName: 'Türkçe',
 

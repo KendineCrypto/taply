@@ -1,5 +1,7 @@
 import type { CommerceCopy } from './commerce-types';
 import type { ToolsCopy } from './tools-types';
+import type { ProtectedFlowCopy } from './protected-types';
+import type { JournalMethod } from '@/lib/payments/journal';
 import type { Assurance, ChainState, ErrorCode, LocalPhase, SessionState } from '@/lib/protocol';
 
 export const LOCALES = ['en', 'tr'] as const;
@@ -52,6 +54,7 @@ export interface Dictionary {
   readonly commerce: CommerceCopy;
   /** Monday sprint: Contacts, recurring templates, Split Pay. */
   readonly tools: ToolsCopy;
+  readonly protectedFlow: ProtectedFlowCopy;
   readonly localeName: string;
 
   readonly app: {
@@ -601,7 +604,7 @@ export interface Dictionary {
       readonly explorer: string;
     };
     readonly activity: {
-      readonly method: Readonly<Record<import('@/lib/payments/journal').JournalMethod, string>>;
+      readonly method: Readonly<Record<JournalMethod, string>>;
       readonly phase: Readonly<Record<'AWAITING_SIGNATURE' | 'USER_REJECTED' | 'OUTCOME_UNKNOWN' | 'SUBMITTED' | 'RESOLVED', string>>;
       readonly open: string;
     };

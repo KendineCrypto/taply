@@ -26,6 +26,45 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 - Baseline `pnpm check` on `22765d7` (Node 24.22.2): **exit 0** — shared 92/92,
   near-client 207/207, web 1,112 passed + 1 skipped (73 files).
 
+### Increment 2 — Protected Pay web flow (flag off) + NEP-141 change request
+
+New / changed (all behind `protectedPay`, default OFF; production sets no Protected variables):
+
+- `packages/near-client/src/protected.ts`: `createProtectedReader` (candidate
+  `get_config` read anchored to one final block after the code-hash check;
+  refuses the G1 pilot). 2 more tests (9 total in `protected.test.mjs`).
+- `apps/web/src/lib/protected/`: `buildProtectedView` (cancel window, release
+  eligibility and retry derived from chain time of a fresh final read, validated
+  by the frozen `PaymentIntentResponseSchema`), `resolveProtectedSetup` +
+  `protectedSigningGate` (flag + separate contract + code hash; the
+  UNREVIEWED_CANDIDATE problem is waivable only with `NEXT_PUBLIC_TAPLY_PROTECTED_QA=on`),
+  `buildProtectedTerms`, data hooks. Countdown helpers in `lib/format/countdown.ts`
+  (indicative only; never gates an action).
+- Journal: `fund_protected_native`, `cancel_protected`, `release_protected`.
+  `reconcile()` explains them from finalized reads (a cancel still LOCKED at/after
+  the cutoff can never execute; release is explained only by a committed branch;
+  retry covers refund/release failures). Wallet-return matching: release matches on id alone.
+- Screens: `/protected/[id]` (consent with the signed window, LOCKED - NOT PAID
+  banner, on-chain cutoff, approximate countdown, payer-only cancel, release
+  after cutoff, beneficiary retry, refunded vs released wording, no Verified
+  claim) and `/protected/new` (amount, window 60 s / 5 min / 15 min / 1 h,
+  optional payer). EN + TR copy (`protected-en.ts`, `protected-tr.ts`).
+  `/request/new` links to it only when the Protected setup is complete.
+- Env (documented in `env.d.ts`, `.env.example`): `NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID`,
+  `NEXT_PUBLIC_TAPLY_PROTECTED_CODE_HASH`, `NEXT_PUBLIC_TAPLY_PROTECTED_QA`.
+- `docs/NEP141_CHANGE_REQUEST.md`: token wire format and contract design for
+  lead approval. No token code: freeze v1 keeps `near:native` only.
+
+Results:
+
+| Command | Result |
+| --- | --- |
+| `npx vitest run src/lib/protected src/components/protected` | 13 + 14 tests pass (view, reconcile, gate, countdown, screen, create) |
+| `npx vitest run src/lib/payments/__tests__/wallet-return.test.ts` | 33/33 (incl. new protected matching test) |
+| `pnpm --filter @taply/web test` | 76 files, **1,140 passed**, 1 skipped (was 1,112) |
+| `npx eslint .` / `npx tsc --noEmit` (apps/web) | clean |
+| `pnpm check` (whole workspace, Node 24.22.2) | **exit 0**: shared 92/92, near-client 216/216, web 1,140 passed + 1 skipped; Next build lists `/protected/[id]` and `/protected/new` |
+
 ### Increment 1 — Protected Pay G3 candidate (contract + near-client)
 
 New, additive only:

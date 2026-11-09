@@ -1,0 +1,419 @@
+'use client';
+
+import { useEffect, useId, useMemo, useState } from 'react';
+import {
+  prepareCancelProtected,
+  prepareFundProtectedNative,
+  prepareReleaseProtected,
+  prepareRetryProtectedTransfer,
+} from '@taply/near-client';
+import type { PreparedProtectedCall, ProtectedContractConfig, ProtectedReader } from '@taply/near-client';
+import { AccountId, Amount } from '@/components/primitives/Amount';
+import { Button, Spinner } from '@/components/primitives/Button';
+import { Card, DetailRow } from '@/components/primitives/Surface';
+import { InlineNotice } from '@/components/feedback/InlineNotice';
+import { StatusBadge } from '@/components/status/StatusBadge';
+import { Icon } from '@/components/shell/Icons';
+import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
+import { ChainTime, SubmitResultNotice } from '@/components/payments/PaymentParts';
+import { durationSeconds, estimateCutoff, formatCountdown } from '@/lib/format/countdown';
+import { fill } from '@/lib/i18n';
+import type { ProtectedFlowCopy } from '@/lib/i18n/protected-types';
+import { useT } from '@/lib/i18n/provider';
+import { usePayments } from '@/lib/payments/context';
+import { chainFreshness, sameContractConfig } from '@/lib/payments/freshness';
+import type { PaymentView } from '@/lib/payments/intent';
+import { isBlocking } from '@/lib/payments/journal';
+import type { JournalEntry, JournalMethod } from '@/lib/payments/journal';
+import { mapChainState } from '@/lib/payments/map-chain-state';
+import type { MapInput } from '@/lib/payments/map-chain-state';
+import { dateToNs, reconcile, submitCall } from '@/lib/payments/submit';
+import type { SubmitResult } from '@/lib/payments/submit';
+import { HashHexSchema, NEAR_NATIVE } from '@/lib/protocol';
+import { PROTECTED_SETUP, defaultProtectedReader, useProtectedContract, useProtectedRequest } from '@/lib/protected/hooks';
+import type { ProtectedSetup } from '@/lib/protected/setup';
+import { useWallet } from '@/lib/wallet/provider';
+
+/** Human duration for the signed cancellation window. */
+export function windowLabel(cancelDurationNs: string, copy: ProtectedFlowCopy['duration']): string {
+  const s = durationSeconds(cancelDurationNs);
+  if (s % 3600 === 0) return fill(copy.hours, { n: String(s / 3600) });
+  if (s >= 120 && s % 60 === 0) return fill(copy.minutes, { n: String(s / 60) });
+  return fill(copy.seconds, { n: String(s) });
+}
+
+export function ProtectedSetupNotice({ setup }: { readonly setup: ProtectedSetup }) {
+  const c = useT().protectedFlow;
+  switch (setup.status) {
+    case 'flag_off':
+      return <InlineNotice copy={c.notEnabled} tone="neutral" />;
+    case 'not_configured':
+      return <InlineNotice copy={c.notConfigured} tone="neutral" />;
+    case 'invalid':
+      return <InlineNotice copy={c.invalidConfig} tone="danger" />;
+    case 'pilot_refused':
+      return <InlineNotice copy={c.pilotRefused} tone="danger" />;
+    case 'ready':
+      return null;
+  }
+}
+
+/**
+ * `/protected/[id]`: one Protected request, every role and state. All state
+ * comes from final, code-hash-anchored reads of the candidate contract; the
+ * wallet result and local journal only add context and block duplicates.
+ */
+export function ProtectedScreen({
+  id,
+  setup = PROTECTED_SETUP,
+  reader,
+}: {
+  readonly id: string;
+  readonly setup?: ProtectedSetup;
+  /** Tests inject a reader; the app uses the build's default. */
+  readonly reader?: ProtectedReader | null;
+}) {
+  const c = useT().protectedFlow;
+  if (setup.status !== 'ready') return <ProtectedSetupNotice setup={setup} />;
+  if (!HashHexSchema.safeParse(id).success) return <InlineNotice copy={c.notFound} tone="neutral" />;
+  return <ProtectedLive id={id} setup={setup} reader={reader === undefined ? defaultProtectedReader(setup) : reader} />;
+}
+
+type Ready = Extract<ProtectedSetup, { status: 'ready' }>;
+type Notice = 'stale' | 'refused' | null;
+
+function useNow(intervalMs: number, enabled: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs, enabled]);
+  return now;
+}
+
+function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly setup: Ready; readonly reader: ProtectedReader | null }) {
+  const t = useT();
+  const c = t.protectedFlow;
+  const { journal, journalVersion } = usePayments();
+  const { state: wallet, signAndSend } = useWallet();
+  const accountId = wallet.status === 'connected' ? wallet.session.accountId : null;
+  const { check, ensureFresh } = useProtectedContract(setup, reader);
+  const { view, receivedAtMs, loading, refresh } = useProtectedRequest(id, reader, setup.contractId, accountId);
+  const [result, setResult] = useState<SubmitResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [journalTick, setJournalTick] = useState(0);
+
+  const entries = useMemo<JournalEntry[]>(() => {
+    void journalTick;
+    void journalVersion;
+    if (journal === null || !journal.isReadable()) return [];
+    return journal.forRequest(id);
+  }, [journal, id, journalTick, journalVersion]);
+  const attempts = useMemo(
+    () => (view === null ? [] : entries.map((entry) => ({ entry, state: reconcile(entry, view, dateToNs(entry.startedAt)) }))),
+    [entries, view],
+  );
+  useEffect(() => {
+    if (journal === null) return;
+    const explained = attempts.filter(({ entry, state }) => state === 'resolved' && isBlocking(entry));
+    if (explained.length === 0) return;
+    let active = true;
+    void Promise.allSettled(explained.map(({ entry }) => journal.update(entry, { phase: 'RESOLVED' }))).then(() => {
+      if (active) setJournalTick((n) => n + 1);
+    });
+    return () => {
+      active = false;
+    };
+  }, [attempts, journal]);
+  const blocking = (method: JournalMethod) =>
+    attempts.some((a) => a.entry.method === method && a.entry.signerAccountId === accountId && a.state !== 'resolved');
+
+  const run = async (make: (config: ProtectedContractConfig) => PreparedProtectedCall, operationNonce?: string) => {
+    if (view?.kind !== 'ok' || accountId === null || busy) return;
+    setNotice(null);
+    setResult(null);
+    // Never sign from an old observation: the read behind this screen must be fresh,
+    // and the contract must verify again with the same config the person saw.
+    if (chainFreshness(view.observedAtNs, Date.now()) !== 'fresh') {
+      setNotice('stale');
+      refresh();
+      return;
+    }
+    const shown = check.status === 'verified' ? check.config : null;
+    setBusy(true);
+    try {
+      const fresh = await ensureFresh();
+      if (fresh === null || shown === null || !fresh.gate.allowed || !sameContractConfig(fresh.config, shown)) {
+        setNotice('stale');
+        refresh();
+        return;
+      }
+      let call: PreparedProtectedCall;
+      try {
+        call = make(fresh.config);
+      } catch {
+        setNotice('refused');
+        return;
+      }
+      const outcome = await submitCall({
+        journal,
+        call,
+        signerAccountId: accountId,
+        requestId: view.request.terms.id,
+        termsHash: view.request.termsHash,
+        ...(operationNonce === undefined ? {} : { operationNonce }),
+        signAndSend,
+      });
+      setResult(outcome);
+    } finally {
+      setBusy(false);
+      setJournalTick((n) => n + 1);
+      refresh();
+    }
+  };
+
+  const gate = check.status === 'verified' ? check.gate : null;
+  const canSign = gate !== null && gate.allowed;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {gate !== null && gate.allowed && gate.unreviewed && <InlineNotice copy={c.unreviewed} tone="caution" />}
+      {check.status === 'checking' && <p className="px-1 text-xs text-[var(--text-muted)]">{c.contractChecking}</p>}
+      {(check.status === 'unreachable' || (gate !== null && !gate.allowed)) && <InlineNotice copy={c.contractBlocked} tone="neutral" />}
+      <Body
+        view={view}
+        receivedAtMs={receivedAtMs}
+        accountId={accountId}
+        contractId={setup.contractId}
+        canSign={canSign}
+        busy={busy}
+        blocking={blocking}
+        onRun={run}
+      />
+      {notice === 'stale' && <InlineNotice copy={c.staleReview} />}
+      {notice === 'refused' && <InlineNotice copy={c.refused} />}
+      {result !== null && <SubmitResultNotice result={result} />}
+      <div className="flex justify-end">
+        <Button variant="ghost" onClick={refresh} disabled={loading} className="-mr-2 px-2">
+          {loading ? <Spinner /> : <Icon name="refresh" size={16} />} {t.oneTap.payment.refresh}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Body({
+  view,
+  receivedAtMs,
+  accountId,
+  contractId,
+  canSign,
+  busy,
+  blocking,
+  onRun,
+}: {
+  readonly view: PaymentView | null;
+  readonly receivedAtMs: number | null;
+  readonly accountId: string | null;
+  readonly contractId: string;
+  readonly canSign: boolean;
+  readonly busy: boolean;
+  readonly blocking: (method: JournalMethod) => boolean;
+  readonly onRun: (make: (config: ProtectedContractConfig) => PreparedProtectedCall, operationNonce?: string) => Promise<void>;
+}) {
+  const t = useT();
+  const c = t.protectedFlow;
+  const ackId = useId();
+  const [ack, setAck] = useState(false);
+  const locked = view?.kind === 'ok' && view.request.status === 'LOCKED';
+  const now = useNow(1000, locked);
+
+  if (view === null) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-[var(--text-secondary)]" role="status">
+        <Spinner /> {t.common.loading}
+      </p>
+    );
+  }
+  if (view.kind === 'unavailable') return <InlineNotice copy={c.readFailed} />;
+  if (view.kind === 'not_found') return <InlineNotice copy={c.notFound} tone="neutral" />;
+  if (view.kind === 'wrong_contract') return <InlineNotice copy={c.wrongContract} tone="danger" />;
+  if (view.kind === 'inconsistent') return <InlineNotice copy={c.inconsistent} tone="danger" />;
+
+  const { request, response, observedAtNs } = view;
+  const input: MapInput = {
+    state: request.status,
+    observation: response.observation,
+    derived: response.derived,
+    fundingEligibility: response.fundingEligibility,
+    incident: response.incident,
+    // No independent Protected receipt verifier exists yet.
+    settlementProof: 'contract_state_only',
+  };
+  const presentation = mapChainState(input);
+  const ctas = new Set(presentation.ctas.map((x) => x.kind));
+  const duration = request.terms.cancelDurationNs ?? '0';
+  const role = response.derived.callerRole;
+  const isRecipient = role === 'recipient' || role === 'payer_and_recipient';
+  const canFund = ctas.has('review_and_pay') && !isRecipient;
+  const op = request.latestOperation;
+  const disabled = busy || !canSign || accountId === null;
+
+  const countdown =
+    locked && request.cancelUntilNs !== null && receivedAtMs !== null
+      ? estimateCutoff({ cancelUntilNs: request.cancelUntilNs, observedAtNs, observedAtLocalMs: receivedAtMs, nowMs: now })
+      : null;
+
+  return (
+    <>
+      <Card className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <StatusBadge {...input} />
+          <span className="text-xs text-[var(--text-muted)]">{t.mode.protected}</span>
+        </div>
+        <p className="text-sm text-[var(--text-secondary)]">
+          {presentation.audience === 'recipient' ? t.status[request.status].recipient : t.status[request.status].payer}
+        </p>
+        <dl>
+          <DetailRow label={c.fields.amount} emphasis>
+            <Amount baseUnits={request.terms.amountBaseUnits} asset={NEAR_NATIVE} />
+          </DetailRow>
+          <DetailRow label={c.fields.recipient}>
+            <AccountId accountId={request.recipientAccountId} />
+          </DetailRow>
+          {request.payerAccountId !== null && (
+            <DetailRow label={c.fields.payer}>
+              <AccountId accountId={request.payerAccountId} />
+            </DetailRow>
+          )}
+          <DetailRow label={c.fields.window}>{windowLabel(duration, c.duration)}</DetailRow>
+          {request.status === 'OPEN' && (
+            <DetailRow label={c.fields.fundingDeadline}>
+              <ChainTime ns={request.terms.fundingExpiresAtNs} />
+            </DetailRow>
+          )}
+          {request.cancelUntilNs !== null && (
+            <DetailRow label={c.cutoffOnChain}>
+              <ChainTime ns={request.cancelUntilNs} />
+            </DetailRow>
+          )}
+        </dl>
+      </Card>
+
+      {locked && (
+        <section
+          aria-label={t.protectedPay.lockedNotPaid}
+          className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--tone-caution-border)] bg-[var(--tone-caution-bg)] p-4"
+        >
+          <p className="flex items-center gap-2 text-base font-semibold tracking-wide text-[var(--tone-caution-fg)]">
+            <Icon name="shield" size={18} /> {t.protectedPay.lockedNotPaid}
+          </p>
+          {countdown !== null && (
+            <p className="text-sm text-[var(--text-primary)]" aria-live="off">
+              {countdown.phase === 'open' ? fill(c.countdown, { time: formatCountdown(countdown.remainingMs) }) : c.countdownReached}
+            </p>
+          )}
+          <p className="text-xs text-[var(--text-muted)]">{t.protectedPay.countdownApproximate}</p>
+          <ul className="mt-1 flex list-disc flex-col gap-1 pl-5 text-sm text-[var(--text-secondary)]">
+            <li>{t.protectedPay.whoCanCancel}</li>
+            <li>{t.protectedPay.whoCanRelease}</li>
+            <li>{t.protectedPay.merchantCannot}</li>
+          </ul>
+        </section>
+      )}
+
+      {canFund && (
+        <Card className="flex flex-col gap-3">
+          <h2 className="text-base font-semibold">{c.consentTitle}</h2>
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+            {fill(c.consentWithDuration, { duration: windowLabel(duration, c.duration) })}
+          </p>
+          <label htmlFor={ackId} className="flex min-h-[var(--tap-target)] items-start gap-3 text-sm">
+            <input id={ackId} type="checkbox" className="mt-1 size-5 shrink-0" checked={ack} onChange={(e) => setAck(e.target.checked)} />
+            <span>{c.consentCheckbox}</span>
+          </label>
+          {accountId === null ? (
+            <ConnectWalletButton />
+          ) : (
+            <Button
+              size="lg"
+              block
+              disabled={disabled || !ack || blocking('fund_protected_native')}
+              onClick={() =>
+                void onRun((config) =>
+                  prepareFundProtectedNative({
+                    contractId,
+                    config,
+                    request,
+                    signerAccountId: accountId,
+                    observedAtNs,
+                    // Exactly what this screen showed; the builder refuses anything else.
+                    acceptedCancelDurationNs: duration,
+                  }),
+                )
+              }
+            >
+              {busy ? <Spinner /> : <Icon name="shield" size={18} />} {c.lockAction}
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {response.fundingEligibility === 'EXPIRED' && <InlineNotice copy={c.expired} tone="neutral" />}
+
+      {(ctas.has('cancel_protected') || ctas.has('release_protected')) && (
+        <div className="flex flex-col gap-2">
+          {accountId === null && <ConnectWalletButton />}
+          {ctas.has('release_protected') && accountId !== null && (
+            <Button
+              size="lg"
+              block
+              disabled={disabled || blocking('release_protected')}
+              onClick={() => void onRun((config) => prepareReleaseProtected({ contractId, config, request, observedAtNs }))}
+            >
+              <Icon name="send" size={18} /> {c.releaseAction}
+            </Button>
+          )}
+          {ctas.has('cancel_protected') && accountId !== null && (
+            <>
+              <Button
+                variant="secondary"
+                size="lg"
+                block
+                disabled={disabled || blocking('cancel_protected')}
+                onClick={() =>
+                  void onRun((config) => prepareCancelProtected({ contractId, config, request, signerAccountId: accountId, observedAtNs }))
+                }
+              >
+                <Icon name="x" size={18} /> {c.cancelAction}
+              </Button>
+              <p className="px-1 text-xs text-[var(--text-muted)]">{c.cancelHint}</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {ctas.has('retry_same_operation') && op !== null && accountId !== null && (
+        <Button
+          size="lg"
+          block
+          disabled={disabled || blocking('retry_native_transfer')}
+          onClick={() =>
+            void onRun((config) => prepareRetryProtectedTransfer({ contractId, config, request, signerAccountId: accountId }), op.nonce)
+          }
+        >
+          <Icon name="refresh" size={18} /> {op.kind === 'PROTECTED_REFUND' ? c.retryRefundAction : c.retryReleaseAction}
+        </Button>
+      )}
+
+      {response.incident !== null && <InlineNotice copy={c.incident} live="assertive" />}
+      {request.status.endsWith('_IN_FLIGHT') && response.incident === null && (
+        <p className="px-1 text-sm text-[var(--tone-caution-fg)]">{c.inFlightNote}</p>
+      )}
+      {request.status === 'CANCELLED_REFUNDED' && <InlineNotice copy={c.refunded} tone="neutral" />}
+      {request.status === 'FINAL_PAID' && <InlineNotice copy={c.released} tone="neutral" />}
+    </>
+  );
+}

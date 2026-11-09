@@ -12,9 +12,9 @@ Evidence levels (freeze proof hierarchy): docs/mock < unit tests < sandbox < liv
 | Live Handshake (two phones) | Service + UI exist; demo synthetic | Unit tests, DEMO | Off | G2: F-06 production auth, merchant contract candidate review |
 | Merchant-bound contract (`contracts/payments-merchant`) | Candidate | Unit + sandbox in CI | Not deployed | Lead review |
 | **Protected Pay contract** (`contracts/payments-protected`) | **Candidate (this session)** | **24 unit tests; all 8 Protected states parse with the frozen shared schema** | Not deployed | Human escrow review, sandbox measurement, live refund + release |
-| **Protected Pay near-client builders** | **Candidate (this session)** | 7 unit tests on real contract outputs | Not used by prod | Same as above |
-| Protected Pay web flow | Status mapping/CTAs exist; signing not wired | Unit tests (mapping) | Off (`security_gate`) | Same as above |
-| NEP-141 tokens | Not implemented | — | Off | Freeze: `near:native` only; needs schema change request + design review |
+| **Protected Pay near-client builders + reader** | **Candidate (this session)** | 9 unit tests on real contract outputs | Not used by prod | Same as above |
+| **Protected Pay web flow** (`/protected/new`, `/protected/[id]`) | **Done behind flag (this session)**: consent, LOCKED-NOT-PAID, countdown, cancel/release/retry, journal + wallet-return | 27 component/logic tests | Off (`security_gate`; no contract configured) | Same as above + a QA build with a fresh Testnet deployment |
+| NEP-141 tokens | Not implemented; [change request](NEP141_CHANGE_REQUEST.md) written | Docs only | Off | Lead approval of shared asset schema, then contract + sandbox fake-token tests |
 | Contacts | Done, local-only | Unit tests | On | — |
 | Split Pay | Preparation tool (one request per share) | Unit tests | On | Needs G1 signing to settle |
 | Recurring templates | Preparation tool, no auto-charge | Unit tests | On | — |

@@ -45,8 +45,7 @@ export function buildProtectedView(input: {
   else if (now >= BigInt(request.terms.fundingExpiresAtNs)) fundingEligibility = 'EXPIRED';
   else if (fresh) fundingEligibility = 'ELIGIBLE';
 
-  const locked = request.status === 'LOCKED' && request.cancelUntilNs !== null;
-  const cutoff = locked ? BigInt(request.cancelUntilNs!) : null;
+  const cutoff = request.status === 'LOCKED' && request.cancelUntilNs !== null ? BigInt(request.cancelUntilNs) : null;
   const cancelWindowOpen = cutoff === null || !fresh ? null : now < cutoff;
   const releaseEligible = cutoff === null || !fresh ? null : now >= cutoff;
 
