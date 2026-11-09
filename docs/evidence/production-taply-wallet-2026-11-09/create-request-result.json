@@ -1,0 +1,27 @@
+{
+  "kind": "TAPLY_WALLET_CREATES_AND_PAYS_REQUEST_BROWSER_TESTNET_PROOF",
+  "network": "near-testnet",
+  "base": "https://taplyapp.xyz",
+  "merchantAccountId": "taply-shop-699fb0.testnet",
+  "customerAccountId": "taply-buyer-8a52a2.testnet",
+  "requestId": "cd7b1a0c970c1287cb71975064479a33f7f93610ca6367c31b79e272145f3253",
+  "createdStatus": "OPEN",
+  "createdRecipient": "taply-shop-699fb0.testnet",
+  "createdAmount": "50000000000000000000000",
+  "finalStatus": "FINAL_PAID",
+  "payout": {
+    "nonce": "1",
+    "kind": "INSTANT_PAYOUT",
+    "destinationAccountId": "taply-shop-699fb0.testnet",
+    "amountBaseUnits": "50000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1794253966778770804",
+    "resolvedAtNs": "1794253967930435501",
+    "failureCode": null
+  },
+  "merchantDeltaYocto": "50000000000000000000000",
+  "dialogs": {
+    "create": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Create a payment request From taply-shop-699fb0.testnet To taply-pay-pilot-1.testnet Attached NEAR 0.00548 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR T",
+    "pay": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Pay this request From taply-buyer-8a52a2.testnet To taply-pay-pilot-1.testnet Attached NEAR 0.05 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet Thi"
+  }
+}
