@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ContractRequest } from '@/lib/protocol';
-import { locateFundingTransaction } from './locate-funding';
+import { locateAcrossProviders } from './locate-funding';
 import type { LocateResult } from './locate-funding';
 import type { LocatorRpc } from './rpc';
 
@@ -21,6 +21,8 @@ export type LocatorView =
  */
 export function useFundingLocator(input: {
   readonly rpc: LocatorRpc | null;
+  /** Second provider, searched only after a transient result on `rpc`. */
+  readonly fallbackRpc?: LocatorRpc | null;
   readonly contractId: string;
   readonly request: ContractRequest | null;
   /** False when a funding reference is already known or still being matched. */
@@ -28,9 +30,10 @@ export function useFundingLocator(input: {
   readonly generation: number;
 }): LocatorView {
   const { rpc, contractId, request, enabled, generation } = input;
+  const fallbackRpc = input.fallbackRpc ?? null;
   const key =
     enabled && rpc !== null && request !== null && request.status === 'FINAL_PAID'
-      ? JSON.stringify([rpc.providerId, contractId, request.terms.id, request.termsHash, request.fundedAtNs, request.latestOperation?.nonce, generation])
+      ? JSON.stringify([rpc.providerId, fallbackRpc?.providerId ?? null, contractId, request.terms.id, request.termsHash, request.fundedAtNs, request.latestOperation?.nonce, generation])
       : null;
   const [result, setResult] = useState<{ key: string; view: LocatorView } | null>(null);
 
@@ -45,7 +48,7 @@ export function useFundingLocator(input: {
         return;
       }
       waiting = false;
-      const outcome = await locateFundingTransaction({ rpc, contractId, request });
+      const outcome = await locateAcrossProviders({ contractId, request }, fallbackRpc === null ? [rpc] : [rpc, fallbackRpc]);
       if (active) setResult({ key, view: outcome });
     };
     const onVisible = () => {

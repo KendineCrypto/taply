@@ -64,3 +64,28 @@ describe('verifier provider order (real payment 7nb5J2Ss…: ~40 s + browser 429
     expect(verifierProviders(same).secondary).toBe(null);
   });
 });
+
+import { locateAcrossProviders } from '../locate-funding';
+import type { LocateInput, LocateResult } from '../locate-funding';
+import type { LocatorRpc } from '../rpc';
+
+describe('locateAcrossProviders (recipient without ftx, real payment 7nb5J2Ss…)', () => {
+  const lrpc = (providerId: string) => ({ providerId, call: async () => null }) as unknown as LocatorRpc;
+  const base = { contractId: 'taply-pay-pilot-1.testnet', request: null } as unknown as Omit<LocateInput, 'rpc'>;
+  const found: LocateResult = { kind: 'found', candidates: ['7nb5J2Ss6zhy9ybehchbj8aXMyp8NVhq4fH5QZ14bZfz'], blockHeight: 276922318, calls: 12 };
+  it.each(['unavailable', 'history_unavailable', 'rate_limited', 'budget_exhausted'] as const)(
+    'a %s search on the first provider is re-run in full on the second', async (kind) => {
+      const first = { kind, calls: 3, retryAfterMs: 1000 } as unknown as LocateResult;
+      const locate = vi.fn(async (i: LocateInput) => (i.rpc.providerId === 'a' ? first : found));
+      expect(await locateAcrossProviders(base, [lrpc('a'), lrpc('b')], locate)).toBe(found);
+      expect(locate.mock.calls.map(([i]) => i.rpc.providerId)).toEqual(['a', 'b']);
+    });
+  it('found / not_found are final: no second search', async () => {
+    const notFound: LocateResult = { kind: 'not_found', calls: 20 };
+    for (const r of [found, notFound]) {
+      const locate = vi.fn(async () => r);
+      expect(await locateAcrossProviders(base, [lrpc('a'), lrpc('b')], locate)).toBe(r);
+      expect(locate).toHaveBeenCalledTimes(1);
+    }
+  });
+});
