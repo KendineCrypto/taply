@@ -27,6 +27,17 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
   `taply-e2e-9c2eeea4.testnet`; (5) token Instant UI on the candidate; (6) owner G1 acceptance.
 - Local Redis for tests: `redis-server` binary (tests skip if absent).
 
+## Owner action to make Instant Pay usable on taplyapp.xyz (verified blocker)
+
+Production sets `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off` in Vercel (Production scope). An explicit `off`
+is a kill switch that code cannot override (lib/flags/features.ts), so public G1 signing can only be enabled in
+Vercel: Project `taply` → Settings → Environment Variables → Production → set
+`NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on` → Redeploy the current production deployment (8817673).
+Evidence supporting activation: automated G1 Testnet proof 2026-11-09 (FINAL_PAID, exact payout, duplicate
+refused, Verified on 2 providers); signing path unit/browser CI green. NOT verified by an agent: a real
+browser-wallet (wallet selector) signature — run TESTNET_ACCEPTANCE_PLAN.md once after enabling.
+Rollback: set the variable back to `off` and redeploy (or Instant Rollback to the previous deployment).
+
 ## 2026-11-09 — cloud session 1
 
 ### Starting point (inspected, not assumed)
