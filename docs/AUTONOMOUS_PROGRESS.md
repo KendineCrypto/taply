@@ -77,6 +77,13 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-09 — cloud session 2
 
+### Production check after PR #17 (`98d2039`)
+
+- Owner screenshot: Vercel Production `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on` (changed ~4 h before; earlier notes
+  saying "off" are stale). Live check: a fresh 0.1 NEAR request `634da878…5e8f07` on taplyapp.xyz shows
+  "Ready to pay" with Connect wallet and no "Payments not enabled yet" (`docs/evidence/production-2026-11-09-onboarding/20-pay-page.png`).
+  The asset selector appears after a wallet connects; a real browser-wallet payment is still to be done by the owner.
+
 ### Increment 11 — Any curated asset, merchant still asks only for NEAR (owner request)
 
 - Owner: "If I request NEAR, the payer should pay with whatever asset they want, not only USDC."
