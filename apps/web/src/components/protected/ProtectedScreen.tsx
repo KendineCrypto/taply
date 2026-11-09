@@ -33,6 +33,11 @@ import { HashHexSchema, NEAR_NATIVE } from '@/lib/protocol';
 import { PROTECTED_SETUP, defaultProtectedReader, useProtectedContract, useProtectedRequest } from '@/lib/protected/hooks';
 import type { ProtectedSetup } from '@/lib/protected/setup';
 import { useWallet } from '@/lib/wallet/provider';
+import { useNativeBalance } from '@/lib/near/use-native-balance';
+import { displayableBalance } from '@/lib/near/balance';
+
+/** Conservative gas margin for the low-balance warning (same as Instant Pay). */
+const GAS_MARGIN_YOCTO = 10_000_000_000_000_000_000_000n; // 0.01 NEAR
 
 /** Human duration for the signed cancellation window. */
 export function windowLabel(cancelDurationNs: string, copy: ProtectedFlowCopy['duration']): string {
@@ -127,6 +132,10 @@ function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly se
       active = false;
     };
   }, [attempts, journal]);
+  // This device sent a cancel for this account (anything but a local, never-dispatched decline).
+  const cancelSent = entries.some(
+    (e) => e.method === 'cancel_protected' && e.signerAccountId === accountId && !(e.phase === 'USER_REJECTED' && e.notDispatched === true),
+  );
   const blocking = (method: JournalMethod) =>
     attempts.some((a) => a.entry.method === method && a.entry.signerAccountId === accountId && a.state !== 'resolved');
 
@@ -187,6 +196,8 @@ function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly se
         receivedAtMs={receivedAtMs}
         accountId={accountId}
         contractId={setup.contractId}
+        balanceReader={reader?.client ?? null}
+        cancelSent={cancelSent}
         canSign={canSign}
         busy={busy}
         blocking={blocking}
@@ -209,6 +220,8 @@ function Body({
   receivedAtMs,
   accountId,
   contractId,
+  balanceReader,
+  cancelSent,
   canSign,
   busy,
   blocking,
@@ -218,6 +231,8 @@ function Body({
   readonly receivedAtMs: number | null;
   readonly accountId: string | null;
   readonly contractId: string;
+  readonly balanceReader: ProtectedReader['client'] | null;
+  readonly cancelSent: boolean;
   readonly canSign: boolean;
   readonly busy: boolean;
   readonly blocking: (method: JournalMethod) => boolean;
@@ -229,6 +244,9 @@ function Body({
   const [ack, setAck] = useState(false);
   const locked = view?.kind === 'ok' && view.request.status === 'LOCKED';
   const now = useNow(1000, locked);
+  const fundable = view?.kind === 'ok' && view.request.status === 'OPEN';
+  const balance = useNativeBalance(fundable ? balanceReader : null, accountId);
+  const verifiedBalance = displayableBalance(balance.view);
 
   if (view === null) {
     return (
@@ -260,6 +278,19 @@ function Body({
   const canFund = ctas.has('review_and_pay') && !isRecipient;
   const op = request.latestOperation;
   const disabled = busy || !canSign || accountId === null;
+  const permitted = request.terms.permittedPayerAccountId;
+  const notPermitted = accountId !== null && permitted !== null && permitted !== accountId;
+  const low =
+    verifiedBalance !== null && BigInt(verifiedBalance.balance.amountYoctoNear) < BigInt(request.terms.amountBaseUnits) + GAS_MARGIN_YOCTO;
+  // A cancel this device sent did not win: still LOCKED at a final block at/after the
+  // cutoff, or the release branch was committed. The contract refused or will refuse it.
+  const cutoffPassed = request.cancelUntilNs !== null && BigInt(observedAtNs) >= BigInt(request.cancelUntilNs);
+  const cancelLost =
+    cancelSent &&
+    ((request.status === 'LOCKED' && cutoffPassed) ||
+      request.status === 'RELEASE_IN_FLIGHT' ||
+      request.status === 'RELEASE_FAILED_RECOVERABLE' ||
+      request.status === 'FINAL_PAID');
 
   const countdown =
     locked && request.cancelUntilNs !== null && receivedAtMs !== null
@@ -334,13 +365,15 @@ function Body({
             <input id={ackId} type="checkbox" className="mt-1 size-5 shrink-0" checked={ack} onChange={(e) => setAck(e.target.checked)} />
             <span>{c.consentCheckbox}</span>
           </label>
+          {notPermitted && <InlineNotice copy={t.errors.PAYER_MISMATCH} tone="danger" />}
+          {low && !notPermitted && <InlineNotice copy={t.payment.review.balanceLow} />}
           {accountId === null ? (
             <ConnectWalletButton />
           ) : (
             <Button
               size="lg"
               block
-              disabled={disabled || !ack || blocking('fund_protected_native')}
+              disabled={disabled || !ack || notPermitted || blocking('fund_protected_native')}
               onClick={() =>
                 void onRun((config) =>
                   prepareFundProtectedNative({
@@ -408,6 +441,7 @@ function Body({
         </Button>
       )}
 
+      {cancelLost && <InlineNotice copy={t.errors.CANCEL_WINDOW_CLOSED} />}
       {response.incident !== null && <InlineNotice copy={c.incident} live="assertive" />}
       {request.status.endsWith('_IN_FLIGHT') && response.incident === null && (
         <p className="px-1 text-sm text-[var(--tone-caution-fg)]">{c.inFlightNote}</p>

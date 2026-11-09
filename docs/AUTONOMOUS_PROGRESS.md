@@ -26,6 +26,26 @@ cd contracts/payments-protected && cargo test --locked --lib -- --test-threads=1
 - Baseline `pnpm check` on `22765d7` (Node 24.22.2): **exit 0** — shared 92/92,
   near-client 207/207, web 1,112 passed + 1 skipped (73 files).
 
+### Increment 4 — Pushed to GitHub; Protected error states
+
+- 2026-11-09 06:44 UTC: GitHub App write access fixed by the owner. The four
+  commits `b4286f1`, `983c456`, `3d9d7c8`, `c1a7c9f` were pushed unchanged to
+  `origin/claude/kind-cerf-c4n261` (verified: remote head = local head
+  `c1a7c9f`; `main` and `release/taplyapp` still `22765d7`).
+- CI on `c1a7c9f`: `protected-pay-candidate` (push, run 42574928267),
+  `workspace-check` (dispatch, run 42575006152), `wallet-browser-check`
+  (dispatch, run 42575009603). Results recorded below when final.
+- Protected screen, CLAUDE.md required error states:
+  - **Cancellation window passed**: a cancel this device sent that lost the race
+    (still LOCKED at a final block at/after the cutoff, or release committed) now
+    shows "Cancellation window closed".
+  - **Insufficient balance/gas** before locking: verified balance < amount + 0.01 NEAR shows
+    the existing "Balance may be too low" notice.
+  - **Wrong payer**: a signed payer restriction to another account shows
+    "Different payer required" and disables locking.
+  - Tampered terms (hash mismatch) fail closed (test added).
+- `apps/web` tests: 1,144 passed, 1 skipped (was 1,140); eslint and tsc clean.
+
 ### Increment 3 — Protected Pay on a real local NEAR node (sandbox)
 
 - `contracts/payments-protected/sandbox/` (near-workspaces 0.24.0, near-sandbox 2.14.0):
