@@ -7,7 +7,7 @@ import type { LocalWalletIdentity, WalletBalanceSnapshot } from '@taply/near-cli
 import type { Dictionary } from '@/lib/i18n';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { WalletError } from '@/lib/wallet/adapter';
-import { createTaplyWalletController, TaplyNameTakenError } from '@/lib/wallet/taply-wallet';
+import { createTaplyWalletController, TaplyNameTakenError, TaplyPhraseMismatchError } from '@/lib/wallet/taply-wallet';
 
 /**
  * React bridge to the Codex-owned Taply Wallet controller
@@ -59,6 +59,10 @@ interface TaplyWalletValue {
   readonly activate: () => Promise<TaplyResult<LocalWalletIdentity>>;
   /** Same key, another free name; only while the current name is not on chain. */
   readonly rebindName: (passphrase: string, accountId: string) => Promise<TaplyResult<LocalWalletIdentity>>;
+  /** The 12-word recovery phrase, after the password is checked. */
+  readonly revealPhrase: (passphrase: string) => Promise<TaplyResult<readonly string[]>>;
+  /** Import a recovery phrase (named account verified on chain first). */
+  readonly restorePhrase: (phrase: string, passphrase: string, accountId?: string) => Promise<TaplyResult<LocalWalletIdentity>>;
   /** Read-only review. There is deliberately no sign/submit counterpart. */
   readonly prepareSend: (receiverId: string, amountNear: string) => Promise<TaplyResult<PreparedTransfer>>;
 }
@@ -66,7 +70,7 @@ interface TaplyWalletValue {
 const KNOWN: ReadonlySet<string> = new Set([
   'BAD_PASSWORD_OR_DATA', 'PASSWORD_POLICY', 'ALREADY_EXISTS', 'INVALID_RECORD', 'STORAGE_UNAVAILABLE',
   'CRYPTO_UNAVAILABLE', 'CANCELLED', 'LOCKED', 'ACCOUNT_NOT_PROVISIONED', 'INVALID_ADDRESS', 'INVALID_AMOUNT',
-  'INSUFFICIENT_AVAILABLE_BALANCE', 'NETWORK_MISMATCH', 'RPC_UNAVAILABLE', 'INVALID_ACCOUNT_ID',
+  'INSUFFICIENT_AVAILABLE_BALANCE', 'NETWORK_MISMATCH', 'RPC_UNAVAILABLE', 'INVALID_ACCOUNT_ID', 'INVALID_PHRASE', 'NO_RECOVERY_PHRASE',
 ]);
 
 /** Maps controller errors to UI copy keys. Messages from errors are never shown. */
@@ -75,6 +79,7 @@ export function taplyErrorCode(error: unknown): TaplyErrorCode {
     return error.code as TaplyErrorCode;
   }
   if (error instanceof TaplyNameTakenError) return 'NAME_TAKEN';
+  if (error instanceof TaplyPhraseMismatchError) return error.reason === 'ACCOUNT_NOT_FOUND' ? 'PHRASE_ACCOUNT_NOT_FOUND' : 'PHRASE_NOT_FOR_ACCOUNT';
   if (error instanceof WalletError) return error.kind === 'unavailable' ? 'UNAVAILABLE' : 'UNKNOWN';
   return 'UNKNOWN';
 }
@@ -249,6 +254,25 @@ export function TaplyWalletProvider({
           return { ok: true, value: identity };
         } catch (error) {
           return { ok: false, code: taplyErrorCode(error) };
+        }
+      },
+      async revealPhrase(passphrase) {
+        if (!controller) return missing;
+        try {
+          return { ok: true, value: await controller.revealRecoveryPhrase(passphrase) };
+        } catch (error) {
+          return { ok: false, code: taplyErrorCode(error) };
+        }
+      },
+      async restorePhrase(phrase, passphrase, accountId) {
+        if (!controller) return missing;
+        try {
+          const identity = await controller.restoreFromRecoveryPhrase(phrase, passphrase, accountId);
+          refresh();
+          return { ok: true, value: identity };
+        } catch (error) {
+          const code = taplyErrorCode(error);
+          return { ok: false, code: code === 'UNKNOWN' ? 'RPC_UNAVAILABLE' : code };
         }
       },
       async prepareSend(receiverId, amountNear) {

@@ -10,16 +10,48 @@ import { useTaplyWallet } from './TaplyWalletProvider';
 import type { TaplyErrorCode } from './TaplyWalletProvider';
 import { PassphraseField, TaplyErrorNotice } from './TaplyWalletUi';
 import { useWalletMode } from './mode';
+import { ImportPhraseForm } from './RecoveryPhrase';
 
 /** Largest backup accepted from a file or paste (the vault record is far smaller). */
 const MAX_BACKUP_CHARS = 8192;
 
 /**
- * Restore from an ENCRYPTED backup only. The controller authenticates and
+ * Restore: primarily the 12-word recovery phrase (Phantom-style); the older
+ * encrypted backup file stays available under a disclosure for legacy wallets.
+ */
+export function RestoreWalletFlow() {
+  const t = useT();
+  const n = t.walletNative;
+  const { state } = useTaplyWallet();
+  if (state.status === 'unavailable') return <InlineNotice copy={n.unavailable} tone="neutral" />;
+  if (state.status === 'local_only' || state.status === 'provisioned' || state.status === 'unknown') {
+    return (
+      <InlineNotice
+        copy={{ title: n.createdAlready, body: n.errors.ALREADY_EXISTS }}
+        tone="neutral"
+        action={<ButtonLink href="/wallet">{n.taply}</ButtonLink>}
+      />
+    );
+  }
+  return (
+    <div className="flex flex-col gap-6">
+      <ImportPhraseForm />
+      <details className="surface-card p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-[var(--text-secondary)]">{n.phrase.legacyTitle}</summary>
+        <div className="mt-4">
+          <LegacyBackupRestore />
+        </div>
+      </details>
+    </div>
+  );
+}
+
+/**
+ * Restore from an ENCRYPTED backup file (wallets created before the recovery phrase). The controller authenticates and
  * decrypts, checks the key pair and refuses to overwrite an existing wallet.
  * The restored wallet is locked. No seed phrase or plaintext key is accepted.
  */
-export function RestoreWalletFlow() {
+function LegacyBackupRestore() {
   const t = useT();
   const n = t.walletNative;
   const r = n.restoreFlow;

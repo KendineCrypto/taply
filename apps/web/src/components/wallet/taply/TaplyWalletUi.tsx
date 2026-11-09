@@ -15,6 +15,7 @@ import { CHAIN_CONFIG, explorerAccountUrl } from '@/lib/near/config';
 import { isNamedTestnetAccount } from '@taply/near-client';
 import { useTaplyWallet } from './TaplyWalletProvider';
 import { ActivationPanel } from './UsernameActivation';
+import { ShowPhrasePanel } from './RecoveryPhrase';
 import type { TaplyErrorCode, TaplyWalletState } from './TaplyWalletProvider';
 import { useWalletMode } from './mode';
 
@@ -399,14 +400,19 @@ export function TaplyWalletPanel() {
           {n.send.notActive.title}
         </p>
       )}
-      <section className="surface-card flex flex-col gap-3 p-5" aria-labelledby="taply-backup-title">
-        <h3 id="taply-backup-title" className="font-semibold">
-          {n.backup.download}
-        </h3>
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{n.backup.body}</p>
-        <p className="text-xs leading-relaxed text-[var(--text-muted)]">{n.backup.fileWarning}</p>
-        <BackupDownloadButton variant="secondary" />
-      </section>
+      {state.identity.recovery === 'RECOVERY_PHRASE' ? (
+        <ShowPhrasePanel />
+      ) : (
+        // Older wallets (before the recovery phrase) keep their encrypted file backup.
+        <section className="surface-card flex flex-col gap-3 p-5" aria-labelledby="taply-backup-title">
+          <h3 id="taply-backup-title" className="font-semibold">
+            {n.backup.download}
+          </h3>
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{n.backup.body}</p>
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">{n.backup.fileWarning}</p>
+          <BackupDownloadButton variant="secondary" />
+        </section>
+      )}
       {provisioned && CHAIN_CONFIG.ok && (
         <ButtonLink href={explorerAccountUrl(CHAIN_CONFIG.explorerBaseUrl, state.identity.accountId)} external variant="ghost" block>
           {t.home.viewOnExplorer}

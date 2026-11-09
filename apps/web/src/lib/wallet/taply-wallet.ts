@@ -1,6 +1,6 @@
 import {
   EncryptedTestnetVault, VaultError, WalletEngineError, createWalletChain, ed25519PublicKeyFromHex,
-  isNamedTestnetAccount, prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
+  isNamedTestnetAccount, recoveryPhrasePublicKeyHex, prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
 } from '@taply/near-client';
 import type { LocalWalletIdentity, NearTestnetConfig, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall } from '@taply/near-client';
 import { encodeQr } from '@/lib/qr/encode';
@@ -24,6 +24,11 @@ export type TaplyWalletRead =
 /** The requested `*.testnet` name already exists on NEAR Testnet. */
 export class TaplyNameTakenError extends Error {
   constructor() { super('taply-wallet:NAME_TAKEN'); this.name = 'TaplyNameTakenError'; }
+}
+
+/** The recovery phrase does not control the account it was imported for. */
+export class TaplyPhraseMismatchError extends Error {
+  constructor(readonly reason: 'ACCOUNT_NOT_FOUND' | 'KEY_NOT_ON_ACCOUNT') { super(`taply-wallet:PHRASE_${reason}`); this.name = 'TaplyPhraseMismatchError'; }
 }
 
 /** Outcome of `activate()`. Only ON_CHAIN means the account exists with this key. */
@@ -165,6 +170,22 @@ export function createTaplyWalletController(input: {
     isAccountAvailable: async (accountId: string) => !(await chain.accountExists(accountId)),
     /** Local vault bound to a named `*.testnet` account. Creates nothing on chain. */
     createNamed: (password: string, accountId: string) => withVaultWriteLock(() => vault.create(password, accountId)),
+    /** The 12 words (password required). Never logged, stored or sent by Taply. */
+    revealRecoveryPhrase: (password: string) => vault.revealRecoveryPhrase(password),
+    /**
+     * Imports a recovery phrase. For a named account, a FINAL read must first show
+     * the account holds the phrase's key with full access; nothing is stored otherwise.
+     */
+    restoreFromRecoveryPhrase: (phrase: string, password: string, accountId?: string) => withVaultWriteLock(async () => {
+      const cryptoImpl = input.crypto ?? globalThis.crypto;
+      const publicKeyHex = await recoveryPhrasePublicKeyHex(cryptoImpl, phrase);
+      if (publicKeyHex === null) throw new VaultError('INVALID_PHRASE');
+      if (accountId !== undefined) {
+        const status = await chain.provisioning(accountId, ed25519PublicKeyFromHex(publicKeyHex));
+        if (status !== 'ON_CHAIN') throw new TaplyPhraseMismatchError(status);
+      }
+      return vault.restoreFromRecoveryPhrase(phrase, password, accountId);
+    }),
     /** Faucet request + FINAL confirmation for the vault's named account. No passphrase needed. */
     activate,
     /** Binds the same key to another free name, only while the current one is not proven on chain. */

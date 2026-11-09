@@ -77,6 +77,31 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-09 — cloud session 2
 
+### Increment 9 — Phantom-style Secret Recovery Phrase replaces the backup file (owner request)
+
+Owner: "Phantom has no encrypted-backup-file step; make ours the same."
+
+- near-client: `recovery-phrase.ts` (BIP-39 English 12 words + SLIP-10 Ed25519 at NEAR path m/44'/397'/0',
+  Web Crypto only; wordlist checked against the standard SHA-256). Vault record **v2** stores only the 16-byte
+  entropy, AES-GCM encrypted, derivation authenticated in AAD. `create` now makes v2; new
+  `revealRecoveryPhrase(password)` and `restoreFromRecoveryPhrase(phrase, password, accountId?)`;
+  `recoveryPhrasePublicKeyHex` preview. v1 (random key + file backup) vaults still unlock, rebind and restore.
+  Unlock never exports a private key (the signer fixture's export guard caught a first draft that did).
+- Unlock password minimum is now **8 characters** (Phantom-style); recovery is the phrase, not the password.
+- web: create flow = understand → username → password → 12 words (hidden until tapped, copy, "I saved it")
+  → faucet + FINAL proof → Finish. No file download. `/wallet` has "Show recovery phrase" (password first);
+  older wallets keep the encrypted-file backup. Restore page = "Import recovery phrase" (+ username; a FINAL
+  read must show the phrase's key on that account before anything is stored), legacy file restore under a
+  disclosure. EN + TR copy.
+
+| Command | Result |
+| --- | --- |
+| `pnpm check` | **exit 0**: shared 93, near-client 232, web 1,182 passed + 1 skipped |
+| near-client vectors | 3 phrases derive exactly the keys near-seed-phrase 0.2.1 (MyNearWallet/Meteor) derives |
+| Local prod build + Playwright, **real Testnet** (`phrase-e2e.mjs`) | `taply-srp-3d91fc.testnet` created: vault v2, 12 words, copy matched, 0 file downloads, key `ed25519:Vp6gFtY5…kQN` FullAccess on chain; a fresh browser imported the same phrase → same key, "Active on NEAR Testnet"; that phrase cross-checked with near-seed-phrase → same key. Phrase never committed. |
+
+`onboard-e2e.mjs` / `result.json` / screenshots 01–04 are the earlier file-backup flow (superseded).
+
 ### Increment 8 — First launch: external wallet or `username.testnet` Taply Wallet (no gasless)
 
 Branch `claude/beautiful-gates-c6fhhh` (from `main` 9788d8c + the spec commit).

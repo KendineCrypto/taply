@@ -100,22 +100,15 @@ afterEach(() => {
 });
 
 describe('create Taply Wallet = username.testnet (real controller, stubbed Testnet)', () => {
-  it('username rules + FINAL availability, passphrase rules, faucet then on-chain proof, mandatory encrypted backup', async () => {
+  it('username + FINAL availability, password, 12-word phrase (no backup file), then faucet and on-chain proof', async () => {
     const { c, requestAccount } = namedController(async (accountId, _key, chain) => {
       chain.created.add(accountId);
       return { ok: true };
     });
-    let blobText = '';
-    let fileName = '';
-    vi.stubGlobal('URL', Object.assign(URL, {
-      createObjectURL: (blob: Blob) => {
-        void blob.text().then((text) => (blobText = text));
-        return 'blob:test';
-      },
-      revokeObjectURL: () => undefined,
-    }));
-    const click = HTMLAnchorElement.prototype.click;
-    HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) { fileName = this.download; };
+    const createObjectURL = vi.fn(() => 'blob:test');
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: () => undefined }));
+    const clipboard = { writeText: vi.fn(async () => undefined) };
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard });
     render(<CreateWalletFlow />, c);
 
     const cont = await screen.findByRole('button', { name: /Continue/ });
@@ -140,49 +133,53 @@ describe('create Taply Wallet = username.testnet (real controller, stubbed Testn
       fireEvent.click(screen.getByRole('button', { name: /Continue/ }));
     });
 
-    // Step 3: passphrase, bound to the chosen name.
+    // Step 3: password (8+ chars), bound to the chosen name.
     expect(await screen.findByText('Step 3 of 4')).toBeTruthy();
     expect(screen.getByText('alice.testnet')).toBeTruthy();
-    const pass = screen.getByLabelText('Passphrase');
+    const pass = screen.getByLabelText('Password');
     fireEvent.change(pass, { target: { value: 'short' } });
-    expect(screen.getByText('Use at least 16 characters.')).toBeTruthy();
+    expect(screen.getByText('Use at least 8 characters.')).toBeTruthy();
     fireEvent.change(pass, { target: { value: PASS } });
-    fireEvent.change(screen.getByLabelText('Repeat passphrase'), { target: { value: `${PASS}x` } });
-    expect(screen.getByText('The passphrases do not match.')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: `${PASS}x` } });
+    expect(screen.getByText('The passwords do not match.')).toBeTruthy();
     expect((screen.getByRole('button', { name: /Create wallet/ }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText('Repeat passphrase'), { target: { value: PASS } });
-    expect(requestAccount).not.toHaveBeenCalled();
-
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: PASS } });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Create wallet/ }));
     });
-    // Step 4: faucet + FINAL proof, then backup.
+
+    // Step 4a: Secret Recovery Phrase, hidden until tapped; nothing on chain yet.
+    expect(await screen.findByRole('heading', { name: 'Your Secret Recovery Phrase' }, SLOW)).toBeTruthy();
+    expect(requestAccount).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /Download encrypted backup/ })).toBeNull();
+    const words = await c.revealRecoveryPhrase(PASS);
+    expect(words).toHaveLength(12);
+    expect(screen.queryByText(words[0] ?? "missing")).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tap to reveal' }));
+    const list = screen.getByRole('list', { name: 'Your Secret Recovery Phrase' });
+    expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual(words.map((w, i) => `${i + 1}${w}`));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    });
+    expect(clipboard.writeText).toHaveBeenCalledWith(words.join(' '));
+    const next = screen.getByRole('button', { name: /Continue/ }) as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText('I saved my Secret Recovery Phrase'));
+    await act(async () => {
+      fireEvent.click(next);
+    });
+
+    // Step 4b: faucet + FINAL proof.
     expect(await screen.findByText('alice.testnet is live on NEAR Testnet', {}, SLOW)).toBeTruthy();
     await waitFor(() => expect(screen.getByText('Active on NEAR Testnet')).toBeTruthy(), SLOW);
     expect(requestAccount).toHaveBeenCalledTimes(1);
     expect(requestAccount.mock.calls[0]?.[0]).toBe('alice.testnet');
     expect(requestAccount.mock.calls[0]?.[1]).toMatch(/^ed25519:[1-9A-HJ-NP-Za-km-z]{32,44}$/);
     expect(c.unlocked).toBe(false);
-    expect(c.receive().identity.accountId).toBe('alice.testnet');
-
-    const finish = screen.getByRole('button', { name: 'Finish' }) as HTMLButtonElement;
-    const saved = screen.getByLabelText(/I saved the encrypted backup/) as HTMLInputElement;
-    expect(finish.disabled).toBe(true);
-    expect(saved.disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Download encrypted backup' }));
-    await waitFor(() => expect(blobText).not.toBe(''));
-    HTMLAnchorElement.prototype.click = click;
-    expect(fileName).toBe('taply-testnet-wallet-backup-alice.testnet.json');
-    // The file is the encrypted vault record: ciphertext + public metadata, never the passphrase.
-    const record = JSON.parse(blobText) as Record<string, unknown>;
-    expect(record['cipher']).toBe('AES-256-GCM');
-    expect(record['accountId']).toBe('alice.testnet');
-    expect(typeof record['ciphertext']).toBe('string');
-    expect(blobText).not.toContain(PASS);
-    expect(Object.keys(record).some((k) => /private|secret|seed|mnemonic/i.test(k))).toBe(false);
-    expect(finish.disabled).toBe(true);
-    fireEvent.click(saved);
-    expect(finish.disabled).toBe(false);
+    expect(c.receive().identity).toMatchObject({ accountId: 'alice.testnet', recovery: 'RECOVERY_PHRASE' });
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeTruthy();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain(words.join(' '));
   }, 60_000);
 
   it('faucet rate limit: keeps the local vault, never claims the account, retry succeeds', async () => {
@@ -223,7 +220,7 @@ describe('create Taply Wallet = username.testnet (real controller, stubbed Testn
     expect(screen.getByText('That username is already taken on NEAR Testnet. Choose another one.')).toBeTruthy();
     const form = screen.getByRole('heading', { name: 'Choose another username' }).closest('section') as HTMLElement;
     fireEvent.change(within(form).getByLabelText('Username'), { target: { value: 'carol' } });
-    fireEvent.change(within(form).getByLabelText('Passphrase'), { target: { value: PASS } });
+    fireEvent.change(within(form).getByLabelText('Password'), { target: { value: PASS } });
     await act(async () => {
       fireEvent.click(within(form).getByRole('button', { name: /Use this username/ }));
     });
@@ -250,14 +247,14 @@ describe('manage Taply Wallet (real controller)', () => {
     expect(screen.getByRole('heading', { name: 'Choose another username' })).toBeTruthy();
 
     const unlock = within(screen.getByRole('form', { name: 'Unlock Taply Wallet' }));
-    fireEvent.change(unlock.getByLabelText('Passphrase'), { target: { value: 'definitely the wrong passphrase' } });
+    fireEvent.change(unlock.getByLabelText('Password'), { target: { value: 'definitely the wrong passphrase' } });
     await act(async () => {
       fireEvent.click(unlock.getByRole('button', { name: /^Unlock$/ }));
     });
-    expect((await unlock.findByRole('alert', {}, SLOW)).textContent).toContain('Wrong passphrase');
+    expect((await unlock.findByRole('alert', {}, SLOW)).textContent).toContain('Wrong password');
     expect(c.unlocked).toBe(false);
 
-    fireEvent.change(unlock.getByLabelText('Passphrase'), { target: { value: PASS } });
+    fireEvent.change(unlock.getByLabelText('Password'), { target: { value: PASS } });
     await act(async () => {
       fireEvent.click(unlock.getByRole('button', { name: /^Unlock$/ }));
     });
@@ -335,8 +332,73 @@ describe('send from Taply Wallet (review only)', () => {
   }, 60_000);
 });
 
+describe('recovery phrase (Phantom-style, real controller)', () => {
+  const VECTOR = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
+
+  it('/wallet shows the 12 words only after the password and keeps them hidden until tapped', async () => {
+    const { c, state } = namedController(async () => ({ ok: true }));
+    const identity = await c.createNamed(PASS, 'erin.testnet');
+    state.created.add('erin.testnet');
+    render(<TaplyWalletPanel />, c);
+    const section = within((await screen.findByRole('heading', { name: 'Show recovery phrase' }, SLOW)).closest('section') as HTMLElement);
+    expect(screen.queryByRole('button', { name: /Download encrypted backup/ })).toBeNull();
+    fireEvent.change(section.getByLabelText('Password'), { target: { value: 'definitely the wrong one' } });
+    await act(async () => {
+      fireEvent.click(section.getByRole('button', { name: 'Show phrase' }));
+    });
+    expect((await section.findByRole('alert', {}, SLOW)).textContent).toContain('Wrong password');
+    fireEvent.change(section.getByLabelText('Password'), { target: { value: PASS } });
+    await act(async () => {
+      fireEvent.click(section.getByRole('button', { name: 'Show phrase' }));
+    });
+    const reveal = await section.findByRole('button', { name: 'Tap to reveal' }, SLOW);
+    const words = await c.revealRecoveryPhrase(PASS);
+    expect(section.queryByText(words[0] ?? "missing")).toBeNull();
+    fireEvent.click(reveal);
+    expect(section.getAllByRole('listitem')).toHaveLength(12);
+    expect(section.getByText(words[11] ?? "missing")).toBeTruthy();
+    expect(c.unlocked).toBe(false);
+    expect(c.receive().identity.publicKeyHex).toBe(identity.publicKeyHex);
+  }, 60_000);
+
+  it('import: checks on chain that the phrase controls the account before storing anything', async () => {
+    const { c, state } = namedController(async () => ({ ok: true }), ['someone-else.testnet']);
+    render(<RestoreWalletFlow />, c);
+    const phrase = await screen.findByLabelText('Recovery phrase', {}, SLOW);
+    fireEvent.change(phrase, { target: { value: 'abandon abandon abandon' } });
+    expect(screen.getByText('3 / 12 words')).toBeTruthy();
+    const submit = screen.getByRole('button', { name: /Import wallet/ }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    fireEvent.change(phrase, { target: { value: VECTOR } });
+    fireEvent.change(screen.getByLabelText('Your account (username.testnet)'), { target: { value: 'someone-else' } });
+    fireEvent.change(screen.getByLabelText('Create a password for this device'), { target: { value: PASS } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: PASS } });
+    await act(async () => {
+      fireEvent.click(submit);
+    });
+    expect((await screen.findByRole('alert', {}, SLOW)).textContent).toContain('does not control that account');
+    expect((await c.read()).status).toBe('NOT_CREATED');
+
+    fireEvent.change(screen.getByLabelText('Your account (username.testnet)'), { target: { value: 'nobody' } });
+    await act(async () => {
+      fireEvent.click(submit);
+    });
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('does not exist on NEAR Testnet'), SLOW);
+
+    state.created.add('frank.testnet');
+    fireEvent.change(screen.getByLabelText('Your account (username.testnet)'), { target: { value: 'frank' } });
+    await act(async () => {
+      fireEvent.click(submit);
+    });
+    await waitFor(async () => expect((await c.read()).status).toBe('PROVISIONED'), SLOW);
+    expect(c.receive().identity).toMatchObject({ accountId: 'frank.testnet', recovery: 'RECOVERY_PHRASE' });
+    expect((await c.revealRecoveryPhrase(PASS)).join(' ')).toBe(VECTOR);
+    expect(c.unlocked).toBe(false);
+  }, 60_000);
+});
+
 describe('restore (real controller)', () => {
-  it('restores only from the encrypted backup with its passphrase, and stays locked', async () => {
+  it('legacy: still restores from an older encrypted backup file with its password, and stays locked', async () => {
     const source = controller(false);
     const identity = await source.create(PASS);
     const backup = source.exportEncryptedBackup();
@@ -344,13 +406,14 @@ describe('restore (real controller)', () => {
     render(<RestoreWalletFlow />, target);
 
     fireEvent.change(await screen.findByLabelText('Or paste the backup', {}, SLOW), { target: { value: backup } });
-    fireEvent.change(screen.getByLabelText('Passphrase'), { target: { value: 'not the right passphrase!!' } });
+    const legacy = within(screen.getByText('Restore from an older backup file').closest('details') as HTMLElement);
+    fireEvent.change(legacy.getByLabelText('Password'), { target: { value: 'not the right passphrase!!' } });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Restore wallet/ }));
     });
-    expect((await screen.findByRole('alert', {}, SLOW)).textContent).toContain('Wrong passphrase');
+    expect((await legacy.findByRole('alert', {}, SLOW)).textContent).toContain('Wrong password');
 
-    fireEvent.change(screen.getByLabelText('Passphrase'), { target: { value: PASS } });
+    fireEvent.change(legacy.getByLabelText('Password'), { target: { value: PASS } });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Restore wallet/ }));
     });

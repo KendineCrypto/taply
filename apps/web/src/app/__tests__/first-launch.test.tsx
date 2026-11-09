@@ -64,7 +64,7 @@ describe('first launch chooser on /', () => {
     expect(screen.getByRole('heading', { name: 'Create a Taply Wallet' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Choose a username/ }).getAttribute('href')).toBe('/wallet/create');
     expect(screen.getByText(/there is no sponsored gas/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: /I have a Taply Wallet backup/ }).getAttribute('href')).toBe('/wallet/restore');
+    expect(screen.getByRole('link', { name: /I already have a recovery phrase/ }).getAttribute('href')).toBe('/wallet/restore');
     // Nothing is created or requested just by showing the choice.
     expect(requestAccount).not.toHaveBeenCalled();
     expect((await c.read()).status).toBe('NOT_CREATED');
