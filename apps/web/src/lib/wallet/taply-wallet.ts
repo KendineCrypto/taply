@@ -1,12 +1,14 @@
 import {
-  EncryptedTestnetVault, WalletEngineError, createWalletChain, ed25519PublicKeyFromHex,
-  prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
+  EncryptedTestnetVault, VaultError, WalletEngineError, createWalletChain, ed25519PublicKeyFromHex,
+  isNamedTestnetAccount, prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
 } from '@taply/near-client';
 import type { LocalWalletIdentity, NearTestnetConfig, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall } from '@taply/near-client';
 import { encodeQr } from '@/lib/qr/encode';
 import { FLAGS } from '@/lib/flags/features';
 import { WalletError } from './adapter';
 import type { WalletAdapter, WalletSession } from './adapter';
+import { requestTestnetAccount } from './testnet-account';
+import type { FaucetFailure, FaucetResult } from './testnet-account';
 
 /** Human security review + an independently tested SDK signer are prerequisites.
  * No env, query parameter, vault unlock or UI action can enable this constant.
@@ -15,11 +17,27 @@ export const TAPLY_WALLET_SIGNING_ENABLED = false as const;
 
 export type TaplyWalletRead =
   | { readonly status: 'NOT_CREATED' }
-  | { readonly status: 'LOCAL_ONLY'; readonly identity: LocalWalletIdentity }
+  /** `nameTaken`: the named account exists on chain but does NOT hold this vault's key. */
+  | { readonly status: 'LOCAL_ONLY'; readonly identity: LocalWalletIdentity; readonly nameTaken?: true }
   | { readonly status: 'PROVISIONED'; readonly identity: LocalWalletIdentity; readonly balance: WalletBalanceSnapshot };
 
-/** Library integration seam only. Default WalletProvider remains external/Meteor.
- * No UI, account creation, funding or automatic migration of an external wallet.
+/** The requested `*.testnet` name already exists on NEAR Testnet. */
+export class TaplyNameTakenError extends Error {
+  constructor() { super('taply-wallet:NAME_TAKEN'); this.name = 'TaplyNameTakenError'; }
+}
+
+/** Outcome of `activate()`. Only ON_CHAIN means the account exists with this key. */
+export type TaplyActivation =
+  | { readonly status: 'ON_CHAIN'; readonly identity: LocalWalletIdentity }
+  | { readonly status: 'NAME_TAKEN' }
+  | { readonly status: 'FAUCET_FAILED'; readonly reason: FaucetFailure }
+  /** The faucet answered but FINAL reads do not show the account yet. Not a failure claim. */
+  | { readonly status: 'PENDING' };
+
+/** Library integration seam. Default WalletProvider remains external/Meteor.
+ * Account creation is only the public Testnet faucet for a named `*.testnet`
+ * vault identity, always confirmed by FINAL chain reads. No automatic migration
+ * of an external wallet.
  */
 export function createTaplyWalletController(input: {
   readonly config: NearTestnetConfig;
@@ -28,6 +46,10 @@ export function createTaplyWalletController(input: {
   /** Deterministic read-only test seam; production uses createWalletChain. */
   readonly chain?: WalletChain;
   readonly confirmTransaction?: (review: WalletTransactionReview) => Promise<boolean>;
+  /** Test seam for the public Testnet faucet. */
+  readonly requestAccount?: (accountId: string, publicKey: string) => Promise<FaucetResult>;
+  /** Test seam for the provisioning poll interval. */
+  readonly sleep?: (ms: number) => Promise<void>;
 }) {
   if (typeof window === 'undefined' || globalThis.isSecureContext !== true) throw new WalletError('unavailable');
   const vault = new EncryptedTestnetVault(input.storage, input.crypto ? { crypto: input.crypto } : {});
@@ -52,11 +74,55 @@ export function createTaplyWalletController(input: {
     policy: { signingPermitted: () => TAPLY_WALLET_SIGNING_ENABLED, contractCallsPermitted: () => FLAGS.instantPay.enabled,
       withExclusiveLock: withVaultWriteLock } });
 
+  const publicKeyOf = (identity: LocalWalletIdentity) => ed25519PublicKeyFromHex(identity.publicKeyHex);
+  const onChain = (identity: LocalWalletIdentity): LocalWalletIdentity => Object.freeze({ ...identity, provisioning: 'ON_CHAIN' as const });
   const read = async (): Promise<TaplyWalletRead> => {
     const identity = vault.getIdentity();
     if (identity === null) return { status: 'NOT_CREATED' };
-    const balance = await chain.snapshot(identity.accountId, ed25519PublicKeyFromHex(identity.publicKeyHex));
-    return balance === null ? { status: 'LOCAL_ONLY', identity } : { status: 'PROVISIONED', identity, balance };
+    let balance: WalletBalanceSnapshot | null;
+    try {
+      balance = await chain.snapshot(identity.accountId, publicKeyOf(identity));
+    } catch (error) {
+      // The account exists but the key read failed: tell "someone else owns this
+      // name" apart from an RPC problem with a FINAL key-list read.
+      if (await chain.provisioning(identity.accountId, publicKeyOf(identity)).catch(() => null) === 'KEY_NOT_ON_ACCOUNT')
+        return { status: 'LOCAL_ONLY', identity, nameTaken: true };
+      throw error;
+    }
+    return balance === null ? { status: 'LOCAL_ONLY', identity } : { status: 'PROVISIONED', identity: onChain(identity), balance };
+  };
+  const provisioning = async () => {
+    const identity = vault.getIdentity();
+    if (identity === null) throw new WalletEngineError('ACCOUNT_NOT_PROVISIONED');
+    return { identity, status: await chain.provisioning(identity.accountId, publicKeyOf(identity)) };
+  };
+  const sleep = input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const faucet = input.requestAccount ?? ((accountId: string, publicKey: string) => requestTestnetAccount(accountId, publicKey));
+  /** Polls FINAL provisioning reads; never infers success from the faucet. */
+  const confirm = async (attempts: number): Promise<TaplyActivation> => {
+    for (let i = 0; i < attempts; i++) {
+      const current = await provisioning().catch(() => null);
+      if (current?.status === 'ON_CHAIN') return { status: 'ON_CHAIN', identity: onChain(current.identity) };
+      if (current?.status === 'KEY_NOT_ON_ACCOUNT') return { status: 'NAME_TAKEN' };
+      if (i + 1 < attempts) await sleep(1_500);
+    }
+    return { status: 'PENDING' };
+  };
+  let activating: Promise<TaplyActivation> | null = null;
+  const activate = (): Promise<TaplyActivation> => {
+    // One faucet request at a time per tab (double taps, re-renders).
+    activating ??= (async () => {
+      const first = await provisioning();
+      if (!isNamedTestnetAccount(first.identity.accountId)) throw new WalletEngineError('INVALID_ADDRESS');
+      if (first.status === 'ON_CHAIN') return { status: 'ON_CHAIN', identity: onChain(first.identity) } as const;
+      if (first.status === 'KEY_NOT_ON_ACCOUNT') return { status: 'NAME_TAKEN' } as const;
+      const result = await faucet(first.identity.accountId, publicKeyOf(first.identity));
+      if (result.ok) return confirm(20);
+      // A timeout may still have created it; a refusal may follow an earlier success.
+      const after = await confirm(result.reason === 'unavailable' ? 4 : 1);
+      return after.status === 'PENDING' ? { status: 'FAUCET_FAILED', reason: result.reason } as const : after;
+    })().finally(() => { activating = null; });
+    return activating;
   };
   const session = async (): Promise<WalletSession | null> => {
     if (!vault.unlocked) return null;
@@ -95,6 +161,19 @@ export function createTaplyWalletController(input: {
     get unlocked() { return vault.unlocked; },
     get connected() { return connected && vault.unlocked; },
     create: (password: string) => withVaultWriteLock(() => vault.create(password)),
+    /** Free at the current FINAL block? Throws when Testnet cannot be read. */
+    isAccountAvailable: async (accountId: string) => !(await chain.accountExists(accountId)),
+    /** Local vault bound to a named `*.testnet` account. Creates nothing on chain. */
+    createNamed: (password: string, accountId: string) => withVaultWriteLock(() => vault.create(password, accountId)),
+    /** Faucet request + FINAL confirmation for the vault's named account. No passphrase needed. */
+    activate,
+    /** Binds the same key to another free name, only while the current one is not proven on chain. */
+    rebindName: (password: string, accountId: string) => withVaultWriteLock(async () => {
+      const current = await provisioning();
+      if (current.status === 'ON_CHAIN') throw new VaultError('ALREADY_EXISTS');
+      if (await chain.accountExists(accountId)) throw new TaplyNameTakenError();
+      return vault.rebindAccount(password, accountId);
+    }),
     unlock: (password: string) => vault.unlock(password),
     lock: () => vault.lock(),
     exportEncryptedBackup: () => vault.exportEncryptedBackup(),

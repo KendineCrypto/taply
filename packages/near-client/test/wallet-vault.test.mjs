@@ -78,3 +78,58 @@ test('vault refuses weak passwords, plaintext recovery, corrupted and unavailabl
   await assert.rejects(unavailable.create(password), { code: 'STORAGE_UNAVAILABLE' });
   assert.equal(unavailable.unlocked, false);
 });
+
+test('named *.testnet identity: bound in authenticated metadata, local only, restorable', async () => {
+  const storage = memory(); const vault = new EncryptedTestnetVault(storage);
+  const id = await vault.create(password, 'alice-01.testnet');
+  assert.equal(id.accountId, 'alice-01.testnet');
+  assert.equal(id.provisioning, 'LOCAL_ONLY');
+  assert.match(id.publicKeyHex, /^[a-f0-9]{64}$/);
+  assert.equal(vault.unlocked, false);
+  assert.deepEqual(await vault.unlock(password), id); vault.lock();
+  const backup = vault.exportEncryptedBackup();
+  const restored = new EncryptedTestnetVault(memory());
+  assert.deepEqual(await restored.restoreEncryptedBackup(backup, password), id);
+  // The account ID is authenticated: renaming the record breaks decryption.
+  const renamed = JSON.parse(backup); renamed.accountId = 'mallory.testnet';
+  await assert.rejects(new EncryptedTestnetVault(memory()).restoreEncryptedBackup(JSON.stringify(renamed), password), { code: 'BAD_PASSWORD_OR_DATA' });
+});
+
+test('named identity refuses non-testnet, malformed and implicit-looking IDs; implicit must equal key', async () => {
+  for (const bad of ['testnet', '.testnet', 'alice.near', 'Alice.testnet', 'a..b.testnet', '-a.testnet', 'a'.repeat(57) + '.testnet', '0'.repeat(64)]) {
+    const vault = new EncryptedTestnetVault(memory());
+    await assert.rejects(vault.create(password, bad), { code: 'INVALID_ACCOUNT_ID' }, bad);
+    assert.equal(vault.getIdentity(), null);
+  }
+  const source = new EncryptedTestnetVault(memory()); await source.create(password);
+  const record = JSON.parse(source.exportEncryptedBackup()); record.accountId = 'f'.repeat(64);
+  await assert.rejects(new EncryptedTestnetVault(memory()).restoreEncryptedBackup(JSON.stringify(record), password), { code: 'INVALID_RECORD' });
+});
+
+test('rebindAccount keeps the key, needs the passphrase, refreshes salt/IV and stays locked', async () => {
+  const storage = memory(); const vault = new EncryptedTestnetVault(storage);
+  const first = await vault.create(password, 'taken-name.testnet');
+  const before = JSON.parse(storage.getItem(VAULT_STORAGE_KEY));
+  await assert.rejects(vault.rebindAccount('wrong-but-long-password', 'free-name.testnet'), { code: 'BAD_PASSWORD_OR_DATA' });
+  await assert.rejects(vault.rebindAccount(password, 'free.near'), { code: 'INVALID_ACCOUNT_ID' });
+  assert.deepEqual(vault.getIdentity(), first);
+  await vault.unlock(password);
+  const next = await vault.rebindAccount(password, 'free-name.testnet');
+  assert.equal(vault.unlocked, false);
+  assert.equal(next.accountId, 'free-name.testnet');
+  assert.equal(next.publicKeyHex, first.publicKeyHex);
+  const after = JSON.parse(storage.getItem(VAULT_STORAGE_KEY));
+  assert.notEqual(after.salt, before.salt); assert.notEqual(after.iv, before.iv);
+  assert.deepEqual(await vault.unlock(password), next);
+  // An implicit vault can also be bound to a name (same key).
+  const implicit = new EncryptedTestnetVault(memory()); const local = await implicit.create(password);
+  assert.equal((await implicit.rebindAccount(password, 'named.testnet')).publicKeyHex, local.publicKeyHex);
+});
+
+test('rebind is cancelled by a concurrent lock and leaves the original record', async () => {
+  const storage = memory(); const vault = new EncryptedTestnetVault(storage);
+  await vault.create(password, 'one.testnet'); const raw = storage.getItem(VAULT_STORAGE_KEY);
+  const pending = vault.rebindAccount(password, 'two.testnet'); vault.lock();
+  await assert.rejects(pending, { code: 'CANCELLED' });
+  assert.equal(storage.getItem(VAULT_STORAGE_KEY), raw);
+});

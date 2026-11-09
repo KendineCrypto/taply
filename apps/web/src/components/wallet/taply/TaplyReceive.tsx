@@ -3,6 +3,7 @@
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { ButtonLink, Spinner } from '@/components/primitives/Button';
 import { ReceiveCard } from '@/components/wallet/ReceiveCard';
+import { isNamedTestnetAccount } from '@taply/near-client';
 import { useT } from '@/lib/i18n/provider';
 import { useTaplyWallet } from './TaplyWalletProvider';
 import { TaplyStatusBadge } from './TaplyWalletUi';
@@ -33,7 +34,15 @@ export function TaplyReceive() {
         <TaplyStatusBadge state={state} />
       </div>
       {state.status !== 'provisioned' && (
-        <InlineNotice copy={{ title: n.status.localOnly.title, body: n.receive.localOnlyNote }} tone="caution" />
+        <InlineNotice
+          copy={{
+            title: n.status.localOnly.title,
+            // A named account is created only by the faucet step, never by a transfer.
+            body: isNamedTestnetAccount(state.identity.accountId) ? n.receive.namedPendingNote : n.receive.localOnlyNote,
+          }}
+          tone="caution"
+          action={isNamedTestnetAccount(state.identity.accountId) ? <ButtonLink href="/wallet">{n.username.finishSetup}</ButtonLink> : undefined}
+        />
       )}
       <ReceiveCard accountId={state.identity.accountId} />
     </div>

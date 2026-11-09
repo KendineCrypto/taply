@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isWellFormedUnicode, parseStrictJson } from "@taply/shared";
+import { AccountIdSchema, isWellFormedUnicode, parseStrictJson } from "@taply/shared";
 import { PublicKey, Signer, encodeTransaction, decodeSignedTransaction } from "near-api-js";
 import type { Transaction, SignedTransaction } from "near-api-js";
 
@@ -17,13 +17,17 @@ export const VAULT_UNLOCK_MS = 5 * 60 * 1000;
 const ITERATIONS = 600_000;
 const encoder = new TextEncoder();
 const HexKey = z.string().regex(/^[a-f0-9]{64}$/);
+/** A named NEAR Testnet account such as `alice.testnet` (2-64 chars, NEAR syntax). */
+export const NamedTestnetAccountSchema = AccountIdSchema.refine((v) => v.endsWith(".testnet") && v.length > ".testnet".length);
+export function isNamedTestnetAccount(value: string): boolean { return NamedTestnetAccountSchema.safeParse(value).success; }
 const RecordSchema = z.strictObject({
   version: z.literal(1), network: z.literal("near-testnet"),
-  algorithm: z.literal("Ed25519"), publicKeyHex: HexKey, accountId: HexKey,
+  algorithm: z.literal("Ed25519"), publicKeyHex: HexKey, accountId: z.union([HexKey, NamedTestnetAccountSchema]),
   kdf: z.literal("PBKDF2-SHA256"), iterations: z.literal(ITERATIONS),
   cipher: z.literal("AES-256-GCM"), salt: z.string().regex(/^[a-f0-9]{32}$/),
   iv: z.string().regex(/^[a-f0-9]{24}$/), ciphertext: z.string().regex(/^[a-f0-9]{64,1024}$/),
-}).refine((r) => r.accountId === r.publicKeyHex);
+  // Implicit accounts are bound to their key; a named account must still be proven on chain.
+}).refine((r) => !HexKey.safeParse(r.accountId).success || r.accountId === r.publicKeyHex);
 type VaultRecord = z.infer<typeof RecordSchema>;
 
 export interface VaultStorage { getItem(key: string): string | null; setItem(key: string, value: string): void }
@@ -31,12 +35,16 @@ export interface LocalWalletIdentity {
   readonly network: "near-testnet";
   readonly accountId: string;
   readonly publicKeyHex: string;
-  /** Local generation is NOT account creation or Testnet funding. */
-  readonly provisioning: "LOCAL_ONLY";
+  /** Local generation is NOT account creation or Testnet funding. The vault itself
+   * only ever reports LOCAL_ONLY; ON_CHAIN is set by a caller after a FINAL chain
+   * read proved the account exists and holds this key with full access
+   * (`WalletChain.provisioning`). */
+  readonly provisioning: "LOCAL_ONLY" | "ON_CHAIN";
 }
 export class VaultError extends Error {
   constructor(readonly code: "LOCKED" | "INVALID_RECORD" | "BAD_PASSWORD_OR_DATA" | "PASSWORD_POLICY" |
-    "ALREADY_EXISTS" | "STORAGE_UNAVAILABLE" | "CANCELLED" | "CRYPTO_UNAVAILABLE" | "SIGNING_DISABLED") {
+    "ALREADY_EXISTS" | "STORAGE_UNAVAILABLE" | "CANCELLED" | "CRYPTO_UNAVAILABLE" | "SIGNING_DISABLED" |
+    "INVALID_ACCOUNT_ID") {
     super(`taply-vault:${code}`); this.name = "VaultError";
   }
 }
@@ -73,7 +81,8 @@ async function encryptionKey(crypto: Crypto, password: string, salt: Uint8Array<
 }
 
 /** Web Crypto primitives only. Storage receives ciphertext and public metadata.
- * Reload starts locked. No mnemonic/plaintext import or account-creation API.
+ * Reload starts locked. No mnemonic/plaintext import or account-creation API:
+ * a named account ID is only a binding until a chain read proves it.
  * Browser/XSS code while unlocked remains a threat; this is not a hardware wallet.
  */
 export class EncryptedTestnetVault {
@@ -117,8 +126,12 @@ export class EncryptedTestnetVault {
     clearTimeout(this.#timer); this.#timer = undefined;
     for (const listener of this.#listeners) listener();
   }
-  /** Generates a LOCAL implicit identity and encrypted vault, then leaves it locked. */
-  async create(password: string): Promise<LocalWalletIdentity> {
+  /** Generates a LOCAL identity and encrypted vault, then leaves it locked. Without
+   * `accountId` the identity is the implicit account of the new key; with a named
+   * `*.testnet` account ID the record is bound to that name (authenticated
+   * metadata). Neither creates or funds anything on chain. */
+  async create(password: string, accountId?: string): Promise<LocalWalletIdentity> {
+    if (accountId !== undefined && !isNamedTestnetAccount(accountId)) throw new VaultError("INVALID_ACCOUNT_ID");
     if (this.raw() !== null) throw new VaultError("ALREADY_EXISTS");
     this.lock(); const generation = this.#generation;
     const salt = this.crypto.getRandomValues(new Uint8Array(16));
@@ -130,7 +143,7 @@ export class EncryptedTestnetVault {
     const publicBytes = new Uint8Array(await this.crypto.subtle.exportKey("raw", pair.publicKey));
     const publicKeyHex = hex(publicBytes);
     const metadata: Omit<VaultRecord, "ciphertext"> = { version: 1, network: "near-testnet", algorithm: "Ed25519",
-      publicKeyHex, accountId: publicKeyHex, kdf: "PBKDF2-SHA256", iterations: ITERATIONS,
+      publicKeyHex, accountId: accountId ?? publicKeyHex, kdf: "PBKDF2-SHA256", iterations: ITERATIONS,
       cipher: "AES-256-GCM", salt: hex(salt), iv: hex(iv) };
     const secret = new Uint8Array(await this.crypto.subtle.exportKey("pkcs8", pair.privateKey));
     try {
@@ -141,7 +154,8 @@ export class EncryptedTestnetVault {
       return identity(metadata);
     } finally { secret.fill(0); }
   }
-  private async decrypt(raw: string, password: string): Promise<{ record: VaultRecord; key: CryptoKey }> {
+  private async decrypt(raw: string, password: string,
+    reseal?: (secret: Uint8Array<ArrayBuffer>, record: VaultRecord) => Promise<void>): Promise<{ record: VaultRecord; key: CryptoKey }> {
     const record = parseRecord(raw);
     const encryption = await encryptionKey(this.crypto, password, unhex(record.salt));
     let secret: Uint8Array<ArrayBuffer> | null = null;
@@ -154,6 +168,7 @@ export class EncryptedTestnetVault {
       const challenge = this.crypto.getRandomValues(new Uint8Array(32));
       const signature = await this.crypto.subtle.sign("Ed25519", key, challenge);
       if (!await this.crypto.subtle.verify("Ed25519", pub, signature, challenge)) throw new Error();
+      if (reseal) await reseal(secret, record);
       return { record, key };
     } catch { throw new VaultError("BAD_PASSWORD_OR_DATA"); }
     finally { secret?.fill(0); }
@@ -168,6 +183,32 @@ export class EncryptedTestnetVault {
     // Do not keep Node test processes alive; browsers simply have no unref.
     const timer = this.#timer as unknown as { unref?: () => void }; timer.unref?.();
     return identity(record);
+  }
+  /** Re-binds the SAME key to another named `*.testnet` account ID with a fresh
+   * salt and IV (the account ID is authenticated metadata). Meant for a name that
+   * was never provisioned, e.g. taken by someone else before the Testnet faucet
+   * created it. Needs the passphrase, never exports the key and leaves the vault
+   * locked. Callers must only offer it while the current account is NOT proven
+   * on chain, otherwise the user loses the easy path back to that account. */
+  async rebindAccount(password: string, accountId: string): Promise<LocalWalletIdentity> {
+    if (!isNamedTestnetAccount(accountId)) throw new VaultError("INVALID_ACCOUNT_ID");
+    this.lock(); const generation = this.#generation;
+    const raw = this.raw(); if (raw === null) throw new VaultError("INVALID_RECORD");
+    const out: { replacement?: string } = {};
+    await this.decrypt(raw, password, async (secret, record) => {
+      const salt = this.crypto.getRandomValues(new Uint8Array(16));
+      const iv = this.crypto.getRandomValues(new Uint8Array(12));
+      const encryption = await encryptionKey(this.crypto, password, salt);
+      const metadata: Omit<VaultRecord, "ciphertext"> = { version: record.version, network: record.network,
+        algorithm: record.algorithm, publicKeyHex: record.publicKeyHex, accountId, kdf: record.kdf,
+        iterations: record.iterations, cipher: record.cipher, salt: hex(salt), iv: hex(iv) };
+      const encrypted = await this.crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad(metadata), tagLength: 128 }, encryption, secret);
+      out.replacement = JSON.stringify({ ...metadata, ciphertext: hex(new Uint8Array(encrypted)) });
+    });
+    if (out.replacement === undefined) throw new VaultError("BAD_PASSWORD_OR_DATA");
+    if (generation !== this.#generation || this.raw() !== raw) throw new VaultError("CANCELLED");
+    const record = parseRecord(out.replacement);
+    this.persist(out.replacement); return identity(record);
   }
   exportEncryptedBackup(): string {
     const raw = this.raw(); if (raw === null) throw new VaultError("INVALID_RECORD");

@@ -12,7 +12,9 @@ import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { nsToDate } from '@/lib/format/time';
 import { CHAIN_CONFIG, explorerAccountUrl } from '@/lib/near/config';
+import { isNamedTestnetAccount } from '@taply/near-client';
 import { useTaplyWallet } from './TaplyWalletProvider';
+import { ActivationPanel } from './UsernameActivation';
 import type { TaplyErrorCode, TaplyWalletState } from './TaplyWalletProvider';
 import { useWalletMode } from './mode';
 
@@ -66,7 +68,7 @@ export function TaplyStatusBadge({ state }: { readonly state: TaplyWalletState }
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--tone-caution-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--tone-caution-fg)] ring-1 ring-[var(--tone-caution-border)]">
         <Icon name="alert" size={13} />
-        {s.localOnly.title}
+        {state.nameTaken ? s.nameTaken.title : s.localOnly.title}
       </span>
     );
   }
@@ -103,7 +105,14 @@ export function TaplyIdentityCard({ actions }: { readonly actions?: ReactNode })
   const { state, refresh } = useTaplyWallet();
   if (state.status !== 'local_only' && state.status !== 'unknown' && state.status !== 'provisioned') return null;
   const n = t.walletNative;
-  const statusCopy = state.status === 'provisioned' ? n.status.provisioned : state.status === 'local_only' ? n.status.localOnly : n.status.unknown;
+  const statusCopy =
+    state.status === 'provisioned'
+      ? n.status.provisioned
+      : state.status === 'local_only'
+        ? state.nameTaken
+          ? n.status.nameTaken
+          : n.status.localOnly
+        : n.status.unknown;
   return (
     <section className="surface-hero p-5" aria-labelledby="taply-identity-title">
       <div className="flex items-start gap-3">
@@ -278,7 +287,7 @@ export function BackupDownloadButton({ onDownloaded, variant = 'primary' }: { re
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `taply-testnet-wallet-backup-${accountId.slice(0, 8)}.json`;
+          link.download = `taply-testnet-wallet-backup-${isNamedTestnetAccount(accountId) ? accountId : accountId.slice(0, 8)}.json`;
           document.body.appendChild(link);
           link.click();
           link.remove();
@@ -349,6 +358,11 @@ export function TaplyWalletPanel() {
   return (
     <div className="flex flex-col gap-4">
       <TaplyIdentityCard />
+      {state.status === 'local_only' && (
+        <section className="surface-card p-5" aria-label={n.username.finishSetup}>
+          <ActivationPanel />
+        </section>
+      )}
       <section className="surface-card p-5">
         {unlocked ? (
           <div className="flex flex-col gap-3">

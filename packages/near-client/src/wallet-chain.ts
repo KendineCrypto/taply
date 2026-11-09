@@ -61,6 +61,39 @@ export function createWalletChain(config: NearTestnetConfig, fetcher: Fetch = (u
         amountYocto: account.amount, storageUsageBytes: account.storage_usage,
         storageByteCostYocto: protocol.runtime_config.storage_amount_per_byte, gasPriceYocto: gas.gas_price });
     },
+    /** Whether an account exists at the current FINAL block (name availability). */
+    async accountExists(accountId: string): Promise<boolean> {
+      walletAccountId(accountId);
+      await checkNetwork();
+      const block = read(BlockSchema, await rpc("block", { finality: "final" }));
+      let rawAccount: unknown;
+      try { rawAccount = await rpc("query", { request_type: "view_account", account_id: accountId, block_id: block.hash }); }
+      catch (e) { if (e instanceof NearClientError && e.code === "ACCOUNT_NOT_FOUND") return false; throw e; }
+      anchored(read(AccountSchema, rawAccount), block);
+      return true;
+    },
+    /**
+     * Provisioning proof for a vault identity, read at ONE final block:
+     * - ACCOUNT_NOT_FOUND: no account with this ID (a name is still free);
+     * - KEY_NOT_ON_ACCOUNT: the account exists but does not hold this key with full
+     *   access (e.g. someone else owns the name);
+     * - ON_CHAIN: the account exists and lists this exact key as FullAccess.
+     * Never inferred from a faucet or transfer response.
+     */
+    async provisioning(accountId: string, publicKey: string): Promise<"ACCOUNT_NOT_FOUND" | "KEY_NOT_ON_ACCOUNT" | "ON_CHAIN"> {
+      walletAccountId(accountId);
+      if (!/^ed25519:[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(publicKey)) throw new WalletEngineError("KEY_NOT_AUTHORIZED");
+      await checkNetwork();
+      const block = read(BlockSchema, await rpc("block", { finality: "final" }));
+      let rawAccount: unknown;
+      try { rawAccount = await rpc("query", { request_type: "view_account", account_id: accountId, block_id: block.hash }); }
+      catch (e) { if (e instanceof NearClientError && e.code === "ACCOUNT_NOT_FOUND") return "ACCOUNT_NOT_FOUND"; throw e; }
+      anchored(read(AccountSchema, rawAccount), block);
+      const list = anchored(read(z.object({ block_hash: z.string(), block_height: RpcU64Schema,
+        keys: z.array(z.object({ public_key: z.string(), access_key: z.object({ permission: z.unknown() }) })).max(10_000) }),
+      await rpc("query", { request_type: "view_access_key_list", account_id: accountId, block_id: block.hash })), block);
+      return list.keys.some((k) => k.public_key === publicKey && k.access_key.permission === "FullAccess") ? "ON_CHAIN" : "KEY_NOT_ON_ACCOUNT";
+    },
     async receiverExists(receiverId: string, blockHash: string): Promise<void> {
       walletAccountId(receiverId);
       await checkNetwork();

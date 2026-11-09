@@ -7,7 +7,7 @@ import type { LocalWalletIdentity, WalletBalanceSnapshot } from '@taply/near-cli
 import type { Dictionary } from '@/lib/i18n';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { WalletError } from '@/lib/wallet/adapter';
-import { createTaplyWalletController } from '@/lib/wallet/taply-wallet';
+import { createTaplyWalletController, TaplyNameTakenError } from '@/lib/wallet/taply-wallet';
 
 /**
  * React bridge to the Codex-owned Taply Wallet controller
@@ -17,7 +17,8 @@ import { createTaplyWalletController } from '@/lib/wallet/taply-wallet';
  *  - only the ENCRYPTED backup string ever passes through (for download);
  *  - signing is not reachable: the controller's signer is hard-disabled and
  *    this provider never offers a sign or submit action;
- *  - a LOCAL_ONLY identity is never presented as an on-chain account.
+ *  - a LOCAL_ONLY identity is never presented as an on-chain account; a named
+ *    `username.testnet` counts only after a FINAL read shows it holds the key.
  *
  * It is separate from the payments WalletProvider on purpose: Instant Pay keeps
  * using the external (NEAR Connect / Meteor) wallet.
@@ -32,7 +33,8 @@ export type TaplyWalletState =
   | { readonly status: 'unavailable' }
   | { readonly status: 'checking' }
   | { readonly status: 'not_created' }
-  | { readonly status: 'local_only'; readonly identity: LocalWalletIdentity }
+  /** `nameTaken`: the named account exists on chain under another key. */
+  | { readonly status: 'local_only'; readonly identity: LocalWalletIdentity; readonly nameTaken?: true }
   /** Identity exists but NEAR Testnet could not be read. Never treated as provisioned. */
   | { readonly status: 'unknown'; readonly identity: LocalWalletIdentity }
   | { readonly status: 'provisioned'; readonly identity: LocalWalletIdentity; readonly balance: WalletBalanceSnapshot };
@@ -49,6 +51,14 @@ interface TaplyWalletValue {
   /** The encrypted vault record only. Never plaintext key material. */
   readonly exportEncryptedBackup: () => TaplyResult<string>;
   readonly restore: (backup: string, passphrase: string) => Promise<TaplyResult<LocalWalletIdentity>>;
+  /** FINAL read: is `accountId` still free on NEAR Testnet? */
+  readonly checkAvailable: (accountId: string) => Promise<TaplyResult<boolean>>;
+  /** Local encrypted vault bound to a named `*.testnet` account (nothing on chain yet). */
+  readonly createNamed: (passphrase: string, accountId: string) => Promise<TaplyResult<LocalWalletIdentity>>;
+  /** Testnet faucet + FINAL confirmation. ok only when the account holds this key. */
+  readonly activate: () => Promise<TaplyResult<LocalWalletIdentity>>;
+  /** Same key, another free name; only while the current name is not on chain. */
+  readonly rebindName: (passphrase: string, accountId: string) => Promise<TaplyResult<LocalWalletIdentity>>;
   /** Read-only review. There is deliberately no sign/submit counterpart. */
   readonly prepareSend: (receiverId: string, amountNear: string) => Promise<TaplyResult<PreparedTransfer>>;
 }
@@ -56,7 +66,7 @@ interface TaplyWalletValue {
 const KNOWN: ReadonlySet<string> = new Set([
   'BAD_PASSWORD_OR_DATA', 'PASSWORD_POLICY', 'ALREADY_EXISTS', 'INVALID_RECORD', 'STORAGE_UNAVAILABLE',
   'CRYPTO_UNAVAILABLE', 'CANCELLED', 'LOCKED', 'ACCOUNT_NOT_PROVISIONED', 'INVALID_ADDRESS', 'INVALID_AMOUNT',
-  'INSUFFICIENT_AVAILABLE_BALANCE', 'NETWORK_MISMATCH', 'RPC_UNAVAILABLE',
+  'INSUFFICIENT_AVAILABLE_BALANCE', 'NETWORK_MISMATCH', 'RPC_UNAVAILABLE', 'INVALID_ACCOUNT_ID',
 ]);
 
 /** Maps controller errors to UI copy keys. Messages from errors are never shown. */
@@ -64,6 +74,7 @@ export function taplyErrorCode(error: unknown): TaplyErrorCode {
   if ((error instanceof VaultError || error instanceof WalletEngineError) && KNOWN.has(error.code)) {
     return error.code as TaplyErrorCode;
   }
+  if (error instanceof TaplyNameTakenError) return 'NAME_TAKEN';
   if (error instanceof WalletError) return error.kind === 'unavailable' ? 'UNAVAILABLE' : 'UNKNOWN';
   return 'UNKNOWN';
 }
@@ -123,7 +134,8 @@ export function TaplyWalletProvider({
       (read) => {
         if (!active) return;
         if (read.status === 'NOT_CREATED') setState({ status: 'not_created' });
-        else if (read.status === 'LOCAL_ONLY') setState({ status: 'local_only', identity: read.identity });
+        else if (read.status === 'LOCAL_ONLY')
+          setState(read.nameTaken ? { status: 'local_only', identity: read.identity, nameTaken: true } : { status: 'local_only', identity: read.identity });
         else setState({ status: 'provisioned', identity: read.identity, balance: read.balance });
       },
       () => {
@@ -192,6 +204,53 @@ export function TaplyWalletProvider({
           return { ok: false, code: taplyErrorCode(error) };
         }
       },
+      async checkAvailable(accountId) {
+        if (!controller) return missing;
+        try {
+          return { ok: true, value: await controller.isAccountAvailable(accountId) };
+        } catch (error) {
+          const code = taplyErrorCode(error);
+          return { ok: false, code: code === 'UNKNOWN' ? 'RPC_UNAVAILABLE' : code };
+        }
+      },
+      async createNamed(passphrase, accountId) {
+        if (!controller) return missing;
+        try {
+          const identity = await controller.createNamed(passphrase, accountId);
+          refresh();
+          return { ok: true, value: identity };
+        } catch (error) {
+          return { ok: false, code: taplyErrorCode(error) };
+        }
+      },
+      async activate() {
+        if (!controller) return missing;
+        try {
+          const outcome = await controller.activate();
+          refresh();
+          if (outcome.status === 'ON_CHAIN') return { ok: true, value: outcome.identity };
+          if (outcome.status === 'NAME_TAKEN') return { ok: false, code: 'NAME_TAKEN' };
+          if (outcome.status === 'PENDING') return { ok: false, code: 'PROVISIONING_PENDING' };
+          return {
+            ok: false,
+            code: outcome.reason === 'rate_limited' ? 'FAUCET_RATE_LIMITED' : outcome.reason === 'rejected' ? 'FAUCET_REJECTED' : 'FAUCET_UNAVAILABLE',
+          };
+        } catch (error) {
+          const code = taplyErrorCode(error);
+          return { ok: false, code: code === 'UNKNOWN' ? 'RPC_UNAVAILABLE' : code };
+        }
+      },
+      async rebindName(passphrase, accountId) {
+        if (!controller) return missing;
+        try {
+          const identity = await controller.rebindName(passphrase, accountId);
+          setUnlocked(false);
+          refresh();
+          return { ok: true, value: identity };
+        } catch (error) {
+          return { ok: false, code: taplyErrorCode(error) };
+        }
+      },
       async prepareSend(receiverId, amountNear) {
         if (!controller) return missing;
         try {
@@ -210,4 +269,9 @@ export function useTaplyWallet(): TaplyWalletValue {
   const value = useContext(TaplyWalletContext);
   if (value === null) throw new Error('useTaplyWallet must be used inside <TaplyWalletProvider>');
   return value;
+}
+
+/** Same as useTaplyWallet, but null outside the provider (screens that may render without it). */
+export function useOptionalTaplyWallet(): TaplyWalletValue | null {
+  return useContext(TaplyWalletContext);
 }
