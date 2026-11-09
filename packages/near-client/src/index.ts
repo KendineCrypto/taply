@@ -11,6 +11,8 @@ export type { LocalWalletIdentity, VaultStorage } from "./wallet-vault.js";
 export { MIN_PASSWORD_LENGTH } from "./wallet-vault.js";
 export { normalizePhrase, recoveryPhrasePublicKeyHex, RECOVERY_WORDS } from "./recovery-phrase.js";
 export { BIP39_ENGLISH } from "./bip39-english.js";
+export { createSwapReader, DEFAULT_SLIPPAGE_BPS, prepareBuyToken, prepareSellTokenForNear, prepareTokenRegistration, quoteExactNearForToken, quoteTokenForExactNear, simplePoolOut, SwapError, SWAP_GAS, TESTNET_USDC_ROUTE } from "./ref-swap.js";
+export type { BuyQuote, PreparedFunctionCall, PreparedSwapTransaction, SellQuote, SwapReader, SwapRoute, SwapSnapshot } from "./ref-swap.js";
 export { createWalletChain, ed25519PublicKeyFromHex } from "./wallet-chain.js";
 export type { WalletChain } from "./wallet-chain.js";
 export { WalletAttemptJournal } from "./wallet-journal.js";

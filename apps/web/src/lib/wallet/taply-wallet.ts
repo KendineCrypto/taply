@@ -148,6 +148,7 @@ export function createTaplyWalletController(input: {
       if (!TAPLY_WALLET_SIGNING_ENABLED || !FLAGS.instantPay.enabled || !input.confirmTransaction) throw new WalletError('unavailable');
       if (!connected || !vault.unlocked || vault.getIdentity()?.accountId !== signerAccountId) throw new WalletError('no_account');
       if (!['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName)) throw new WalletError('failed');
+      if (call.actions !== undefined) throw new WalletError('failed');
       try {
         const review = await backend.prepareContractCall({ ...call, methodName: call.methodName as PreparedContractCall['methodName'] });
         const outcome = await backend.submit(review.id, input.confirmTransaction);

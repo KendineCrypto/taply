@@ -77,6 +77,27 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-09 — cloud session 2
 
+### Increment 10 — Live release + pay a NEAR request with test USDC (owner request)
+
+- **Release:** PR #15 merged (`01dc5de`), `release/taplyapp` fast-forwarded; verified on https://taplyapp.xyz with the
+  real-browser phrase script: `taply-srp-a43816.testnet` created on production and re-imported in a second browser.
+  Instant Pay on production is still OFF (Vercel `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=off`, owner action).
+- **Research:** NEAR Intents has no Testnet (official FAQ). Ref/Rhea Testnet `ref-finance-101.testnet` (v1.9.19, 2,930
+  pools) is live. Publicly mintable test USDCs have drained pools with absurd prices; `usdc.itachicara.testnet`
+  (24 decimals, no public mint) pool 1103 has ~27k wNEAR, ~2.1 USDC/NEAR.
+- **near-client `ref-swap.ts`:** pinned route, final-block reader (pool, metadata, payer balance/registration,
+  storage bounds), exact-NEAR-out quote (reserve math + 0.5% buffer, `min_amount_out` = wanted NEAR), price-impact
+  cap (5% of reserve), builders: register, buy (one wrap.testnet tx: storage_deposit + near_deposit + ft_transfer_call),
+  sell (ft_transfer_call with `skip_unwrap_near: false` → native NEAR). 5 tests; quotes equal the real swap logs.
+- **web:** pay screen "Pay with: NEAR | USDC" (NEAR requests only, only when signing is allowed). USDC: step 1 convert
+  (separate wallet approval, FINAL outcome without failed receipts = converted; failure says USDC was returned;
+  unknown blocks a blind retry), step 2 = the unchanged reviewed NEAR payment. "Enable test USDC" / "Get test USDC".
+  WalletCall gained optional same-receiver `actions`; the Taply Wallet adapter refuses them. EN + TR.
+- **Real Testnet proof** (`packages/near-client/testnet-e2e/usdc-pay.mjs`, evidence
+  `docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json`): merchant asked 0.3 NEAR; payer registered,
+  bought 0.662 test USDC, converted 0.6376 USDC → 0.3015 NEAR (Ref log equals the predicted output), paid; request
+  FINAL_PAID, merchant delta exactly 0.3 NEAR. Not a browser-wallet run (external wallets cannot run headless).
+
 ### Increment 9 — Phantom-style Secret Recovery Phrase replaces the backup file (owner request)
 
 Owner: "Phantom has no encrypted-backup-file step; make ours the same."

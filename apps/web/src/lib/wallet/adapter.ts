@@ -59,6 +59,17 @@ export interface WalletCall {
   readonly args: Readonly<Record<string, unknown>>;
   readonly gas: string;
   readonly depositYocto: string;
+  /**
+   * Optional: the COMPLETE ordered list of function calls of one transaction to
+   * `receiverId` (e.g. register + wrap + swap). When present it replaces the single
+   * call above, and its first entry must equal it. Payment calls never use this.
+   */
+  readonly actions?: ReadonlyArray<{
+    readonly methodName: string;
+    readonly args: Readonly<Record<string, unknown>>;
+    readonly gas: string;
+    readonly depositYocto: string;
+  }>;
 }
 
 /**
