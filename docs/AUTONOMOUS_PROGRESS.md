@@ -89,6 +89,8 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
   the page; a failed background read keeps the last FINAL balance; manual refresh button. Browser proof (local
   production build, real Testnet): home 10 → 8.9994 NEAR after a 1 NEAR payment without a reload, equal to chain
   (`docs/evidence/taply-wallet-balance-2026-11-10/`).
+- Released (PR #22 → `052d8d7` → `release/taplyapp`, owner: "canlıya al"); same check on **https://taplyapp.xyz**:
+  10 → 8.9994 NEAR without a reload, equal to chain (`docs/evidence/production-balance-2026-11-10/`).
 
 ### Increment 14 — Live Handshake (owner: "live handshake kısmını yap"; owner will provision Upstash Redis)
 
