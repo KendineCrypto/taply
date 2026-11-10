@@ -77,6 +77,26 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-10
 
+### Increment 14 — Live Handshake (owner: "live handshake kısmını yap"; owner will provision Upstash Redis)
+
+- Server (`apps/web/src/server/handshake`, routes `/api/handshake/{health,rooms,rooms/[roomId]}`, Node runtime):
+  rooms on Upstash Redis REST, coordination only. Create re-reads the request at a final block (OPEN only); random
+  room id; merchant token + single-use join token (QR fragment) + customer participant token, all stored as SHA-256
+  hashes; `SET NX` single claim; presence + token check + read in ONE Lua call every 2 s; rejoin/reviewing events;
+  close; expiry = request deadline (max 2 h); per-IP limits; JSON-only, ≤2 KB bodies, no-store; unavailable without
+  Redis or with the flag off. 6 tests against a REAL redis-server through `scripts/redis-rest-shim.mjs`.
+- Web: merchant request view starts/resumes a room while OPEN (QR = `/s/<room>#j=<token>`), live card (merchant/
+  customer online, joined, reviewing, disconnected · last seen, reconnected, sale code, countdown, events, End);
+  `/s/<room>` joins once, removes the secret from the URL, announces itself, renders the normal payment screen.
+  Visibility-aware 2 s polling. EN/TR. 3 component tests.
+- Two real browsers, real Testnet, real Redis (local production build): merchant `taply-shop-353612.testnet` created
+  the request in the app; customer joined (merchant saw "Reviewing the payment"); customer left → "Disconnected ·
+  last seen 8 s ago"; returned → "Customer reconnected"; a third phone got ALREADY_JOINED; customer paid → FINAL_PAID,
+  both phones "Payment recorded"; same sale code; join secret gone from the URL
+  (`docs/evidence/live-handshake-2026-11-10/`).
+- **Owner steps to light it up on taplyapp.xyz:** Vercel → taply → Storage → Upstash Redis (free) → connect to
+  Production; Settings → Environment Variables → `NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on` (Production) → Redeploy.
+
 ### Increment 13 — Taply Wallet stays unlocked (owner: "her işlemde şifre istiyor, açık kalsın")
 
 - near-client vault: optional `VaultSessionStore` + `unlockMs`; unlock saves the NONEXTRACTABLE signing CryptoKey,

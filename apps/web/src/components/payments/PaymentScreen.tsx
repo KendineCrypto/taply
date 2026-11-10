@@ -35,6 +35,8 @@ import type { ContractRequest } from '@/lib/protocol';
 import { useNativeBalance } from '@/lib/near/use-native-balance';
 import { TESTNET_SWAP_ROUTES } from '@taply/near-client';
 import { TokenPay } from './TokenPay';
+import { LiveMerchantPanel, useMerchantLiveSession } from '@/components/live/LiveSession';
+import { saleCode } from '@/lib/merchant/journey';
 import { displayableBalance } from '@/lib/near/balance';
 import { useWallet } from '@/lib/wallet/provider';
 import {
@@ -402,7 +404,12 @@ function RequestView({
     void onRun(call, request, operationNonce);
   };
 
-  const showsTicket = ctaKinds.has('share_request') && link !== null;
+  // Live Handshake (merchant side): while the request is OPEN, the QR opens a live
+  // session that shows both phones to each other. Payment status stays chain-only.
+  const liveSession = useMerchantLiveSession(side === 'receiver' && ctaKinds.has('share_request') ? request.terms.id : null);
+  const liveLink = share?.kind === 'ok' ? liveSession.linkFor(share.origin) : null;
+  const ticketLink = liveLink ?? link;
+  const showsTicket = ctaKinds.has('share_request') && ticketLink !== null;
   const showsReview = ctaKinds.has('review_and_pay');
   const terminal = request.status === 'FINAL_PAID' || request.status === 'CANCELLED_UNFUNDED' || response.fundingEligibility === 'EXPIRED';
 
@@ -476,7 +483,8 @@ function RequestView({
       {refused && <InlineNotice copy={t.payment.status.inconsistent} tone="danger" />}
       {stale && <InlineNotice copy={t.reliability.reviewAgain} live="assertive" />}
 
-      {showsTicket && link !== null && <ShareRequest link={link} request={request} />}
+      {showsTicket && ticketLink !== null && <ShareRequest link={ticketLink} request={request} />}
+      <LiveMerchantPanel session={liveSession} code={saleCode(request.terms.id)} />
       {ctaKinds.has('share_request') && share?.kind === 'unavailable' && <ShareUnavailable reason={share.reason} requestId={id} />}
 
       {ctaKinds.has('review_and_pay') && (
