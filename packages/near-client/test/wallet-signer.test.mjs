@@ -42,13 +42,28 @@ for (const mode of ['timeout', 'body_timeout', 'http503', 'stale_nonce']) test(`
   assert.equal(result.kind, 'unknown'); assert.equal(result.transactionHash, f.journal.read().transactionHash);
   assert.equal(f.state.sends, 1); assert.equal(f.journal.read().phase, 'UNKNOWN');
   if (mode === 'body_timeout') assert.equal(f.state.bodyCancelled, true);
+  // While the chain cannot explain the hash, a new spend stays blocked.
+  f.state.dropHistory = true;
   await assert.rejects(f.backend.prepareTransfer(receiver, '0.1'), { code: 'OUTCOME_UNRESOLVED' });
   await assert.rejects(f.backend.submit(review.id, async () => true));
-  f.vault.lock(); f.state.dropHistory = true;
+  f.vault.lock();
   assert.equal((await f.makeBackend().reconcile()).kind, 'unknown');
   assert.equal(f.journal.read().phase, 'UNKNOWN');
   f.state.dropHistory = false;
   assert.equal((await f.makeBackend().reconcile()).kind, 'final'); assert.equal(f.state.sends, 1);
+});
+test('a new page settles an unexplained earlier send from FINAL chain data before preparing the next one', async () => {
+  const f = await signerFixture(); f.state.mode = 'timeout';
+  const first = await f.backend.prepareTransfer(receiver, '0.1');
+  assert.equal((await f.backend.submit(first.id, async () => true)).kind, 'unknown');
+  assert.equal(f.journal.read().phase, 'UNKNOWN');
+  // Same storage, fresh backend (page reload); the chain now shows the first transfer FINAL.
+  f.state.mode = 'ok'; f.state.nonce += 1;
+  const next = await f.makeBackend().prepareTransfer(receiver, '0.2');
+  assert.equal(f.journal.read().phase, 'FINAL_SUCCEEDED');
+  assert.equal(next.depositYocto, '200000000000000000000000');
+  assert.equal(f.state.sends, 1, 'nothing was re-sent while settling');
+  f.vault.lock();
 });
 test('signature corruption, changed key identity and insufficient funds fail before broadcast', async () => {
   const f = await signerFixture(); const review = await f.backend.prepareTransfer(receiver, '0.1');

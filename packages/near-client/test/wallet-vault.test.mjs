@@ -223,3 +223,72 @@ test('recoveryPhrasePublicKeyHex previews the key without storing anything', asy
   assert.equal(await recoveryPhrasePublicKeyHex(webcrypto, VECTORS[1][0]), keyHex(VECTORS[1][1]));
   assert.equal(await recoveryPhrasePublicKeyHex(webcrypto, 'abandon '.repeat(12)), null);
 });
+
+// ---- Stay unlocked across page loads (nonextractable key in a session store) ----
+function sessionStore() {
+  let saved = null; let clears = 0;
+  return { get saved() { return saved; }, get clears() { return clears; },
+    async save(v) { saved = { ...v }; }, async load() { return saved; }, async clear() { saved = null; clears++; }, tamper(f) { f(saved); } };
+}
+const DAY = 24 * 60 * 60 * 1000;
+
+test('unlock persists only a nonextractable key; a new page resumes without the password; lock ends it everywhere', async () => {
+  const storage = memory(); const session = sessionStore(); let now = 1_000;
+  const page1 = new EncryptedTestnetVault(storage, { session, unlockMs: 30 * DAY, now: () => now });
+  const id = await page1.create(password, 'stay-open.testnet');
+  await page1.unlock(password);
+  assert.equal(session.saved.key.extractable, false);
+  assert.equal(session.saved.record, storage.getItem(VAULT_STORAGE_KEY));
+  assert.equal(JSON.stringify(Object.keys(session.saved)), JSON.stringify(['key', 'record', 'expiresAt']));
+  const page2 = new EncryptedTestnetVault(storage, { session, unlockMs: 30 * DAY, now: () => now });
+  assert.equal(page2.unlocked, false);
+  assert.equal(await page2.resume(), true);
+  assert.equal(page2.unlocked, true);
+  assert.deepEqual(page2.getIdentity(), id);
+  now += 29 * DAY; assert.equal(page2.unlocked, true, 'long unlock does not overflow a timer');
+  now += 2 * DAY; assert.equal(page2.unlocked, false, 'expires after 30 days');
+  const page3 = new EncryptedTestnetVault(storage, { session, unlockMs: 30 * DAY, now: () => now });
+  assert.equal(await page3.resume(), false, 'expired session is refused');
+  assert.equal(session.saved, null, 'and cleared');
+  await page3.unlock(password); page3.lock(); await new Promise((r) => setTimeout(r, 0));
+  assert.equal(session.saved, null);
+  assert.equal(await new EncryptedTestnetVault(storage, { session, now: () => now }).resume(), false);
+});
+
+test('resume refuses a session for another record, an extractable key or a key that does not match', async () => {
+  const c = webcrypto;
+  for (const attack of ['record', 'extractable', 'wrong-key']) {
+    const storage = memory(); const session = sessionStore();
+    const vault = new EncryptedTestnetVault(storage, { session, unlockMs: DAY });
+    await vault.create(password, 'victim.testnet'); await vault.unlock(password);
+    if (attack === 'record') session.tamper((s) => { s.record = s.record.replace('victim.testnet', 'other.testnet'); });
+    if (attack === 'extractable') {
+      const pair = await c.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+      session.tamper((s) => { s.key = pair.privateKey; });
+    }
+    if (attack === 'wrong-key') {
+      const pair = await c.subtle.generateKey({ name: 'Ed25519' }, false, ['sign', 'verify']);
+      session.tamper((s) => { s.key = pair.privateKey; });
+    }
+    const next = new EncryptedTestnetVault(storage, { session, unlockMs: DAY });
+    assert.equal(await next.resume(), false, attack);
+    assert.equal(next.unlocked, false, attack);
+    assert.equal(session.saved, null, `${attack}: cleared`);
+  }
+  // A replaced vault record (e.g. renamed in another tab) also revokes the session.
+  const storage = memory(); const session = sessionStore();
+  const vault = new EncryptedTestnetVault(storage, { session, unlockMs: DAY });
+  await vault.create(password, 'before.testnet'); await vault.unlock(password);
+  await vault.rebindAccount(password, 'after.testnet');
+  assert.equal(await new EncryptedTestnetVault(storage, { session, unlockMs: DAY }).resume(), false);
+});
+
+test('a lock during unlock cannot leave a resumable session behind', async () => {
+  const storage = memory(); const session = sessionStore();
+  const vault = new EncryptedTestnetVault(storage, { session, unlockMs: DAY });
+  await vault.create(password, 'race.testnet');
+  const pending = vault.unlock(password); vault.lock();
+  await assert.rejects(pending, { code: 'CANCELLED' });
+  assert.equal(session.saved, null);
+  assert.equal(await new EncryptedTestnetVault(storage, { session, unlockMs: DAY }).resume(), false);
+});

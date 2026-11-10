@@ -668,6 +668,10 @@ export const en: Dictionary = {
         title: 'This browser cannot keep a safety record',
         body: 'Local storage or cross-tab locking is unavailable, so an interrupted payment could not be tracked safely. Nothing was sent. Signing is disabled here.',
       },
+      notSent: {
+        title: 'Not sent',
+        body: 'The wallet could not prepare this transaction (for example the network was busy). Nothing was sent. Try again.',
+      },
       wrongAccount: {
         title: 'Different wallet account',
         body: 'Your wallet is connected as a different account from the one reviewed. Nothing was sent.',
@@ -1212,7 +1216,7 @@ export const en: Dictionary = {
       unlocking: 'Unlocking…',
       lockNow: 'Lock now',
       passphrase: 'Password',
-      autoLock: 'Locks automatically after 5 minutes, or when you leave or hide the page.',
+      autoLock: 'Stays unlocked on this device until you lock it (at most 30 days). You still confirm every transaction.',
     },
     backup: {
       title: 'Back up your wallet now',
@@ -1392,7 +1396,7 @@ export const en: Dictionary = {
       reject: 'Reject',
       approve: 'Confirm',
       unlockTitle: 'Unlock Taply Wallet to pay',
-      unlockBody: 'Enter your password. The wallet locks again after 5 minutes or when you leave the page.',
+      unlockBody: 'Enter your password once. Taply Wallet then stays unlocked on this device until you lock it.',
       cancel: 'Cancel',
       sent: 'Sent. Final on NEAR Testnet.',
       failed: 'The transaction failed on NEAR Testnet.',

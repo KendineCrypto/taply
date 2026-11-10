@@ -52,6 +52,15 @@ export class WalletNotDispatchedError extends WalletError {
 /** The person declined in an IN-APP wallet whose confirmation runs BEFORE any
  * signing (Taply Wallet). Only that wallet may throw it: external SDK
  * cancellations prove nothing about broadcast and stay "unknown". */
+/** An in-app wallet could not prepare the transaction (locked, stale review,
+ * RPC down, ...). Thrown BEFORE any signing, so nothing was sent. */
+export class WalletNotSentError extends WalletNotDispatchedError {
+  constructor() {
+    super();
+    this.name = 'WalletNotSentError';
+  }
+}
+
 export class WalletDeclinedError extends WalletNotDispatchedError {
   constructor() {
     super();

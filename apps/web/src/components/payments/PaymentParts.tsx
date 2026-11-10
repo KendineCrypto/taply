@@ -99,6 +99,8 @@ export function SubmitResultNotice({ result, onReattempt }: { readonly result: S
       return <InlineNotice copy={t.payment.signing.rejected} tone="neutral" />;
     case 'wrong_account':
       return <InlineNotice copy={t.payment.signing.wrongAccount} tone="danger" />;
+    case 'not_sent':
+      return <InlineNotice copy={t.payment.signing.notSent} />;
     case 'no_journal':
       return <InlineNotice copy={t.payment.signing.noJournal} tone="danger" />;
     case 'blocked':
