@@ -2,22 +2,23 @@
 
 import { useParams } from 'next/navigation';
 import { ScreenHeader } from '@/components/primitives/Surface';
-import { SessionEntry } from '@/components/handshake/SessionEntry';
+import { LiveCustomerSession } from '@/components/live/LiveSession';
+import { PaymentScreen } from '@/components/payments/PaymentScreen';
 import { useT } from '@/lib/i18n/provider';
 
 /**
- * Handshake customer view (UX_FLOWS screens 10/11). Gated: the session service
- * and on-chain session binding are not ready, so this shows an honest
- * unavailable state. SSE/session data could never set a payment status anyway.
+ * Live Handshake, customer side: `/s/<room>#j=<join token>` from the merchant's
+ * QR. Joins the room once, then shows the normal payment screen for the room's
+ * request (read from NEAR Testnet) with the merchant's live status above it.
  */
 export default function SessionPage() {
   const t = useT();
   const params = useParams<{ sessionId: string }>();
-  const sessionId = typeof params.sessionId === 'string' ? params.sessionId : '';
+  const roomId = typeof params.sessionId === 'string' ? params.sessionId : '';
   return (
     <>
-      <ScreenHeader title={t.commerce.handshake.title} />
-      <SessionEntry sessionId={sessionId} />
+      <ScreenHeader title={t.live.title} />
+      <LiveCustomerSession roomId={roomId}>{(requestId) => <PaymentScreen id={requestId} />}</LiveCustomerSession>
     </>
   );
 }

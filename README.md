@@ -23,7 +23,8 @@ phones check the receipt on chain by themselves.
 | Taply Wallet signing | **On for NEAR Testnet by the owner's explicit decision (2026-11-09), WITHOUT an independent security review.** Enter the password once: the wallet stays unlocked on that device until **Lock now** (max 30 days, owner request 2026-11-10). Every transaction still shows a confirmation dialog with the exact transaction. Test funds only. |
 | Real Testnet payment proof | A real 0.1 NEAR Instant Pay payment (2026-11-01) reached `FINAL_PAID` and **Verified Paid** in Taply's independent receipt verifier ([evidence](docs/EVIDENCE.md)). It can be re-read live on the site. |
 | Real browser proofs (2026-11-09) | **On taplyapp.xyz itself**, Chromium, fresh Taply Wallets: (1) paid a 0.2 NEAR request in NEAR and a 0.25 NEAR request with test USDC ([evidence](docs/evidence/production-taply-wallet-2026-11-09/result.json)); (2) one wallet **created** a 0.05 NEAR request in the app and a second wallet in another browser paid it ([evidence](docs/evidence/production-taply-wallet-2026-11-09/create-request-result.json)). All `FINAL_PAID` with the exact payout. An external browser-wallet (Meteor) payment still needs a human run. |
-| Disabled by design | Protected Pay (escrow), live two-phone Handshake (G2), merchant sale signing, sponsored gas |
+| Live Handshake (two phones) | **Built and Testnet-proven in two real browsers** (2026-11-10): the merchant's QR opens a live session; both phones see each other online, "reviewing", disconnected / reconnected, the same sale code and the session expiry; a second phone with the same QR is refused; payment status stays chain-only ([evidence](docs/evidence/live-handshake-2026-11-10/result.json)). Turns on on taplyapp.xyz once the owner connects a free Upstash Redis and sets `NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on`. |
+| Disabled by design | Protected Pay (escrow), contract-bound merchant sessions (G2 candidate), merchant sale signing, sponsored gas |
 
 ## For judges: 5 minutes
 
@@ -107,7 +108,8 @@ have invented QR payments, payment links or escrow.
 | Split Pay | **Preparation tool**: equal shares, then one normal request per person (each signed on chain) | `/split` |
 | Recurring templates | **Preparation tool**: saved templates pre-fill a request; nothing runs automatically | `/recurring` |
 | DEMO journey | **Synthetic**, stamped DEMO | `/demo`, `/demo/handshake` |
-| Live two-phone Handshake (G2) | **Not live**; contract cannot bind sessions | [PHASE_7_SHARED_ROOM.md](docs/PHASE_7_SHARED_ROOM.md) |
+| Live Handshake: presence, joined/reviewing, disconnect/reconnect, expiry, single-phone join | **Working** (coordination only; needs the room store, see below) | [two-browser Testnet run](docs/evidence/live-handshake-2026-11-10/result.json) |
+| Contract-bound merchant sessions (G2) | **Candidate only**; the pilot contract cannot bind a session | [PHASE_7_SHARED_ROOM.md](docs/PHASE_7_SHARED_ROOM.md) |
 | Protected Pay (escrow, refund, release) | **Disabled** | — |
 | Taply Wallet: username.testnet, 12-word phrase, send, pay, swaps | **Working on NEAR Testnet**; owner decision, **no independent security review** | `/wallet/create` |
 | Social login, sponsored gas | **Disabled** | — |
@@ -149,6 +151,11 @@ pnpm --filter @taply/web build && pnpm --filter @taply/web start  # http://local
   on-chain contract check at a fresh final block (production has it on, by owner
   decision). Taply Wallet additionally needs an unlocked vault and the
   confirmation dialog for every signature.
+- Live Handshake locally: run `redis-server --port 6390` and
+  `node apps/web/scripts/redis-rest-shim.mjs 6390 8079 <token>`, then start the app with
+  `NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on KV_REST_API_URL=http://127.0.0.1:8079 KV_REST_API_TOKEN=<token>`.
+  In production the same two `KV_REST_API_*` variables come from Vercel → Storage → Upstash Redis.
+  Two-browser proof: `node docs/evidence/live-handshake-2026-11-10/handshake-e2e.mjs <baseUrl> <outDir> <playwright index.mjs> packages/near-client/testnet-e2e/lib.mjs`.
 - Real-browser Testnet proof you can re-run (creates disposable accounts):
   `node docs/evidence/taply-wallet-signing-2026-11-09/taply-wallet-pay-e2e.mjs <baseUrl> <outDir> <playwright index.mjs> packages/near-client/testnet-e2e/lib.mjs`.
   Other-asset payment without a browser: `node packages/near-client/testnet-e2e/token-pay.mjs USDT`.
@@ -171,7 +178,7 @@ standalone API checks are `node --test apps/api/test/*.test.mts` (see
 | Gate | Meaning ([MILESTONES.md](docs/MILESTONES.md)) | State |
 | --- | --- | --- |
 | G1 | Real native NEAR request → signed settlement → verified `FINAL_PAID` | **Met on Testnet**: public signing on; real browser payments on taplyapp.xyz (2026-11-09). An external-wallet (Meteor) human run is still to be recorded |
-| G2 | Merchant QR checkout + authenticated live two-device Handshake | **NO-GO**; not deployed |
+| G2 | Merchant QR checkout + authenticated live two-device Handshake | **Partly**: live two-phone session built and proven (coordination only, single-phone join token); contract-level session binding stays a candidate |
 | G3 | Protected escrow: real refund and real release on Testnet | **Not met**; Protected Pay disabled |
 | G4 | Chain proof/receipt + adversarial and UX robustness | Software evidence exists; no external audit |
 
@@ -195,8 +202,11 @@ standalone API checks are `node --test apps/api/test/*.test.mts` (see
   Wallet confirms before signing, so its "Reject" is reported as nothing sent.
 - **Other-asset payments are two approvals** (convert, then pay) and not atomic:
   if the payer stops after converting, they simply keep the NEAR.
-- **Handshake is not live.** The sale code is not merchant authentication;
-  merchants are shown by account ID only.
+- **Live Handshake is coordination only.** The room (Upstash Redis) carries
+  presence and a short event log; it cannot change terms or mark anything paid —
+  both phones read the request and its status from the chain. The sale code is
+  not merchant authentication; merchants are shown by account ID only. Rooms
+  expire with the request's funding deadline (max 2 h).
 - **Activity history** is this device's local journal; there is no indexer.
   Contacts and templates also stay on the device.
 - **Public RPC limits:** heavy use from one IP gets `429`; the app fails closed.

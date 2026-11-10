@@ -696,6 +696,41 @@ export interface Dictionary {
     readonly gasNote: string;
   };
 
+  /** Live Handshake (coordination only; chain stays the payment authority). */
+  readonly live: {
+    readonly title: string;
+    readonly merchantNote: string;
+    readonly scanNote: string;
+    readonly waiting: string;
+    readonly customer: string;
+    readonly merchant: string;
+    readonly online: string;
+    readonly offline: string;
+    readonly joined: string;
+    readonly reviewing: string;
+    readonly paying: string;
+    readonly expiresIn: string;
+    readonly expired: string;
+    readonly closed: string;
+    readonly compare: string;
+    readonly end: string;
+    readonly authority: string;
+    readonly joining: string;
+    readonly alreadyJoined: string;
+    readonly notFound: string;
+    readonly unavailable: string;
+    readonly openPayment: string;
+    readonly starting: string;
+    readonly restart: string;
+    readonly evCreated: string;
+    readonly evCustomerJoined: string;
+    readonly evCustomerRejoined: string;
+    readonly evMerchantRejoined: string;
+    readonly evCustomerReviewing: string;
+    readonly evCustomerPaying: string;
+    readonly evClosed: string;
+  };
+
   readonly walletNative: {
     readonly switchLabel: string;
     readonly external: string;
