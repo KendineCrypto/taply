@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
@@ -12,7 +13,11 @@ import { TaplyIdentityCard } from './TaplyWalletUi';
 export function TaplyHomeCard() {
   const t = useT();
   const n = t.walletNative;
-  const { state, unlocked } = useTaplyWallet();
+  const { state, unlocked, refresh } = useTaplyWallet();
+  // Coming back to home after a payment shows the current balance.
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
   if (state.status === 'checking') {
     return (
       <p role="status" className="surface-hero flex items-center gap-2 p-5 text-sm text-[var(--text-secondary)]">

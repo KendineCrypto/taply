@@ -136,7 +136,14 @@ export function TaplyIdentityCard({ actions }: { readonly actions?: ReactNode })
       </div>
 
       <div className="mt-5 border-t border-[var(--border-subtle)] pt-4" aria-live="polite">
-        <p className="text-sm font-medium text-[var(--text-secondary)]">{t.walletUx.home.totalBalance}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">{t.walletUx.home.totalBalance}</p>
+          {state.status === 'provisioned' && (
+            <Button variant="ghost" className="px-2" onClick={refresh} aria-label={t.balance.refresh}>
+              <Icon name="refresh" size={16} />
+            </Button>
+          )}
+        </div>
         {state.status === 'provisioned' ? (
           <>
             <AmountHero baseUnits={state.balance.amountYocto} className="mt-2" />

@@ -77,6 +77,19 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-10
 
+### Increment 15 — Live Handshake on production; Taply balance refresh fix
+
+- Owner connected Upstash Redis and set `NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on`; `/api/handshake/health` →
+  available. Two-browser run on **https://taplyapp.xyz**: join, reviewing, disconnected (8 s), reconnected, third
+  phone ALREADY_JOINED, payment FINAL_PAID and "Payment recorded" on both phones
+  (`docs/evidence/production-live-handshake-2026-11-10/`).
+- Owner report: "balance does not change after paying". Root cause: the Taply Wallet balance was read only on load and
+  after create/restore/send — not after payments or swaps signed through the payment screens, and not on in-app
+  navigation. Fix: refresh after every Taply signature, when home mounts, every 20 s while visible and on return to
+  the page; a failed background read keeps the last FINAL balance; manual refresh button. Browser proof (local
+  production build, real Testnet): home 10 → 8.9994 NEAR after a 1 NEAR payment without a reload, equal to chain
+  (`docs/evidence/taply-wallet-balance-2026-11-10/`).
+
 ### Increment 14 — Live Handshake (owner: "live handshake kısmını yap"; owner will provision Upstash Redis)
 
 - Server (`apps/web/src/server/handshake`, routes `/api/handshake/{health,rooms,rooms/[roomId]}`, Node runtime):
