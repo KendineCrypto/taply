@@ -666,6 +666,10 @@ export const tr: Dictionary = {
         title: 'Bu tarayıcı güvenlik kaydı tutamıyor',
         body: 'Yerel depolama ya da sekmeler arası kilit kullanılamıyor; yarıda kalan bir ödeme güvenle takip edilemez. Hiçbir şey gönderilmedi. Burada imzalama kapalı.',
       },
+      notSent: {
+        title: 'Gönderilmedi',
+        body: 'Cüzdan bu işlemi hazırlayamadı (örneğin ağ meşguldü). Hiçbir şey gönderilmedi. Tekrar deneyin.',
+      },
       wrongAccount: {
         title: 'Farklı cüzdan hesabı',
         body: 'Cüzdanın incelenen hesaptan farklı bir hesapla bağlı. Hiçbir şey gönderilmedi.',
@@ -1215,7 +1219,7 @@ export const tr: Dictionary = {
       unlocking: 'Kilit açılıyor…',
       lockNow: 'Şimdi kilitle',
       passphrase: 'Parola',
-      autoLock: '5 dakika sonra ya da sayfadan ayrıldığınızda veya sayfayı gizlediğinizde otomatik kilitlenir.',
+      autoLock: 'Siz kilitleyene kadar bu cihazda açık kalır (en fazla 30 gün). Her işlemi yine siz onaylarsınız.',
     },
     backup: {
       title: 'Cüzdanınızı şimdi yedekleyin',
@@ -1395,7 +1399,7 @@ export const tr: Dictionary = {
       reject: 'Reddet',
       approve: 'Onayla',
       unlockTitle: 'Ödemek için Taply Cüzdan’ın kilidini açın',
-      unlockBody: 'Parolanızı girin. Cüzdan 5 dakika sonra ya da sayfadan ayrılınca yeniden kilitlenir.',
+      unlockBody: 'Parolanızı bir kez girin. Taply Cüzdan, siz kilitleyene kadar bu cihazda açık kalır.',
       cancel: 'Vazgeç',
       sent: 'Gönderildi. NEAR Testnet üzerinde kesinleşti.',
       failed: 'İşlem NEAR Testnet üzerinde başarısız oldu.',

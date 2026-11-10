@@ -1,6 +1,6 @@
 import type { PreparedContractCall, PreparedProtectedCall, PreparedTokenCall } from '@taply/near-client';
 import type { IntentTerms } from '@/lib/protocol';
-import { WalletDeclinedError, WalletNotDispatchedError } from '@/lib/wallet/adapter';
+import { WalletDeclinedError, WalletNotDispatchedError, WalletNotSentError } from '@/lib/wallet/adapter';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
 import { JournalBlockedError, isBlocking } from './journal';
 import type { JournalEntry, JournalMethod, SubmissionJournal } from './journal';
@@ -18,6 +18,8 @@ export type SubmitResult =
   | { readonly kind: 'unknown'; readonly transactionHash?: string }
   /** The person declined in the wallet. Nothing was sent. */
   | { readonly kind: 'rejected' }
+  /** An in-app wallet could not prepare it (before signing). Nothing was sent. */
+  | { readonly kind: 'not_sent' }
   /** The wallet is connected as a different account. Nothing was sent. */
   | { readonly kind: 'wrong_account' }
   /** An earlier attempt for this request is still unexplained. Nothing was sent. */
@@ -65,7 +67,8 @@ export async function submitCall(input: {
     if (error instanceof WalletNotDispatchedError) {
       const saved = await record(journal, target, { phase: 'USER_REJECTED', notDispatched: true });
       if (!saved) return { kind: 'unknown' };
-      return error instanceof WalletDeclinedError ? { kind: 'rejected' } : { kind: 'wrong_account' };
+      if (error instanceof WalletDeclinedError) return { kind: 'rejected' };
+      return error instanceof WalletNotSentError ? { kind: 'not_sent' } : { kind: 'wrong_account' };
     }
     await record(journal, target, { phase: 'OUTCOME_UNKNOWN' });
     return { kind: 'unknown' };

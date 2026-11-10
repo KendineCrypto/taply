@@ -20,7 +20,7 @@ phones check the receipt on chain by themselves.
 | Payment signing on the public site | **On** (NEAR Testnet; Vercel `NEXT_PUBLIC_TAPLY_FLAG_INSTANT_PAY=on`, set by the owner). Create a request and pay it with an external wallet (NEAR Connect) or with Taply Wallet. |
 | Onboarding | First launch: connect an external wallet **or** pick a username and get a real `username.testnet` Taply Wallet (faucet-created, confirmed on chain) with a 12-word recovery phrase. No sponsored gas. |
 | Pay with other assets | The merchant asks for NEAR; the payer may pay with NEAR, USDC, USDT, NST, LNC or PEM (test tokens, converted to NEAR on Ref/Rhea Testnet first). The merchant always receives exactly the NEAR requested. |
-| Taply Wallet signing | **On for NEAR Testnet by the owner's explicit decision (2026-11-09), WITHOUT an independent security review.** Every signature needs an unlocked vault and a confirmation dialog showing the exact transaction. Test funds only. |
+| Taply Wallet signing | **On for NEAR Testnet by the owner's explicit decision (2026-11-09), WITHOUT an independent security review.** Enter the password once: the wallet stays unlocked on that device until **Lock now** (max 30 days, owner request 2026-11-10). Every transaction still shows a confirmation dialog with the exact transaction. Test funds only. |
 | Real Testnet payment proof | A real 0.1 NEAR Instant Pay payment (2026-11-01) reached `FINAL_PAID` and **Verified Paid** in Taply's independent receipt verifier ([evidence](docs/EVIDENCE.md)). It can be re-read live on the site. |
 | Real browser proofs (2026-11-09) | **On taplyapp.xyz itself**, Chromium, fresh Taply Wallets: (1) paid a 0.2 NEAR request in NEAR and a 0.25 NEAR request with test USDC ([evidence](docs/evidence/production-taply-wallet-2026-11-09/result.json)); (2) one wallet **created** a 0.05 NEAR request in the app and a second wallet in another browser paid it ([evidence](docs/evidence/production-taply-wallet-2026-11-09/create-request-result.json)). All `FINAL_PAID` with the exact payout. An external browser-wallet (Meteor) payment still needs a human run. |
 | Disabled by design | Protected Pay (escrow), live two-phone Handshake (G2), merchant sale signing, sponsored gas |
@@ -181,8 +181,11 @@ standalone API checks are `node --test apps/api/test/*.test.mts` (see
   client). The pilot contract keeps a FullAccess key; the verifier refuses a
   receipt if the contract's keys changed during the payment window.
 - **Taply Wallet is not independently security-reviewed.** Its key lives in the
-  browser (encrypted with the password; recovery = 12 words). A malicious script
-  on the page while it is unlocked could misuse it. NEAR Testnet test funds only.
+  browser (encrypted with the password; recovery = 12 words). It stays unlocked
+  on the device after one password entry until **Lock now** (at most 30 days),
+  as a nonextractable browser key: anyone holding the unlocked device, or a
+  malicious script on the page, could ask it to sign (each transaction still
+  shows the confirmation dialog). NEAR Testnet test funds only.
 - **NEAR Intents has no Testnet**, so other-asset payments use Ref/Rhea Testnet
   pools; the tokens are test tokens with no real value.
 - **With an external wallet, a declined signature blocks a retry.** External

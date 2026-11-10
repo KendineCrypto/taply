@@ -198,7 +198,13 @@ export function createReviewedWalletBackend(input: {
     return JSON.parse(canonicalJson(prepared)) as PreparedContractCall;
   };
   const prepare = async (receiverId: string, amountNear: string | null, candidate: PreparedContractCall | null, swapCandidate: PreparedWalletSwap | null = null) => {
-    journal.assertClear();
+    try { journal.assertClear(); } catch (blocked) {
+      // An earlier attempt is unexplained (e.g. the page closed right after
+      // sending). Settle it from FINAL chain data first: only an independently
+      // verified outcome of the SAME hash clears it; otherwise stay blocked.
+      if (!(blocked instanceof WalletEngineError) || blocked.code !== "OUTCOME_UNRESOLVED" || (await reconcile()).kind !== "final") throw blocked;
+      journal.assertClear();
+    }
     for (const [id, plan] of plans) if (now() >= plan.review.expiresAtMs) plans.delete(id);
     if (plans.size >= 20) throw new WalletEngineError("OUTCOME_UNRESOLVED");
     const state = await snapshot();

@@ -60,7 +60,11 @@ describe('Taply local wallet controller (not the default external connector)', (
     await expect(controller.adapter.signAndSendTransaction(identity.accountId, {
       receiverId: 'taply-pay-pilot-1.testnet', methodName: 'pay_instant_native', args: {}, gas: '50000000000000', depositYocto: '1',
     })).rejects.toMatchObject({ kind: 'unavailable' });
+    // Leaving or hiding the page no longer locks (stay unlocked); Lock does.
     window.dispatchEvent(new Event('pagehide'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(controller.unlocked).toBe(true);
+    controller.lock();
     expect(controller.unlocked).toBe(false);
     expect(controller.connected).toBe(false);
     expect(await controller.adapter.restore()).toBeNull();
@@ -161,5 +165,39 @@ describe('username.testnet activation (faucet + FINAL proof)', () => {
     await controller.create(password);
     await expect(controller.activate()).rejects.toMatchObject({ code: 'INVALID_ADDRESS' });
     expect(requestAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe('stay unlocked (owner request 2026-11-10)', () => {
+  it('one password entry: a new page resumes unlocked without it; Lock ends it for every page', async () => {
+    vi.stubGlobal('isSecureContext', true);
+    vi.stubGlobal('navigator', { userAgent: 'unit-test', locks: { request: async (_n: string, _o: unknown, task: () => Promise<unknown>) => task() } });
+    const values = new Map<string, string>();
+    const storage = { getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => { values.set(k, v); } };
+    type Saved = { key: CryptoKey; record: string; expiresAt: number };
+    const box: { saved: Saved | null } = { saved: null };
+    const session = { save: async (v: Saved) => { box.saved = v; }, load: async () => box.saved, clear: async () => { box.saved = null; } };
+    const chain: WalletChain = { snapshot: vi.fn(async () => null), checkNetwork: vi.fn(async () => {}), receiverExists: vi.fn(async () => {}),
+      accountExists: vi.fn(async () => false), provisioning: vi.fn(async () => 'ACCOUNT_NOT_FOUND' as const) };
+    const make = () => {
+      const c = createTaplyWalletController({ config, storage, crypto: webcrypto as unknown as Crypto, chain, session });
+      controllers.push(c);
+      return c;
+    };
+    const page1 = make();
+    await page1.createNamed(password, 'stays-open.testnet');
+    await page1.unlock(password);
+    expect(box.saved?.key.extractable).toBe(false);
+    expect((box.saved?.expiresAt ?? 0) - Date.now()).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
+    page1.dispose(); // page teardown is not a lock
+    const page2 = make();
+    expect(page2.unlocked).toBe(false);
+    expect(await page2.resume()).toBe(true);
+    expect(page2.unlocked).toBe(true);
+    page2.lock();
+    await new Promise((r) => setTimeout(r, 0));
+    const page3 = make();
+    expect(await page3.resume()).toBe(false);
+    expect(page3.unlocked).toBe(false);
   });
 });

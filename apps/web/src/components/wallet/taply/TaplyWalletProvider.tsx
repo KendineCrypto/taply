@@ -138,6 +138,11 @@ export function TaplyWalletProvider({
     const unsubscribe = created.adapter.subscribe((session) => {
       if (session === null) setUnlocked(false);
     });
+    // Stay unlocked across page loads: restore the persisted session (no password).
+    void created.resume().then(
+      () => setUnlocked(created.unlocked),
+      () => setUnlocked(false),
+    );
     // Catch expiry/locks from other tabs even if no event reached this tab.
     const timer = setInterval(() => {
       try {
@@ -329,6 +334,29 @@ export function TaplyWalletProvider({
   const [session, setSession] = useState<WalletSession | null>(null);
   const [lastError, setLastError] = useState<WalletErrorKind | null>(null);
   const [connecting, setConnecting] = useState(false);
+
+  // A lock (Lock now, expiry, another tab) ends the payment session too.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror the vault lock
+    if (!unlocked && session !== null) setSession(null);
+  }, [unlocked, session]);
+
+  // When Taply Wallet is the active wallet and already unlocked, connect it
+  // without a tap (the account must be confirmed on chain; the adapter checks).
+  const provisioned = state.status === 'provisioned';
+  useEffect(() => {
+    if (mode !== 'taply' || !controller || !unlocked || !provisioned || session !== null) return;
+    let alive = true;
+    void controller.adapter.connect().then(
+      (next) => {
+        if (alive) setSession(next);
+      },
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [mode, controller, unlocked, provisioned, session]);
 
   const override = useMemo<WalletValue | null>(() => {
     if (mode !== 'taply') return null;

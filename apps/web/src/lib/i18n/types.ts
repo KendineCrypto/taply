@@ -328,6 +328,7 @@ export interface Dictionary {
       readonly flagOff: ErrorCopy;
       readonly unverified: ErrorCopy;
       readonly noJournal: ErrorCopy;
+      readonly notSent: ErrorCopy;
       readonly wrongAccount: ErrorCopy;
       readonly rejected: ErrorCopy;
       readonly unknown: ErrorCopy;

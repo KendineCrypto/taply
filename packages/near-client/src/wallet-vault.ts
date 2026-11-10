@@ -15,6 +15,20 @@ export async function signVaultTransaction(vault: EncryptedTestnetVault, tx: Tra
 
 export const VAULT_STORAGE_KEY = "taply.testnet-vault.v1";
 export const VAULT_UNLOCK_MS = 5 * 60 * 1000;
+/** Longest delay setTimeout supports; longer unlocks rely on the expiry check alone. */
+const MAX_TIMER_MS = 2_147_000_000;
+
+/**
+ * Optional persistence of an UNLOCKED session (e.g. IndexedDB). It stores the
+ * NONEXTRACTABLE signing CryptoKey (structured clone: usable for signing, never
+ * exportable), the exact vault record it belongs to and its expiry. No password,
+ * phrase or private bytes are ever handed to it.
+ */
+export interface VaultSessionStore {
+  save(session: { key: CryptoKey; record: string; expiresAt: number }): Promise<void>;
+  load(): Promise<{ key: CryptoKey; record: string; expiresAt: number } | null>;
+  clear(): Promise<void>;
+}
 const ITERATIONS = 600_000;
 /** Local unlock password (Phantom-style). Recovery is the 12-word phrase, not this password. */
 export const MIN_PASSWORD_LENGTH = 8;
@@ -114,6 +128,10 @@ export class EncryptedTestnetVault {
   #listeners = new Set<() => void>();
   constructor(private readonly storage: VaultStorage, private readonly options: {
     crypto?: Crypto; now?: () => number;
+    /** How long an unlock lasts (default VAULT_UNLOCK_MS). */
+    unlockMs?: number;
+    /** Keep the unlocked state across page loads until lock() or expiry. */
+    session?: VaultSessionStore;
   } = {}) {
     transactionSigners.set(this, (tx) => this.#signTransaction(tx));
   }
@@ -144,7 +162,57 @@ export class EncryptedTestnetVault {
   lock(): void {
     this.#generation++; this.#key = null; this.#unlockedRecord = null; this.#expiresAt = 0;
     clearTimeout(this.#timer); this.#timer = undefined;
+    // An explicit lock (or any revocation) also ends the persisted session.
+    void this.options.session?.clear().catch(() => undefined);
     for (const listener of this.#listeners) listener();
+  }
+  /** Drops the in-memory key WITHOUT ending a persisted session (page/component teardown). */
+  release(): void {
+    this.#generation++; this.#key = null; this.#unlockedRecord = null; this.#expiresAt = 0;
+    clearTimeout(this.#timer); this.#timer = undefined;
+  }
+  private get unlockMs(): number {
+    const ms = this.options.unlockMs ?? VAULT_UNLOCK_MS;
+    return Number.isSafeInteger(ms) && ms > 0 ? ms : VAULT_UNLOCK_MS;
+  }
+  #activate(key: CryptoKey, raw: string, expiresAt: number): void {
+    this.#key = key; this.#unlockedRecord = raw; this.#expiresAt = expiresAt;
+    const delay = expiresAt - this.now;
+    if (delay <= MAX_TIMER_MS) {
+      this.#timer = setTimeout(() => this.lock(), Math.max(0, delay));
+      // Do not keep Node test processes alive; browsers simply have no unref.
+      const timer = this.#timer as unknown as { unref?: () => void }; timer.unref?.();
+    }
+  }
+  /**
+   * Restores a persisted unlocked session after a page load. Accepted only if it
+   * belongs to the CURRENT vault record, has not expired, the key is a
+   * nonextractable Ed25519 signing key and it signs a fresh challenge that the
+   * record's public key verifies. Anything else clears it. Never asks for the password.
+   */
+  async resume(): Promise<boolean> {
+    const store = this.options.session;
+    if (!store || this.#key !== null) return this.#key !== null;
+    const generation = this.#generation;
+    let saved: Awaited<ReturnType<VaultSessionStore["load"]>> = null;
+    try { saved = await store.load(); } catch { saved = null; }
+    if (saved === null) return false;
+    try {
+      const raw = this.raw();
+      if (raw === null || saved.record !== raw || !(saved.expiresAt > this.now) || saved.key.extractable ||
+        saved.key.type !== "private" || saved.key.algorithm.name !== "Ed25519" || !saved.key.usages.includes("sign")) throw new Error();
+      const record = parseRecord(raw);
+      const pub = await this.crypto.subtle.importKey("raw", unhex(record.publicKeyHex), { name: "Ed25519" }, false, ["verify"]);
+      const challenge = this.crypto.getRandomValues(new Uint8Array(32));
+      const signature = await this.crypto.subtle.sign("Ed25519", saved.key, challenge);
+      if (!await this.crypto.subtle.verify("Ed25519", pub, signature, challenge)) throw new Error();
+      if (generation !== this.#generation || this.#key !== null || this.raw() !== raw) return this.#key !== null;
+      this.#activate(saved.key, raw, saved.expiresAt);
+      return true;
+    } catch {
+      void store.clear().catch(() => undefined);
+      return false;
+    }
   }
   /** PKCS8 bytes of the key a 12-word phrase derives (caller wipes). No key export. */
   private async pkcs8FromEntropy(entropy: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
@@ -252,10 +320,15 @@ export class EncryptedTestnetVault {
     const raw = this.raw(); if (raw === null) throw new VaultError("INVALID_RECORD");
     const { record, key } = await this.decrypt(raw, password);
     if (generation !== this.#generation || this.raw() !== raw) throw new VaultError("CANCELLED");
-    this.#key = key; this.#unlockedRecord = raw; this.#expiresAt = this.now + VAULT_UNLOCK_MS;
-    this.#timer = setTimeout(() => this.lock(), VAULT_UNLOCK_MS);
-    // Do not keep Node test processes alive; browsers simply have no unref.
-    const timer = this.#timer as unknown as { unref?: () => void }; timer.unref?.();
+    const expiresAt = this.now + this.unlockMs;
+    this.#activate(key, raw, expiresAt);
+    // Best effort: without persistence the unlock simply lasts for this page.
+    await this.options.session?.save({ key, record: raw, expiresAt }).catch(() => undefined);
+    if (generation !== this.#generation) {
+      // Locked while saving: make sure the just-saved session cannot be resumed.
+      await this.options.session?.clear().catch(() => undefined);
+      throw new VaultError("CANCELLED");
+    }
     return identity(record);
   }
   /** Re-binds the SAME key to another named `*.testnet` account ID with a fresh

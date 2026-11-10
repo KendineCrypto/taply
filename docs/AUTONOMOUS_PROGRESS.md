@@ -75,6 +75,21 @@ refused, Verified on 2 providers); signing path unit/browser CI green. NOT verif
 browser-wallet (wallet selector) signature — run TESTNET_ACCEPTANCE_PLAN.md once after enabling.
 Rollback: set the variable back to `off` and redeploy (or Instant Rollback to the previous deployment).
 
+## 2026-11-10
+
+### Increment 13 — Taply Wallet stays unlocked (owner: "her işlemde şifre istiyor, açık kalsın")
+
+- near-client vault: optional `VaultSessionStore` + `unlockMs`; unlock saves the NONEXTRACTABLE signing CryptoKey,
+  the exact vault record and the expiry; `resume()` accepts it only for the current record, unexpired, a
+  nonextractable Ed25519 sign key that signs a fresh challenge verified by the record's public key (else cleared);
+  `lock()` clears it, `release()` (teardown) does not; long unlocks skip the setTimeout overflow. 3 new tests.
+- near-client backend: a new prepare first settles an unexplained earlier attempt from FINAL chain data (same hash,
+  full reconcile) — fixes "stuck after paying and leaving the page", which the real browser run exposed. 1 new test.
+- web: IndexedDB session store, 30-day unlock, no lock on hide/pagehide, resume on load, auto-connect when unlocked;
+  Taply pre-sign failures show "Not sent" (no longer "Different wallet account"). EN/TR copy, README.
+- Real browser + Testnet (local production build, `stay-unlocked-e2e.mjs`): password asked for payment A and after
+  Lock now (C) only; B on a fresh page load and a reload stayed connected; 3× FINAL_PAID, exact payouts.
+
 ## 2026-11-09 — cloud session 2
 
 ### Production proof after PR #18 (`abd101b`)

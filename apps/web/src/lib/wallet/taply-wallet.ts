@@ -2,12 +2,13 @@ import {
   EncryptedTestnetVault, VaultError, WalletEngineError, createWalletChain, ed25519PublicKeyFromHex,
   isNamedTestnetAccount, recoveryPhrasePublicKeyHex, prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
 } from '@taply/near-client';
-import type { LocalWalletIdentity, NearTestnetConfig, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall } from '@taply/near-client';
+import type { LocalWalletIdentity, NearTestnetConfig, VaultSessionStore, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall } from '@taply/near-client';
 import { encodeQr } from '@/lib/qr/encode';
 import { FLAGS } from '@/lib/flags/features';
-import { WalletDeclinedError, WalletError, WalletNotDispatchedError } from './adapter';
+import { WalletDeclinedError, WalletError, WalletNotSentError } from './adapter';
 import type { WalletAdapter, WalletSession } from './adapter';
 import { requestTestnetAccount } from './testnet-account';
+import { createIndexedDbSessionStore } from './session-store';
 import type { FaucetFailure, FaucetResult } from './testnet-account';
 
 /** NEAR TESTNET ONLY. Enabled by the owner's explicit decision on 2026-11-09
@@ -17,6 +18,8 @@ import type { FaucetFailure, FaucetResult } from './testnet-account';
  * Instant Pay flag. No env, query parameter or UI state changes this constant.
  */
 export const TAPLY_WALLET_SIGNING_ENABLED = true as const;
+/** Stay unlocked until Lock, bounded to 30 days. */
+export const TAPLY_WALLET_UNLOCK_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type TaplyWalletRead =
   | { readonly status: 'NOT_CREATED' }
@@ -58,20 +61,27 @@ export function createTaplyWalletController(input: {
   readonly requestAccount?: (accountId: string, publicKey: string) => Promise<FaucetResult>;
   /** Test seam for the provisioning poll interval. */
   readonly sleep?: (ms: number) => Promise<void>;
+  /** Persisted unlocked session; default IndexedDB, `null` = this page only. */
+  readonly session?: VaultSessionStore | null;
 }) {
   if (typeof window === 'undefined' || globalThis.isSecureContext !== true) throw new WalletError('unavailable');
-  const vault = new EncryptedTestnetVault(input.storage, input.crypto ? { crypto: input.crypto } : {});
+  // "Stay unlocked" (owner request 2026-11-10): one password entry keeps the
+  // wallet unlocked on this device until Lock (or 30 days); every transaction
+  // still needs the confirmation dialog.
+  const sessionStore = input.session === undefined ? createIndexedDbSessionStore() : input.session;
+  const vault = new EncryptedTestnetVault(input.storage, {
+    ...(input.crypto ? { crypto: input.crypto } : {}),
+    unlockMs: TAPLY_WALLET_UNLOCK_MS,
+    ...(sessionStore ? { session: sessionStore } : {}),
+  });
   const configuredChain = createWalletChain(input.config); // validate config even with a test reader
   const chain = input.chain ?? configuredChain;
   const listeners = new Set<(session: WalletSession | null) => void>();
   let connected = false;
   const notifyLocked = () => { connected = false; for (const listener of listeners) listener(null); };
   const unsubscribe = vault.subscribe(notifyLocked);
-  const hidden = () => { if (document.visibilityState !== 'visible') vault.lock(); };
-  const pagehide = () => vault.lock();
+  // The vault record changed in another tab (restore/rename): lock here too.
   const storageChanged = (event: StorageEvent) => { if (event.key === VAULT_STORAGE_KEY || event.key === null) vault.lock(); };
-  document.addEventListener('visibilitychange', hidden);
-  window.addEventListener('pagehide', pagehide);
   window.addEventListener('storage', storageChanged);
   const withVaultWriteLock = async <T>(task: () => Promise<T>): Promise<T> => {
     if (!navigator.locks) throw new WalletError('unavailable');
@@ -167,7 +177,7 @@ export function createTaplyWalletController(input: {
         // prepare*/submit throw only BEFORE signing (after it they return
         // "unknown"), so a throw here proves nothing was sent.
         if (error instanceof WalletEngineError && error.code === 'REVIEW_REJECTED') throw new WalletDeclinedError();
-        throw new WalletNotDispatchedError();
+        throw new WalletNotSentError();
       }
     },
   };
@@ -207,6 +217,8 @@ export function createTaplyWalletController(input: {
       return vault.rebindAccount(password, accountId);
     }),
     unlock: (password: string) => vault.unlock(password),
+    /** Restores a persisted unlocked session (no password). */
+    resume: () => vault.resume(),
     lock: () => vault.lock(),
     exportEncryptedBackup: () => vault.exportEncryptedBackup(),
     restoreEncryptedBackup: (backup: string, password: string) => withVaultWriteLock(() => vault.restoreEncryptedBackup(backup, password)),
@@ -229,9 +241,8 @@ export function createTaplyWalletController(input: {
       return prepareNativeNearTransfer(value.balance, receiverId, amountNear);
     },
     dispose() {
-      vault.lock(); unsubscribe(); listeners.clear();
-      document.removeEventListener('visibilitychange', hidden);
-      window.removeEventListener('pagehide', pagehide);
+      // Teardown is not a lock: the persisted session survives (Lock ends it).
+      vault.release(); unsubscribe(); listeners.clear();
       window.removeEventListener('storage', storageChanged);
     },
   });

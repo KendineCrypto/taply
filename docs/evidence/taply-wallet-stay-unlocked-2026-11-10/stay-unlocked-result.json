@@ -1,0 +1,36 @@
+{
+  "kind": "TAPLY_WALLET_STAY_UNLOCKED_BROWSER_TESTNET_PROOF",
+  "base": "http://localhost:3100",
+  "payer": "taply-open-a26f66.testnet",
+  "merchant": "taply-merchant-316a3b46.testnet",
+  "unlockDialogs": [
+    "A (first payment)",
+    "C (after Lock now)"
+  ],
+  "confirmDialogs": [
+    "A (first payment)",
+    "B (new page load)",
+    "C (after Lock now)"
+  ],
+  "stillConnectedAfterReload": true,
+  "payments": [
+    {
+      "id": null,
+      "status": "FINAL_PAID",
+      "payout": "50000000000000000000000",
+      "payoutStatus": "SUCCEEDED"
+    },
+    {
+      "id": null,
+      "status": "FINAL_PAID",
+      "payout": "50000000000000000000000",
+      "payoutStatus": "SUCCEEDED"
+    },
+    {
+      "id": null,
+      "status": "FINAL_PAID",
+      "payout": "50000000000000000000000",
+      "payoutStatus": "SUCCEEDED"
+    }
+  ]
+}
