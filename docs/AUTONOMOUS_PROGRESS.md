@@ -93,6 +93,9 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 - Real browsers + real Testnet + real Redis (local production build): QR sampled every 250 ms for 15 s → one value
   only; a second browser's fake camera fed that QR → Taply's scanner opened `/s/<room>`, the merchant saw
   "Reviewing the payment", payment `FINAL_PAID` (`docs/evidence/qr-stable-2026-11-10/`).
+- Released (PR #24 → `1e50308` → `release/taplyapp`, owner: "live'a al direkt"). Same run on **https://taplyapp.xyz**:
+  QR drawn once at +5.0 s (live link) and unchanged for 15 s, Taply's scanner opened it, merchant saw the customer
+  reviewing, `FINAL_PAID` (`docs/evidence/production-qr-stable-2026-11-10/`).
 
 ### Increment 15 — Live Handshake on production; Taply balance refresh fix
 
