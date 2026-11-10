@@ -171,12 +171,21 @@ export function TaplyWalletProvider({
       },
       () => {
         if (!active) return;
-        // The identity is local; only the chain read failed.
+        // The identity is local; only the chain read failed. A background
+        // refresh that fails keeps the last FINAL balance instead of blanking it.
+        let identity: LocalWalletIdentity | null = null;
         try {
-          setState({ status: 'unknown', identity: controller.receive().identity });
+          identity = controller.receive().identity;
         } catch {
-          setState({ status: 'not_created' });
+          identity = null;
         }
+        setState((current) =>
+          identity === null
+            ? { status: 'not_created' }
+            : current.status === 'provisioned' && current.identity.accountId === identity.accountId
+              ? current
+              : { status: 'unknown', identity },
+        );
       },
     );
     return () => {
@@ -185,6 +194,21 @@ export function TaplyWalletProvider({
   }, [controller, generation]);
 
   const refresh = useCallback(() => setGeneration((g) => g + 1), []);
+
+  // Keep the balance current: every 20 s while visible, and when the page
+  // becomes visible again (payments change it outside this provider).
+  useEffect(() => {
+    if (!controller) return;
+    const tick = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    const timer = setInterval(tick, 20_000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [controller, refresh]);
 
   const value = useMemo<TaplyWalletValue>(() => {
     const missing = { ok: false as const, code: 'UNAVAILABLE' as const };
@@ -398,10 +422,15 @@ export function TaplyWalletProvider({
       dismissError: () => setLastError(null),
       async signAndSend(call: WalletCall): Promise<SignOutcome> {
         if (active === null || !controller.connected) throw new WalletNotDispatchedError();
-        return controller.adapter.signAndSendTransaction(active.accountId, call);
+        try {
+          return await controller.adapter.signAndSendTransaction(active.accountId, call);
+        } finally {
+          // The backend returns after FINAL: re-read the balance now.
+          refresh();
+        }
       },
     };
-  }, [mode, controller, unlocked, session, connecting, lastError]);
+  }, [mode, controller, unlocked, session, connecting, lastError, refresh]);
 
   return (
     <TaplyWalletContext.Provider value={value}>
