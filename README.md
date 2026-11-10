@@ -89,7 +89,7 @@ transactions in a real browser.
 | **Live Handshake** | The merchant's QR opens a live two-phone session: online / reviewing / paying, disconnect and reconnect, same sale code, countdown to expiry. A second phone with the same QR is refused. Payment status is never taken from the session | [production run](docs/evidence/production-live-handshake-2026-11-10/result.json) |
 | **Honest states** | Ready → Payment observed → **Paid per contract** → **Verified Paid**. Wallet returns, server events and timers never mark anything paid | [state machine](docs/PAYMENT_STATE_MACHINE.md) |
 | **Independent receipt verifier** | Each phone checks the funding, transfer and callback receipts, the contract code hash and access keys. Falls back to a clearly labelled archived record if public RPCs are busy | [ledger](docs/EVIDENCE.md) |
-| **Live balance** | The Taply Wallet balance refreshes after every signature, every 20 s and when the app comes back to the foreground | [run](docs/evidence/taply-wallet-balance-2026-11-10/balance-refresh-result.json) |
+| **Live balance** | The Taply Wallet balance refreshes after every signature, every 20 s and when the app comes back to the foreground | [production run](docs/evidence/production-balance-2026-11-10/balance-refresh-result.json) |
 | **Merchant tools** | Register and store QR (`/merchant`, `/checkout/<account>`), QR scanner, contacts (on device), Split Pay and Recurring templates (they pre-fill normal requests; nothing runs automatically) | live site |
 | **English / Türkçe, PWA, accessible** | Mobile first (360–430 px), keyboard and screen-reader friendly, reduced motion | live site |
 
@@ -158,7 +158,7 @@ Deeper reading: [architecture](docs/ARCHITECTURE.md) ·
 | Onboarding on production (username wallet + 12 words, phrase import) | [docs/evidence/production-2026-11-09-onboarding](docs/evidence/production-2026-11-09-onboarding/) |
 | Taply Wallet pays in NEAR and with USDC; creates a request another wallet pays | [docs/evidence/production-taply-wallet-2026-11-09](docs/evidence/production-taply-wallet-2026-11-09/) |
 | Live Handshake, two browsers, on production | [docs/evidence/production-live-handshake-2026-11-10](docs/evidence/production-live-handshake-2026-11-10/) |
-| Stay unlocked across reloads; balance refresh after paying | [stay unlocked](docs/evidence/taply-wallet-stay-unlocked-2026-11-10/) · [balance](docs/evidence/taply-wallet-balance-2026-11-10/) |
+| Stay unlocked across reloads; balance refresh after paying | [stay unlocked](docs/evidence/taply-wallet-stay-unlocked-2026-11-10/) · [balance on production](docs/evidence/production-balance-2026-11-10/) |
 | Re-runnable browser scripts (create disposable accounts) | [`taply-wallet-signing-2026-11-09/`](docs/evidence/taply-wallet-signing-2026-11-09/) · [`handshake-e2e.mjs`](docs/evidence/live-handshake-2026-11-10/handshake-e2e.mjs) |
 | Session log of every increment | [docs/AUTONOMOUS_PROGRESS.md](docs/AUTONOMOUS_PROGRESS.md) |
 
