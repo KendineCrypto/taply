@@ -1,6 +1,6 @@
 # Submission-readiness checklist
 
-Updated 2026-11-09. Checked boxes are completed engineering facts, not a
+Updated 2026-11-10. Checked boxes are completed engineering facts, not a
 submission. Nothing has been posted or submitted. Related:
 [submission package](HACKATHON_SUBMISSION_PACKAGE.md),
 [nightly release report](NIGHTLY_RELEASE_REPORT_2026-11-09.md),
@@ -23,25 +23,26 @@ History: the 2026-11-06 version of this file is in Git.
 
 ## Engineering — done
 
-- [x] Public read-only site live on https://taplyapp.xyz (HTTPS, `www` → apex, English default, Turkish persists).
-- [x] Production source = `release/taplyapp`; Vercel builds production only from that branch.
-- [x] No "Preview" wording on the public site; signing-off says "Payments not enabled yet" (EN/TR regression test).
-- [x] CI fixed on the release head (API tests could not load the Handshake reader); workspace, wallet-browser and contract sandbox workflows run on the exact head. Run IDs in the nightly report.
+- [x] Public site live on https://taplyapp.xyz (HTTPS, `www` → apex, English default, Turkish persists), NEAR Testnet with **payments on** (owner decision).
+- [x] Production source = `release/taplyapp` (fast-forwarded from `main`); Vercel builds production only from that branch.
+- [x] Onboarding: external wallet or `username.testnet` Taply Wallet with a 12-word phrase; proven on production 2026-11-09.
+- [x] Real browser payments on production: NEAR and test USDC, and a request created in the app and paid from a second browser, all `FINAL_PAID` (2026-11-09).
+- [x] Pay a NEAR request with USDC / USDT / NST / LNC / PEM via Ref/Rhea Testnet.
+- [x] Live Handshake on production with Upstash Redis; two-browser run 2026-11-10 (joined, disconnect/reconnect, third phone refused, `FINAL_PAID`).
+- [x] Taply Wallet stays unlocked until **Lock now** (max 30 days); balance refreshes after payments (2026-11-10).
 - [x] Read-only G1 contract preflight 10/10 PASS on 2026-11-09.
-- [x] Re-audit of the F-01 wallet-retry fix by Claude Code on 2026-11-09 (nightly report §3). This is an AI code review, not a human or external security review.
-- [x] Production browser smoke; browsers, viewports and counts in the nightly report.
-- [x] README, judge guide, release readiness, evidence ledger and demo plan updated for 2026-11-09.
+- [x] README, judge guide, submission package and screenshots updated for 2026-11-10.
 
 ## Open (disclose, do not hide)
 
-- [ ] **Fresh owner-signed G1 acceptance** on the protected QA build before public signing ([plan](TESTNET_ACCEPTANCE_PLAN.md)).
-- [ ] Physical-device wallet decline / return check on that build. Android untested.
-- [ ] F-02 (`main` has no branch protection), F-03 (CI path coverage), F-06 (production auth for G2) remain open. F-04 has no production impact (`pnpm audit --prod` clean). F-05 fixed.
-- [ ] Keep G2 Handshake, Protected Pay, merchant signing, production auth and native signing disabled.
+- [ ] Taply Wallet has no independent security review (on for Testnet by owner decision; disclosed in README).
+- [ ] The owner tested all flows by hand on 2026-11-10 (reported as passing); an external browser-wallet (Meteor) payment is not yet stored as evidence. Android untested on a physical device.
+- [ ] F-02 (`main` has no branch protection), F-03 (CI path coverage), F-06 (production auth for the `apps/api` room service) remain open. F-04 has no production impact (`pnpm audit --prod` clean). F-05 fixed.
+- [ ] Keep Protected Pay, contract-bound merchant sessions, merchant sale signing and sponsored gas off.
 
 ## Owner actions
 
-- [ ] Record or confirm the 60-second video; check it against "What is real today" in the submission package.
+- [ ] Record or confirm the 60-second video; check it against "What is live today" in the submission package.
 - [ ] Publish the X post (+ reply) and check it logged-out.
 - [ ] Fill the form privately (name, email, team size, mainnet prize account) and submit once.
 - [ ] Keep taplyapp.xyz up through 2026-11-18 (ideally 2026-11-25).

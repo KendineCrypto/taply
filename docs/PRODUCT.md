@@ -1,6 +1,6 @@
 # Taply — definitive Product Requirements v0.4
 
-> Product requirements and targets, not a shipped-feature ledger. Current Phase 7I scope: [release readiness](RELEASE_READINESS.md). G1 is conditional; real G2 Handshake is NO-GO; Protected Pay is disabled.
+> Product requirements and targets, not a shipped-feature ledger. Shipped scope on 2026-11-10 is in the [README](../README.md#features): G1 is met on Testnet; the live two-phone Handshake session is on (contract-bound sessions are not); Protected Pay is disabled.
 
 ## Product hierarchy
 **P0 must ship and work on NEAR Testnet:** wallet connection, real NEAR balances and send/receive; signed Request links + QR; static merchant QR generating one unique purchase request; **Handshake** two-device session; **Instant Pay**; **Protected Pay** with cancel/release/payout status; chain-verified receipts; accurate failure states. Visual identity from `brand/`.
