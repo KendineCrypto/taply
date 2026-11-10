@@ -1,0 +1,10 @@
+{
+  "kind": "TAPLY_WALLET_BALANCE_REFRESH_BROWSER_PROOF",
+  "base": "https://taplyapp.xyz",
+  "payer": "taply-bal-ce4065.testnet",
+  "requestId": "f767aff2fb1a82fc7a3999f5a8798e03e9edf62f7902fd1e0acbb55bb1180ce9",
+  "homeBefore": "10",
+  "homeAfter": "8.9994480536229034",
+  "chainNow": "8.9994",
+  "updatedWithoutReload": true
+}
