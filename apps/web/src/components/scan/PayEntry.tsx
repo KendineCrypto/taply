@@ -5,7 +5,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '@/components/shell/Icons';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
-import { parseScanInput } from '@/lib/payments/pay-link';
+import { openLivePath, parseScanInput } from '@/lib/payments/pay-link';
 import type { ScanInput } from '@/lib/payments/pay-link';
 import { approvedPayOrigins } from '@/lib/share/origin';
 
@@ -70,19 +70,22 @@ export function PayLinkForm({
   onBack,
   onOpen,
   onMerchant,
+  onLive = openLivePath,
   approvedOrigins,
 }: {
   readonly onBack?: () => void;
   readonly onOpen: (id: string) => void;
   /** Opens this app's read-only checkout page for a validated merchant discovery link. */
   readonly onMerchant?: (accountId: string) => void;
+  /** Opens this app's own validated live-session path (`/s/<room>#j=<token>`). */
+  readonly onLive?: (path: string) => void;
   readonly approvedOrigins?: ReadonlyArray<string>;
 }) {
   const t = useT();
   const p = t.oneTap.payLink;
   const inputId = useId();
   const [value, setValue] = useState('');
-  const [problem, setProblem] = useState<Exclude<ScanInput, { kind: 'request' } | { kind: 'merchant' }> | { kind: 'invalid' } | null>(null);
+  const [problem, setProblem] = useState<Exclude<ScanInput, { kind: 'request' } | { kind: 'merchant' } | { kind: 'live' }> | { kind: 'invalid' } | null>(null);
 
   return (
     <form
@@ -93,6 +96,10 @@ export function PayLinkForm({
         const parsed = parseScanInput(value, approvedOrigins ?? approvedPayOrigins(window.location.origin));
         if (parsed.kind === 'request') {
           onOpen(parsed.id);
+          return;
+        }
+        if (parsed.kind === 'live') {
+          onLive(parsed.path);
           return;
         }
         if (parsed.kind === 'merchant') {

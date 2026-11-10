@@ -6,7 +6,7 @@ import { Icon } from '@/components/shell/Icons';
 import { usePrefersReducedMotion } from '@/lib/hooks/browser';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
-import { parseScanInput } from '@/lib/payments/pay-link';
+import { openLivePath, parseScanInput } from '@/lib/payments/pay-link';
 import { CameraError, openCamera, stopStream } from '@/lib/qr/camera';
 import type { CameraProblem, MediaDevicesLike } from '@/lib/qr/camera';
 import { createFrameDecoder } from '@/lib/qr/decoder';
@@ -40,7 +40,7 @@ type Phase =
   | { readonly kind: 'scanning' }
   | { readonly kind: 'paused' }
   | { readonly kind: 'problem'; readonly problem: CameraProblem }
-  | { readonly kind: 'success'; readonly target: 'request' | 'merchant' };
+  | { readonly kind: 'success'; readonly target: 'request' | 'merchant' | 'live' };
 
 type Hint =
   | { readonly kind: 'not_taply' }
@@ -57,6 +57,11 @@ export interface QrScannerProps {
    * Without it, merchant codes are rejected like any other non-payment QR.
    */
   readonly onMerchant?: (accountId: string) => void;
+  /**
+   * Called once with this app's own validated live-session path
+   * (`/s/<room>#j=<token>`). Defaults to a full page load of that path.
+   */
+  readonly onLive?: (path: string) => void;
   readonly onPasteLink: () => void;
   /** Tests inject these; the defaults are the real browser APIs. */
   readonly media?: MediaDevicesLike | null;
@@ -69,6 +74,7 @@ export function QrScanner({
   onClose,
   onRequest,
   onMerchant,
+  onLive,
   onPasteLink,
   media,
   secureContext,
@@ -91,9 +97,9 @@ export function QrScanner({
   const openedPath = useRef(pathname);
 
   // Latest values for the long-running scan loop, without restarting the camera.
-  const latest = useRef({ onRequest, onMerchant, approvedOrigins, reduced, createDecoder });
+  const latest = useRef({ onRequest, onMerchant, onLive, approvedOrigins, reduced, createDecoder });
   useEffect(() => {
-    latest.current = { onRequest, onMerchant, approvedOrigins, reduced, createDecoder };
+    latest.current = { onRequest, onMerchant, onLive, approvedOrigins, reduced, createDecoder };
   });
 
   // A success that is still showing its animation must not navigate after a close.
@@ -193,14 +199,18 @@ export function QrScanner({
     const handle = (text: string): boolean => {
       const parsed = parseScanInput(text, latest.current.approvedOrigins ?? approvedPayOrigins(window.location.origin));
       const onMerchantNow = latest.current.onMerchant;
-      if (parsed.kind === 'request' || (parsed.kind === 'merchant' && onMerchantNow !== undefined)) {
+      if (parsed.kind === 'request' || parsed.kind === 'live' || (parsed.kind === 'merchant' && onMerchantNow !== undefined)) {
         stop();
         setHint(null);
         setPhase({ kind: 'success', target: parsed.kind });
         const hold = latest.current.reduced ? 0 : SUCCESS_HOLD_MS;
         // Navigation only. Nothing is signed, created or funded from a scan.
         const go =
-          parsed.kind === 'request' ? () => latest.current.onRequest(parsed.id) : () => onMerchantNow?.(parsed.accountId);
+          parsed.kind === 'request'
+            ? () => latest.current.onRequest(parsed.id)
+            : parsed.kind === 'live'
+              ? () => (latest.current.onLive ?? openLivePath)(parsed.path)
+              : () => onMerchantNow?.(parsed.accountId);
         if (hold === 0) go();
         else navTimer.current = setTimeout(go, hold);
         return true;

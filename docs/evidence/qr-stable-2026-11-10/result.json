@@ -1,0 +1,66 @@
+{
+  "kind": "TAPLY_MERCHANT_QR_STABLE_AND_SCANNABLE_PROOF",
+  "base": "http://localhost:3100",
+  "requestId": "448a77853df94f6fce6ba4d76d5ff88f2683fe946e4c22302078bb9464b4b3f4",
+  "merchantAccountId": "taply-qr-shop-6d87fa.testnet",
+  "customerAccountId": "taply-qr-buyer-b92cb7.testnet",
+  "qrSamples": [
+    {
+      "atMs": 200,
+      "value": null
+    },
+    {
+      "atMs": 2888,
+      "value": "https://taplyapp.xyz/s/0BRF43OYHPsAq5pnTd_Gzw#j=sirQH098ApeJmuf6RKNnyaowSUkz9bcp"
+    }
+  ],
+  "qrNeverChanged": true,
+  "qrIsLiveLink": true,
+  "scannerOpened": "/s/0BRF43OYHPsAq5pnTd_Gzw",
+  "merchantSawJoined": true,
+  "chainStatus": "FINAL_PAID",
+  "payout": {
+    "nonce": "1",
+    "kind": "INSTANT_PAYOUT",
+    "destinationAccountId": "taply-qr-shop-6d87fa.testnet",
+    "amountBaseUnits": "50000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1794314273609123045",
+    "resolvedAtNs": "1794314274772735622",
+    "failureCode": null
+  },
+  "steps": [
+    {
+      "atMs": 1794314188928,
+      "step": "merchant wallet taply-qr-shop-6d87fa.testnet"
+    },
+    {
+      "atMs": 1794314215744,
+      "step": "request created 448a77853df94f6fce6ba4d76d5ff88f2683fe946e4c22302078bb9464b4b3f4"
+    },
+    {
+      "atMs": 1794314215944,
+      "step": "QR at +200 ms: (not drawn yet)"
+    },
+    {
+      "atMs": 1794314218632,
+      "step": "QR at +2888 ms: https://taplyapp.xyz/s/0BRF43OYHPsAq5pnTd_Gzw#j=sirQH098ApeJmuf6RKNnyaowSUkz9bcp"
+    },
+    {
+      "atMs": 1794314249853,
+      "step": "customer wallet taply-qr-buyer-b92cb7.testnet"
+    },
+    {
+      "atMs": 1794314252928,
+      "step": "scanner opened /s/0BRF43OYHPsAq5pnTd_Gzw"
+    },
+    {
+      "atMs": 1794314255070,
+      "step": "merchant sees customer reviewing: true"
+    },
+    {
+      "atMs": 1794314279634,
+      "step": "chain: FINAL_PAID"
+    }
+  ]
+}

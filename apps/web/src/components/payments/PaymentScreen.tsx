@@ -408,8 +408,10 @@ function RequestView({
   // session that shows both phones to each other. Payment status stays chain-only.
   const liveSession = useMerchantLiveSession(side === 'receiver' && ctaKinds.has('share_request') ? request.terms.id : null);
   const liveLink = share?.kind === 'ok' ? liveSession.linkFor(share.origin) : null;
-  const ticketLink = liveLink ?? link;
-  const showsTicket = ctaKinds.has('share_request') && ticketLink !== null;
+  // The QR never changes by itself: it waits for the live room, then stays on one link.
+  const ticketLink = liveSession.qr === 'pending' ? null : liveSession.qr === 'live' ? liveLink : link;
+  const ticketPending = liveSession.qr === 'pending' && link !== null;
+  const showsTicket = ctaKinds.has('share_request') && (ticketLink !== null || ticketPending);
   const showsReview = ctaKinds.has('review_and_pay');
   const terminal = request.status === 'FINAL_PAID' || request.status === 'CANCELLED_UNFUNDED' || response.fundingEligibility === 'EXPIRED';
 
@@ -484,6 +486,11 @@ function RequestView({
       {stale && <InlineNotice copy={t.reliability.reviewAgain} live="assertive" />}
 
       {showsTicket && ticketLink !== null && <ShareRequest link={ticketLink} request={request} />}
+      {showsTicket && ticketLink === null && ticketPending && (
+        <p role="status" className="surface-card flex items-center justify-center gap-2 p-6 text-sm text-[var(--text-secondary)]" data-testid="qr-preparing">
+          <Spinner /> {t.live.preparingQr}
+        </p>
+      )}
       <LiveMerchantPanel session={liveSession} code={saleCode(request.terms.id)} />
       {ctaKinds.has('share_request') && share?.kind === 'unavailable' && <ShareUnavailable reason={share.reason} requestId={id} />}
 

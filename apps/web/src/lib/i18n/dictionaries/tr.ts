@@ -1200,6 +1200,7 @@ export const tr: Dictionary = {
     unavailable: 'Canlı oturum servisine şu an ulaşılamıyor. Ödeme onsuz da çalışır.',
     openPayment: 'Ödemeyi aç',
     starting: 'Canlı oturum başlatılıyor…',
+    preparingQr: 'QR kod hazırlanıyor…',
     restart: 'Tekrar dene',
     evCreated: 'Oturum başladı',
     evCustomerJoined: 'Müşteri katıldı',
