@@ -77,6 +77,23 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-10
 
+### Increment 16 — Merchant QR no longer changes by itself; scanner reads live-session QRs
+
+- Owner report: "about 1 s after creating a request the QR changes by itself; if I don't pay at once I get
+  'That QR code is not a Taply payment request'". Root cause: the request page first drew the QR for `/pay/<id>`,
+  then swapped it for the Live Handshake link `/s/<room>#j=<token>` once the room was created; Taply's in-app
+  scanner only accepted `/pay/` and `/checkout/` links, so the second QR was rejected.
+- Fix: the QR is drawn once. It waits for the live room (shows "Preparing the QR code…", at most 5 s), then shows
+  the live link, or the plain pay link if the live session is unavailable or slow, and never swaps on its own
+  (only an explicit "restart live session"). The scanner and the paste field accept this app's own
+  `/s/<22-char room>#j=<token>` (strict patterns, approved origins only; query dropped) and open it with a fresh page
+  load. Payment status stays chain-only.
+- Tests: QR stays on one link (fake timers; fails if the wait is shortened), scan-input live cases, scanner opens a
+  live QR. `pnpm check` exit 0 (web 1,204 passed + 1 skipped).
+- Real browsers + real Testnet + real Redis (local production build): QR sampled every 250 ms for 15 s → one value
+  only; a second browser's fake camera fed that QR → Taply's scanner opened `/s/<room>`, the merchant saw
+  "Reviewing the payment", payment `FINAL_PAID` (`docs/evidence/qr-stable-2026-11-10/`).
+
 ### Increment 15 — Live Handshake on production; Taply balance refresh fix
 
 - Owner connected Upstash Redis and set `NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on`; `/api/handshake/health` →

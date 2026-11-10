@@ -721,6 +721,7 @@ export interface Dictionary {
     readonly unavailable: string;
     readonly openPayment: string;
     readonly starting: string;
+    readonly preparingQr: string;
     readonly restart: string;
     readonly evCreated: string;
     readonly evCustomerJoined: string;

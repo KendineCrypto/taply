@@ -55,7 +55,8 @@ export function parsePayInput(input: string, approvedOrigins: ReadonlyArray<stri
 }
 
 /**
- * Everything the scanner and the paste field accept: a pay request (as above)
+ * Everything the scanner and the paste field accept: a pay request (as above),
+ * a merchant's live-session link `https://<approved origin>/s/<room>#j=<token>`
  * or a merchant discovery link `https://<approved origin>/checkout/<accountId>`.
  *
  * A discovery link only ever opens this app's own read-only checkout page for
@@ -66,7 +67,12 @@ export function parsePayInput(input: string, approvedOrigins: ReadonlyArray<stri
 export type ScanInput =
   | PayInput
   | { readonly kind: 'merchant'; readonly accountId: string }
+  /** A merchant's Live Handshake QR: this app's own `/s/<room>#j=<join token>`. */
+  | { readonly kind: 'live'; readonly path: string }
   | { readonly kind: 'invalid_merchant'; readonly reason: 'syntax' | 'not_testnet' };
+
+const LIVE_PATH = /^\/s\/([A-Za-z0-9_-]{22})\/?$/;
+const LIVE_TOKEN = /^[A-Za-z0-9_-]{22,64}$/;
 
 export function parseScanInput(input: string, approvedOrigins: ReadonlyArray<string>): ScanInput {
   const pay = parsePayInput(input, approvedOrigins);
@@ -81,10 +87,24 @@ export function parseScanInput(input: string, approvedOrigins: ReadonlyArray<str
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return pay;
   if (url.username !== '' || url.password !== '') return pay;
+  const room = LIVE_PATH.exec(url.pathname)?.[1];
+  if (room !== undefined) {
+    // Only the room ID and the join token are kept; the page joins the room and
+    // still reads the request and its status from the chain.
+    const token = new URLSearchParams(url.hash.replace(/^#/, '')).get('j');
+    if (token === null || !LIVE_TOKEN.test(token)) return pay;
+    if (!approvedOrigins.includes(url.origin)) return { kind: 'other_site', host: url.host };
+    return { kind: 'live', path: `/s/${room}#j=${token}` };
+  }
   const raw = CHECKOUT_PATH.exec(url.pathname)?.[1];
   if (raw === undefined) return pay;
   if (!approvedOrigins.includes(url.origin)) return { kind: 'other_site', host: url.host };
   const checked = checkMerchantAccount(raw);
   if (!checked.ok) return { kind: 'invalid_merchant', reason: checked.reason };
   return { kind: 'merchant', accountId: checked.accountId };
+}
+
+/** The live page reads its join token from the fragment on load, so open it with a fresh page load. */
+export function openLivePath(path: string): void {
+  window.location.assign(path);
 }

@@ -17,6 +17,9 @@ import type { LiveErrorCode, LiveSnapshot, MerchantRoom } from '@/lib/live-sessi
  * status from NEAR Testnet themselves (PaymentScreen).
  */
 
+/** How long the merchant QR waits for the live room before showing the plain pay link. */
+export const LIVE_QR_WAIT_MS = 5_000;
+
 function useNow(ms = 1_000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -138,6 +141,22 @@ export function useMerchantLiveSession(requestId: string | null) {
       alive = false;
     };
   }, [enabled, requestId, attempt]);
+  // The QR is drawn once: wait (briefly) for the room, then show either the live
+  // link or the plain pay link, and never swap it under a customer's camera.
+  const [plainFor, setPlainFor] = useState<string | null>(null);
+  const liveImpossible = available === false || (failed !== null && room === null);
+  useEffect(() => {
+    if (requestId === null || room !== null) return;
+    if (liveImpossible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lock the QR to the plain link
+      setPlainFor(requestId);
+      return;
+    }
+    const id = setTimeout(() => setPlainFor(requestId), LIVE_QR_WAIT_MS);
+    return () => clearTimeout(id);
+  }, [requestId, room, liveImpossible]);
+  const qr: 'pending' | 'live' | 'plain' =
+    requestId === null || plainFor === requestId || liveImpossible ? 'plain' : room !== null ? 'live' : 'pending';
   const sync = useLiveSync(enabled && room !== null ? { roomId: room.roomId, role: 'merchant', token: room.merchantToken } : null);
   // A room that vanished (expired keys) or was replaced: start a fresh one once.
   useEffect(() => {
@@ -150,13 +169,19 @@ export function useMerchantLiveSession(requestId: string | null) {
   }, [sync.error, requestId]);
   return {
     active: enabled,
+    /** Which link the QR shows: 'pending' (preparing), 'live' (`/s/…`) or 'plain' (`/pay/…`). */
+    qr,
     room,
     failed,
     snapshot: sync.snapshot,
     receivedAt: sync.receivedAt,
     linkFor: (origin: string) => (room === null ? null : `${origin}/s/${room.roomId}#j=${room.joinToken}`),
     path: room === null ? null : `/s/${room.roomId}#j=${room.joinToken}`,
-    retry: () => setAttempt((a) => a + 1),
+    retry: () => {
+      // An explicit restart may switch the QR to the new live link.
+      setPlainFor(null);
+      setAttempt((a) => a + 1);
+    },
     async end() {
       if (room === null || requestId === null) return;
       await liveApi.close(room.roomId, room.merchantToken).catch(() => undefined);

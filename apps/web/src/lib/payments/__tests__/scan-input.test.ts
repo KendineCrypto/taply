@@ -48,3 +48,28 @@ describe('parseScanInput (pay requests + merchant discovery)', () => {
     }
   });
 });
+
+describe('parseScanInput (a merchant live-session QR)', () => {
+  const ROOM = 'Pghp7lgmtsPIv_uS3uoIyA';
+  const TOKEN = 'VkGnBr4fzWKX8g0W-gSKbmSadNmirCGA';
+  it('opens this app\'s own /s/<room> with the join token and nothing else', () => {
+    expect(parseScanInput(`${ORIGIN}/s/${ROOM}#j=${TOKEN}`, [ORIGIN])).toEqual({ kind: 'live', path: `/s/${ROOM}#j=${TOKEN}` });
+    expect(parseScanInput(`${ORIGIN}/s/${ROOM}/?amount=9#j=${TOKEN}&x=1\n`, [ORIGIN])).toEqual({ kind: 'live', path: `/s/${ROOM}#j=${TOKEN}` });
+  });
+
+  it('names another site instead of following it', () => {
+    expect(parseScanInput(`https://taply.evil.app/s/${ROOM}#j=${TOKEN}`, [ORIGIN])).toEqual({ kind: 'other_site', host: 'taply.evil.app' });
+  });
+
+  it('refuses a missing or malformed room or token', () => {
+    for (const input of [
+      `${ORIGIN}/s/${ROOM}`,
+      `${ORIGIN}/s/${ROOM}#j=short`,
+      `${ORIGIN}/s/${ROOM}#j=${TOKEN}<script>`,
+      `${ORIGIN}/s/${ROOM.slice(1)}#j=${TOKEN}`,
+      `${ORIGIN}/s/${ROOM}/extra#j=${TOKEN}`,
+    ]) {
+      expect(parseScanInput(input, [ORIGIN]), input).toEqual({ kind: 'invalid' });
+    }
+  });
+});

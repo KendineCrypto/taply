@@ -86,7 +86,7 @@ transactions in a real browser.
 | **See what you sign** | Every Taply Wallet transaction opens a dialog with the exact action, accounts, attached NEAR and fee. Reject = nothing sent | [screens](docs/evidence/production-taply-wallet-2026-11-09/) |
 | **On-chain request per sale** | The merchant signs one immutable request (recipient, exact yoctoNEAR amount, expiry). The QR holds only its ID; the payer's phone reads the terms from the contract | [create + pay run](docs/evidence/production-taply-wallet-2026-11-09/create-request-result.json) |
 | **Pay with any supported asset** | The merchant always asks for NEAR. The payer may use NEAR, USDC, USDT, NST, LNC or PEM; the token is swapped to NEAR on Ref/Rhea Testnet first (curated pools, quote at a final block, 0.5 % buffer, 5 % price-impact cap) | [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json) · [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json) · [in browser](docs/evidence/production-taply-wallet-2026-11-09/result.json) |
-| **Live Handshake** | The merchant's QR opens a live two-phone session: online / reviewing / paying, disconnect and reconnect, same sale code, countdown to expiry. A second phone with the same QR is refused. Payment status is never taken from the session | [production run](docs/evidence/production-live-handshake-2026-11-10/result.json) |
+| **Live Handshake** | The merchant's QR opens a live two-phone session: online / reviewing / paying, disconnect and reconnect, same sale code, countdown to expiry. The QR is drawn once and never changes; any camera or Taply's own scanner opens it. A second phone with the same QR is refused. Payment status is never taken from the session | [production run](docs/evidence/production-live-handshake-2026-11-10/result.json) · [QR + scanner](docs/evidence/qr-stable-2026-11-10/result.json) |
 | **Honest states** | Ready → Payment observed → **Paid per contract** → **Verified Paid**. Wallet returns, server events and timers never mark anything paid | [state machine](docs/PAYMENT_STATE_MACHINE.md) |
 | **Independent receipt verifier** | Each phone checks the funding, transfer and callback receipts, the contract code hash and access keys. Falls back to a clearly labelled archived record if public RPCs are busy | [ledger](docs/EVIDENCE.md) |
 | **Live balance** | The Taply Wallet balance refreshes after every signature, every 20 s and when the app comes back to the foreground | [production run](docs/evidence/production-balance-2026-11-10/balance-refresh-result.json) |
@@ -181,7 +181,7 @@ pnpm --filter @taply/web build && pnpm --filter @taply/web start   # http://loca
 ```
 
 Current results of `pnpm check`: shared **93**, near-client **244**, web
-**1,198** tests passed (1 skipped). The standalone API tests run with
+**1,204** tests passed (1 skipped). The standalone API tests run with
 `node --test apps/api/test/*.test.mts`; contract checks (Rust / WASM / sandbox)
 run in the `instant-pay-sandbox` workflow.
 

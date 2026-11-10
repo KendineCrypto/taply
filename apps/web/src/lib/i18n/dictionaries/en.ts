@@ -1197,6 +1197,7 @@ export const en: Dictionary = {
     unavailable: 'The live session service is not reachable right now. Payment works without it.',
     openPayment: 'Open the payment',
     starting: 'Starting the live session…',
+    preparingQr: 'Preparing the QR code…',
     restart: 'Try again',
     evCreated: 'Session started',
     evCustomerJoined: 'Customer joined',

@@ -228,6 +228,21 @@ describe('QrScanner', () => {
     await waitFor(() => expect(onRequest).toHaveBeenCalledWith(ID));
   });
 
+  it('a merchant live-session QR opens that live session once (it used to be "not a Taply payment request")', async () => {
+    const cam = fakeCamera();
+    const dec = scriptedDecoder();
+    const room = 'Pghp7lgmtsPIv_uS3uoIyA';
+    const token = 'VkGnBr4fzWKX8g0W-gSKbmSadNmirCGA';
+    dec.queue.push(`${ORIGIN}/s/${room}?amount=9#j=${token}`);
+    const onLive = vi.fn();
+    const { onRequest } = renderScanner({ media: cam.media, createDecoder: dec.factory, onLive });
+    await waitFor(() => expect(onLive).toHaveBeenCalledWith(`/s/${room}#j=${token}`));
+    expect(onLive).toHaveBeenCalledTimes(1);
+    expect(onRequest).not.toHaveBeenCalled();
+    expect(cam.tracks[0]?.stop).toHaveBeenCalled();
+    expect(status()).toBe('Payment found. Opening the request…');
+  });
+
   it('a merchant discovery QR opens only that account’s checkout, ignoring any query', async () => {
     const cam = fakeCamera();
     const dec = scriptedDecoder();
