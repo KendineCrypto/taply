@@ -267,7 +267,8 @@ export function CreateWalletFlow() {
             <h2 id="activate-title" className="text-xl font-semibold tracking-tight">
               {state.status === 'provisioned' ? fill(n.username.activeTitle, { account: state.identity.accountId }) : c.createdTitle}
             </h2>
-            <TaplyStatusBadge state={state} />
+            {/* While the account is being activated, the progress line below says so; no "local only" warning. */}
+            {state.status === 'provisioned' && <TaplyStatusBadge state={state} />}
           </div>
           {state.status === 'provisioned' ? (
             <>
