@@ -269,8 +269,10 @@ The two candidates stay off on the public site until a human security review.
 - **Live Handshake is coordination only.** The sale code identifies the sale;
   it is not merchant authentication. Merchants are shown by account ID.
 - **History, contacts and templates are stored on the device**; there is no
-  indexer. The site sends `noindex` on purpose. Android has not been tested on
-  a physical device.
+  indexer. The site sends `noindex` on purpose. Android was checked on taplyapp.xyz with
+  Chromium's Pixel 7 emulation (Android Chrome user agent, viewport and touch:
+  [run](docs/evidence/production-android-emulation-2026-11-11/result.json)),
+  not on a physical device.
 
 ## How it was built
 
