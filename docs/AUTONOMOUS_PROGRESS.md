@@ -77,6 +77,25 @@ Rollback: set the variable back to `off` and redeploy (or Instant Rollback to th
 
 ## 2026-11-11
 
+### Increment 19 — Final hackathon release (only proven fixes from PR #31)
+
+- PR #31 (R-2) stays a draft: its contract is experimental, unreviewed and not a fix; merging it would put
+  13k lines of unshipped contract code on `main`. Extracted only what is production-safe:
+  - `PaymentsProvider` race: `checkRef` was synced in a passive effect one scheduler tick after the render, so a
+    tab return in that tick saw a stale "checking" and skipped refreshing an aged contract check (the CI-only
+    `context-sync` timeout). Now written together with the state; a deterministic regression test failed 3/3
+    before and passes after; the original test's assertion is untouched.
+  - `r2-no-false-paid.test.ts`: request views from a real NEAR node running the deployed escrow source with a
+    panicking callback (transfer arrived / transfer failed) never yield paid, Verified Paid or a funding lookup.
+- README: status badges, final test counts, R-2 limitation links the test and draft PR #31.
+- `pnpm check`: shared 93, near-client 253, web 1,211 + 1 skipped; API 72.
+
+### Increment 18 — R-2 analysis (draft PR #31, not merged)
+
+- Reproduced R-2 on a real NEAR sandbox for the G1 pilot and the deployed escrow source; first candidate
+  (FINAL_PAID at settlement) was rejected in review as a false paid; the revised candidate keeps the deployed
+  semantics and is experimental hardening only. Verdict: R-2 not fixed. Details in PR #31.
+
 ### Increment 17 — Release verification: production regression, escrow attacks, CI gaps, consistent docs
 
 Owner asked for a verification pass, not features. Source at start: `main` = `release/taplyapp` = `7c30061`;

@@ -1,0 +1,80 @@
+{
+  "1-success-callback-panic": {
+    "cancelUntilNs": null,
+    "createdAtNs": "1794398819998330512",
+    "fundedAtNs": "1794398822301971485",
+    "latestOperation": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "destinationAccountId": "dev-20261111120658-36653070020281.test.near",
+      "failureCode": null,
+      "kind": "INSTANT_PAYOUT",
+      "nonce": "1",
+      "resolvedAtNs": null,
+      "startedAtNs": "1794398822301971485",
+      "status": "IN_FLIGHT"
+    },
+    "payerAccountId": "dev-20261111120659-17257195647074.test.near",
+    "recipientAccountId": "dev-20261111120658-36653070020281.test.near",
+    "revision": "2",
+    "sessionCommitment": null,
+    "settlementBranch": "RECIPIENT",
+    "status": "PAYOUT_IN_FLIGHT",
+    "terms": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "assetId": "near:native",
+      "cancelDurationNs": null,
+      "contractId": "dev-20261111120658-84712630963371.test.near",
+      "creationNonce": "0000000000000000000000000000000000000000000000000000000000000001",
+      "creatorAccountId": "dev-20261111120658-36653070020281.test.near",
+      "fundingExpiresAtNs": "1794402419619456691",
+      "id": "3e273e9ea18793459451033815de11e0a6856fa0526c11122f07f0b1172518a2",
+      "memo": "",
+      "merchantAccountId": null,
+      "mode": "instant",
+      "network": "near-testnet",
+      "permittedPayerAccountId": null,
+      "schemaVersion": "taply.intent.v1",
+      "sessionBinding": null
+    },
+    "termsHash": "72aa6106f4178483cde5aebf2d5a6bce22e3300f0a8631742646e8e0e3bd8021"
+  },
+  "3-failed-transfer-callback-panic": {
+    "cancelUntilNs": null,
+    "createdAtNs": "1794398799738379124",
+    "fundedAtNs": "1794398800492774425",
+    "latestOperation": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "destinationAccountId": "gone.test.near",
+      "failureCode": null,
+      "kind": "INSTANT_PAYOUT",
+      "nonce": "1",
+      "resolvedAtNs": null,
+      "startedAtNs": "1794398800492774425",
+      "status": "IN_FLIGHT"
+    },
+    "payerAccountId": "dev-20261111120638-20967635010936.test.near",
+    "recipientAccountId": "gone.test.near",
+    "revision": "2",
+    "sessionCommitment": null,
+    "settlementBranch": "RECIPIENT",
+    "status": "PAYOUT_IN_FLIGHT",
+    "terms": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "assetId": "near:native",
+      "cancelDurationNs": null,
+      "contractId": "dev-20261111120638-26710527819382.test.near",
+      "creationNonce": "0000000000000000000000000000000000000000000000000000000000000003",
+      "creatorAccountId": "gone.test.near",
+      "fundingExpiresAtNs": "1794402399360842937",
+      "id": "56fc85de22f96550f1d845b23ad0b1794e5025cebcf22fd5c2ffa14a1c95fabd",
+      "memo": "",
+      "merchantAccountId": null,
+      "mode": "instant",
+      "network": "near-testnet",
+      "permittedPayerAccountId": null,
+      "schemaVersion": "taply.intent.v1",
+      "sessionBinding": null
+    },
+    "termsHash": "f1b399b189f5babef79800456985a67d15c6be9b4b17584d4aeb175ada5fc800"
+  }
+}
