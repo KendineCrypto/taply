@@ -78,7 +78,9 @@ Sources:
   `CARGO_HOME=/root/.cargo`, because the WASM embeds dependency source paths.
   The deployed build used that path; GitHub's default path gives a different
   hash. CI rebuilds it with that path and reports the result as information
-  only.
+  only. It reproduced `963iSEB8…` on GitHub on 2026-11-11
+  ([run](https://github.com/KendineCrypto/taply/actions/runs/42988750148)),
+  in the same run that passed 40 unit + 3/6/4 sandbox tests and the wire check.
 - Recorded outputs: [`evidence/r2-sandbox-2026-11-11/`](evidence/r2-sandbox-2026-11-11/).
 
 Measured gas (real node): the candidate's delivery callback burns about
