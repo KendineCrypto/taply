@@ -4,6 +4,11 @@ import { canonicalJson, ContractMethodArgs, U64_MAX } from "@taply/shared";
 import { buildClient } from "./client.js";
 import { contractConfigProblems, prepareCreateRequest, preparePayInstantNative, prepareRetryNativeTransfer, prepareCancelUnfunded } from "./contract.js";
 import type { PreparedContractCall } from "./contract.js";
+import {
+  createProtectedReader, prepareCancelProtected, prepareCreateProtectedRequest, prepareFundProtectedNative,
+  prepareReleaseProtected, prepareRetryProtectedTransfer, protectedConfigProblems,
+} from "./protected.js";
+import type { PreparedProtectedCall, ProtectedReader } from "./protected.js";
 import type { NearTestnetConfig, NearTestnetClient, ReadResult } from "./types.js";
 import type { Fetch } from "./rpc.js";
 import { parseConfig } from "./rpc.js";
@@ -99,7 +104,16 @@ export interface WalletBackendPolicy {
   /** Mandatory browser Web Lock. Tests supply an isolated deterministic lock. */
   withExclusiveLock<T>(task: () => Promise<T>): Promise<T>;
 }
-type Plan = { review: WalletTransactionReview; bytes: Uint8Array<ArrayBuffer>; snapshot: WalletBalanceSnapshot; call: PreparedContractCall | null; swap: PreparedWalletSwap | null };
+type WalletContractCall = PreparedContractCall | PreparedProtectedCall;
+type Plan = { review: WalletTransactionReview; bytes: Uint8Array<ArrayBuffer>; snapshot: WalletBalanceSnapshot; call: WalletContractCall | null; swap: PreparedWalletSwap | null };
+/**
+ * Protected Pay escrow candidate the wallet may sign for (owner decision
+ * 2026-11-11, Testnet only, UNREVIEWED contract, no independent review).
+ * Separate from `config.contract`; the pilot can never be named here
+ * (createProtectedReader refuses it).
+ */
+export interface WalletProtectedContract { readonly accountId: string; readonly expectedCodeHash: string }
+const PROTECTED_METHODS = ["create_request", "fund_protected_native", "cancel_protected", "release_protected", "retry_native_transfer"] as const;
 type Reads = Pick<NearTestnetClient, "readContractConfig" | "quoteCreateRequest" | "readPaymentRequest" | "observeTransaction">;
 function fresh<T>(result: ReadResult<T>): { data: T; timestampNs: string } {
   const o = result.observation;
@@ -122,6 +136,7 @@ const TxResponseAnyActions = z.object({ final_execution_status: z.literal("FINAL
 export function createReviewedWalletBackend(input: {
   config: NearTestnetConfig; vault: EncryptedTestnetVault; storage: VaultStorage; policy: WalletBackendPolicy;
   crypto?: Crypto; now?: () => number; fetcher?: Fetch; chain?: WalletChain; reader?: Reads;
+  protectedContract?: WalletProtectedContract | null; protectedReader?: ProtectedReader;
 }) {
   const config = parseConfig(input.config);
   const crypto = input.crypto ?? globalThis.crypto;
@@ -129,6 +144,9 @@ export function createReviewedWalletBackend(input: {
   const fetcher = input.fetcher ?? ((url, init) => globalThis.fetch(url, init));
   const chain = input.chain ?? createWalletChain(config, fetcher);
   const reader = input.reader ?? buildClient(config, fetcher, false, () => new Date());
+  const protectedContract = input.protectedContract ?? null;
+  const protectedReader = protectedContract === null ? null
+    : input.protectedReader ?? createProtectedReader({ ...config, contract: protectedContract }, fetcher);
   const journal = new WalletAttemptJournal(input.storage);
   const plans = new Map<string, Plan>();
   let busy = false;
@@ -197,7 +215,54 @@ export function createReviewedWalletBackend(input: {
       throw new WalletEngineError("CALL_NOT_ALLOWED");
     return JSON.parse(canonicalJson(prepared)) as PreparedContractCall;
   };
-  const prepare = async (receiverId: string, amountNear: string | null, candidate: PreparedContractCall | null, swapCandidate: PreparedWalletSwap | null = null) => {
+  /**
+   * Protected Pay calls: same rule as payments. The call is REBUILT from final,
+   * code-hash-anchored reads of the configured escrow candidate (config, quote or
+   * request) with the protected.ts builders, and signed only if the candidate is
+   * byte-for-byte that rebuilt call. Native NEAR only; token requests are refused.
+   */
+  const checkedProtected = async (candidate: PreparedProtectedCall): Promise<PreparedProtectedCall> => {
+    if (protectedContract === null || protectedReader === null || candidate.receiverId !== protectedContract.accountId ||
+      !(PROTECTED_METHODS as readonly string[]).includes(candidate.methodName)) throw new WalletEngineError("CALL_NOT_ALLOWED");
+    const { data: deployed } = fresh(await protectedReader.readConfig());
+    // The candidate is unreviewed by definition; every OTHER problem refuses.
+    if (protectedConfigProblems(deployed, protectedContract.accountId).some((p) => p !== "UNREVIEWED_CANDIDATE"))
+      throw new WalletEngineError("CALL_NOT_ALLOWED");
+    const signerAccountId = identity().accountId;
+    const base = { contractId: protectedContract.accountId, config: deployed };
+    let prepared: PreparedProtectedCall;
+    try {
+      if (candidate.methodName === "create_request") {
+        const { terms } = ContractMethodArgs.create_request.parse(candidate.args);
+        if (terms.assetId !== "near:native") throw new WalletEngineError("CALL_NOT_ALLOWED");
+        const { data: quote } = fresh(await protectedReader.client.quoteCreateRequest(terms));
+        prepared = prepareCreateProtectedRequest({ ...base, terms, quote, signerAccountId });
+      } else {
+        const { id } = ContractMethodArgs[candidate.methodName].parse(candidate.args);
+        const requestRead = fresh(await protectedReader.client.readPaymentRequest(id));
+        const request = requestRead.data.request;
+        if (!request || request.terms.assetId !== "near:native") throw new WalletEngineError("CALL_NOT_ALLOWED");
+        const observedAtNs = requestRead.timestampNs;
+        if (candidate.methodName === "fund_protected_native") {
+          const { acceptedCancelDurationNs } = ContractMethodArgs.fund_protected_native.parse(candidate.args);
+          prepared = prepareFundProtectedNative({ ...base, request, signerAccountId, observedAtNs, acceptedCancelDurationNs });
+        } else if (candidate.methodName === "cancel_protected") prepared = prepareCancelProtected({ ...base, request, signerAccountId, observedAtNs });
+        else if (candidate.methodName === "release_protected") prepared = prepareReleaseProtected({ ...base, request, observedAtNs });
+        else prepared = prepareRetryProtectedTransfer({ ...base, request, signerAccountId });
+      }
+    } catch (error) {
+      // A builder or schema refusal means the contract would refuse it too.
+      if (error instanceof WalletEngineError) throw error;
+      throw new WalletEngineError("CALL_NOT_ALLOWED");
+    }
+    if (canonicalJson(candidate) !== canonicalJson(prepared) || BigInt(prepared.gas) > WALLET_MAX_CALL_GAS)
+      throw new WalletEngineError("CALL_NOT_ALLOWED");
+    return JSON.parse(canonicalJson(prepared)) as PreparedProtectedCall;
+  };
+  const checkedCall = (candidate: WalletContractCall): Promise<WalletContractCall> =>
+    protectedContract !== null && candidate.receiverId === protectedContract.accountId
+      ? checkedProtected(candidate as PreparedProtectedCall) : checkedPayment(candidate as PreparedContractCall);
+  const prepare = async (receiverId: string, amountNear: string | null, candidate: WalletContractCall | null, swapCandidate: PreparedWalletSwap | null = null) => {
     try { journal.assertClear(); } catch (blocked) {
       // An earlier attempt is unexplained (e.g. the page closed right after
       // sending). Settle it from FINAL chain data first: only an independently
@@ -226,7 +291,7 @@ export function createReviewedWalletBackend(input: {
       plans.set(review.id, { review, bytes: new Uint8Array(encodeTransaction(tx)), snapshot: state, call: null, swap });
       return review;
     }
-    const call = candidate === null ? null : await checkedPayment(candidate);
+    const call = candidate === null ? null : await checkedCall(candidate);
     const native = call === null ? prepareNativeNearTransfer(state, receiverId, amountNear ?? "") : null;
     await chain.receiverExists(receiverId, state.blockHash);
     const depositYocto = call?.depositYocto ?? native?.depositYocto ?? "";
@@ -290,6 +355,8 @@ export function createReviewedWalletBackend(input: {
   return Object.freeze({
     prepareTransfer: (receiverId: string, amountNear: string) => prepare(receiverId, amountNear, null),
     prepareContractCall: (call: PreparedContractCall) => prepare(call.receiverId, null, JSON.parse(canonicalJson(call)) as PreparedContractCall),
+    /** Protected Pay call on the configured escrow candidate; refused when none is configured. */
+    prepareProtectedCall: (call: PreparedProtectedCall) => prepare(call.receiverId, null, JSON.parse(canonicalJson(call)) as PreparedProtectedCall),
     /** Curated Ref/Rhea Testnet swap (register / buy / sell); exact shapes only. */
     prepareSwapTransaction: (swap: PreparedWalletSwap) => prepare(swap.receiverId, null, null, swap),
     reconcile,
@@ -318,7 +385,7 @@ export function createReviewedWalletBackend(input: {
           BigInt(budget.gasReserveYocto) > BigInt(plan.review.gasReserveYocto) ||
           BigInt(budget.storageReserveYocto) > BigInt(plan.review.storageReserveYocto)) throw new WalletEngineError("REVIEW_EXPIRED");
         await chain.receiverExists(plan.review.receiverId, current.blockHash);
-        if (plan.call) await checkedPayment(plan.call);
+        if (plan.call) await checkedCall(plan.call);
         if (plan.swap) checkedSwapTransaction(plan.swap, current.accountId);
         journal.begin(current.accountId, reviewId);
         let hash: string | null = null;

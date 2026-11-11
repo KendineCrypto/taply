@@ -12,6 +12,7 @@ import { WalletOverride } from '@/lib/wallet/provider';
 import type { WalletValue } from '@/lib/wallet/provider';
 import { ConfirmTransactionDialog, UnlockDialog } from './TaplyDialogs';
 import { useWalletMode } from './mode';
+import { PROTECTED_SETUP } from '@/lib/protected/hooks';
 import { createTaplyWalletController, TaplyNameTakenError, TaplyPhraseMismatchError } from '@/lib/wallet/taply-wallet';
 
 /**
@@ -102,7 +103,10 @@ type Confirm = (review: WalletTransactionReview) => Promise<boolean>;
 function defaultFactory(confirmTransaction: Confirm): TaplyWalletController | null {
   if (!CHAIN_CONFIG.ok) return null;
   try {
-    return createTaplyWalletController({ config: CHAIN_CONFIG.client, storage: window.localStorage, confirmTransaction });
+    return createTaplyWalletController({ config: CHAIN_CONFIG.client, storage: window.localStorage, confirmTransaction,
+      // The escrow candidate is unreviewed: the wallet signs for it only on a build that says so explicitly.
+      protectedContract: PROTECTED_SETUP.status === 'ready' && PROTECTED_SETUP.qaBuild
+        ? { accountId: PROTECTED_SETUP.contractId, expectedCodeHash: PROTECTED_SETUP.expectedCodeHash } : null });
   } catch {
     return null;
   }

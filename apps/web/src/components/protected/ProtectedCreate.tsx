@@ -25,6 +25,7 @@ import { useWallet } from '@/lib/wallet/provider';
 import { ContactMatch, ContactPicker } from '@/components/contacts/ContactPicker';
 import { FLAGS } from '@/lib/flags/features';
 import { useContactBook } from '@/lib/contacts/use-contacts';
+import { useWalletMode } from '@/components/wallet/taply/mode';
 import { ProtectedSetupNotice, windowLabel } from './ProtectedScreen';
 
 /**
@@ -62,6 +63,9 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<'stale' | 'quote' | 'refused' | null>(null);
   const [created, setCreated] = useState<{ readonly id: string; readonly result: SubmitResult } | null>(null);
+  const [walletMode] = useWalletMode();
+  // Taply Wallet signs native NEAR Protected calls only; tokens need an external wallet.
+  const assets = selectableAssets(check.status === 'verified' ? check.config : null).filter((x) => walletMode !== 'taply' || x.id === 'near:native');
   const gate = check.status === 'verified' ? check.gate : null;
   // Local address book: choosing copies the exact account ID; nothing is trusted by name.
   const contactsOn = FLAGS.contacts.enabled;
@@ -71,7 +75,7 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
   const submit = async () => {
     if (accountId === null || busy || reader === null) return;
     setProblem(null);
-    const asset = selectableAssets(check.status === 'verified' ? check.config : null).find((a) => a.id === assetId);
+    const asset = assets.find((a) => a.id === assetId);
     // Payer/memo rules are shared with Instant; the amount uses the chosen asset's verified decimals.
     const form = validateRequestForm({ amount: amount.trim() === '' ? '' : '1', memo: '', payer }, accountId);
     let amountBaseUnits = '';
@@ -140,11 +144,11 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
       {check.status === 'checking' && <p className="px-1 text-xs text-[var(--text-muted)]">{c.contractChecking}</p>}
       {(check.status === 'unreachable' || (gate !== null && !gate.allowed)) && <InlineNotice copy={c.contractBlocked} tone="neutral" />}
       <Card className="flex flex-col gap-4">
-        {selectableAssets(check.status === 'verified' ? check.config : null).length > 1 && (
+        {assets.length > 1 && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor={ids.asset} className="text-sm font-medium">{c.create.assetLabel}</label>
             <select id={ids.asset} className="taply-input" value={assetId} onChange={(e) => setAssetId(e.target.value)}>
-              {selectableAssets(check.status === 'verified' ? check.config : null).map((a) => (
+              {assets.map((a) => (
                 <option key={a.id} value={a.id}>{a.symbol}</option>
               ))}
             </select>

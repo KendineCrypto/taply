@@ -911,6 +911,9 @@ export interface Dictionary {
       readonly createRequest: string;
       readonly cancelRequest: string;
       readonly retryPayout: string;
+      readonly lockProtected: string;
+      readonly cancelProtected: string;
+      readonly releaseProtected: string;
       readonly tinyDeposit: string;
     };
     readonly paymentsNote: string;
