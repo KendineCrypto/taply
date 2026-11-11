@@ -78,7 +78,9 @@ full app in Turkish). More detail: [docs/JUDGE_QUICK_START.md](docs/JUDGE_QUICK_
 ## Features
 
 Everything below is live on taplyapp.xyz and was proven with real NEAR Testnet
-transactions in a real browser.
+transactions in a real browser. Which proof exists for each feature (CI, Testnet,
+production browser) and what is *not* proven is in
+**[docs/VERIFICATION_MATRIX.md](docs/VERIFICATION_MATRIX.md)**.
 
 | Feature | What it does | Proof |
 | --- | --- | --- |
@@ -121,6 +123,13 @@ from the user's own test NEAR.
   approved code hash `BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B`. The payer
   sends exactly the requested amount; the contract pays the merchant out and
   records `FINAL_PAID` only after the payout succeeds.
+- **Protected Pay** uses a separate escrow contract,
+  [`taply-e2e-ce38a238.testnet`](https://testnet.nearblocks.io/address/taply-e2e-ce38a238.testnet)
+  (code hash `963iSEB8XFKeUMY1gmj5bCuA2JMVD55ksjdLfCwiPA84`, zero access keys, so
+  its code cannot change). Only the payer can cancel, and only before the
+  on-chain cutoff; after it anyone can release to the recipient. Wrong amounts,
+  second funding and early release are refused on chain
+  ([14/14 attempts refused](docs/evidence/protected-adversarial-2026-11-11/result.json)).
 - **Taply Wallet** keeps the key in the browser: only the phrase's entropy is
   stored, encrypted with AES-GCM under a PBKDF2 (600k) password key. The
   "stay unlocked" session is a non-extractable browser key in IndexedDB.
@@ -162,6 +171,9 @@ Deeper reading: [architecture](docs/ARCHITECTURE.md) ·
 | Live Handshake, two browsers, on production | [docs/evidence/production-live-handshake-2026-11-10](docs/evidence/production-live-handshake-2026-11-10/) |
 | Stay unlocked across reloads; balance refresh after paying | [stay unlocked](docs/evidence/taply-wallet-stay-unlocked-2026-11-10/) · [balance on production](docs/evidence/production-balance-2026-11-10/) |
 | Re-runnable browser scripts (create disposable accounts) | [`taply-wallet-signing-2026-11-09/`](docs/evidence/taply-wallet-signing-2026-11-09/) · [`handshake-e2e.mjs`](docs/evidence/live-handshake-2026-11-10/handshake-e2e.mjs) |
+| Production regression on 2026-11-11 (current build): handshake, NEAR + USDC pay, QR + scanner, **Verified Paid** live check, no second payment | [docs/evidence/production-regression-2026-11-11](docs/evidence/production-regression-2026-11-11/) |
+| Protected Pay on production (refund and release) and attacks refused on the live escrow contract | [production run](docs/evidence/production-protected-pay-2026-11-11/result.json) · [adversarial](docs/evidence/protected-adversarial-2026-11-11/result.json) |
+| Per-feature proof status, including what is not proven | [docs/VERIFICATION_MATRIX.md](docs/VERIFICATION_MATRIX.md) |
 | Session log of every increment | [docs/AUTONOMOUS_PROGRESS.md](docs/AUTONOMOUS_PROGRESS.md) |
 
 All runs reached `FINAL_PAID` with the exact payout. Evidence accounts are
@@ -182,10 +194,16 @@ cp apps/web/env/public-readonly.env.example apps/web/.env.local
 pnpm --filter @taply/web build && pnpm --filter @taply/web start   # http://localhost:3000
 ```
 
-Current results of `pnpm check`: shared **93**, near-client **244**, web
-**1,204** tests passed (1 skipped). The standalone API tests run with
-`node --test apps/api/test/*.test.mts`; contract checks (Rust / WASM / sandbox)
-run in the `instant-pay-sandbox` workflow.
+Results on 2026-11-11 (`main` `ce5e9e9`): shared **93**, near-client **253**,
+web **1,207** passed and **1** skipped, API **72** passed
+(`node --test apps/api/test/*.test.mts`). Eight of those tests need a local
+`redis-server`; without one they are skipped (CI installs it). The skipped web
+test reads live Testnet and runs only with `TAPLY_LIVE_RPC=<archival RPC>`.
+`pnpm --filter @taply/near-client test:integration` (live Testnet, not part of
+`pnpm check`) passed 3/3. Contract checks (Rust fmt, unit, clippy, WASM,
+sandbox) run in the `instant-pay-sandbox` and `protected-pay-candidate`
+workflows. Test counts are not a coverage claim; see
+[VERIFICATION_MATRIX.md](docs/VERIFICATION_MATRIX.md).
 
 <details>
 <summary><strong>Live Handshake locally</strong></summary>
@@ -226,6 +244,7 @@ busy and signs nothing. Never pay again to make a demo succeed.
 apps/web/                     Next.js 16 PWA (TypeScript strict): wallet, POS, pay, receipt, verifier, Live Handshake
 apps/api/                     Session/room service prototype (in-process Fetch handlers)
 contracts/payments/           Instant Pay contract deployed as taply-pay-pilot-1.testnet
+contracts/payments-protected/ Protected Pay escrow, deployed as taply-e2e-ce38a238.testnet (not audited)
 contracts/payments-merchant/  Unreviewed merchant-session candidate (not deployed to the app)
 packages/near-client/         Typed NEAR reads and call builders, Taply Wallet vault and signer, Ref/Rhea swap routes
 packages/shared/              Protocol schemas, canonical hashing, sale/comparison codes
@@ -252,6 +271,11 @@ The two candidates stay off on the public site until a human security review.
 
 ## Limitations
 
+- **Known open risk R-2 (High):** if a payout or refund transfer succeeds but
+  its callback fails (for example out of gas), the request stays "in flight"
+  with no retry and no admin override. Nothing is paid twice, but funds can be
+  stuck. This applies to both contracts and is not fixed
+  ([review](docs/SECURITY_REVIEW_2026-11-09.md)). Test NEAR only.
 - **NEAR Testnet only, not audited.** Configured-RPC trust model (not a light
   client). The pilot contract keeps a full-access key; the verifier refuses a
   receipt if the contract's keys changed during the payment window.

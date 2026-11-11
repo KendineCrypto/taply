@@ -1,5 +1,11 @@
 # G1 Testnet signing: acceptance gate (updated 2026-11-09)
 
+> **Archived status report.** This file records what was true on the date in its
+> title or sections and is kept unchanged as history. It is not the current status.
+> Current status (2026-11-11): payments are signed on taplyapp.xyz, the live two-phone
+> Handshake and Protected Pay (Testnet escrow, not audited) are on. Authoritative:
+> [README](../README.md) and [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md).
+
 Public signing on https://taplyapp.xyz is **off**. It is turned on only after
 the run below produces real evidence. Nothing in this file has been executed
 with a wallet yet.

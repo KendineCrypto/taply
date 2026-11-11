@@ -32,12 +32,14 @@ History: the 2026-11-06 version of this file is in Git.
 - [x] Taply Wallet stays unlocked until **Lock now** (max 30 days); balance refreshes after payments (2026-11-10).
 - [x] Read-only G1 contract preflight 10/10 PASS on 2026-11-09.
 - [x] README, judge guide, submission package and screenshots updated for 2026-11-10.
+- [x] 2026-11-11, on the current production build: Protected Pay refund and release (PR #27), 14/14 escrow attacks refused on the live contract, handshake + NEAR/USDC pay + QR scan + live **Verified Paid** + second payment refused ([regression](evidence/production-regression-2026-11-11/)).
+- [x] 2026-11-11: contradictory docs fixed (contract READMEs, RELEASE_DEMO, archival notices on dated reports); [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md) added; CI now runs the real-Redis tests and also runs on docs changes.
 
 ## Open (disclose, do not hide)
 
 - [ ] Taply Wallet has no independent security review (on for Testnet by owner decision; disclosed in README).
 - [ ] The owner tested all flows by hand on 2026-11-10 (reported as passing); an external browser-wallet (Meteor) payment is not yet stored as evidence. Android untested on a physical device.
-- [ ] F-02 (`main` has no branch protection), F-03 (CI path coverage), F-06 (production auth for the `apps/api` room service) remain open. F-04 has no production impact (`pnpm audit --prod` clean). F-05 fixed.
+- [ ] F-02 (`main` has no branch protection; owner setting), F-03 (CI path coverage: docs and README now trigger `workspace-check`; contract workflows still run only on contract paths or by hand), F-06 (production auth for the `apps/api` room service) remain open. F-04 has no production impact (`pnpm audit --prod` clean). F-05 fixed.
 - [ ] Keep contract-bound merchant sessions, merchant sale signing and sponsored gas off. Protected Pay is on for Testnet since 2026-11-11 (owner decision; escrow contract not audited).
 
 ## Owner actions

@@ -1,5 +1,13 @@
 # Taply native Instant Pay contract
 
+> **Current status (2026-11-11):** this contract is deployed on NEAR Testnet as
+> [`taply-pay-pilot-1.testnet`](https://testnet.nearblocks.io/address/taply-pay-pilot-1.testnet)
+> (code hash `BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B`) and taplyapp.xyz signs real
+> Testnet payments against it. The sentence below about "no Testnet deployment" was written
+> before that and is kept for history; see [docs/EVIDENCE.md](../../docs/EVIDENCE.md) for the
+> deployment and payment proofs. Not audited. Known open risk: R-2 (callback failure leaves the
+> payout in flight, no retry) in [SECURITY_REVIEW_2026-11-09.md](../../docs/SECURITY_REVIEW_2026-11-09.md).
+
 Phase 2B implements native requests and asynchronous payouts. Local verification
 is reported in [VALIDATION.md](VALIDATION.md). No Testnet deployment, real-wallet
 signing or Testnet fund movement has been performed or approved.

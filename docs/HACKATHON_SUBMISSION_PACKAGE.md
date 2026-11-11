@@ -18,7 +18,7 @@ recheck on submission day.
 | AI disclosure | README "How it was built" (Claude Code, Codex) |
 | Diff section (Q-003) | README "Hackathon": all commits are inside the window (first commit 2026-10-29) |
 
-## What is live today (2026-11-10)
+## What is live today (2026-11-11)
 
 Every claim in the post, the video and the form must match this list.
 
@@ -26,9 +26,10 @@ Every claim in the post, the video and the form must match this list.
 - Create a request and pay it, with an external wallet or Taply Wallet, on taplyapp.xyz.
 - Pay a NEAR request with USDC, USDT, NST, LNC or PEM (test tokens, swapped to NEAR on Ref/Rhea Testnet first).
 - Live Handshake: live two-phone session (online, reviewing, disconnect/reconnect, same sale code, expiry, single-phone join).
-- Protected Pay: the payer locks the amount in an escrow contract, can cancel for a refund until the on-chain cutoff (1 minute to 1 hour), and after it the amount is released to the recipient. Proven with two Taply Wallets in a real browser (refund and release).
+- Protected Pay: the payer locks the amount in an escrow contract, can cancel for a refund until the on-chain cutoff (1 minute to 1 hour), and after it the amount is released to the recipient. Proven on taplyapp.xyz with two Taply Wallets in a real browser (refund and release); attacks on the escrow contract refused on chain.
 - Receipts verified on chain by both phones (Verified Paid); the 2026-11-01 pilot payment can be re-verified live.
-- **Not live:** contract-bound merchant sessions, sponsored gas, social login. The escrow contract is not audited. Taply Wallet has no independent security review. Testnet only, not audited.
+- **Not live:** contract-bound merchant sessions, sponsored gas, social login. The escrow contract is not audited. Taply Wallet has no independent security review. Known open risk R-2 (a transfer that succeeds while its callback fails stays in flight). Testnet only, not audited.
+- Per-feature proof status: [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md).
 
 ## X post (278/280 characters, X counts each link as 23)
 
@@ -89,7 +90,7 @@ Taply turns a NEAR wallet into a merchant point of sale where "paid" means verif
 
 No video file is in the repository, so its content could not be checked here.
 Before posting, confirm frame by frame: DEMO screens keep their DEMO stamp;
-nothing shows Protected Pay as live; no recovery phrase is readable (keep it
+Protected Pay, if shown, is called Testnet escrow and not audited; no recovery phrase is readable (keep it
 hidden or use a throwaway wallet), no key and no private URL (localhost,
 Tailscale) appears. A good 60-second order: welcome → username wallet →
 create request → second phone joins the live session → pay with USDC →

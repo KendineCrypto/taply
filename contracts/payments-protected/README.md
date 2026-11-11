@@ -1,17 +1,30 @@
-# Taply Protected Pay contract — G3 CANDIDATE (not reviewed, not deployed)
+# Taply Protected Pay contract — G3 escrow (Testnet, not reviewed)
 
-> **Status: UNREVIEWED CANDIDATE. Not deployed anywhere. Not for real funds.**
-> The deployed G1 contract (`contracts/payments`, `taply-pay-pilot-1.testnet`)
-> is frozen and untouched. This crate is a separate copy of that source with
-> Protected Pay (escrow) added, so the G3 gate in `docs/MILESTONES.md` can be
-> reviewed and later proven on Testnet without risking the G1 release.
+> **Current status (2026-11-11): deployed on NEAR Testnet as
+> [`taply-e2e-ce38a238.testnet`](https://testnet.nearblocks.io/address/taply-e2e-ce38a238.testnet),
+> code hash `963iSEB8XFKeUMY1gmj5bCuA2JMVD55ksjdLfCwiPA84`, zero access keys
+> (the code cannot change). taplyapp.xyz uses it for Protected Pay by the owner's
+> decision. It has NOT had a human or external security review and is not for
+> real funds:** `get_config` still reports
+> `protected.reviewStatus = "UNREVIEWED_NOT_FOR_REAL_FUNDS"`. The web build waives
+> only that one config problem, and only because `apps/web/.env.production` sets
+> `NEXT_PUBLIC_TAPLY_PROTECTED_QA=on`; the code hash stays pinned.
+> Known open risk: R-2 in [SECURITY_REVIEW_2026-11-09.md](../../docs/SECURITY_REVIEW_2026-11-09.md)
+> (a transfer that succeeds while its callback fails stays in flight, with no retry).
+> Proofs: [production browser run](../../docs/evidence/production-protected-pay-2026-11-11/result.json),
+> [adversarial calls on this contract](../../docs/evidence/protected-adversarial-2026-11-11/result.json),
+> [scripted refund/release + refusals](../../docs/evidence/testnet-e2e/2026-11-09T08-34-40-964Z-g3-protected.json).
 
-Deployment needs, in order (freeze section 10): human review of escrow
+**Original candidate notes (before the Testnet deployment, kept for history):**
+The deployed G1 contract (`contracts/payments`, `taply-pay-pilot-1.testnet`)
+is frozen and untouched. This crate is a separate copy of that source with
+Protected Pay (escrow) added, so the G3 gate in `docs/MILESTONES.md` can be
+reviewed and later proven on Testnet without risking the G1 release.
+Deployment was meant to need, in order (freeze section 10): human review of escrow
 custody, measured gas/storage on a sandbox node, a fresh Testnet account
 (never the G1 pilot), and real Testnet refund **and** release transactions
-recorded in `docs/EVIDENCE.md`. Until then `get_config` reports
-`protected.reviewStatus = "UNREVIEWED_NOT_FOR_REAL_FUNDS"` and the web app's
-near-client refuses the config (`UNREVIEWED_CAPABILITY`).
+recorded in `docs/EVIDENCE.md`. The human review has not happened; the other
+steps have.
 
 ## What changed versus G1
 

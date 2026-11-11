@@ -1,0 +1,375 @@
+{
+  "kind": "TAPLY_PROTECTED_PAY_ADVERSARIAL_LIVE_CONTRACT",
+  "network": "near-testnet",
+  "atUtc": "2026-11-11T07:03:49.116Z",
+  "note": "Disposable faucet accounts. Calls go straight to the escrow contract that taplyapp.xyz uses (no browser).",
+  "contractId": "taply-e2e-ce38a238.testnet",
+  "codeHash": "963iSEB8XFKeUMY1gmj5bCuA2JMVD55ksjdLfCwiPA84",
+  "recipientAccountId": "taply-e2e-6fb2ecd4.testnet",
+  "payerAccountId": "taply-e2e-b491b73a.testnet",
+  "strangerAccountId": "taply-e2e-2a58bbf1.testnet",
+  "requestId": "901c69717ea7f08dc019536c3d069361050fb015178fd766f786261128c1699b",
+  "createTx": "6mu8161GLiZNFWk1Bjq3nUEjMGNjkkrw8iRMF8E3CAaj",
+  "honestLockTx": "Cwd5P45dDmcUwYNBYmkJjRTg7mdUEZ2Ctd9bBejjooMH",
+  "honestCancelTx": "71FHDWiNMRV8tQmzxV1CGeiJmdDzYeJT8QkmpmrCWbXe",
+  "finalStatus": "CANCELLED_REFUNDED",
+  "refund": {
+    "nonce": "1",
+    "kind": "PROTECTED_REFUND",
+    "destinationAccountId": "taply-e2e-b491b73a.testnet",
+    "amountBaseUnits": "20000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1794380612672261589",
+    "resolvedAtNs": "1794380613666541223",
+    "failureCode": null
+  },
+  "checks": [
+    {
+      "name": "fund with 1 yocto less than the amount",
+      "refused": true,
+      "tx": "6KocrZhitRw69iGSdKHQBMhJ7WXhkU69s29ZQi4dP5Wm",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: EXACT_PRINCIPAL_REQUIRED\"}}}}",
+      "before": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      },
+      "after": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      }
+    },
+    {
+      "name": "fund with 1 yocto more than the amount",
+      "refused": true,
+      "tx": "HdikHPQj53wCQhszVxL9aa1rjLALp6wLo84PA3BHx9Sb",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: EXACT_PRINCIPAL_REQUIRED\"}}}}",
+      "before": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      },
+      "after": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      }
+    },
+    {
+      "name": "fund with a wrong terms hash",
+      "refused": true,
+      "tx": "KSsJ8V8YkJUhjsoQpogDcPaWJxG73HZyE5p7zQd8zvQ",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: TERMS_HASH_MISMATCH\"}}}}",
+      "before": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      },
+      "after": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      }
+    },
+    {
+      "name": "fund accepting a different cancel window",
+      "refused": true,
+      "tx": "ArRxwNpoHcSAcMZ7dy4GNrPwC8dJqP6RhySjJ1xVkkAq",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: CANCEL_DURATION_NOT_ACCEPTED\"}}}}",
+      "before": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      },
+      "after": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      }
+    },
+    {
+      "name": "instant-pay a Protected request (bypass the escrow)",
+      "refused": true,
+      "tx": "Fe4KyFFccf1iH9fKR6PKUEgH5ricw2Cj1ovv8DjJfuAV",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: WRONG_MODE\"}}}}",
+      "before": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      },
+      "after": {
+        "status": "OPEN",
+        "revision": "1",
+        "payer": null
+      }
+    },
+    {
+      "name": "second funding by the same payer",
+      "refused": true,
+      "tx": "Ba2BaS4a2TGk9ZrjdiTrLoEM4Jksw2hWvvToZSEj5kVB",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}",
+      "before": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "second funding by a stranger",
+      "refused": true,
+      "tx": "6eXLNYiVRWH7hPkRNa9X9tKa74oB3TZGfGSrA1HJakpq",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}",
+      "before": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "stranger cancels",
+      "refused": true,
+      "tx": "B9ACHLojRXifntsLT7BnnWcBjG9VYPmyK1ZLUU1m9AXG",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: PAYER_ONLY\"}}}}",
+      "before": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "recipient cancels",
+      "refused": true,
+      "tx": "B9Uc76vb4xjmUmc4EdEXNAFK9f3H7oh9obnroSk3p5Ym",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: PAYER_ONLY\"}}}}",
+      "before": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "recipient releases before the cutoff",
+      "refused": true,
+      "tx": "4QivekRhjSMkN8uTLb234u7HDu7cPdDuncctpvzfYNcu",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: CANCELLATION_WINDOW_OPEN\"}}}}",
+      "before": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "stranger releases before the cutoff",
+      "refused": true,
+      "tx": "mTMfhnL1rNtkoYUZk27MGsHEkb6QRpmZrXB85CcJX1Q",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: CANCELLATION_WINDOW_OPEN\"}}}}",
+      "before": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "LOCKED",
+        "revision": "2",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "payer cancels twice",
+      "refused": true,
+      "tx": "9hBabJixMppZDrHuVXkNjeB8cRtxHj5hXHaX1DQzdSJ5",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_LOCKED\"}}}}",
+      "before": {
+        "status": "CANCELLED_REFUNDED",
+        "revision": "4",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "CANCELLED_REFUNDED",
+        "revision": "4",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "release after the refund",
+      "refused": true,
+      "tx": "65d7i5q9vDdzrYSJAmMxHWmxEbi68tXUL9mmRs8KsE9S",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_LOCKED\"}}}}",
+      "before": {
+        "status": "CANCELLED_REFUNDED",
+        "revision": "4",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "CANCELLED_REFUNDED",
+        "revision": "4",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    },
+    {
+      "name": "fund again after the refund",
+      "refused": true,
+      "tx": "CqwoNjQRy6M5pE2hke5C2nXr15zmyGfEN2fYah7DGqLh",
+      "failure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}",
+      "before": {
+        "status": "CANCELLED_REFUNDED",
+        "revision": "4",
+        "payer": "taply-e2e-b491b73a.testnet"
+      },
+      "after": {
+        "status": "CANCELLED_REFUNDED",
+        "revision": "4",
+        "payer": "taply-e2e-b491b73a.testnet"
+      }
+    }
+  ],
+  "allRefused": true,
+  "accountingBefore": {
+    "receivedPrincipalYocto": "1510000000000000000000000",
+    "confirmedPaidYocto": "1220000000000000000000000",
+    "inFlightPrincipalYocto": "0",
+    "failedHeldPrincipalYocto": "0",
+    "lockedPrincipalYocto": "0",
+    "refundedPrincipalYocto": "290000000000000000000000",
+    "permanentStorageBondsYocto": "111300000000000000000000",
+    "authenticationDepositsYocto": "14",
+    "requestCount": "19",
+    "runtimeStorageBytes": "439740",
+    "tokens": [
+      {
+        "assetId": "nep141:taply-e2e-826c3e79.testnet",
+        "received": "5000000",
+        "confirmedPaid": "2500000",
+        "inFlight": "0",
+        "failedHeld": "0",
+        "locked": "0",
+        "refunded": "2500000"
+      }
+    ],
+    "runtimeStorageCostYocto": "4397400000000000000000000",
+    "runtimeAccountBalanceYocto": "10107953053329231000000012",
+    "inFlightMayAlreadyHaveTransferred": true
+  },
+  "accountingAfter": {
+    "receivedPrincipalYocto": "1580000000000000000000000",
+    "confirmedPaidYocto": "1220000000000000000000000",
+    "inFlightPrincipalYocto": "0",
+    "failedHeldPrincipalYocto": "0",
+    "lockedPrincipalYocto": "50000000000000000000000",
+    "refundedPrincipalYocto": "310000000000000000000000",
+    "permanentStorageBondsYocto": "117260000000000000000000",
+    "authenticationDepositsYocto": "15",
+    "requestCount": "20",
+    "runtimeStorageBytes": "440336",
+    "tokens": [
+      {
+        "assetId": "nep141:taply-e2e-826c3e79.testnet",
+        "received": "5000000",
+        "confirmedPaid": "2500000",
+        "inFlight": "0",
+        "failedHeld": "0",
+        "locked": "0",
+        "refunded": "2500000"
+      }
+    ],
+    "runtimeStorageCostYocto": "4403360000000000000000000",
+    "runtimeAccountBalanceYocto": "10163913053329231000000013",
+    "inFlightMayAlreadyHaveTransferred": true
+  },
+  "steps": [
+    {
+      "atMs": 1794380562563,
+      "step": "created A 901c69717ea7f08dc019536c3d069361050fb015178fd766f786261128c1699b"
+    },
+    {
+      "atMs": 1794380566306,
+      "step": "REFUSED fund with 1 yocto less than the amount: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: EXACT_PRINCIPAL_REQUIRED\"}}}}"
+    },
+    {
+      "atMs": 1794380570695,
+      "step": "REFUSED fund with 1 yocto more than the amount: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: EXACT_PRINCIPAL_REQUIRED\"}}}}"
+    },
+    {
+      "atMs": 1794380574793,
+      "step": "REFUSED fund with a wrong terms hash: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: TERMS_HASH_MISMATCH\"}}}}"
+    },
+    {
+      "atMs": 1794380579049,
+      "step": "REFUSED fund accepting a different cancel window: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: CANCEL_DURATION_NOT_ACCEPTED\"}}}}"
+    },
+    {
+      "atMs": 1794380583265,
+      "step": "REFUSED instant-pay a Protected request (bypass the escrow): {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: WRONG_MODE\"}}}}"
+    },
+    {
+      "atMs": 1794380587609,
+      "step": "A locked by payer: LOCKED"
+    },
+    {
+      "atMs": 1794380591716,
+      "step": "REFUSED second funding by the same payer: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}"
+    },
+    {
+      "atMs": 1794380595687,
+      "step": "REFUSED second funding by a stranger: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}"
+    },
+    {
+      "atMs": 1794380599613,
+      "step": "REFUSED stranger cancels: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: PAYER_ONLY\"}}}}"
+    },
+    {
+      "atMs": 1794380603474,
+      "step": "REFUSED recipient cancels: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: PAYER_ONLY\"}}}}"
+    },
+    {
+      "atMs": 1794380607674,
+      "step": "REFUSED recipient releases before the cutoff: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: CANCELLATION_WINDOW_OPEN\"}}}}"
+    },
+    {
+      "atMs": 1794380611293,
+      "step": "REFUSED stranger releases before the cutoff: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: CANCELLATION_WINDOW_OPEN\"}}}}"
+    },
+    {
+      "atMs": 1794380616272,
+      "step": "A after payer cancel: CANCELLED_REFUNDED"
+    },
+    {
+      "atMs": 1794380620550,
+      "step": "REFUSED payer cancels twice: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_LOCKED\"}}}}"
+    },
+    {
+      "atMs": 1794380624737,
+      "step": "REFUSED release after the refund: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_LOCKED\"}}}}"
+    },
+    {
+      "atMs": 1794380628967,
+      "step": "REFUSED fund again after the refund: {\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}"
+    }
+  ]
+}
