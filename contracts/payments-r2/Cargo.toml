@@ -1,0 +1,32 @@
+[package]
+name = "taply-payments-r2"
+version = "0.6.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "=5.30.0"
+borsh = "=1.5.7"
+
+[dev-dependencies]
+near-sdk = { version = "=5.30.0", features = ["unit-testing"] }
+
+[features]
+# Deliberately broken callback ONLY for a separately built local sandbox artifact.
+# Never deploy a build with this feature. Production has no fault-injection API.
+sandbox-fail-callback = []
+# Deliberately tiny callback gas ONLY for a separately built local sandbox artifact
+# (proves the out-of-gas variant of R-2). Never deploy a build with this feature.
+sandbox-tiny-callback-gas = []
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+panic = "abort"
+overflow-checks = true
+
+[workspace]

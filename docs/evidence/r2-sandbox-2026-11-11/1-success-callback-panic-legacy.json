@@ -1,0 +1,59 @@
+{
+  "accounting": {
+    "authenticationDepositsYocto": "0",
+    "confirmedPaidYocto": "0",
+    "failedHeldPrincipalYocto": "0",
+    "inFlightMayAlreadyHaveTransferred": true,
+    "inFlightPrincipalYocto": "1000000000000000000000000",
+    "lockedPrincipalYocto": "0",
+    "permanentStorageBondsYocto": "5950000000000000000000",
+    "receivedPrincipalYocto": "1000000000000000000000000",
+    "refundedPrincipalYocto": "0",
+    "requestCount": "1",
+    "runtimeAccountBalanceYocto": "100005764157141020700000000",
+    "runtimeStorageBytes": "428461",
+    "runtimeStorageCostYocto": "4284610000000000000000000",
+    "tokens": []
+  },
+  "recipientDeltaYocto": "1000000000000000000000000",
+  "request": {
+    "cancelUntilNs": null,
+    "createdAtNs": "1794398819998330512",
+    "fundedAtNs": "1794398822301971485",
+    "latestOperation": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "destinationAccountId": "dev-20261111120658-36653070020281.test.near",
+      "failureCode": null,
+      "kind": "INSTANT_PAYOUT",
+      "nonce": "1",
+      "resolvedAtNs": null,
+      "startedAtNs": "1794398822301971485",
+      "status": "IN_FLIGHT"
+    },
+    "payerAccountId": "dev-20261111120659-17257195647074.test.near",
+    "recipientAccountId": "dev-20261111120658-36653070020281.test.near",
+    "revision": "2",
+    "sessionCommitment": null,
+    "settlementBranch": "RECIPIENT",
+    "status": "PAYOUT_IN_FLIGHT",
+    "terms": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "assetId": "near:native",
+      "cancelDurationNs": null,
+      "contractId": "dev-20261111120658-84712630963371.test.near",
+      "creationNonce": "0000000000000000000000000000000000000000000000000000000000000001",
+      "creatorAccountId": "dev-20261111120658-36653070020281.test.near",
+      "fundingExpiresAtNs": "1794402419619456691",
+      "id": "3e273e9ea18793459451033815de11e0a6856fa0526c11122f07f0b1172518a2",
+      "memo": "",
+      "merchantAccountId": null,
+      "mode": "instant",
+      "network": "near-testnet",
+      "permittedPayerAccountId": null,
+      "schemaVersion": "taply.intent.v1",
+      "sessionBinding": null
+    },
+    "termsHash": "72aa6106f4178483cde5aebf2d5a6bce22e3300f0a8631742646e8e0e3bd8021"
+  },
+  "retry": "[ExecutionOutcome { transaction_hash: EuNGDt12YsSyRdsYyNa7tygfAExtk1BvpeqAMywKWkhY, block_hash: 5gy5Zhi5UpZW6JH3uWQdiKwXVp8z4EzgqCNaetkmY5NB, logs: [], receipt_ids: [8QbUDtE6vVwR35676TefHtyDXBGCSxqbg4W3QfgoJEBv, 6YrD3E3pkiRFCe7tjLQCpwq76u6RGrg4HWxwVBFXBZF1], gas_burnt: NearGas { inner: 1634170869455 }, tokens_burnt: NearToken { inner: 163417086945500000000 }, executor_id: AccountId(\"dev-20261111120658-84712630963371.test.near\"), status: Failure(ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: NO_RECORDED_TRANSFER_FAILURE\")) })) }]"
+}

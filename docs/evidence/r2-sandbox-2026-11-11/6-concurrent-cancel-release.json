@@ -1,0 +1,64 @@
+{
+  "accounting": {
+    "authenticationDepositsYocto": "1",
+    "deliveredPaidYocto": "0",
+    "deliveredRefundedYocto": "1000000000000000000000000",
+    "lockedPrincipalYocto": "0",
+    "owedPrincipalYocto": "0",
+    "permanentStorageBondsYocto": "6130000000000000000000",
+    "receivedPrincipalYocto": "1000000000000000000000000",
+    "requestCount": "1",
+    "runtimeAccountBalanceYocto": "100005942959908791000000001",
+    "runtimeStorageBytes": "437982",
+    "runtimeStorageCostYocto": "4379820000000000000000000",
+    "sendingMayAlreadyHaveArrived": true,
+    "sendingPrincipalYocto": "0",
+    "settledPaidYocto": "0",
+    "settledRefundedYocto": "1000000000000000000000000",
+    "tokens": []
+  },
+  "outcomes": [
+    "[]",
+    "[ExecutionOutcome { transaction_hash: HkoT38w1SyRLX2srnQngTNYaHiezntSsmQEwF4rciyta, block_hash: GWZkBx14UsJ4Q4knP9Fc9zhex9hYLEoF1PZLvanXez76, logs: [], receipt_ids: [14Y4yU39PuRrH3wdbSNXXTj2fYuQyASuGyGawMn1utvp, 7kwBJ5sTLLDFAM7o2zJd7NYE98eQvTU31TQxk7drjrwW], gas_burnt: NearGas { inner: 1652212614026 }, tokens_burnt: NearToken { inner: 165221261402600000000 }, executor_id: AccountId(\"dev-20261111120630-20423901900705.test.near\"), status: Failure(ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: NOT_LOCKED\")) })) }]",
+    "[ExecutionOutcome { transaction_hash: BEHEW3Fg8DJ2nTsJUxboyebUU41x5XXCq2YiKWnohcek, block_hash: GWZkBx14UsJ4Q4knP9Fc9zhex9hYLEoF1PZLvanXez76, logs: [], receipt_ids: [5xn6MhWbrGp7jYLNzfT9NQzNSyVeyyX577QV9vGyyVtr, FRqWVXUeJiJ3gmbs29qo3PdKkAmEM786fSTNF6CKW1Xz], gas_burnt: NearGas { inner: 1641463655073 }, tokens_burnt: NearToken { inner: 164146365507300000000 }, executor_id: AccountId(\"dev-20261111120630-20423901900705.test.near\"), status: Failure(ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: CANCELLATION_WINDOW_OPEN\")) })) }]"
+  ],
+  "request": {
+    "cancelUntilNs": "1794398852775094562",
+    "createdAtNs": "1794398792392575321",
+    "fundedAtNs": "1794398792775094562",
+    "latestOperation": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "destinationAccountId": "dev-20261111120631-99749313822364.test.near",
+      "failureCode": null,
+      "kind": "PROTECTED_REFUND",
+      "nonce": "1",
+      "resolvedAtNs": "1794398795327394828",
+      "startedAtNs": "1794398795078717351",
+      "status": "SUCCEEDED"
+    },
+    "payerAccountId": "dev-20261111120631-99749313822364.test.near",
+    "recipientAccountId": "dev-20261111120631-93854071123884.test.near",
+    "revision": "5",
+    "sessionCommitment": null,
+    "settlementBranch": "PAYER",
+    "status": "CANCELLED_REFUNDED",
+    "terms": {
+      "amountBaseUnits": "1000000000000000000000000",
+      "assetId": "near:native",
+      "cancelDurationNs": "60000000000",
+      "contractId": "dev-20261111120630-20423901900705.test.near",
+      "creationNonce": "0000000000000000000000000000000000000000000000000000000000000006",
+      "creatorAccountId": "dev-20261111120631-93854071123884.test.near",
+      "fundingExpiresAtNs": "1794402392019353989",
+      "id": "def81ea45dcd170b9e94cedde770cb860126844f18916dfb4a30fe847fa4332b",
+      "memo": "",
+      "merchantAccountId": null,
+      "mode": "protected",
+      "network": "near-testnet",
+      "permittedPayerAccountId": null,
+      "schemaVersion": "taply.intent.v1",
+      "sessionBinding": null
+    },
+    "termsHash": "5c44dcea4769475ab87bdda47a081ea2bc63746951367a9f0f58f1889d8babce"
+  }
+}

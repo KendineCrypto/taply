@@ -1,0 +1,119 @@
+# Taply R-2 callback-recovery CANDIDATE (contracts/payments-r2). Unit tests,
+# clippy, WASM builds (incl. test-only fault builds), a real local NEAR sandbox
+# run side by side with the current escrow source, and the wire check. No
+# network deployment, no wallet keys, no repository secrets. Not an approval.
+name: r2-callback-recovery-candidate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - contracts/payments-r2/**
+      - contracts/payments-protected/**
+      - contracts/test-token/**
+      - packages/shared/**
+      - .github/workflows/r2-candidate.yml
+  pull_request:
+    paths:
+      - contracts/payments-r2/**
+      - contracts/payments-protected/**
+      - packages/shared/**
+      - .github/workflows/r2-candidate.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r2-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  validate:
+    name: fmt, unit tests, clippy, WASM, sandbox, wire schema
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: contracts/payments-r2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node 24.22.2 (from .node-version)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Install pinned Rust 1.95.0
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal \
+            --component rustfmt,clippy --target wasm32-unknown-unknown
+          cargo -V
+      - name: Frozen G1 contract inputs unchanged
+        working-directory: .
+        run: node contracts/payments/scripts/check-isolation.mjs
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Unit tests
+        run: cargo test --locked --lib -- --test-threads=1 --color never
+      - name: Test token format and clippy
+        working-directory: contracts/test-token
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --all-targets -- -D warnings
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: WASM builds (candidate, fault builds, legacy escrow source; not approved)
+        run: bash scripts/build.sh
+      - name: Sandbox format and clippy
+        working-directory: contracts/payments-r2/sandbox
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --all-targets -- -D warnings
+      # The deployed escrow WASM embeds dependency source paths from a build whose
+      # CARGO_HOME was /root/.cargo. Rebuild the UNMODIFIED source the same way and
+      # compare with the deployed code hash. Informational: a mismatch only warns,
+      # because it depends on the runner's paths, not on the source.
+      - name: Reproduce the deployed escrow code hash (informational)
+        continue-on-error: true
+        run: |
+          sudo mkdir -p /root/.cargo && sudo chmod 777 /root /root/.cargo
+          (cd ../payments-protected && CARGO_HOME=/root/.cargo cargo build --locked \
+            --target wasm32-unknown-unknown --release --target-dir /tmp/legacy-repro)
+          python3 - <<'PY'
+          import hashlib
+          A = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+          d = hashlib.sha256(open("/tmp/legacy-repro/wasm32-unknown-unknown/release/taply_payments_protected.wasm", "rb").read()).digest()
+          n = int.from_bytes(d, "big"); s = ""
+          while n:
+              n, r = divmod(n, 58); s = A[r] + s
+          ok = s == "963iSEB8XFKeUMY1gmj5bCuA2JMVD55ksjdLfCwiPA84"
+          print(("REPRODUCED " if ok else "::warning::not reproduced here ") + s)
+          PY
+      # Real local NEAR node: legacy vs candidate under fault-injected callbacks.
+      - name: Sandbox suite (3 protected + 6 R-2 + 4 NEP-141 tests, sequential)
+        run: |
+          bash scripts/sandbox.sh
+          grep -q "test result: ok. 3 passed; 0 failed" artifacts/sandbox-tests.log
+          grep -q "test result: ok. 6 passed; 0 failed" artifacts/sandbox-tests.log
+          grep -q "test result: ok. 4 passed; 0 failed" artifacts/sandbox-tests.log
+          grep -a -E "MEASURE|EVIDENCE" artifacts/sandbox-tests.log | cut -c1-300 >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Build @taply/shared
+        working-directory: .
+        run: |
+          npm install -g pnpm@11.5.0
+          pnpm install --frozen-lockfile
+          pnpm --filter @taply/shared run build
+      - name: Wire-schema check (unit-test and sandbox records)
+        working-directory: .
+        run: |
+          node contracts/payments-r2/scripts/check-wire.mjs
+          node contracts/payments-r2/scripts/check-wire.mjs sandbox
+          node contracts/payments-r2/scripts/check-wire.mjs token
+          node contracts/payments-r2/scripts/check-wire.mjs sandbox-token

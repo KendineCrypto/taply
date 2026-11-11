@@ -1,0 +1,17 @@
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 23.26s
+test self_signed_callback_is_refused_and_changes_nothing ... ok
+test transfer_fails_callback_records_it_and_only_the_recipient_resends_once ... MEASURE pay receipt executor=<dev-account> gas_burnt=3142247999775 success=true
+MEASURE pay receipt executor=gone.test.near gas_burnt=223182562500 success=false
+MEASURE pay receipt executor=<dev-account> gas_burnt=223182562500 success=true
+MEASURE pay receipt executor=<dev-account> gas_burnt=223182562500 success=true
+MEASURE pay receipt executor=<dev-account> gas_burnt=2188672301033 success=true
+MEASURE pay receipt executor=<dev-account> gas_burnt=223182562500 success=true
+MEASURE resend receipt executor=<dev-account> gas_burnt=2877625133699 success=true
+MEASURE resend receipt executor=gone.test.near gas_burnt=223182562500 success=true
+MEASURE resend receipt executor=gone.test.near gas_burnt=223182562500 success=true
+MEASURE resend receipt executor=<dev-account> gas_burnt=2193587597714 success=true
+MEASURE resend receipt executor=gone.test.near gas_burnt=223182562500 success=true
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 35.68s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.89s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
