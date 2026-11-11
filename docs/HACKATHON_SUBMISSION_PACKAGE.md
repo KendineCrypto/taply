@@ -1,4 +1,4 @@
-# NEAR HACKATHON submission package (updated 2026-11-10, not posted, not submitted)
+# NEAR HACKATHON submission package (updated 2026-11-11, not posted, not submitted)
 
 Only the owner posts on X and submits the form. Nothing here has been
 published. Rules re-read on 2026-11-09 from
@@ -18,7 +18,7 @@ recheck on submission day.
 | AI disclosure | README "How it was built" (Claude Code, Codex) |
 | Diff section (Q-003) | README "Hackathon": all commits are inside the window (first commit 2026-10-29) |
 
-## What is live today (2026-11-10)
+## What is live today (2026-11-11)
 
 Every claim in the post, the video and the form must match this list.
 
@@ -30,9 +30,9 @@ Every claim in the post, the video and the form must match this list.
 - Receipts verified on chain by both phones (Verified Paid); the 2026-11-01 pilot payment can be re-verified live.
 - **Not live:** contract-bound merchant sessions, sponsored gas, social login. The escrow contract is not audited. Taply Wallet has no independent security review. Testnet only, not audited.
 
-## X post (278/280 characters, X counts each link as 23)
+## X post (279/280 characters, X counts each link as 23)
 
-> Built at NEAR HACKATHON: Taply turns a NEAR wallet into a point of sale. Username wallet in seconds, pay a NEAR request in NEAR or USDC, both phones verify the receipt on chain.
+> Built at NEAR HACKATHON: Taply turns a NEAR wallet into a point of sale. Pay in NEAR or USDC, or lock it with Protected Pay and cancel for a refund. Receipts come from the chain.
 >
 > Live (Testnet): https://taplyapp.xyz
 > Code: https://github.com/KendineCrypto/taply
@@ -41,7 +41,7 @@ Every claim in the post, the video and the form must match this list.
 
 Reply in the same thread, so nobody mistakes what is live:
 
-> Live today on NEAR Testnet: username wallets with a 12-word phrase, on-chain requests, paying with NEAR or test tokens swapped on Ref, and a live two-phone session. "Paid" only ever comes from the chain. Testnet only, not audited.
+> Live today on NEAR Testnet: username wallets, on-chain requests, paying with NEAR or test tokens swapped on Ref, a live two-phone session and Protected Pay (escrow with a cancel window). "Paid" only comes from the chain. Testnet only, not audited.
 
 Optional tags (allowed by the rules): @NearLegion, @NearBuilders.
 
@@ -69,9 +69,9 @@ submitting its URL.
 Never commit real personal values. On a 409, do not resubmit; use the
 [request changes](https://nearhackathon.com/request-changes) page.
 
-### `idea` (1331 characters, limit 2000)
+### `idea` (1678 characters, limit 2000)
 
-Taply turns a NEAR wallet into a merchant point of sale where "paid" means verified on chain, not claimed by an app. A new user picks a username and gets a real username.testnet account with a standard 12-word recovery phrase in seconds, or connects an existing NEAR wallet. Each sale is one immutable on-chain payment request; its QR carries only the request ID, so the customer's phone reads the exact amount and receiving account from the contract. The merchant always asks for NEAR, and the customer may pay in NEAR or in another Testnet token (USDC, USDT and more) that Taply swaps to NEAR on Ref/Rhea first. The QR also opens a live two-phone session: both screens see each other online, the customer reviewing, disconnects and reconnects, the same sale code and the expiry, and a second phone with the same QR is refused. The session never decides payment status: both phones read it from the chain and independently verify the funding, transfer and callback receipts before showing "Verified Paid", which is kept distinct from "Paid per contract". Every Taply Wallet signature shows exactly what will be signed, and an unclear wallet result blocks a repeat payment until the chain explains it. Live on NEAR Testnet at https://taplyapp.xyz with real payments proven in real browsers. Testnet only, not audited, MIT licensed.
+Taply turns a NEAR wallet into a merchant point of sale where "paid" means verified on chain, not claimed by an app. A new user picks a username and gets a real username.testnet account with a standard 12-word recovery phrase in seconds, or connects an existing NEAR wallet. Each sale is one immutable on-chain payment request; its QR carries only the request ID, so the customer's phone reads the exact amount and receiving account from the contract. The merchant always asks for NEAR, and the customer may pay in NEAR or in another Testnet token (USDC, USDT and more) that Taply swaps to NEAR on Ref/Rhea first. The QR also opens a live two-phone session: both screens see each other online, the customer reviewing, disconnects and reconnects, the same sale code and the expiry, and a second phone with the same QR is refused. The session never decides payment status: both phones read it from the chain and independently verify the funding, transfer and callback receipts before showing "Verified Paid", which is kept distinct from "Paid per contract". For a payment that should be reversible, Protected Pay locks the amount in an escrow contract instead: the payer can cancel for a full refund until an on-chain cutoff (1 minute to 1 hour), after which it is released to the recipient; both screens say "locked, not paid" until then, and a refund gets its own receipt that never reads as a payment. Every Taply Wallet signature shows exactly what will be signed, and an unclear wallet result blocks a repeat payment until the chain explains it. Live on NEAR Testnet at https://taplyapp.xyz with real payments proven in real browsers. Testnet only, not audited, MIT licensed.
 
 ## Link checklist (all must open logged-out)
 
