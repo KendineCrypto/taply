@@ -67,11 +67,15 @@ export function parsePayInput(input: string, approvedOrigins: ReadonlyArray<stri
 export type ScanInput =
   | PayInput
   | { readonly kind: 'merchant'; readonly accountId: string }
-  /** A merchant's Live Handshake QR: this app's own `/s/<room>#j=<join token>`. */
+  /**
+   * A path on THIS app to open with a fresh page load: a merchant's Live Handshake
+   * QR (`/s/<room>#j=<join token>`) or a Protected request (`/protected/<id>`).
+   */
   | { readonly kind: 'live'; readonly path: string }
   | { readonly kind: 'invalid_merchant'; readonly reason: 'syntax' | 'not_testnet' };
 
 const LIVE_PATH = /^\/s\/([A-Za-z0-9_-]{22})\/?$/;
+const PROTECTED_PATH = /^\/protected\/([^/]+)\/?$/;
 const LIVE_TOKEN = /^[A-Za-z0-9_-]{22,64}$/;
 
 export function parseScanInput(input: string, approvedOrigins: ReadonlyArray<string>): ScanInput {
@@ -95,6 +99,14 @@ export function parseScanInput(input: string, approvedOrigins: ReadonlyArray<str
     if (token === null || !LIVE_TOKEN.test(token)) return pay;
     if (!approvedOrigins.includes(url.origin)) return { kind: 'other_site', host: url.host };
     return { kind: 'live', path: `/s/${room}#j=${token}` };
+  }
+  // A Protected request link: only the validated ID is kept; the page reads the
+  // terms from the escrow contract, so the link cannot carry an amount or recipient.
+  const protectedId = PROTECTED_PATH.exec(url.pathname)?.[1];
+  if (protectedId !== undefined) {
+    if (!HashHexSchema.safeParse(protectedId).success) return pay;
+    if (!approvedOrigins.includes(url.origin)) return { kind: 'other_site', host: url.host };
+    return { kind: 'live', path: `/protected/${protectedId}` };
   }
   const raw = CHECKOUT_PATH.exec(url.pathname)?.[1];
   if (raw === undefined) return pay;

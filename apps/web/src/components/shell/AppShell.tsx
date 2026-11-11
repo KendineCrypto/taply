@@ -92,7 +92,7 @@ export function NetworkBadge() {
 }
 
 interface MenuLink {
-  readonly href: '/wallet' | '/receive' | '/merchant' | '/contacts' | '/split' | '/recurring' | '/settings' | '/demo';
+  readonly href: '/wallet' | '/receive' | '/merchant' | '/protected/new' | '/contacts' | '/split' | '/recurring' | '/settings' | '/demo';
   readonly icon: IconName;
   readonly label: string;
   readonly body?: string;
@@ -112,6 +112,7 @@ function AccountMenu() {
     { href: '/wallet', icon: 'wallet', label: m.wallet },
     { href: '/receive', icon: 'receive', label: m.receive },
     { href: '/merchant', icon: 'pay', label: t.commerce.merchant.title, body: t.commerce.merchant.menuBody },
+    ...(FLAGS.protectedPay.enabled ? [{ href: '/protected/new' as const, icon: 'shield' as const, label: t.protectedFlow.title, body: t.protectedFlow.menuBody }] : []),
     // Monday sprint tools: local-only planning; each hides itself behind its kill switch.
     ...(FLAGS.contacts.enabled ? [{ href: '/contacts' as const, icon: 'wallet' as const, label: t.screens.contacts, body: t.routes.contacts }] : []),
     ...(FLAGS.splitPay.enabled ? [{ href: '/split' as const, icon: 'request' as const, label: t.tools.split.title, body: t.routes.split }] : []),
@@ -375,7 +376,7 @@ function TapSheet({
   const s = t.oneTap.sheet;
   const router = useRouter();
 
-  const go = (href: '/request/new' | '/send') => {
+  const go = (href: '/request/new' | '/send' | '/protected/new') => {
     onClose();
     router.push(href);
   };
@@ -389,6 +390,9 @@ function TapSheet({
           <SheetAction index={0} primary icon={<Icon name="request" size={22} />} label={s.request.label} body={s.request.body} onSelect={() => go('/request/new')} />
           <SheetAction index={1} icon={<Icon name="scan" size={22} />} label={s.pay.label} body={s.pay.body} onSelect={() => onView('pay')} />
           <SheetAction index={2} icon={<Icon name="send" size={22} />} label={s.send.label} body={s.send.body} onSelect={() => go('/send')} />
+          {FLAGS.protectedPay.enabled && (
+            <SheetAction index={3} icon={<Icon name="shield" size={22} />} label={t.protectedFlow.newTitle} body={t.protectedFlow.sheetBody} onSelect={() => go('/protected/new')} />
+          )}
         </div>
       )}
       {view === 'pay' && (
