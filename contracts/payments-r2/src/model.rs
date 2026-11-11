@@ -252,10 +252,9 @@ impl Branch {
     }
 }
 
-/// R-2 candidate: delivery of an already-settled obligation, tracked apart from
-/// the request status. The request is FINAL_PAID / CANCELLED_REFUNDED as soon as
-/// the branch is settled; this only says whether the outgoing transfer is known
-/// to have arrived.
+/// R-2 candidate: delivery of a committed settlement, tracked next to the
+/// request status. The request status keeps the deployed meaning (final only
+/// after the callback confirms delivery); this adds the internal ledger state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
 pub enum Delivery {
     /// Not settled yet.
@@ -273,8 +272,8 @@ impl Delivery {
     pub fn wire(self) -> &'static str {
         match self {
             Self::None => "NOT_STARTED",
-            Self::Sent => "SENT_UNCONFIRMED",
-            Self::Delivered => "DELIVERED",
+            Self::Sent => "PENDING_UNCONFIRMED",
+            Self::Delivered => "CONFIRMED",
             Self::Returned => "RETURNED_RESENDABLE",
         }
     }
@@ -345,22 +344,30 @@ impl Record {
             Branch::None => env::panic_str("NO_SETTLEMENT_BRANCH"),
         }
     }
-    /// Request view in the UNCHANGED shared wire schema. In this candidate the
-    /// operation is the settlement, which commits in one receipt, so a settled
-    /// request is always FINAL_PAID / CANCELLED_REFUNDED with a SUCCEEDED
-    /// operation. Whether the transfer arrived is reported by `delivery_view`.
+    /// Request view in the UNCHANGED shared wire schema, with the deployed
+    /// contracts' meaning: FINAL_PAID / CANCELLED_REFUNDED only after the
+    /// contract's own callback confirmed the transfer; *_IN_FLIGHT while it is
+    /// unconfirmed (callback pending OR failed: indistinguishable on chain);
+    /// *_FAILED_RECOVERABLE after an explicit Failed result.
     pub fn view(&self) -> Value {
         let funded = self.payer_len > 0;
         let payer = self.payer_id();
-        let op = (self.branch != Branch::None).then(|| {
+        let op = (self.nonce > 0).then(|| {
+            let status = if self.status.in_flight() {
+                "IN_FLIGHT"
+            } else if self.status.failed() {
+                "FAILED"
+            } else {
+                "SUCCEEDED"
+            };
             json!({
                 "nonce": self.nonce.to_string(), "kind": self.branch.kind(&self.terms.mode),
                 "destinationAccountId": self.destination(),
                 "amountBaseUnits": self.terms.amount_base_units,
-                "status": "SUCCEEDED",
-                "startedAtNs": self.terminal_at.to_string(),
-                "resolvedAtNs": self.terminal_at.to_string(),
-                "failureCode": null
+                "status": status,
+                "startedAtNs": self.started_at.to_string(),
+                "resolvedAtNs": (!self.status.in_flight()).then(|| self.resolved_at.to_string()),
+                "failureCode": self.status.failed().then_some(if nep141_token(&self.terms.asset_id).is_some() { "FT_TRANSFER_FAILED" } else { "NATIVE_TRANSFER_FAILED" })
             })
         });
         let branch = match self.branch {
@@ -375,21 +382,26 @@ impl Record {
             "cancelUntilNs": (funded && self.protected()).then(|| self.cancel_until.to_string()),
             "settlementBranch": branch, "latestOperation": op})
     }
+    /// Settlement and delivery, separately. Never a payment claim by itself:
+    /// `received` is true only when the callback confirmed the transfer.
     pub fn delivery_view(&self) -> Value {
         let settled = self.branch != Branch::None;
-        json!({"schemaVersion": "taply.delivery.v1", "requestId": self.terms.id,
-        "requestStatus": self.status.wire(), "delivery": self.delivery.wire(),
+        json!({"schemaVersion": "taply.delivery.v2", "requestId": self.terms.id,
+        "requestStatus": self.status.wire(),
+        "settlement": if settled { "COMMITTED" } else { "NONE" },
+        "branch": match self.branch { Branch::None => None, Branch::Recipient => Some("RECIPIENT"), Branch::Payer => Some("PAYER") },
+        "delivery": self.delivery.wire(),
+        "received": self.delivery == Delivery::Delivered,
         "deliveryNonce": self.nonce.to_string(),
-        "kind": settled.then(|| self.branch.kind(&self.terms.mode)),
         "destinationAccountId": settled.then(|| self.destination()),
         "assetId": self.terms.asset_id, "amountBaseUnits": self.terms.amount_base_units,
         "sentAtNs": (self.delivery != Delivery::None).then(|| self.started_at.to_string()),
         "resolvedAtNs": matches!(self.delivery, Delivery::Delivered | Delivery::Returned).then(|| self.resolved_at.to_string()),
         "resendAllowed": self.delivery == Delivery::Returned,
         "note": match self.delivery {
-            Delivery::Sent => "Settled. The transfer was sent; no callback has recorded its outcome. Check the transfer receipt off-chain. This contract never re-sends an unconfirmed transfer.",
-            Delivery::Returned => "The transfer failed and the amount is held for the beneficiary, who alone may resend it to the same account.",
-            Delivery::Delivered => "The transfer outcome was recorded by the contract's own callback.",
+            Delivery::Sent => "Settlement committed; the transfer was sent but no callback has confirmed it. The callback may still be pending or may have failed: the contract cannot tell. Not a payment. Never re-sent.",
+            Delivery::Returned => "The transfer failed. The amount is held for the beneficiary, who alone may resend it to the same account.",
+            Delivery::Delivered => "The contract's own callback confirmed the transfer.",
             Delivery::None => "Not settled.",
         }})
     }
@@ -460,7 +472,8 @@ pub struct RetryArgs {
 )]
 pub struct CallbackArgs {
     pub id: String,
-    pub delivery_nonce: String,
+    pub operation_nonce: String,
+    pub kind: String,
 }
 #[derive(Deserialize)]
 #[serde(

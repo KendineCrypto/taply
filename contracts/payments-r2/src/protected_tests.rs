@@ -97,24 +97,14 @@ fn release(c: &mut Payments, t: &IntentTerms, who: &str, at: u64) {
     context(who, 1, at, vec![]);
     drop(c.release_protected(t.id.clone()));
 }
-fn callback(
-    c: &mut Payments,
-    t: &IntentTerms,
-    nonce: &str,
-    _kind: &str,
-    at: u64,
-    ok: bool,
-) -> bool {
+fn callback(c: &mut Payments, t: &IntentTerms, nonce: &str, kind: &str, at: u64, ok: bool) -> bool {
     let result = if ok {
         PromiseResult::Successful(vec![])
     } else {
         PromiseResult::Failed
     };
     context(CONTRACT, 0, at, vec![result]);
-    c.on_delivery_complete(t.id.clone(), nonce.into())
-}
-fn delivery(t: &IntentTerms) -> Delivery {
-    load(&t.id).delivery
+    c.on_native_transfer_complete(t.id.clone(), nonce.into(), kind.into())
 }
 fn status(t: &IntentTerms) -> Status {
     load(&t.id).status
@@ -222,7 +212,6 @@ fn locked_is_not_paid_and_release_needs_chain_cutoff() {
     // No outgoing transfer at funding: escrow holds the principal.
     assert!(get_created_receipts().is_empty());
     assert_eq!(c.locked, amount(&t));
-    assert_eq!(c.settled_paid, 0);
     assert_eq!(c.delivered_paid, 0);
     context("x.testnet", 0, NOW, vec![]);
     assert!(
@@ -242,20 +231,8 @@ fn locked_is_not_paid_and_release_needs_chain_cutoff() {
     // At exactly the cutoff release wins; anyone may submit it.
     release(&mut c, &t, "carol.testnet", funded_at + DURATION);
     assert_eq!(last_transfer(), ("alice.testnet".into(), amount(&t)));
-    // R-2 candidate: the release is settled in this receipt; delivery is unconfirmed.
-    assert_eq!(status(&t), Status::Paid);
-    assert_eq!(delivery(&t), Delivery::Sent);
-    assert_eq!((c.locked, c.owed, c.sending), (0, 0, amount(&t)));
-    snapshot("protected-release-settled-sending", &view(&t));
-    context("x.testnet", 0, NOW, vec![]);
-    assert_eq!(
-        c.get_receipt(t.id.clone()).unwrap()["payoutConfirmed"],
-        false
-    );
-    assert_eq!(
-        c.get_delivery(t.id.clone()).unwrap()["delivery"],
-        "SENT_UNCONFIRMED"
-    );
+    assert_eq!(status(&t), Status::ReleaseInFlight);
+    snapshot("protected-release-in-flight", &view(&t));
     assert_eq!(view(&t)["settlementBranch"], "RECIPIENT");
     assert_eq!(view(&t)["latestOperation"]["kind"], "PROTECTED_RELEASE");
     // The branch is committed: the payer can no longer cancel.
@@ -271,10 +248,9 @@ fn locked_is_not_paid_and_release_needs_chain_cutoff() {
         true
     ));
     assert_eq!(status(&t), Status::Paid);
-    assert_eq!(delivery(&t), Delivery::Delivered);
     snapshot("protected-final-paid", &view(&t));
     assert_eq!(c.delivered_paid, amount(&t));
-    assert_eq!((c.locked, c.sending), (0, 0));
+    assert_eq!(c.locked, 0);
     context("x.testnet", 0, NOW, vec![]);
     let facts = c.get_receipt(t.id.clone()).unwrap();
     assert_eq!(facts["payoutConfirmed"], true);
@@ -307,15 +283,14 @@ fn payer_only_cancel_strictly_before_cutoff_refunds_payer() {
     });
     cancel(&mut c, &t, "bob.testnet", cutoff - 1);
     assert_eq!(last_transfer(), ("bob.testnet".into(), amount(&t)));
-    assert_eq!(status(&t), Status::Refunded);
-    assert_eq!(delivery(&t), Delivery::Sent);
-    snapshot("protected-refund-settled-sending", &view(&t));
+    assert_eq!(status(&t), Status::RefundInFlight);
+    snapshot("protected-refund-in-flight", &view(&t));
     assert_eq!(view(&t)["settlementBranch"], "PAYER");
     assert_eq!(
         view(&t)["latestOperation"]["destinationAccountId"],
         "bob.testnet"
     );
-    // Release cannot race a settled refund.
+    // Release cannot race an in-flight refund.
     rejects_with("NOT_LOCKED", || {
         release(&mut c, &t, "alice.testnet", cutoff + 5)
     });
@@ -328,10 +303,9 @@ fn payer_only_cancel_strictly_before_cutoff_refunds_payer() {
         true
     ));
     assert_eq!(status(&t), Status::Refunded);
-    assert_eq!(delivery(&t), Delivery::Delivered);
     snapshot("protected-cancelled-refunded", &view(&t));
     assert_eq!(c.delivered_refunded, amount(&t));
-    assert_eq!((c.settled_paid, c.delivered_paid), (0, 0));
+    assert_eq!(c.delivered_paid, 0);
     context("x.testnet", 0, NOW, vec![]);
     let facts = c.get_receipt(t.id.clone()).unwrap();
     assert_eq!(facts["payoutConfirmed"], false, "refunded is never paid");
@@ -447,11 +421,9 @@ fn failed_refund_retries_only_same_branch_to_payer_with_fresh_nonce() {
         cutoff - 5,
         false
     ));
-    // Explicit Failed: still settled as a refund, amount owed to the payer again.
-    assert_eq!(status(&t), Status::Refunded);
-    assert_eq!(delivery(&t), Delivery::Returned);
-    snapshot("protected-refund-returned", &view(&t));
-    assert_eq!((c.owed, c.sending), (amount(&t), 0));
+    assert_eq!(status(&t), Status::RefundFailed);
+    snapshot("protected-refund-failed", &view(&t));
+    assert_eq!(c.owed, amount(&t));
     // A failed refund never turns into a release, even after the cutoff.
     rejects_with("NOT_LOCKED", || {
         release(&mut c, &t, "alice.testnet", cutoff + 1)
@@ -467,9 +439,10 @@ fn failed_refund_retries_only_same_branch_to_payer_with_fresh_nonce() {
     // Retry after the cutoff is allowed: the branch was committed before it.
     drop(c.retry_native_transfer(t.id.clone(), "1".into()));
     assert_eq!(last_transfer(), ("bob.testnet".into(), amount(&t)));
-    assert_eq!(delivery(&t), Delivery::Sent);
+    assert_eq!(status(&t), Status::RefundInFlight);
     assert_eq!(view(&t)["latestOperation"]["nonce"], "2");
-    // A stale (older-nonce) callback changes nothing, even with a success result.
+    // Candidate: stale nonce or wrong kind is inert (false, no change) rather
+    // than a panic.
     let before = view(&t);
     assert!(!callback(
         &mut c,
@@ -479,8 +452,16 @@ fn failed_refund_retries_only_same_branch_to_payer_with_fresh_nonce() {
         cutoff + 2,
         true
     ));
+    assert!(!callback(
+        &mut c,
+        &t,
+        "2",
+        "PROTECTED_RELEASE",
+        cutoff + 2,
+        true
+    ));
     assert_eq!(view(&t), before);
-    assert_eq!(delivery(&t), Delivery::Sent);
+    assert_eq!(status(&t), Status::RefundInFlight);
     assert!(callback(
         &mut c,
         &t,
@@ -490,8 +471,7 @@ fn failed_refund_retries_only_same_branch_to_payer_with_fresh_nonce() {
         true
     ));
     assert_eq!(status(&t), Status::Refunded);
-    assert_eq!(delivery(&t), Delivery::Delivered);
-    assert_eq!((c.owed, c.sending), (0, 0));
+    assert_eq!(c.owed, 0);
     assert_eq!(c.delivered_refunded, amount(&t));
 }
 
@@ -511,9 +491,8 @@ fn failed_release_retries_only_by_recipient_to_recipient() {
         cutoff + 1,
         false
     ));
-    assert_eq!(status(&t), Status::Paid);
-    assert_eq!(delivery(&t), Delivery::Returned);
-    snapshot("protected-release-returned", &view(&t));
+    assert_eq!(status(&t), Status::ReleaseFailed);
+    snapshot("protected-release-failed", &view(&t));
     // Payer cannot use a release failure to claw funds back.
     rejects_with("NOT_LOCKED", || {
         cancel(&mut c, &t, "bob.testnet", cutoff + 2)
@@ -527,7 +506,7 @@ fn failed_release_retries_only_by_recipient_to_recipient() {
     context("alice.testnet", 1, cutoff + 2, vec![]);
     drop(c.retry_native_transfer(t.id.clone(), "1".into()));
     assert_eq!(last_transfer(), ("alice.testnet".into(), amount(&t)));
-    assert_eq!(delivery(&t), Delivery::Sent);
+    assert_eq!(status(&t), Status::ReleaseInFlight);
     assert!(callback(
         &mut c,
         &t,
@@ -546,8 +525,8 @@ fn unknown_or_forged_callbacks_keep_the_obligation_reserved() {
     create(&mut c, &t);
     lock(&mut c, &t, NOW + SECOND);
     let cutoff = NOW + SECOND + DURATION;
-    // A callback with nothing sent is stale: no panic, no change.
-    let locked_view = view(&t);
+    // Callback with nothing in flight is stale.
+    let locked = view(&t);
     assert!(!callback(
         &mut c,
         &t,
@@ -556,7 +535,7 @@ fn unknown_or_forged_callbacks_keep_the_obligation_reserved() {
         cutoff,
         true
     ));
-    assert_eq!(view(&t), locked_view);
+    assert_eq!(view(&t), locked);
     release(&mut c, &t, "alice.testnet", cutoff);
     // Only the contract itself may call the callback.
     context(
@@ -566,22 +545,18 @@ fn unknown_or_forged_callbacks_keep_the_obligation_reserved() {
         vec![PromiseResult::Successful(vec![])],
     );
     rejects_with("PRIVATE_CALLBACK", || {
-        c.on_delivery_complete(t.id.clone(), "1".into());
+        c.on_native_transfer_complete(t.id.clone(), "1".into(), "PROTECTED_RELEASE".into());
     });
     // No promise result: unknown, never treated as failure or success.
     context(CONTRACT, 0, cutoff + 1, vec![]);
     rejects_with("UNKNOWN_PROMISE_RESULT", || {
-        c.on_delivery_complete(t.id.clone(), "1".into());
+        c.on_native_transfer_complete(t.id.clone(), "1".into(), "PROTECTED_RELEASE".into());
     });
-    assert_eq!(status(&t), Status::Paid);
-    assert_eq!(delivery(&t), Delivery::Sent);
-    // An unconfirmed delivery can never be resent or re-branched.
+    assert_eq!(status(&t), Status::ReleaseInFlight);
+    // In-flight obligations cannot be retried or re-branched.
     context("alice.testnet", 1, cutoff + 2, vec![]);
-    rejects_with("NO_RETURNED_DELIVERY", || {
+    rejects_with("NO_RECORDED_TRANSFER_FAILURE", || {
         drop(c.retry_native_transfer(t.id.clone(), "1".into()));
-    });
-    rejects_with("NOT_LOCKED", || {
-        cancel(&mut c, &t, "bob.testnet", cutoff + 2)
     });
     assert_eq!(c.sending, amount(&t));
     assert_eq!(c.delivered_paid, 0);
@@ -632,10 +607,7 @@ fn conservation_holds_across_instant_and_protected_interleavings() {
     context("x.testnet", 0, NOW + DURATION + 6, vec![]);
     let acc = c.get_accounting();
     assert_eq!(acc["receivedPrincipalYocto"], (4 * a).to_string());
-    assert_eq!(acc["settledPaidYocto"], (2 * a).to_string());
-    assert_eq!(acc["settledRefundedYocto"], a.to_string());
     assert_eq!(acc["deliveredPaidYocto"], (2 * a).to_string());
-    // The refund's transfer failed: owed to the payer again, still reserved.
     assert_eq!(acc["owedPrincipalYocto"], a.to_string());
     assert_eq!(acc["lockedPrincipalYocto"], a.to_string());
     assert_eq!(acc["deliveredRefundedYocto"], "0");

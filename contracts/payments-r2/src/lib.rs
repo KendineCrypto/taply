@@ -169,10 +169,11 @@ impl Payments {
                 "maxCancelDurationNs": MAX_CANCEL_DURATION_NS.to_string(),
                 "cutoffRule": "CANCEL_IF_BLOCK_TIME_LT_CUTOFF_RELEASE_IF_GTE",
                 "reviewStatus": "UNREVIEWED_NOT_FOR_REAL_FUNDS"},
-            "settlementPolicy": "SETTLED_IN_ONE_RECEIPT_BEFORE_DELIVERY",
+            "statusPolicy": "FINAL_ONLY_AFTER_CALLBACK_CONFIRMS_DELIVERY",
             "deliveryPolicy": "DEBIT_FIRST_RECREDIT_ONLY_ON_EXPLICIT_FAILED_RESULT",
+            "unsupportedResultPolicy": "TOO_LONG_RESULT_CHANGES_NOTHING",
             "storageRefundPolicy": "PERMANENT_RECORD_NO_WITHDRAWAL",
-            "unknownCallbackPolicy": "SENT_UNCONFIRMED_NO_RETRY_NO_ADMIN_OVERRIDE",
+            "unknownCallbackPolicy": "IN_FLIGHT_NO_RETRY_NO_ADMIN_OVERRIDE",
             "testFaultBuild": cfg!(feature = "sandbox-fail-callback") || cfg!(feature = "sandbox-tiny-callback-gas")})
     }
 
@@ -244,7 +245,7 @@ impl Payments {
             matches!(r.status, Status::Paid | Status::Cancelled | Status::Refunded).then(|| json!({
                 "schemaVersion": "taply.terminal-facts.v1", "request": r.view(),
                 "terminalBlockHeight": r.terminal_height.to_string(), "terminalAtNs": r.terminal_at.to_string(),
-                "payoutConfirmed": r.status == Status::Paid && r.delivery == Delivery::Delivered,
+                "payoutConfirmed": r.status == Status::Paid,
                 "delivery": r.delivery.wire(),
                 "evidenceKind": "CONTRACT_FACTS_NOT_FINALITY_PROOF"
             }))
@@ -391,7 +392,7 @@ impl Payments {
     /// Resend a delivery whose transfer the callback saw FAIL (and only then).
     /// Only the beneficiary of the committed branch may resend, only to the same
     /// destination, and only against the latest delivery nonce. A delivery whose
-    /// outcome was never recorded (SENT_UNCONFIRMED) can never be resent.
+    /// outcome was never recorded (in flight) can never be resent.
     #[payable]
     pub fn retry_native_transfer(&mut self, id: String, expectedOperationNonce: String) -> Promise {
         strict_input::<RetryArgs>();
@@ -399,7 +400,10 @@ impl Payments {
         one_yocto();
         gas_at_least(PAY_GAS);
         let r = load(&id);
-        require!(r.delivery == Delivery::Returned, "NO_RETURNED_DELIVERY");
+        require!(
+            r.delivery == Delivery::Returned,
+            "NO_RECORDED_TRANSFER_FAILURE"
+        );
         match r.branch {
             Branch::Recipient => require!(
                 env::predecessor_account_id() == r.terms.creator_account_id,
@@ -420,14 +424,28 @@ impl Payments {
         self.deliver(r)
     }
 
-    /// Records the outcome of ONE delivery attempt. Private (callback of this
-    /// contract's own promise, exactly one promise result) and bound to the
-    /// request id and delivery nonce. It never panics on a reachable path: a stale
-    /// or duplicate call returns false without changing anything. Only an explicit
-    /// Failed result returns the amount to "owed"; every other result means the
-    /// transfer was applied, so nothing is ever owed twice.
+    /// Records the outcome of ONE delivery attempt (same name and arguments as
+    /// the deployed contracts, so the existing receipt verifier applies).
+    /// Private, exactly one promise result, bound to id + current nonce + kind;
+    /// stale, duplicate or mismatched calls return false and change nothing.
+    ///
+    /// The runtime's promise_result is 1 (receipt succeeded) or 2 (failed); any
+    /// other value aborts this callback. Classification:
+    ///  - Ok(value within the limit): the receipt succeeded -> delivery
+    ///    CONFIRMED, request FINAL_PAID / CANCELLED_REFUNDED.
+    ///  - Err(Failed): the receipt failed, so the transfer was not applied ->
+    ///    RETURNED, request *_FAILED_RECOVERABLE, beneficiary may resend.
+    ///  - Err(TooLong): the receipt succeeded but returned more than a native
+    ///    Transfer (nothing) or NEP-141 ft_transfer (nothing; up to 256 bytes
+    ///    tolerated) can. Unsupported: NO state change, stays in flight. Any
+    ///    other (future) error variant is treated the same way.
     #[private]
-    pub fn on_delivery_complete(&mut self, id: String, deliveryNonce: String) -> bool {
+    pub fn on_native_transfer_complete(
+        &mut self,
+        id: String,
+        operationNonce: String,
+        kind: String,
+    ) -> bool {
         strict_input::<CallbackArgs>();
         require!(
             env::predecessor_account_id() == env::current_account_id(),
@@ -443,41 +461,69 @@ impl Payments {
             return false;
         };
         // Exact canonical match ("01" is not 1); never panics on a bad value.
-        let nonce_matches = deliveryNonce == r.nonce.to_string();
-        if r.delivery != Delivery::Sent || !nonce_matches {
+        let current = r.delivery == Delivery::Sent
+            && operationNonce == r.nonce.to_string()
+            && r.branch != Branch::None
+            && kind == r.branch.kind(&r.terms.mode);
+        if !current {
             env::log_str("stale_delivery_callback");
             return false;
         }
-        let returned = matches!(
-            env::promise_result_checked(0, 256),
-            Err(PromiseError::Failed)
-        );
-        let asset = r.terms.asset_id.clone();
-        if returned {
-            self.mv(&asset, F::Sending, F::Owed, r.amount());
-            r.delivery = Delivery::Returned;
+        let max_len = if nep141_token(&r.terms.asset_id).is_some() {
+            256
         } else {
-            let done = if r.branch == Branch::Payer {
+            0
+        };
+        let refund = r.branch == Branch::Payer;
+        let asset = r.terms.asset_id.clone();
+        let confirmed = match env::promise_result_checked(0, max_len) {
+            Ok(_) => true,
+            Err(PromiseError::Failed) => false,
+            // TooLong, and any variant a future SDK adds (the enum is
+            // non-exhaustive): unsupported, never treated as delivered.
+            Err(_) => {
+                env::log_str("unsupported_transfer_result_left_in_flight");
+                return false;
+            }
+        };
+        if confirmed {
+            let done = if refund {
                 F::DeliveredRefunded
             } else {
                 F::DeliveredPaid
             };
             self.mv(&asset, F::Sending, done, r.amount());
             r.delivery = Delivery::Delivered;
+            r.status = if refund {
+                Status::Refunded
+            } else {
+                Status::Paid
+            };
+            r.terminal_at = env::block_timestamp();
+            r.terminal_height = env::block_height();
+        } else {
+            self.mv(&asset, F::Sending, F::Owed, r.amount());
+            r.delivery = Delivery::Returned;
+            r.status = match (refund, r.protected()) {
+                (true, _) => Status::RefundFailed,
+                (false, true) => Status::ReleaseFailed,
+                (false, false) => Status::Failed,
+            };
         }
         r.resolved_at = env::block_timestamp();
         r.revision = inc(r.revision);
         self.conservation();
         save(&r);
         event(
-            if returned {
-                "delivery_returned"
-            } else {
-                "delivery_confirmed"
+            match (confirmed, refund) {
+                (true, false) => "payout_succeeded",
+                (false, false) => "payout_failed",
+                (true, true) => "refund_succeeded",
+                (false, true) => "refund_failed",
             },
             &r,
         );
-        !returned
+        confirmed
     }
 
     /// NEP-141 funding. The caller MUST be the allowlisted token named in the
@@ -562,8 +608,9 @@ impl Payments {
 }
 
 impl Payments {
-    /// Commits the settlement in THIS receipt: final status, branch-specific
-    /// totals and the amount owed to the fixed destination. Then delivers.
+    /// Commits the settlement in THIS receipt: the branch (set by the caller),
+    /// branch totals and the amount owed to the fixed destination. Then delivers.
+    /// The request status stays non-final until the callback confirms delivery.
     /// `from_escrow`: Protected settlement moves the amount out of "locked";
     /// an instant payment is recorded as received and becomes owed directly.
     fn settle(&mut self, mut r: Record, from_escrow: bool) -> Promise {
@@ -593,19 +640,15 @@ impl Payments {
             },
             r.amount(),
         );
-        r.status = if refund {
-            Status::Refunded
-        } else {
-            Status::Paid
-        };
-        r.terminal_at = env::block_timestamp();
-        r.terminal_height = env::block_height();
+        // Settlement is committed (branch fixed, amount owed to the fixed
+        // destination) but the request is NOT final: FINAL_PAID /
+        // CANCELLED_REFUNDED only after the callback confirms the transfer.
         r.revision = inc(r.revision);
         event(
             if refund {
-                "refund_settled"
+                "refund_committed"
             } else {
-                "payout_settled"
+                "payout_committed"
             },
             &r,
         );
@@ -625,6 +668,11 @@ impl Payments {
         r.started_at = env::block_timestamp();
         r.resolved_at = 0;
         r.delivery = Delivery::Sent;
+        r.status = match r.branch.kind(&r.terms.mode) {
+            "INSTANT_PAYOUT" => Status::InFlight,
+            "PROTECTED_RELEASE" => Status::ReleaseInFlight,
+            _ => Status::RefundInFlight,
+        };
         self.mv(&r.terms.asset_id.clone(), F::Owed, F::Sending, r.amount());
         self.conservation();
         save(&r);
@@ -643,9 +691,9 @@ impl Payments {
         };
         transfer.then(
             Promise::new(env::current_account_id()).function_call(
-                "on_delivery_complete".to_owned(),
+                "on_native_transfer_complete".to_owned(),
                 near_sdk::serde_json::to_vec(&json!({"id": r.terms.id,
-                    "deliveryNonce": r.nonce.to_string()}))
+                    "operationNonce": r.nonce.to_string(), "kind": r.branch.kind(&r.terms.mode)}))
                 .unwrap(),
                 NearToken::from_yoctonear(0),
                 CALLBACK_GAS,

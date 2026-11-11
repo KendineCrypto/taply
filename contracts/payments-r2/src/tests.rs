@@ -62,7 +62,7 @@ fn fund(c: &mut Payments, t: &IntentTerms) {
 }
 fn callback(c: &mut Payments, t: &IntentTerms, nonce: &str, result: PromiseResult) -> bool {
     context("payments.fixture.testnet", 0, NOW + 3, vec![result]);
-    c.on_delivery_complete(t.id.clone(), nonce.into())
+    c.on_native_transfer_complete(t.id.clone(), nonce.into(), "INSTANT_PAYOUT".into())
 }
 fn rejects(f: impl FnOnce()) {
     assert!(catch_unwind(AssertUnwindSafe(f)).is_err());
@@ -102,24 +102,17 @@ fn frozen_jcs_fixtures_match_both_languages() {
 }
 
 #[test]
-fn payout_settles_in_one_receipt_and_only_the_callback_confirms_delivery() {
+fn successful_payout_is_only_final_after_runtime_callback() {
     let mut c = contract();
     let t = terms(10);
     create(&mut c, &t);
     let size = env::storage_usage();
     fund(&mut c, &t);
-    // Settled in the paying receipt; the transfer is debited and sent.
-    assert_eq!(load(&t.id).status, Status::Paid);
-    assert_eq!(load(&t.id).delivery, Delivery::Sent);
-    assert_eq!(c.sending, decimal128(&t.amount_base_units));
-    assert_eq!(
-        c.get_receipt(t.id.clone()).unwrap()["payoutConfirmed"],
-        false
-    );
+    assert_eq!(load(&t.id).status, Status::InFlight);
+    assert!(c.get_receipt(t.id.clone()).is_none());
     assert_eq!(get_created_receipts().len(), 2);
     assert!(callback(&mut c, &t, "1", PromiseResult::Successful(vec![])));
     assert_eq!(load(&t.id).status, Status::Paid);
-    assert_eq!(load(&t.id).delivery, Delivery::Delivered);
     assert_eq!(c.delivered_paid, decimal128(&t.amount_base_units));
     assert_eq!(c.sending, 0);
     c.conservation();
@@ -128,7 +121,8 @@ fn payout_settles_in_one_receipt_and_only_the_callback_confirms_delivery() {
         c.get_receipt(t.id.clone()).unwrap()["payoutConfirmed"],
         true
     );
-    // A duplicate callback changes nothing.
+    // Candidate: a duplicate callback is inert (returns false, changes nothing)
+    // instead of panicking.
     let before = load(&t.id).view();
     assert!(!callback(
         &mut c,
@@ -138,10 +132,6 @@ fn payout_settles_in_one_receipt_and_only_the_callback_confirms_delivery() {
     ));
     assert!(!callback(&mut c, &t, "1", PromiseResult::Failed));
     assert_eq!(load(&t.id).view(), before);
-    assert_eq!(
-        (c.owed, c.delivered_paid),
-        (0, decimal128(&t.amount_base_units))
-    );
 }
 
 #[test]
@@ -151,7 +141,6 @@ fn failed_payout_same_beneficiary_retry_new_nonce_only() {
     create(&mut c, &t);
     fund(&mut c, &t);
     assert!(!callback(&mut c, &t, "1", PromiseResult::Failed));
-    assert_eq!(load(&t.id).delivery, Delivery::Returned);
     assert_eq!(c.owed, decimal128(&t.amount_base_units));
     context("bob.testnet", 1, NOW + 4, vec![]);
     rejects(|| {
@@ -166,16 +155,23 @@ fn failed_payout_same_beneficiary_retry_new_nonce_only() {
     rejects(|| {
         drop(c.retry_native_transfer(t.id.clone(), "1".into()));
     });
-    // The superseded attempt's callback is stale: no effect even if "failed".
+    // The superseded attempt's callback is inert, whatever its result.
+    let before = load(&t.id).view();
+    assert!(!callback(
+        &mut c,
+        &t,
+        "1",
+        PromiseResult::Successful(vec![])
+    ));
     assert!(!callback(&mut c, &t, "1", PromiseResult::Failed));
-    assert_eq!(load(&t.id).delivery, Delivery::Sent);
+    assert_eq!(load(&t.id).view(), before);
     assert!(callback(&mut c, &t, "2", PromiseResult::Successful(vec![])));
-    assert_eq!((c.owed, c.sending), (0, 0));
+    assert_eq!(c.owed, 0);
     c.conservation();
 }
 
 #[test]
-fn unknown_and_forged_callbacks_leave_delivery_unconfirmed() {
+fn unknown_and_forged_callbacks_leave_in_flight() {
     let mut c = contract();
     let t = terms(12);
     create(&mut c, &t);
@@ -187,18 +183,27 @@ fn unknown_and_forged_callbacks_leave_delivery_unconfirmed() {
         vec![PromiseResult::Successful(vec![])],
     );
     rejects(|| {
-        c.on_delivery_complete(t.id.clone(), "1".into());
+        c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into());
     });
+    // A native Transfer never returns bytes: such a result is unsupported and
+    // changes nothing (the deployed contracts panic; same effect).
+    context(
+        "payments.fixture.testnet",
+        0,
+        NOW + 2,
+        vec![PromiseResult::Successful(vec![1])],
+    );
+    assert!(!c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into()));
+    assert_eq!(load(&t.id).status, Status::InFlight);
     for results in [
         vec![],
         vec![PromiseResult::Successful(vec![]), PromiseResult::Failed],
     ] {
         context("payments.fixture.testnet", 0, NOW + 2, results);
         rejects(|| {
-            c.on_delivery_complete(t.id.clone(), "1".into());
+            c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into());
         });
-        assert_eq!(load(&t.id).status, Status::Paid);
-        assert_eq!(load(&t.id).delivery, Delivery::Sent);
+        assert_eq!(load(&t.id).status, Status::InFlight);
         c.conservation();
     }
     context("alice.testnet", 1, NOW + 3, vec![]);
@@ -454,7 +459,7 @@ fn funded_request_cannot_cancel_refund_or_fund_twice() {
     rejects(|| {
         c.cancel_unfunded(t.id.clone(), t.terms_hash());
     });
-    assert_eq!(load(&t.id).status, Status::Paid);
+    assert_eq!(load(&t.id).status, Status::InFlight);
     assert_eq!(c.received, decimal128(&t.amount_base_units));
 }
 

@@ -1,0 +1,35 @@
+{
+  "accounting": {
+    "authenticationDepositsYocto": "1",
+    "deliveredPaidYocto": "1000000000000000000000000",
+    "deliveredRefundedYocto": "0",
+    "lockedPrincipalYocto": "0",
+    "owedPrincipalYocto": "0",
+    "permanentStorageBondsYocto": "5670000000000000000000",
+    "receivedPrincipalYocto": "1000000000000000000000000",
+    "requestCount": "1",
+    "runtimeAccountBalanceYocto": "100005483287024079500000001",
+    "runtimeStorageBytes": "434933",
+    "runtimeStorageCostYocto": "4349330000000000000000000",
+    "sendingMayAlreadyHaveArrived": true,
+    "sendingPrincipalYocto": "0",
+    "settledPaidYocto": "1000000000000000000000000",
+    "settledRefundedYocto": "0",
+    "tokens": []
+  },
+  "delivery": {
+    "amountBaseUnits": "1000000000000000000000000",
+    "assetId": "near:native",
+    "delivery": "DELIVERED",
+    "deliveryNonce": "2",
+    "destinationAccountId": "gone.test.near",
+    "kind": "INSTANT_PAYOUT",
+    "note": "The transfer outcome was recorded by the contract's own callback.",
+    "requestId": "aa78cf3b0812fa2ddeb5a694b8d58808700b3b608c9568943714b82bf6407126",
+    "requestStatus": "FINAL_PAID",
+    "resendAllowed": false,
+    "resolvedAtNs": "1794385774888047115",
+    "schemaVersion": "taply.delivery.v1",
+    "sentAtNs": "1794385774636751402"
+  }
+}

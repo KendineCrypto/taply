@@ -111,8 +111,7 @@ fn callback(c: &mut Payments, t: &IntentTerms, nonce: &str, kind: &str, ok: bool
             PromiseResult::Failed
         }],
     );
-    let _ = kind;
-    c.on_delivery_complete(t.id.clone(), nonce.into())
+    c.on_native_transfer_complete(t.id.clone(), nonce.into(), kind.into())
 }
 /// The last ft_transfer the contract scheduled: (token, receiver, amount, attached yocto).
 fn last_ft_transfer() -> (String, String, String, u128) {
@@ -219,9 +218,8 @@ fn instant_token_payment_pays_recipient_in_tokens_only_after_callback() {
         msg(&t, "pay_instant"),
         NOW + 2
     )));
-    assert_eq!(status(&t), Status::Paid);
-    assert_eq!(load(&t.id).delivery, Delivery::Sent);
-    snapshot("token-instant-settled-sending", &load(&t.id).view());
+    assert_eq!(status(&t), Status::InFlight);
+    snapshot("token-instant-in-flight", &load(&t.id).view());
     assert_eq!(
         last_ft_transfer(),
         (TOKEN.into(), "alice.testnet".into(), AMOUNT.to_string(), 1)
@@ -232,7 +230,6 @@ fn instant_token_payment_pays_recipient_in_tokens_only_after_callback() {
     let acc = c.get_accounting();
     assert_eq!(acc["tokens"][0]["deliveredPaid"], AMOUNT.to_string());
     assert_eq!(acc["deliveredPaidYocto"], "0", "native ledger untouched");
-    assert_eq!(acc["settledPaidYocto"], "0", "native ledger untouched");
     // Funded once: a second transfer panics, so the token refunds it in full.
     rejects_with("NOT_OPEN", || {
         let _ = ft_in(
@@ -370,15 +367,13 @@ fn protected_token_refund_failure_is_held_and_retried_to_the_payer() {
     );
     // e.g. payer not registered with the token: the transfer fails, funds stay held.
     assert!(!callback(&mut c, &t, "1", "PROTECTED_REFUND", false));
-    assert_eq!(status(&t), Status::Refunded);
-    assert_eq!(load(&t.id).delivery, Delivery::Returned);
+    assert_eq!(status(&t), Status::RefundFailed);
     let failed = load(&t.id).view();
-    snapshot("token-protected-refund-returned", &failed);
-    ctx("x.testnet", "x.testnet", 0, NOW + 2, vec![]);
     assert_eq!(
-        c.get_delivery(t.id.clone()).unwrap()["delivery"],
-        "RETURNED_RESENDABLE"
+        failed["latestOperation"]["failureCode"],
+        "FT_TRANSFER_FAILED"
     );
+    snapshot("token-protected-refund-failed", &failed);
     assert_eq!(c.get_accounting()["tokens"][0]["owed"], AMOUNT.to_string());
     ctx("bob.testnet", "bob.testnet", 1, NOW + 3, vec![]);
     drop(c.retry_native_transfer(t.id.clone(), "1".into()));
@@ -439,6 +434,6 @@ fn token_payout_success_with_a_return_value_is_still_success() {
         NOW + 100 * S,
         vec![PromiseResult::Successful(b"\"ok\"".to_vec())],
     );
-    assert!(c.on_delivery_complete(t.id.clone(), "1".into()));
+    assert!(c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into()));
     assert_eq!(status(&t), Status::Paid);
 }

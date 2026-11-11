@@ -1,4 +1,5 @@
-// Cross-language check (R-2 candidate): every request state the Rust tests produced
+// Cross-language check (R-2 candidate, same request semantics as the deployed
+// escrow): every request state the Rust tests produced
 // must parse with the UNCHANGED frozen shared schema (packages/shared).
 // Run after `cargo test --lib` and `pnpm --filter @taply/shared build`.
 import { readFileSync, readdirSync } from 'node:fs';
@@ -19,19 +20,12 @@ for (const file of files) {
   assert.equal(parsed.data.termsHash, calculateTermsHash(parsed.data.terms));
   states.add(parsed.data.status);
 }
-// R-2 candidate: settlement commits in one receipt, so no *_IN_FLIGHT or
-// *_FAILED_RECOVERABLE request status exists any more (delivery is reported by
-// get_delivery). Every produced view must still parse with the UNCHANGED schema.
-const required = mode === 'token' ? ['OPEN', 'FINAL_PAID', 'LOCKED', 'CANCELLED_REFUNDED']
-  : mode === 'sandbox-token' ? ['FINAL_PAID', 'CANCELLED_REFUNDED']
+const required = mode === 'token' ? ['OPEN', 'PAYOUT_IN_FLIGHT', 'FINAL_PAID', 'LOCKED', 'REFUND_FAILED_RECOVERABLE', 'CANCELLED_REFUNDED']
+  : mode === 'sandbox-token' ? ['FINAL_PAID', 'PAYOUT_FAILED_RECOVERABLE', 'CANCELLED_REFUNDED']
   : sandbox ? ['LOCKED', 'CANCELLED_REFUNDED', 'FINAL_PAID']
-  : ['OPEN', 'LOCKED', 'CANCELLED_REFUNDED', 'FINAL_PAID'];
-const forbidden = ['PAYOUT_IN_FLIGHT', 'REFUND_IN_FLIGHT', 'RELEASE_IN_FLIGHT',
-  'PAYOUT_FAILED_RECOVERABLE', 'REFUND_FAILED_RECOVERABLE', 'RELEASE_FAILED_RECOVERABLE'];
+  : ['OPEN', 'LOCKED', 'REFUND_IN_FLIGHT', 'REFUND_FAILED_RECOVERABLE', 'CANCELLED_REFUNDED',
+    'RELEASE_IN_FLIGHT', 'RELEASE_FAILED_RECOVERABLE', 'FINAL_PAID'];
 for (const state of required) {
   assert.ok(states.has(state), `Missing state: ${state}`);
-}
-for (const state of forbidden) {
-  assert.ok(!states.has(state), `Candidate must never produce ${state}`);
 }
 console.log(`Validated ${files.length} ${mode} records against the shared schema (v1.1); states: ${[...states].sort().join(', ')}`);

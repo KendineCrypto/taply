@@ -151,6 +151,36 @@ fn transfer_outcome(r: &ExecutionFinalResult, to: &str) -> Option<bool> {
         .find(|o| o.executor_id.as_str() == to)
         .map(|o| o.is_success())
 }
+/// Every signal a client could read as "paid" must be absent: the request is
+/// not final, there are no terminal facts, and (candidate) the delivery view
+/// says not received.
+async fn assert_no_paid_signal(
+    c: &Contract,
+    t: &Value,
+    candidate: bool,
+    status: &str,
+) -> Result<()> {
+    let req = view(c, "get_request", t).await?;
+    assert_eq!(req["status"], status, "{req}");
+    assert!(req["status"] != "FINAL_PAID" && req["status"] != "CANCELLED_REFUNDED");
+    assert_ne!(req["latestOperation"]["status"], "SUCCEEDED");
+    let facts: Value = c
+        .view("get_receipt")
+        .args_json(json!({"id": t["id"]}))
+        .await?
+        .json()?;
+    assert_eq!(
+        facts,
+        Value::Null,
+        "terminal facts for a non-final request: {facts}"
+    );
+    if candidate {
+        let d = view(c, "get_delivery", t).await?;
+        assert_eq!(d["received"], false, "{d}");
+        assert_ne!(d["delivery"], "CONFIRMED", "{d}");
+    }
+    Ok(())
+}
 fn evidence(name: &str, v: Value) -> Result<()> {
     std::fs::create_dir_all("../artifacts/r2-evidence")?;
     std::fs::write(
@@ -162,8 +192,9 @@ fn evidence(name: &str, v: Value) -> Result<()> {
 }
 
 /// R-2 case 1: the transfer SUCCEEDS, the callback PANICS.
-/// Legacy: PAYOUT_IN_FLIGHT forever although the recipient was paid.
-/// Candidate: FINAL_PAID at once, delivery SENT_UNCONFIRMED, no resend possible.
+/// Both: PAYOUT_IN_FLIGHT forever (the contract cannot know the money arrived),
+/// no terminal facts, no resend; the recipient was paid exactly once.
+/// Candidate adds: delivery PENDING_UNCONFIRMED, received=false.
 #[tokio::test]
 async fn transfer_succeeds_callback_panics_legacy_vs_candidate() -> Result<()> {
     for (wasm, candidate) in [
@@ -201,21 +232,19 @@ async fn transfer_succeeds_callback_panics_legacy_vs_candidate() -> Result<()> {
             total <= AMOUNT && total + FEES >= AMOUNT,
             "{wasm}: never paid twice ({total})"
         );
+        assert_no_paid_signal(&c, &t, candidate, "PAYOUT_IN_FLIGHT").await?;
+        assert!(failure_text(&again).contains("NO_RECORDED_TRANSFER_FAILURE"));
         if candidate {
-            assert_eq!(req["status"], "FINAL_PAID");
             let d = view(&c, "get_delivery", &t).await?;
-            assert_eq!(d["delivery"], "SENT_UNCONFIRMED");
+            assert_eq!(d["delivery"], "PENDING_UNCONFIRMED");
             assert_eq!(acc["sendingPrincipalYocto"], AMOUNT.to_string());
-            assert!(failure_text(&again).contains("NO_RETURNED_DELIVERY"));
             evidence(
                 "1-success-callback-panic-candidate",
                 json!({"request": req, "delivery": d, "accounting": acc,
                 "recipientDeltaYocto": paid.to_string(), "retry": failure_text(&again)}),
             )?;
         } else {
-            assert_eq!(req["status"], "PAYOUT_IN_FLIGHT");
             assert_eq!(acc["inFlightPrincipalYocto"], AMOUNT.to_string());
-            assert!(failure_text(&again).contains("NO_RECORDED_TRANSFER_FAILURE"));
             evidence(
                 "1-success-callback-panic-legacy",
                 json!({"request": req, "accounting": acc,
@@ -227,7 +256,8 @@ async fn transfer_succeeds_callback_panics_legacy_vs_candidate() -> Result<()> {
 }
 
 /// R-2 case 2: the transfer SUCCEEDS, the callback RUNS OUT OF GAS (candidate
-/// built with a 1 Tgas callback). Same outcome as a panic: settled, unconfirmed.
+/// built with a 1 Tgas callback). Same outcome as a panic: in flight, unconfirmed,
+/// never shown paid, never resent.
 #[tokio::test]
 async fn transfer_succeeds_callback_out_of_gas_candidate() -> Result<()> {
     let w = near_workspaces::sandbox().await?;
@@ -247,9 +277,12 @@ async fn transfer_succeeds_callback_out_of_gas_candidate() -> Result<()> {
     assert_eq!(balance(&recipient).await? - before, AMOUNT);
     let req = view(&c, "get_request", &t).await?;
     let d = view(&c, "get_delivery", &t).await?;
-    assert_eq!(req["status"], "FINAL_PAID");
-    assert_eq!(d["delivery"], "SENT_UNCONFIRMED");
-    assert!(failure_text(&retry(&c, &recipient, &t, "1").await?).contains("NO_RETURNED_DELIVERY"));
+    assert_no_paid_signal(&c, &t, true, "PAYOUT_IN_FLIGHT").await?;
+    assert_eq!(d["delivery"], "PENDING_UNCONFIRMED");
+    assert!(
+        failure_text(&retry(&c, &recipient, &t, "1").await?)
+            .contains("NO_RECORDED_TRANSFER_FAILURE")
+    );
     let total = balance(&recipient).await? - before;
     assert!(
         total <= AMOUNT && total + FEES >= AMOUNT,
@@ -264,10 +297,10 @@ async fn transfer_succeeds_callback_out_of_gas_candidate() -> Result<()> {
 }
 
 /// R-2 case 3 (the RESIDUAL): the transfer FAILS (recipient account deleted) AND
-/// the callback PANICS. Neither contract can learn that the NEAR came back.
-/// Both keep it unspendable and refuse any resend: no double payment, but the
-/// recipient cannot get it either. The candidate makes it visible as
-/// SENT_UNCONFIRMED / "sending" instead of an unexplained in-flight payment.
+/// the callback PANICS. The recipient received NOTHING. Neither contract can
+/// learn that the NEAR came back. Both must show no paid signal (no FINAL_PAID,
+/// no terminal facts), keep the amount unspendable and refuse any resend: no
+/// false paid, no double payment, but no on-chain recovery either.
 #[tokio::test]
 async fn transfer_fails_and_callback_panics_is_the_residual_risk() -> Result<()> {
     for (wasm, candidate) in [
@@ -309,16 +342,15 @@ async fn transfer_fails_and_callback_panics_is_the_residual_risk() -> Result<()>
         );
         let req = view(&c, "get_request", &t).await?;
         let acc = accounting(&c).await?;
+        assert_no_paid_signal(&c, &t, candidate, "PAYOUT_IN_FLIGHT").await?;
         if candidate {
-            assert_eq!(req["status"], "FINAL_PAID");
             assert_eq!(
                 view(&c, "get_delivery", &t).await?["delivery"],
-                "SENT_UNCONFIRMED"
+                "PENDING_UNCONFIRMED"
             );
             assert_eq!(acc["sendingPrincipalYocto"], AMOUNT.to_string());
             assert_eq!(acc["owedPrincipalYocto"], "0");
         } else {
-            assert_eq!(req["status"], "PAYOUT_IN_FLIGHT");
             assert_eq!(acc["inFlightPrincipalYocto"], AMOUNT.to_string());
         }
         evidence(
@@ -367,6 +399,12 @@ async fn transfer_fails_callback_records_it_and_only_the_recipient_resends_once(
     paid.into_result()?;
     let d = view(&c, "get_delivery", &t).await?;
     assert_eq!(d["delivery"], "RETURNED_RESENDABLE", "{d}");
+    // A failed transfer that the callback recorded: recoverable, never "paid".
+    assert_no_paid_signal(&c, &t, true, "PAYOUT_FAILED_RECOVERABLE").await?;
+    assert_eq!(
+        view(&c, "get_request", &t).await?["latestOperation"]["failureCode"],
+        "NATIVE_TRANSFER_FAILED"
+    );
     assert_eq!(
         accounting(&c).await?["owedPrincipalYocto"],
         AMOUNT.to_string()
@@ -393,7 +431,7 @@ async fn transfer_fails_callback_records_it_and_only_the_recipient_resends_once(
     }
     ok.clone().into_result()?;
     let replay = retry(&c, &back, &t, "1").await?;
-    assert!(failure_text(&replay).contains("NO_RETURNED_DELIVERY"));
+    assert!(failure_text(&replay).contains("NO_RECORDED_TRANSFER_FAILURE"));
     // The resender pays its own gas (< 0.01 NEAR) and 1 yocto per call; a double
     // payment would show about +2 NEAR.
     let received = balance(&back).await?.saturating_sub(before);
@@ -402,8 +440,17 @@ async fn transfer_fails_callback_records_it_and_only_the_recipient_resends_once(
         "received {received}"
     );
     let d = view(&c, "get_delivery", &t).await?;
-    assert_eq!(d["delivery"], "DELIVERED");
+    assert_eq!(d["delivery"], "CONFIRMED");
+    assert_eq!(d["received"], true);
     assert_eq!(d["deliveryNonce"], "2");
+    // Only now: final status and terminal facts.
+    assert_eq!(view(&c, "get_request", &t).await?["status"], "FINAL_PAID");
+    let facts: Value = c
+        .view("get_receipt")
+        .args_json(json!({"id": t["id"]}))
+        .await?
+        .json()?;
+    assert_eq!(facts["payoutConfirmed"], true);
     let acc = accounting(&c).await?;
     assert_eq!(acc["deliveredPaidYocto"], AMOUNT.to_string());
     assert_eq!(acc["owedPrincipalYocto"], "0");
@@ -430,8 +477,8 @@ async fn self_signed_callback_is_refused_and_changes_nothing() -> Result<()> {
         view(&c, "get_delivery", &t).await?,
     );
     let forged = c
-        .call("on_delivery_complete")
-        .args_json(json!({"id": t["id"], "deliveryNonce": "1"}))
+        .call("on_native_transfer_complete")
+        .args_json(json!({"id": t["id"], "operationNonce": "1", "kind": "INSTANT_PAYOUT"}))
         .max_gas()
         .transact()
         .await?;

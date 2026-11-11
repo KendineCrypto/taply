@@ -256,19 +256,19 @@ async fn payout_to_unregistered_recipient_is_held_then_retried() -> Result<()> {
     let held = get(&c, &v["id"]).await?;
     std::fs::create_dir_all("../artifacts/sandbox-token")?;
     std::fs::write(
-        "../artifacts/sandbox-token/instant-payout-returned.json",
+        "../artifacts/sandbox-token/instant-payout-failed.json",
         serde_json::to_string_pretty(&held)?,
     )
     .ok();
-    // R-2 candidate: settled in the paying receipt; the ft_transfer failed, so the
-    // callback returned the amount to "owed" for the recipient to resend.
-    assert_eq!(held["status"], "FINAL_PAID", "{held}");
+    assert_eq!(held["status"], "PAYOUT_FAILED_RECOVERABLE", "{held}");
     let d: Value = c
         .view("get_delivery")
         .args_json(json!({"id": v["id"]}))
         .await?
         .json()?;
     assert_eq!(d["delivery"], "RETURNED_RESENDABLE", "{d}");
+    assert_eq!(d["received"], false, "{d}");
+    assert_eq!(held["latestOperation"]["failureCode"], "FT_TRANSFER_FAILED");
     assert_eq!(
         balance(&t, c.id().as_str()).await?,
         AMOUNT,
@@ -293,7 +293,7 @@ async fn payout_to_unregistered_recipient_is_held_then_retried() -> Result<()> {
         .args_json(json!({"id": v["id"]}))
         .await?
         .json()?;
-    assert_eq!(d["delivery"], "DELIVERED", "{d}");
+    assert_eq!(d["delivery"], "CONFIRMED", "{d}");
     assert_eq!(balance(&t, recipient.id().as_str()).await?, AMOUNT);
     assert_eq!(balance(&t, c.id().as_str()).await?, 0);
     Ok(())

@@ -184,9 +184,18 @@ export function PaymentsProvider({
     const lock = injectedLock === undefined ? browserJournalLock() : injectedLock;
     return storage === null ? null : new SubmissionJournal(storage, () => new Date(), lock);
   });
-  const [check, setCheck] = useState<ContractCheck>(() =>
+  const [check, setCheckState] = useState<ContractCheck>(() =>
     setup.status === 'ready' ? { status: 'checking' } : { status: 'idle' },
   );
+  // Event handlers (tab return, signing) read the check through this ref. It is
+  // written together with the state, never in a later effect: an effect runs a
+  // scheduler tick after the render, and a tab return inside that tick used to
+  // see a stale "checking" and skip refreshing an aged check.
+  const checkRef = useRef(check);
+  const setCheck = useCallback((next: ContractCheck) => {
+    checkRef.current = next;
+    setCheckState(next);
+  }, []);
   const [generation, setGeneration] = useState(0);
   const [journalVersion, setJournalVersion] = useState(0);
   const [inbox] = useState<WalletReturnInbox | null>(() => {
@@ -277,17 +286,12 @@ export function PaymentsProvider({
     return () => {
       active = false;
     };
-  }, [setup, readCheck, generation]);
+  }, [setup, readCheck, generation, setCheck]);
 
   const recheck = useCallback(() => {
     setCheck({ status: 'checking' });
     setGeneration((g) => g + 1);
-  }, []);
-
-  const checkRef = useRef(check);
-  useEffect(() => {
-    checkRef.current = check;
-  }, [check]);
+  }, [setCheck]);
 
   // Back from the background: an aged capability check is refreshed, so the
   // screen does not keep offering signing on an old verification.
@@ -314,10 +318,9 @@ export function PaymentsProvider({
       return current;
     }
     const next = await readCheck();
-    checkRef.current = next;
     setCheck(next);
     return next.status === 'verified' ? next : null;
-  }, [now, readCheck]);
+  }, [now, readCheck, setCheck]);
 
   const value = useMemo<PaymentsValue>(
     () => ({

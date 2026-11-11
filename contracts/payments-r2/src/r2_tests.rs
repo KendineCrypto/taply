@@ -1,5 +1,9 @@
-//! R-2 candidate: adversarial unit tests for settle-first / debit-first delivery.
-//! Every test states the double-payment or false-status property it guards.
+//! R-2 candidate: adversarial unit tests. Two families of properties:
+//!  - NO FALSE PAID: FINAL_PAID / CANCELLED_REFUNDED (and get_receipt) appear
+//!    only after the contract's own callback confirmed the transfer; a pending,
+//!    failed, unsupported or never-arriving callback never yields them;
+//!  - NO DOUBLE PAYMENT: money leaves only when owed, and is owed again only
+//!    after an explicit Failed result for the current attempt.
 use super::*;
 use near_sdk::test_utils::{VMContextBuilder, get_created_receipts};
 use near_sdk::{PromiseResult, testing_env};
@@ -10,8 +14,10 @@ const NOW: u64 = 1_793_520_000_000_000_000;
 const SECOND: u64 = 1_000_000_000;
 const DURATION: u64 = 60 * SECOND;
 const CONTRACT: &str = "payments.fixture.testnet";
+const TOKEN: &str = "tusd.fixture.testnet";
+const BIG: u128 = 1000 * 10u128.pow(24);
 
-fn ctx_gas(
+fn ctx_full(
     caller: &str,
     deposit: u128,
     time: u64,
@@ -38,14 +44,7 @@ fn ctx_gas(
     );
 }
 fn ctx(caller: &str, deposit: u128, time: u64, results: Vec<PromiseResult>) {
-    ctx_gas(
-        caller,
-        deposit,
-        time,
-        results,
-        Gas::from_tgas(300),
-        1000 * 10u128.pow(24),
-    );
+    ctx_full(caller, deposit, time, results, Gas::from_tgas(300), BIG);
 }
 fn rejects_with(code: &str, f: impl FnOnce()) {
     let err = catch_unwind(AssertUnwindSafe(f)).expect_err("call must fail");
@@ -69,12 +68,27 @@ fn terms(n: u64, mode: &str) -> IntentTerms {
     t.id = t.request_id();
     t
 }
+fn token_terms(n: u64) -> IntentTerms {
+    let mut t = terms(n, "instant");
+    t.asset_id = format!("nep141:{TOKEN}");
+    t.amount_base_units = "1000000".into();
+    t.id = t.request_id();
+    t
+}
 fn amount(t: &IntentTerms) -> u128 {
     decimal128(&t.amount_base_units)
 }
 fn contract() -> Payments {
     ctx(CONTRACT, 0, NOW, vec![]);
     Payments::new(vec![])
+}
+fn token_contract() -> Payments {
+    ctx(CONTRACT, 0, NOW, vec![]);
+    Payments::new(vec![TokenSpec {
+        account_id: TOKEN.parse().unwrap(),
+        decimals: 6,
+        symbol: "tUSD-TEST".into(),
+    }])
 }
 fn create(c: &mut Payments, t: &IntentTerms) {
     ctx("alice.testnet", 0, NOW, vec![]);
@@ -91,6 +105,15 @@ fn pay(c: &mut Payments, t: &IntentTerms) {
     ctx("bob.testnet", amount(t), NOW + 1, vec![]);
     drop(c.pay_instant_native(t.id.clone(), t.terms_hash()));
 }
+fn pay_token(c: &mut Payments, t: &IntentTerms) {
+    ctx(TOKEN, 0, NOW + 1, vec![]);
+    let msg = near_sdk::serde_json::json!({"id": t.id, "expectedTermsHash": t.terms_hash(), "action": "pay_instant"});
+    let _ = c.ft_on_transfer(
+        "bob.testnet".parse().unwrap(),
+        near_sdk::json_types::U128(amount(t)),
+        msg.to_string(),
+    );
+}
 fn lock(c: &mut Payments, t: &IntentTerms) {
     ctx("bob.testnet", amount(t), NOW + 1, vec![]);
     c.fund_protected_native(
@@ -100,9 +123,18 @@ fn lock(c: &mut Payments, t: &IntentTerms) {
         CONSENT_VERSION.into(),
     );
 }
+fn kind_of(t: &IntentTerms) -> String {
+    let r = load(&t.id);
+    if r.branch == Branch::None {
+        "INSTANT_PAYOUT".into()
+    } else {
+        r.branch.kind(&r.terms.mode).into()
+    }
+}
 fn cb(c: &mut Payments, t: &IntentTerms, nonce: &str, result: PromiseResult) -> bool {
+    let kind = kind_of(t);
     ctx(CONTRACT, 0, NOW + 2 * DURATION, vec![result]);
-    c.on_delivery_complete(t.id.clone(), nonce.into())
+    c.on_native_transfer_complete(t.id.clone(), nonce.into(), kind)
 }
 fn resend(c: &mut Payments, t: &IntentTerms, who: &str, nonce: &str) {
     ctx(who, 1, NOW + 2 * DURATION, vec![]);
@@ -111,7 +143,7 @@ fn resend(c: &mut Payments, t: &IntentTerms, who: &str, nonce: &str) {
 fn rec(t: &IntentTerms) -> Record {
     load(&t.id)
 }
-/// Native transfers scheduled since the last context reset: (receiver, amount).
+/// Native transfers scheduled in the current context: (receiver, amount).
 fn transfers() -> Vec<(String, u128)> {
     get_created_receipts()
         .iter()
@@ -125,94 +157,219 @@ fn transfers() -> Vec<(String, u128)> {
         })
         .collect()
 }
+/// Every signal a client could read as "paid": request status, terminal facts,
+/// payoutConfirmed and the delivery view's `received`.
+fn paid_signals(c: &Payments, t: &IntentTerms) -> (String, bool, bool, bool) {
+    ctx("observer.testnet", 0, NOW + 3 * DURATION, vec![]);
+    let status = c.get_request(t.id.clone()).unwrap()["status"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let receipt = c.get_receipt(t.id.clone());
+    let confirmed = receipt
+        .as_ref()
+        .is_some_and(|r| r["payoutConfirmed"] == true);
+    let received = c.get_delivery(t.id.clone()).unwrap()["received"] == true;
+    (status, receipt.is_some(), confirmed, received)
+}
+fn assert_not_paid(c: &Payments, t: &IntentTerms, expect_status: &str) {
+    let (status, receipt, confirmed, received) = paid_signals(c, t);
+    assert_eq!(status, expect_status);
+    assert!(
+        status != "FINAL_PAID" && status != "CANCELLED_REFUNDED",
+        "false final status {status}"
+    );
+    assert!(!receipt, "terminal facts exist for a non-final request");
+    assert!(!confirmed && !received, "a paid signal leaked");
+}
 
-/// R-2 core: transfer applied, callback never runs successfully. The request is
-/// already settled; the delivery is unconfirmed and can NEVER be resent.
+/// R-2 core, both variants: the callback never records the outcome, whether
+/// the transfer arrived (callback panicked / ran out of gas) or failed (and the
+/// callback failed too). The contract cannot tell them apart, so it shows
+/// neither as paid: PAYOUT_IN_FLIGHT, no terminal facts, no resend.
 #[test]
-fn callback_that_never_completes_leaves_a_settled_request_and_no_resend() {
+fn a_callback_that_never_completes_never_shows_paid_and_never_resends() {
     let mut c = contract();
     let t = terms(1, "instant");
     create(&mut c, &t);
     pay(&mut c, &t);
     assert_eq!(transfers(), vec![("alice.testnet".into(), amount(&t))]);
-    // No callback at all (it panicked or ran out of gas on chain).
-    assert_eq!(rec(&t).status, Status::Paid);
-    assert_eq!(rec(&t).view()["status"], "FINAL_PAID");
-    assert_eq!(rec(&t).delivery, Delivery::Sent);
-    assert_eq!((c.owed, c.sending, c.delivered_paid), (0, amount(&t), 0));
+    assert_not_paid(&c, &t, "PAYOUT_IN_FLIGHT");
+    ctx("x.testnet", 0, NOW, vec![]);
+    let d = c.get_delivery(t.id.clone()).unwrap();
+    assert_eq!(d["settlement"], "COMMITTED");
+    assert_eq!(d["delivery"], "PENDING_UNCONFIRMED");
+    assert_eq!(d["resendAllowed"], false);
     for who in ["alice.testnet", "bob.testnet", "mallory.testnet"] {
         ctx(who, 1, NOW + 2 * DURATION, vec![]);
-        rejects_with("NO_RETURNED_DELIVERY", || {
+        rejects_with("NO_RECORDED_TRANSFER_FAILURE", || {
             drop(c.retry_native_transfer(t.id.clone(), "1".into()));
         });
         assert!(transfers().is_empty(), "nothing may be sent again");
     }
-    ctx("x.testnet", 0, NOW, vec![]);
-    let d = c.get_delivery(t.id.clone()).unwrap();
-    assert_eq!(d["delivery"], "SENT_UNCONFIRMED");
-    assert_eq!(d["resendAllowed"], false);
-    assert_eq!(
-        c.get_receipt(t.id.clone()).unwrap()["payoutConfirmed"],
-        false
-    );
+    assert_eq!((c.owed, c.sending, c.delivered_paid), (0, amount(&t), 0));
 }
 
-/// Only an explicit Failed result re-credits. A success with a return value
-/// (or one too long to read) is still a success: never owed again.
+/// The same for Protected release and refund: never FINAL_PAID / CANCELLED_REFUNDED
+/// while unconfirmed.
 #[test]
-fn only_an_explicit_failed_result_returns_the_amount() {
-    for (n, result, delivered) in [
-        (10, PromiseResult::Successful(vec![]), true),
-        (11, PromiseResult::Successful(vec![1, 2, 3]), true),
-        (12, PromiseResult::Successful(vec![7; 1000]), true),
-        (13, PromiseResult::Failed, false),
+fn protected_settlements_are_not_final_until_confirmed() {
+    for (n, refund) in [(2, false), (3, true)] {
+        let mut c = contract();
+        let t = terms(n, "protected");
+        create(&mut c, &t);
+        lock(&mut c, &t);
+        let cutoff = rec(&t).cancel_until;
+        if refund {
+            ctx("bob.testnet", 1, cutoff - 1, vec![]);
+            drop(c.cancel_protected(t.id.clone(), t.terms_hash()));
+            assert_not_paid(&c, &t, "REFUND_IN_FLIGHT");
+        } else {
+            ctx("carol.testnet", 1, cutoff, vec![]);
+            drop(c.release_protected(t.id.clone()));
+            assert_not_paid(&c, &t, "RELEASE_IN_FLIGHT");
+        }
+        // Explicit failure: recoverable, still not final.
+        assert!(!cb(&mut c, &t, "1", PromiseResult::Failed));
+        assert_not_paid(
+            &c,
+            &t,
+            if refund {
+                "REFUND_FAILED_RECOVERABLE"
+            } else {
+                "RELEASE_FAILED_RECOVERABLE"
+            },
+        );
+        // Confirmed resend: final now.
+        resend(
+            &mut c,
+            &t,
+            if refund {
+                "bob.testnet"
+            } else {
+                "alice.testnet"
+            },
+            "1",
+        );
+        assert!(cb(&mut c, &t, "2", PromiseResult::Successful(vec![])));
+        let (status, receipt, confirmed, received) = paid_signals(&c, &t);
+        assert_eq!(
+            status,
+            if refund {
+                "CANCELLED_REFUNDED"
+            } else {
+                "FINAL_PAID"
+            }
+        );
+        assert!(receipt && received);
+        assert_eq!(confirmed, !refund, "a refund is never a payout");
+    }
+}
+
+/// Promise result classification. Only a runtime success confirms; only a
+/// runtime failure returns the amount; an unsupported success (a native
+/// Transfer returning bytes, a token returning more than 256 bytes) changes
+/// nothing and is never treated as delivered.
+#[test]
+fn promise_results_are_classified_conservatively() {
+    // Native.
+    for (n, result, expect) in [
+        (10, PromiseResult::Successful(vec![]), "FINAL_PAID"),
+        (11, PromiseResult::Failed, "PAYOUT_FAILED_RECOVERABLE"),
+        (12, PromiseResult::Successful(vec![1]), "PAYOUT_IN_FLIGHT"),
+        (
+            13,
+            PromiseResult::Successful(vec![7; 1000]),
+            "PAYOUT_IN_FLIGHT",
+        ),
     ] {
         let mut c = contract();
         let t = terms(n, "instant");
         create(&mut c, &t);
         pay(&mut c, &t);
-        assert_eq!(cb(&mut c, &t, "1", result), delivered);
-        if delivered {
-            assert_eq!(rec(&t).delivery, Delivery::Delivered);
-            assert_eq!((c.owed, c.sending, c.delivered_paid), (0, 0, amount(&t)));
-        } else {
-            assert_eq!(rec(&t).delivery, Delivery::Returned);
-            assert_eq!((c.owed, c.sending, c.delivered_paid), (amount(&t), 0, 0));
+        let before = rec(&t).view();
+        let confirmed = cb(&mut c, &t, "1", result);
+        assert_eq!(confirmed, expect == "FINAL_PAID");
+        assert_eq!(paid_signals(&c, &t).0, expect);
+        if expect == "PAYOUT_IN_FLIGHT" {
+            assert_eq!(rec(&t).view(), before, "unsupported result changed state");
+            assert_eq!((c.owed, c.sending, c.delivered_paid), (0, amount(&t), 0));
         }
-        assert_eq!(rec(&t).status, Status::Paid);
+        c.conservation();
+    }
+    // NEP-141: up to 256 bytes is a supported success (R-1), more is unsupported.
+    for (n, result, expect) in [
+        (20, PromiseResult::Successful(vec![]), "FINAL_PAID"),
+        (
+            21,
+            PromiseResult::Successful(b"\"ok\"".to_vec()),
+            "FINAL_PAID",
+        ),
+        (
+            22,
+            PromiseResult::Successful(vec![b'x'; 257]),
+            "PAYOUT_IN_FLIGHT",
+        ),
+        (23, PromiseResult::Failed, "PAYOUT_FAILED_RECOVERABLE"),
+    ] {
+        let mut c = token_contract();
+        let t = token_terms(n);
+        create(&mut c, &t);
+        pay_token(&mut c, &t);
+        assert_eq!(paid_signals(&c, &t).0, "PAYOUT_IN_FLIGHT");
+        cb(&mut c, &t, "1", result);
+        assert_eq!(paid_signals(&c, &t).0, expect);
         c.conservation();
     }
 }
 
-/// Duplicate, stale, unknown-request and malformed-nonce callbacks change nothing
-/// and never panic (a panic would only mean "unconfirmed", but they must not
-/// re-credit or confirm the wrong attempt either).
+/// Stale, duplicate, mismatched and malformed callbacks are inert: they never
+/// confirm, never return money, never panic.
 #[test]
 fn stale_duplicate_and_mismatched_callbacks_are_inert() {
     let mut c = contract();
-    let t = terms(20, "instant");
-    let other = terms(21, "instant");
+    let t = terms(30, "instant");
+    let other = terms(31, "instant");
     create(&mut c, &t);
     create(&mut c, &other);
     pay(&mut c, &t);
     let before = rec(&t).view();
-    for nonce in ["0", "2", "01", "-1", "1x", "18446744073709551616"] {
-        assert!(
-            !cb(&mut c, &t, nonce, PromiseResult::Failed),
-            "nonce {nonce}"
+    for nonce in ["0", "2", "01", "-1", "1x", "18446744073709551616", ""] {
+        for result in [PromiseResult::Failed, PromiseResult::Successful(vec![])] {
+            assert!(!cb(&mut c, &t, nonce, result), "nonce {nonce:?}");
+            assert_eq!(rec(&t).view(), before);
+        }
+    }
+    for kind in [
+        "PROTECTED_RELEASE",
+        "PROTECTED_REFUND",
+        "",
+        "INSTANT_PAYOUT ",
+    ] {
+        ctx(
+            CONTRACT,
+            0,
+            NOW + 2,
+            vec![PromiseResult::Successful(vec![])],
         );
+        assert!(!c.on_native_transfer_complete(t.id.clone(), "1".into(), kind.into()));
         assert_eq!(rec(&t).view(), before);
     }
     ctx(CONTRACT, 0, NOW + 2, vec![PromiseResult::Failed]);
-    assert!(!c.on_delivery_complete("f".repeat(64), "1".into()));
-    // A callback for a request that was never sent (still OPEN) is inert.
-    assert!(!cb(&mut c, &other, "1", PromiseResult::Failed));
+    assert!(!c.on_native_transfer_complete("f".repeat(64), "1".into(), "INSTANT_PAYOUT".into()));
+    // A request never sent (still OPEN) is inert.
+    assert!(!cb(&mut c, &other, "1", PromiseResult::Successful(vec![])));
     assert_eq!(rec(&other).status, Status::Open);
-    assert_eq!(c.owed, 0);
     // The real one, then its duplicate.
+    assert!(cb(&mut c, &t, "1", PromiseResult::Successful(vec![])));
+    let done = rec(&t).view();
     assert!(!cb(&mut c, &t, "1", PromiseResult::Failed));
-    assert!(!cb(&mut c, &t, "1", PromiseResult::Failed));
-    assert_eq!(c.owed, amount(&t), "re-credited exactly once");
+    assert_eq!(
+        rec(&t).view(),
+        done,
+        "a later Failed cannot undo a confirmation"
+    );
+    assert_eq!((c.owed, c.delivered_paid), (0, amount(&t)));
     c.conservation();
 }
 
@@ -220,24 +377,30 @@ fn stale_duplicate_and_mismatched_callbacks_are_inert() {
 #[test]
 fn forged_callbacks_are_refused_and_change_nothing() {
     let mut c = contract();
-    let t = terms(30, "instant");
+    let t = terms(40, "instant");
     create(&mut c, &t);
     pay(&mut c, &t);
     let before = rec(&t).view();
     for caller in ["alice.testnet", "bob.testnet", "mallory.testnet"] {
-        ctx(caller, 0, NOW + 2, vec![PromiseResult::Failed]);
+        ctx(caller, 0, NOW + 2, vec![PromiseResult::Successful(vec![])]);
         rejects_with("PRIVATE_CALLBACK", || {
-            c.on_delivery_complete(t.id.clone(), "1".into());
+            c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into());
         });
     }
-    for results in [vec![], vec![PromiseResult::Failed, PromiseResult::Failed]] {
+    for results in [
+        vec![],
+        vec![
+            PromiseResult::Successful(vec![]),
+            PromiseResult::Successful(vec![]),
+        ],
+    ] {
         ctx(CONTRACT, 0, NOW + 2, results);
         rejects_with("UNKNOWN_PROMISE_RESULT", || {
-            c.on_delivery_complete(t.id.clone(), "1".into());
+            c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into());
         });
     }
     assert_eq!(rec(&t).view(), before);
-    assert_eq!((c.owed, c.sending), (0, amount(&t)));
+    assert_not_paid(&c, &t, "PAYOUT_IN_FLIGHT");
 }
 
 /// Resend after an explicit failure: beneficiary only, same destination, latest
@@ -245,27 +408,26 @@ fn forged_callbacks_are_refused_and_change_nothing() {
 #[test]
 fn resend_is_beneficiary_only_once_per_failure_and_never_cross_request() {
     let mut c = contract();
-    let a = terms(40, "instant");
-    let b = terms(41, "instant");
+    let a = terms(50, "instant");
+    let b = terms(51, "instant");
     create(&mut c, &a);
     create(&mut c, &b);
     pay(&mut c, &a);
     pay(&mut c, &b);
     assert!(!cb(&mut c, &a, "1", PromiseResult::Failed));
-    // b's delivery is unconfirmed: a's failure can never be used to resend b.
     for who in ["bob.testnet", "mallory.testnet"] {
         ctx(who, 1, NOW + 2 * DURATION, vec![]);
         rejects_with("RECIPIENT_ONLY", || {
             drop(c.retry_native_transfer(a.id.clone(), "1".into()));
         });
     }
-    // Not even the contract's own key may resend on a beneficiary's behalf.
     ctx(CONTRACT, 1, NOW + 2 * DURATION, vec![]);
     rejects_with("DIRECT_WALLET_ONLY", || {
         drop(c.retry_native_transfer(a.id.clone(), "1".into()));
     });
     ctx("alice.testnet", 1, NOW + 2 * DURATION, vec![]);
-    rejects_with("NO_RETURNED_DELIVERY", || {
+    // b is unconfirmed: a's failure can never be used to resend b.
+    rejects_with("NO_RECORDED_TRANSFER_FAILURE", || {
         drop(c.retry_native_transfer(b.id.clone(), "1".into()));
     });
     rejects_with("OPERATION_NONCE_MISMATCH", || {
@@ -277,10 +439,9 @@ fn resend_is_beneficiary_only_once_per_failure_and_never_cross_request() {
     });
     resend(&mut c, &a, "alice.testnet", "1");
     assert_eq!(transfers(), vec![("alice.testnet".into(), amount(&a))]);
-    assert_eq!(rec(&a).nonce, 2);
-    // Replaying the same resend is refused: the delivery is in transit again.
+    assert_not_paid(&c, &a, "PAYOUT_IN_FLIGHT");
     ctx("alice.testnet", 1, NOW + 2 * DURATION, vec![]);
-    rejects_with("NO_RETURNED_DELIVERY", || {
+    rejects_with("NO_RECORDED_TRANSFER_FAILURE", || {
         drop(c.retry_native_transfer(a.id.clone(), "1".into()));
     });
     assert!(transfers().is_empty());
@@ -290,18 +451,17 @@ fn resend_is_beneficiary_only_once_per_failure_and_never_cross_request() {
     c.conservation();
 }
 
-/// Settlement is irreversible and branch-exclusive: after a refund settles, no
-/// release (and vice versa), whatever the delivery state.
+/// Branch exclusivity: once a refund is committed no release (and vice versa),
+/// whatever the delivery outcome.
 #[test]
 fn cancel_and_release_cannot_both_settle() {
     let mut c = contract();
-    let t = terms(50, "protected");
+    let t = terms(60, "protected");
     create(&mut c, &t);
     lock(&mut c, &t);
     let cutoff = rec(&t).cancel_until;
     ctx("bob.testnet", 1, cutoff - 1, vec![]);
     drop(c.cancel_protected(t.id.clone(), t.terms_hash()));
-    assert_eq!(rec(&t).status, Status::Refunded);
     for result in [
         None,
         Some(PromiseResult::Failed),
@@ -319,40 +479,34 @@ fn cancel_and_release_cannot_both_settle() {
             drop(c.cancel_protected(t.id.clone(), t.terms_hash()));
         });
     }
-    assert_eq!(c.settled_paid, 0);
-    assert_eq!(c.settled_refunded, amount(&t));
+    assert_eq!((c.settled_paid, c.settled_refunded), (0, amount(&t)));
     c.conservation();
 }
 
 /// Too little unspent gas to schedule the transfer AND its callback: refused.
-/// Every entry point checks this before any state change (settle/deliver), and
-/// the entry gas floors (PAY_GAS, SETTLE_GAS, FT_ON_TRANSFER_GAS) already exceed it.
 #[test]
 fn delivery_requires_gas_for_transfer_and_callback() {
-    let native = rec_for(terms(60, "instant"));
-    let mut token_terms = terms(61, "instant");
-    token_terms.asset_id = "nep141:tusd.fixture.testnet".into();
-    token_terms.id = token_terms.request_id();
-    let token = rec_for(token_terms);
+    let native = rec_for(terms(70, "instant"));
+    let token = rec_for(token_terms(71));
     let reserve_native = CALLBACK_GAS.as_tgas() + DELIVERY_GAS_MARGIN.as_tgas();
     let reserve_token = reserve_native + FT_TRANSFER_GAS.as_tgas();
     for (r, reserve) in [(&native, reserve_native), (&token, reserve_token)] {
-        ctx_gas(
+        ctx_full(
             "bob.testnet",
             0,
             NOW,
             vec![],
             Gas::from_tgas(reserve - 1),
-            10u128.pow(27),
+            BIG,
         );
         rejects_with("INSUFFICIENT_GAS_FOR_DELIVERY", || require_delivery_gas(r));
-        ctx_gas(
+        ctx_full(
             "bob.testnet",
             0,
             NOW,
             vec![],
             Gas::from_tgas(reserve + 1),
-            10u128.pow(27),
+            BIG,
         );
         require_delivery_gas(r);
     }
@@ -364,24 +518,21 @@ fn rec_for(t: IntentTerms) -> Record {
     Record::new(t)
 }
 
-/// Reserved funds of one obligation can never pay another: a returned (owed)
-/// amount and locked escrow must stay covered before anything leaves.
+/// Reserved funds of one obligation can never pay another.
 #[test]
 fn owed_and_locked_funds_are_never_spent_on_another_obligation() {
     let mut c = contract();
-    let held = terms(70, "instant");
-    let escrow = terms(71, "protected");
-    let fresh = terms(72, "instant");
+    let held = terms(80, "instant");
+    let escrow = terms(81, "protected");
+    let fresh = terms(82, "instant");
     for t in [&held, &escrow, &fresh] {
         create(&mut c, t);
     }
     pay(&mut c, &held);
     assert!(!cb(&mut c, &held, "1", PromiseResult::Failed));
     lock(&mut c, &escrow);
-    assert_eq!((c.owed, c.locked), (amount(&held), amount(&escrow)));
-    // Balance (incl. the new deposit) one yocto short of storage + owed + locked + new.
     let required = storage_cost(env::storage_usage()) + c.owed + c.locked + amount(&fresh);
-    ctx_gas(
+    ctx_full(
         "bob.testnet",
         amount(&fresh),
         NOW + 1,
@@ -394,12 +545,9 @@ fn owed_and_locked_funds_are_never_spent_on_another_obligation() {
     });
     assert_eq!(rec(&fresh).status, Status::Open);
     assert!(transfers().is_empty());
-    // The beneficiary's resend is refused too while the account cannot cover
-    // the escrow plus the owed amount (e.g. the failed transfer's NEAR has not
-    // come back yet): it waits instead of spending the escrow.
     // (The mock adds the 1 yoctoNEAR authentication deposit to the balance.)
     let short = storage_cost(env::storage_usage()) + c.owed + c.locked - 2;
-    ctx_gas(
+    ctx_full(
         "alice.testnet",
         1,
         NOW + 2,
@@ -418,43 +566,16 @@ fn owed_and_locked_funds_are_never_spent_on_another_obligation() {
     c.conservation();
 }
 
-/// No path but an explicit Failed result for the CURRENT attempt moves money
-/// back to "owed"; every other method refuses a settled request.
-#[test]
-fn a_settled_request_admits_no_other_transition() {
-    let mut c = contract();
-    let t = terms(80, "instant");
-    create(&mut c, &t);
-    pay(&mut c, &t);
-    ctx("alice.testnet", 1, NOW + 2, vec![]);
-    rejects_with("NOT_OPEN", || {
-        c.cancel_unfunded(t.id.clone(), t.terms_hash());
-    });
-    ctx("bob.testnet", amount(&t), NOW + 2, vec![]);
-    rejects_with("NOT_OPEN", || {
-        drop(c.pay_instant_native(t.id.clone(), t.terms_hash()));
-    });
-    ctx("bob.testnet", 1, NOW + 2, vec![]);
-    rejects_with("NOT_LOCKED", || {
-        drop(c.cancel_protected(t.id.clone(), t.terms_hash()));
-    });
-    rejects_with("NOT_LOCKED", || {
-        drop(c.release_protected(t.id.clone()));
-    });
-    assert_eq!(rec(&t).delivery, Delivery::Sent);
-    assert!(transfers().is_empty());
-}
-
 /// Deterministic pseudo-random interleaving of payments, escrow settlements,
-/// callback results (success, failure, never), stale callbacks and resends.
-/// Invariants after every step:
+/// callback results (success, failure, unsupported, never), stale callbacks and
+/// resends. After every step:
 ///  - conservation of every bucket;
-///  - per request: transfers scheduled == explicit failures (+1 unless the last
-///    attempt came back and waits for a resend), so money only leaves when owed
-///    and reaches the beneficiary at most once more than it came back;
-///  - delivered + owed + sending for a request is exactly one amount.
+///  - transfers scheduled per request == explicit failures (+1 unless the last
+///    attempt came back and awaits a resend): nothing is ever paid twice;
+///  - FINAL_PAID / CANCELLED_REFUNDED, terminal facts, payoutConfirmed and
+///    `received` hold exactly when the callback confirmed delivery.
 #[test]
-fn randomized_interleavings_never_pay_twice() {
+fn randomized_interleavings_never_pay_twice_and_never_show_false_paid() {
     let mut c = contract();
     let mut seed: u64 = 0x5eed_1234_abcd_ef01;
     let mut next = || {
@@ -471,30 +592,37 @@ fn randomized_interleavings_never_pay_twice() {
     }
     let mut sent: HashMap<String, u32> = HashMap::new();
     let mut failed: HashMap<String, u32> = HashMap::new();
-    let check = |c: &Payments, sent: &HashMap<String, u32>, failed: &HashMap<String, u32>| {
+    let check = |c: &Payments,
+                 sent: &HashMap<String, u32>,
+                 failed: &HashMap<String, u32>,
+                 only: Option<&IntentTerms>| {
         c.conservation();
-        for t in &ts {
+        for t in ts.iter().filter(|t| only.is_none_or(|o| o.id == t.id)) {
             let s = *sent.get(&t.id).unwrap_or(&0);
             let f = *failed.get(&t.id).unwrap_or(&0);
-            assert!(
-                s <= f + 1,
-                "request {} paid out more than once net of failures",
-                &t.id[..8]
-            );
             let r = load(&t.id);
-            // Exact accounting of sends: one per failure, plus one unless the
-            // latest attempt came back and awaits the beneficiary's resend.
             match r.delivery {
                 Delivery::None => assert_eq!(s, 0),
                 Delivery::Returned => assert_eq!(s, f, "returned: nothing in transit"),
-                Delivery::Sent | Delivery::Delivered => assert_eq!(s, f + 1),
+                Delivery::Sent | Delivery::Delivered => assert_eq!(s, f + 1, "paid at most once"),
             }
+            let (status, receipt, confirmed, received) = paid_signals(c, t);
+            let delivered = r.delivery == Delivery::Delivered;
+            let is_final = status == "FINAL_PAID" || status == "CANCELLED_REFUNDED";
+            assert_eq!(
+                is_final, delivered,
+                "final status without confirmed delivery: {status}"
+            );
+            assert_eq!(receipt, delivered);
+            assert_eq!(received, delivered);
+            assert_eq!(confirmed, delivered && r.branch == Branch::Recipient);
         }
     };
+    let mut step = 0u32;
     for _ in 0..600 {
         let t = &ts[(next() % ts.len() as u64) as usize];
         let r = load(&t.id);
-        match (r.status, r.delivery, next() % 6) {
+        match (r.status, r.delivery, next() % 7) {
             (Status::Open, _, _) if t.mode == "instant" => pay(&mut c, t),
             (Status::Open, _, _) => lock(&mut c, t),
             (Status::Locked, _, k) => {
@@ -518,8 +646,16 @@ fn randomized_interleavings_never_pay_twice() {
                     PromiseResult::Successful(vec![]),
                 );
             }
-            (_, _, 3) => {
-                // Stale or duplicate callback with any result: inert.
+            (_, Delivery::Sent, 3) => {
+                // Unsupported result: nothing changes.
+                cb(
+                    &mut c,
+                    t,
+                    &r.nonce.to_string(),
+                    PromiseResult::Successful(vec![9]),
+                );
+            }
+            (_, _, 4) => {
                 let stale = r.nonce.saturating_sub(1).to_string();
                 cb(&mut c, t, &stale, PromiseResult::Failed);
             }
@@ -531,24 +667,25 @@ fn randomized_interleavings_never_pay_twice() {
                 };
                 resend(&mut c, t, who, &r.nonce.to_string());
             }
-            // Callback never arrives (R-2): stays SENT_UNCONFIRMED. Time passes.
+            // The callback never arrives (R-2): stays in flight. Time passes.
             _ => ctx("x.testnet", 0, NOW + 3 * DURATION, vec![]),
         }
         let now = transfers();
         assert!(now.len() <= 1);
         for (to, amt) in now {
             assert_eq!(amt, amount(t));
-            let r = load(&t.id);
-            assert_eq!(to, r.destination().to_string(), "never to anyone else");
+            assert_eq!(
+                to,
+                load(&t.id).destination().to_string(),
+                "never to anyone else"
+            );
             *sent.entry(t.id.clone()).or_default() += 1;
         }
-        check(&c, &sent, &failed);
-    }
-    // Every request is in exactly one bucket.
-    for t in &ts {
-        let r = load(&t.id);
-        if r.branch != Branch::None {
-            assert!(matches!(r.status, Status::Paid | Status::Refunded));
+        check(&c, &sent, &failed, Some(t));
+        step += 1;
+        if step.is_multiple_of(50) {
+            check(&c, &sent, &failed, None);
         }
     }
+    check(&c, &sent, &failed, None);
 }

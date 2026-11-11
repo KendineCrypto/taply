@@ -1,38 +1,34 @@
-# Taply payments — R-2 callback-recovery CANDIDATE (not reviewed, not deployed)
+# Taply payments — R-2 EXPERIMENTAL candidate (not reviewed, not deployed)
 
-> **Status: UNREVIEWED CANDIDATE. Not deployed anywhere. Not for real funds.**
-> It does not change the deployed contracts: the Instant Pay pilot
-> (`contracts/payments`, `taply-pay-pilot-1.testnet`) and the Protected Pay
-> escrow (`contracts/payments-protected`, `taply-e2e-ce38a238.testnet`) are
-> untouched and keep finding R-2.
+> **Status: EXPERIMENTAL, UNREVIEWED. Not deployed anywhere. Not for real funds.
+> R-2 is NOT fixed.** The deployed Instant Pay pilot (`contracts/payments`) and
+> Protected Pay escrow (`contracts/payments-protected`) are untouched and keep R-2.
 
-This crate is a copy of the escrow contract (instant, protected, NEP-141) with
-one change: how an outgoing transfer is recorded. The goal is that a failed
-callback can no longer leave a payment stuck "in flight".
+A copy of the escrow contract (instant, protected, NEP-141) with the **same
+request semantics as the deployed contracts**: `FINAL_PAID` /
+`CANCELLED_REFUNDED` only after the contract's own callback confirmed the
+transfer. It adds hardening and observability:
 
-- **Settle first:** pay / release / cancel commit `FINAL_PAID` /
-  `CANCELLED_REFUNDED` in the same receipt.
-- **Debit first:** the amount leaves `owed` before the transfer is scheduled,
-  so a successful transfer never depends on the callback.
-- **Re-credit only on an explicit `Failed` result:** the beneficiary alone can
-  resend, to the same account, once per failure. A delivery whose outcome was
-  never recorded (`SENT_UNCONFIRMED`) is never resent.
+- **Settlement and delivery tracked separately.** `get_delivery` reports
+  `settlement: COMMITTED`, `delivery: PENDING_UNCONFIRMED | CONFIRMED |
+  RETURNED_RESENDABLE`, and `received: true` only when confirmed. Accounting has
+  `owed / sending / delivered` and settled totals per branch.
+- **Debit first** (`owed → sending`) before the transfer is scheduled.
+- **Conservative callback:**
+  - `Ok` confirms;
+  - only `Failed` returns the amount;
+  - `TooLong` or any unknown result changes nothing;
+  - stale or duplicate calls are inert.
+- **Gas and liquidity checked before any state change.**
+- **Same callback name and arguments** (`on_native_transfer_complete`) and the
+  same error codes, so the existing receipt verifier applies.
 
-Verdict: **PARTIALLY MITIGATED**. The remaining case (transfer fails *and* the
-callback fails) is documented as open. Full analysis, proof sketch, evidence
-and migration plan: [docs/R2_CALLBACK_RECOVERY.md](../../docs/R2_CALLBACK_RECOVERY.md).
+When the callback never completes, the request stays `*_IN_FLIGHT`, exactly as
+in production. It is never shown as paid and never retried. A first version
+that set `FINAL_PAID` earlier was withdrawn: it produced a false paid.
 
-## New or changed methods
-
-| Method | Change |
-| --- | --- |
-| `pay_instant_native`, `release_protected`, `cancel_protected`, `ft_on_transfer(pay_instant)` | Settle in this receipt, then deliver. Gas and liquidity are checked before any state change |
-| `on_delivery_complete({id, deliveryNonce})` | Replaces `on_native_transfer_complete`. Private; exactly one promise result; exact current nonce; stale or duplicate calls return `false` with no change; only `Failed` re-credits |
-| `retry_native_transfer({id, expectedOperationNonce})` | Same ABI; now resends a `RETURNED_RESENDABLE` delivery, beneficiary only |
-| `get_delivery({id})` | New view: `NOT_STARTED / SENT_UNCONFIRMED / DELIVERED / RETURNED_RESENDABLE` |
-| `get_accounting` | Buckets `locked, owed, sending, deliveredPaid, deliveredRefunded, settledPaid, settledRefunded` |
-
-`get_request` keeps the unchanged shared wire schema (`scripts/check-wire.mjs`).
+Full analysis, evidence and the residual cases:
+[docs/R2_CALLBACK_RECOVERY.md](../../docs/R2_CALLBACK_RECOVERY.md).
 
 ## Build and test
 

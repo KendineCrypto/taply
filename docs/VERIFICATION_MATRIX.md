@@ -66,9 +66,10 @@ Test counts are not a coverage claim.
   double spend, but funds can be stuck. Applies to the Instant Pay pilot and the
   escrow contract. Not fixed; needs a reviewed reconciliation design before real
   funds. See [SECURITY_REVIEW_2026-11-09.md](SECURITY_REVIEW_2026-11-09.md).
-  A candidate contract (`contracts/payments-r2`, not reviewed, not deployed)
-  removes the "transfer succeeded, callback failed" case and narrows the rest;
-  analysis and sandbox evidence in [R2_CALLBACK_RECOVERY.md](R2_CALLBACK_RECOVERY.md).
+  An EXPERIMENTAL candidate (`contracts/payments-r2`, not reviewed, not
+  deployed) adds hardening and observability but does **not** fix R-2: when a
+  callback fails, the request stays in flight and is never shown as paid.
+  Analysis and evidence: [R2_CALLBACK_RECOVERY.md](R2_CALLBACK_RECOVERY.md).
 - No human or external security audit of any contract or of Taply Wallet.
 - The pilot contract keeps a full-access key; the receipt verifier refuses a
   receipt if the contract's keys changed during the payment window.

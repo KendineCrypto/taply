@@ -8,9 +8,9 @@
     "permanentStorageBondsYocto": "5670000000000000000000",
     "receivedPrincipalYocto": "1000000000000000000000000",
     "requestCount": "1",
-    "runtimeAccountBalanceYocto": "100005483287024079500000001",
-    "runtimeStorageBytes": "434933",
-    "runtimeStorageCostYocto": "4349330000000000000000000",
+    "runtimeAccountBalanceYocto": "100005482959908791000000001",
+    "runtimeStorageBytes": "437936",
+    "runtimeStorageCostYocto": "4379360000000000000000000",
     "sendingMayAlreadyHaveArrived": true,
     "sendingPrincipalYocto": "0",
     "settledPaidYocto": "1000000000000000000000000",
@@ -20,16 +20,18 @@
   "delivery": {
     "amountBaseUnits": "1000000000000000000000000",
     "assetId": "near:native",
-    "delivery": "DELIVERED",
+    "branch": "RECIPIENT",
+    "delivery": "CONFIRMED",
     "deliveryNonce": "2",
     "destinationAccountId": "gone.test.near",
-    "kind": "INSTANT_PAYOUT",
-    "note": "The transfer outcome was recorded by the contract's own callback.",
-    "requestId": "aa78cf3b0812fa2ddeb5a694b8d58808700b3b608c9568943714b82bf6407126",
+    "note": "The contract's own callback confirmed the transfer.",
+    "received": true,
+    "requestId": "b22485a2433f1519a02df9fcc41f751e88fe7df761ff585a0b4bde84a732a6a8",
     "requestStatus": "FINAL_PAID",
     "resendAllowed": false,
-    "resolvedAtNs": "1794385774888047115",
-    "schemaVersion": "taply.delivery.v1",
-    "sentAtNs": "1794385774636751402"
+    "resolvedAtNs": "1794398813272064819",
+    "schemaVersion": "taply.delivery.v2",
+    "sentAtNs": "1794398813024097248",
+    "settlement": "COMMITTED"
   }
 }
