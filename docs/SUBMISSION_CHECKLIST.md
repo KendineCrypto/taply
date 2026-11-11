@@ -33,6 +33,7 @@ History: the 2026-11-06 version of this file is in Git.
 - [x] Read-only G1 contract preflight 10/10 PASS on 2026-11-09.
 - [x] README, judge guide, submission package and screenshots updated for 2026-11-10.
 - [x] 2026-11-11, on the current production build: Protected Pay refund and release (PR #27), 14/14 escrow attacks refused on the live contract, handshake + NEAR/USDC pay + QR scan + live **Verified Paid** + second payment refused ([regression](evidence/production-regression-2026-11-11/)).
+- [x] 2026-11-11 final release: tab-return race fix in the payment screen (CI-only flake was a real bug; deterministic regression test) and an R-2 "never looks paid" test using real-node views of the deployed escrow. R-2 itself stays open; the experimental contract stays in draft PR #31 (not merged, not deployed).
 - [x] 2026-11-11: contradictory docs fixed (contract READMEs, RELEASE_DEMO, archival notices on dated reports); [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md) added; CI now runs the real-Redis tests and also runs on docs changes.
 
 ## Open (disclose, do not hide)

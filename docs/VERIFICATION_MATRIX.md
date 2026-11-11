@@ -1,7 +1,8 @@
 # Feature verification matrix
 
-Updated **2026-11-11**. Source: `main` = `release/taplyapp` = `ce5e9e9` at the time of
-writing. NEAR **Testnet** only for every row. Nothing here is audited.
+Updated **2026-11-11** (final hackathon release). Production evidence below was
+recorded on `ce5e9e9`; the final release adds only a tab-return race fix in the
+payment screen and tests (no contract or flag change). NEAR **Testnet** only for every row. Nothing here is audited.
 
 How to read the proof columns:
 
@@ -50,6 +51,7 @@ QR code" text from PR #24). That is a **content match**, not a commit-SHA proof.
 | --- | --- | --- |
 | `pnpm check` + API tests + production Webpack build | GitHub `workspace-check`, push of `ce5e9e9` | passed ([run](https://github.com/KendineCrypto/taply/actions/runs/42977577079)); without `redis-server` on the runner: web 1,201 passed + 7 skipped, API 70 + 2 skipped |
 | Same `pnpm check` locally with `redis-server` (`ce5e9e9` + this PR's docs/comment changes) | Local, 2026-11-11 | shared 93, near-client 253, web 1,207 passed + 1 skipped (the live-RPC test); exit 0 |
+| Final release: `pnpm check` + API tests, locally with `redis-server` | Local, 2026-11-11 | shared 93, near-client 253, web **1,211** passed + 1 skipped, API 72/72; exit 0. GitHub `workspace-check` on the release PR runs the same with `redis-server` installed |
 | Web tests that need `redis-server` (6) and API tests that need it (2) | Skipped on GitHub before this PR (no `redis-server` on the runner); run locally on 2026-11-11 | web 6/6 and API 72/72 (0 skipped) passed locally; `workspace-check` installs `redis-server` from this PR on |
 | Web live-RPC test (locate the pilot funding tx) | Opt-in (`TAPLY_LIVE_RPC`) | **BLOCKED** on 2026-11-11: the regular RPC no longer holds 1 Nov blocks (`history_unavailable`) and both archival RPCs answered `429` |
 | `packages/near-client` `test:integration` (not part of `pnpm check`) | Local, live Testnet | 3/3 passed |
@@ -66,6 +68,12 @@ Test counts are not a coverage claim.
   double spend, but funds can be stuck. Applies to the Instant Pay pilot and the
   escrow contract. Not fixed; needs a reviewed reconciliation design before real
   funds. See [SECURITY_REVIEW_2026-11-09.md](SECURITY_REVIEW_2026-11-09.md).
+  The app never shows such a request as paid or Verified Paid
+  ([test](../apps/web/src/lib/payments/__tests__/r2-no-false-paid.test.ts),
+  with views from a real NEAR node running the deployed escrow source). An
+  analysis and an experimental candidate are in
+  [draft PR #31](https://github.com/KendineCrypto/taply/pull/31): not merged,
+  not deployed, and not a fix.
 - No human or external security audit of any contract or of Taply Wallet.
 - The pilot contract keeps a full-access key; the receipt verifier refuses a
   receipt if the contract's keys changed during the payment window.

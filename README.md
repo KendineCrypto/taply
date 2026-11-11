@@ -10,6 +10,15 @@
 </p>
 
 <p align="center">
+  <a href="https://taplyapp.xyz"><img alt="Live: taplyapp.xyz" src="https://img.shields.io/badge/live-taplyapp.xyz-C7FC75?labelColor=0B120E"></a>
+  <img alt="NEAR Testnet only" src="https://img.shields.io/badge/network-NEAR%20Testnet%20only-F4F3E8?labelColor=0B120E">
+  <a href="https://github.com/KendineCrypto/taply/actions/workflows/workspace-check.yml"><img alt="workspace-check" src="https://github.com/KendineCrypto/taply/actions/workflows/workspace-check.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/KendineCrypto/taply/actions/workflows/instant-pay-sandbox.yml"><img alt="instant-pay-sandbox" src="https://github.com/KendineCrypto/taply/actions/workflows/instant-pay-sandbox.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/KendineCrypto/taply/actions/workflows/protected-pay-candidate.yml"><img alt="protected-pay escrow checks" src="https://github.com/KendineCrypto/taply/actions/workflows/protected-pay-candidate.yml/badge.svg?branch=main"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-203226?labelColor=0B120E"></a>
+</p>
+
+<p align="center">
   <a href="#try-it-in-5-minutes">Try it</a> ·
   <a href="#features">Features</a> ·
   <a href="#how-it-works">How it works</a> ·
@@ -194,8 +203,8 @@ cp apps/web/env/public-readonly.env.example apps/web/.env.local
 pnpm --filter @taply/web build && pnpm --filter @taply/web start   # http://localhost:3000
 ```
 
-Results on 2026-11-11 (`main` `ce5e9e9`): shared **93**, near-client **253**,
-web **1,207** passed and **1** skipped, API **72** passed
+Results on 2026-11-11 (final release): shared **93**, near-client **253**,
+web **1,211** passed and **1** skipped, API **72** passed
 (`node --test apps/api/test/*.test.mts`). Eight of those tests need a local
 `redis-server`; without one they are skipped (CI installs it). The skipped web
 test reads live Testnet and runs only with `TAPLY_LIVE_RPC=<archival RPC>`.
@@ -275,7 +284,15 @@ The two candidates stay off on the public site until a human security review.
   its callback fails (for example out of gas), the request stays "in flight"
   with no retry and no admin override. Nothing is paid twice, but funds can be
   stuck. This applies to both contracts and is not fixed
-  ([review](docs/SECURITY_REVIEW_2026-11-09.md)). Test NEAR only.
+  ([review](docs/SECURITY_REVIEW_2026-11-09.md)). The app never shows such a
+  payment as paid or Verified Paid: tested with request views from a real
+  NEAR node running the deployed escrow source
+  ([test](apps/web/src/lib/payments/__tests__/r2-no-false-paid.test.ts)).
+  An analysis and an experimental contract candidate live in
+  [draft PR #31](https://github.com/KendineCrypto/taply/pull/31), deliberately
+  **not merged and not deployed**: under Taply's "paid only after confirmed
+  delivery" rule, a contract cannot learn the outcome when the callback fails.
+  Test NEAR only.
 - **NEAR Testnet only, not audited.** Configured-RPC trust model (not a light
   client). The pilot contract keeps a full-access key; the verifier refuses a
   receipt if the contract's keys changed during the payment window.
