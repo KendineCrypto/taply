@@ -520,6 +520,16 @@ export interface Dictionary {
       readonly contractPaidSub: string;
       readonly cancelled: string;
       readonly cancelledSub: string;
+      /** Protected Pay: the escrow released the amount to the recipient. */
+      readonly released: string;
+      readonly releasedSub: string;
+      /** Protected Pay: the amount went back to the payer. Never a payment. */
+      readonly refunded: string;
+      readonly refundedSub: string;
+      readonly refundedTo: string;
+      readonly recipientNotPaid: string;
+      readonly lockedAt: string;
+      readonly escrowContract: string;
       readonly paidTo: string;
       readonly paidBy: string;
       readonly settledAt: string;
