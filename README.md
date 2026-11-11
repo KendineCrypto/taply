@@ -88,7 +88,7 @@ transactions in a real browser.
 | **On-chain request per sale** | The merchant signs one immutable request (recipient, exact yoctoNEAR amount, expiry). The QR holds only its ID; the payer's phone reads the terms from the contract | [create + pay run](docs/evidence/production-taply-wallet-2026-11-09/create-request-result.json) |
 | **Pay with any supported asset** | The merchant always asks for NEAR. The payer may use NEAR, USDC, USDT, NST, LNC or PEM; the token is swapped to NEAR on Ref/Rhea Testnet first (curated pools, quote at a final block, 0.5 % buffer, 5 % price-impact cap) | [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json) · [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json) · [in browser](docs/evidence/production-taply-wallet-2026-11-09/result.json) |
 | **Live Handshake** | The merchant's QR opens a live two-phone session: online / reviewing / paying, disconnect and reconnect, same sale code, countdown to expiry. The QR is drawn once and never changes; any camera or Taply's own scanner opens it. A second phone with the same QR is refused. Payment status is never taken from the session | [production run](docs/evidence/production-live-handshake-2026-11-10/result.json) · [QR + scanner on production](docs/evidence/production-qr-stable-2026-11-10/result.json) |
-| **Protected Pay** | The payer locks the amount in an escrow contract instead of paying at once. Until the on-chain cutoff (1 minute to 1 hour, signed into the request) the payer can cancel and is refunded in full; after it, the amount is released to the recipient. Both screens say **LOCKED - NOT PAID** while it is locked; a refund is never shown as a payment | [production run](docs/evidence/production-protected-pay-2026-11-11/result.json) · [Android emulation](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json) |
+| **Protected Pay** | The payer locks the amount in an escrow contract instead of paying at once. Until the on-chain cutoff (1 minute to 1 hour, signed into the request) the payer can cancel and is refunded in full; after it, the amount is released to the recipient. Both screens say **LOCKED - NOT PAID** while it is locked; a refund is never shown as a payment. When it settles, both phones show a receipt: **Payment released**, or **Refunded** (not a payment) | [production run with receipts](docs/evidence/production-protected-pay-receipt-2026-11-11/result.json) · [Android emulation](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json) |
 | **Honest states** | Ready → Payment observed → **Paid per contract** → **Verified Paid**. Wallet returns, server events and timers never mark anything paid | [state machine](docs/PAYMENT_STATE_MACHINE.md) |
 | **Independent receipt verifier** | Each phone checks the funding, transfer and callback receipts, the contract code hash and access keys. Falls back to a clearly labelled archived record if public RPCs are busy | [ledger](docs/EVIDENCE.md) |
 | **Live balance** | The Taply Wallet balance refreshes after every signature, every 20 s and when the app comes back to the foreground | [production run](docs/evidence/production-balance-2026-11-10/balance-refresh-result.json) |
@@ -270,11 +270,13 @@ The two candidates stay off on the public site until a human security review.
 - **Live Handshake is coordination only.** The sale code identifies the sale;
   it is not merchant authentication. Merchants are shown by account ID.
 - **History, contacts and templates are stored on the device**; there is no
-  indexer. The site sends `noindex` on purpose. Android was checked on taplyapp.xyz with
-  Chromium's Pixel 7 emulation (Android Chrome user agent, viewport and touch:
-  [pay run](docs/evidence/production-android-emulation-2026-11-11/result.json),
-  [Protected Pay run](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json)),
-  not on a physical device.
+  indexer. The site sends `noindex` on purpose.
+- **Devices.** On 2026-11-11 the owner tested taplyapp.xyz by hand on a
+  physical Samsung (Android) and a physical iPhone, with Taply Wallet and with
+  external wallets, and reported no problems (owner report; no recording is
+  stored). Automated proof is from Chromium, including Pixel 7 emulation
+  ([pay run](docs/evidence/production-android-emulation-2026-11-11/result.json),
+  [Protected Pay run](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json)).
 
 ## How it was built
 
