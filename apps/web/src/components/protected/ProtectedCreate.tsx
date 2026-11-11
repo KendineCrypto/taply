@@ -212,11 +212,14 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
       {created !== null && (
         <>
           <SubmitResultNotice result={created.result} />
-          <InlineNotice
-            copy={{ title: c.newTitle, body: c.create.created }}
-            tone="neutral"
-            action={<ButtonLink href={`/protected/${created.id}`}>{c.create.openRequest}</ButtonLink>}
-          />
+          {/* Only a transaction that may have left the wallet can have created a request. */}
+          {(created.result.kind === 'submitted' || created.result.kind === 'unknown') && (
+            <InlineNotice
+              copy={{ title: c.newTitle, body: c.create.created }}
+              tone="neutral"
+              action={<ButtonLink href={`/protected/${created.id}`}>{c.create.openRequest}</ButtonLink>}
+            />
+          )}
         </>
       )}
     </div>

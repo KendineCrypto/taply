@@ -6,6 +6,7 @@ import { BLOCK_HASH, CODE_HASH, memoryStorage, recordingWallet, renderWithChain 
 import { calculateTermsHash } from '@/lib/protocol';
 import type { IntentTerms } from '@/lib/protocol';
 import { buildProtectedTerms } from '@/lib/protected/create';
+import { WalletNotSentError } from '@/lib/wallet/adapter';
 import { ProtectedCreate } from '../ProtectedCreate';
 
 const NOW_NS = 1_793_520_000_000_000_000n;
@@ -53,6 +54,26 @@ describe('ProtectedCreate', () => {
       creatorAccountId: 'alice.testnet', fundingExpiresAtNs: (NOW_NS + 900_000_000_000n).toString() });
     expect(signed[0]?.call).toMatchObject({ methodName: 'create_request', depositYocto: '7000000000000000000000', args: { terms, quoteVersion: '1' } });
     expect(await screen.findByRole('link', { name: 'Open request' })).toHaveProperty('href', expect.stringContaining(`/protected/${terms?.id}`));
+  });
+
+  it('offers no request link when the wallet sent nothing', async () => {
+    const { adapter, signed } = recordingWallet('alice.testnet', async () => {
+      throw new WalletNotSentError();
+    });
+    renderWithChain(
+      <ProtectedCreate setup={{ status: 'ready', contractId: PROTECTED_CONTRACT, expectedCodeHash: CODE_HASH, qaBuild: true }} reader={reader([])} />,
+      { setup: { status: 'not_configured' }, adapter, storage: memoryStorage(), now: () => Date.now() },
+    );
+    fireEvent.change(await screen.findByLabelText('Amount (NEAR)'), { target: { value: '0.25' } });
+    const create = await screen.findByRole('button', { name: /Create Protected request in wallet/ });
+    await waitFor(() => expect(create).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(create);
+    });
+    await waitFor(() => expect(signed).toHaveLength(1));
+    expect(await screen.findByText('Not sent')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Open request' })).toBeNull();
+    expect(screen.queryByText(/Request sent to your wallet/)).toBeNull();
   });
 
   it('the payer field can be filled from saved contacts (exact account ID copied)', async () => {
