@@ -26,8 +26,9 @@ Every claim in the post, the video and the form must match this list.
 - Create a request and pay it, with an external wallet or Taply Wallet, on taplyapp.xyz.
 - Pay a NEAR request with USDC, USDT, NST, LNC or PEM (test tokens, swapped to NEAR on Ref/Rhea Testnet first).
 - Live Handshake: live two-phone session (online, reviewing, disconnect/reconnect, same sale code, expiry, single-phone join).
+- Protected Pay: the payer locks the amount in an escrow contract, can cancel for a refund until the on-chain cutoff (1 minute to 1 hour), and after it the amount is released to the recipient. Proven with two Taply Wallets in a real browser (refund and release).
 - Receipts verified on chain by both phones (Verified Paid); the 2026-11-01 pilot payment can be re-verified live.
-- **Not live:** Protected Pay (escrow), contract-bound merchant sessions, sponsored gas, social login. Taply Wallet has no independent security review. Testnet only, not audited.
+- **Not live:** contract-bound merchant sessions, sponsored gas, social login. The escrow contract is not audited. Taply Wallet has no independent security review. Testnet only, not audited.
 
 ## X post (278/280 characters, X counts each link as 23)
 

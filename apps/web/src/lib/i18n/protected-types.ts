@@ -10,6 +10,11 @@ export interface ProtectedFlowCopy {
   readonly invalidConfig: ErrorCopy;
   readonly pilotRefused: ErrorCopy;
   readonly unreviewed: ErrorCopy;
+  readonly menuBody: string;
+  readonly sheetBody: string;
+  readonly shareTitle: string;
+  readonly shareBody: string;
+  readonly shareQrLabel: string;
   readonly contractChecking: string;
   readonly contractBlocked: ErrorCopy;
   readonly walletNeeded: ErrorCopy;

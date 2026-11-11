@@ -74,7 +74,7 @@ describe('ProtectedScreen gates', () => {
 describe('ProtectedScreen actions (QA build)', () => {
   it('LOCKED before the cutoff: payer cancels with exactly 1 yoctoNEAR', async () => {
     const { signed } = show(PROTECTED.locked, cutoff - 30_000_000_000n, 'bob.testnet');
-    expect(await screen.findByText('Unreviewed test contract')).toBeTruthy();
+    expect(await screen.findByText('Testnet escrow, not audited')).toBeTruthy();
     expect(await screen.findByText('About 0:30 left to cancel')).toBeTruthy();
     const cancel = await screen.findByRole('button', { name: /Cancel and refund me/ });
     await waitFor(() => expect(cancel).toHaveProperty('disabled', false));

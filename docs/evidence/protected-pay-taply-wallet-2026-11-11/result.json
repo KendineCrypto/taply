@@ -1,0 +1,304 @@
+{
+  "kind": "PROTECTED_PAY_BROWSER_TESTNET_RUN",
+  "network": "near-testnet",
+  "base": "http://localhost:3111",
+  "contractId": "taply-e2e-ce38a238.testnet",
+  "note": "Real Chromium, two Taply Wallets (disposable faucet accounts), unreviewed Testnet escrow candidate. Test NEAR only.",
+  "freelancer": "taply-freelancer-2e9ae0.testnet",
+  "client": "taply-client-2999bc.testnet",
+  "refund": {
+    "amount": "0.05",
+    "id": "9c028a66abc40d19ec64b7bc233ccdbdff45bbdc2a93b397f9dcf275babc0dab",
+    "payerBefore": "10000000000000000000000000",
+    "recipientBefore": "9993855377241510700000000",
+    "lockedStatus": "LOCKED",
+    "payerLocked": "9949712736625736000000000",
+    "recipientSeesPaidWhileLocked": 0,
+    "recipientCanRelease": 0,
+    "recipientCanCancel": 0,
+    "finalStatus": "CANCELLED_REFUNDED",
+    "payerAfter": "9999135981627123399999999",
+    "recipientAfter": "9993855377241510700000000",
+    "chain": {
+      "terms": {
+        "schemaVersion": "taply.intent.v1",
+        "id": "9c028a66abc40d19ec64b7bc233ccdbdff45bbdc2a93b397f9dcf275babc0dab",
+        "network": "near-testnet",
+        "contractId": "taply-e2e-ce38a238.testnet",
+        "creationNonce": "ec48c502a37ab152e0465434a62d3bfac9ccc8c4b150287749742db50bccd358",
+        "creatorAccountId": "taply-freelancer-2e9ae0.testnet",
+        "assetId": "near:native",
+        "amountBaseUnits": "50000000000000000000000",
+        "mode": "protected",
+        "cancelDurationNs": "300000000000",
+        "fundingExpiresAtNs": "1794377188361337296",
+        "permittedPayerAccountId": null,
+        "merchantAccountId": null,
+        "memo": "",
+        "sessionBinding": null
+      },
+      "termsHash": "5d9f54ac247238f65518683b854e760526fd7dccfe33b7bf8dcd058e71de3502",
+      "sessionCommitment": null,
+      "recipientAccountId": "taply-freelancer-2e9ae0.testnet",
+      "status": "CANCELLED_REFUNDED",
+      "revision": "4",
+      "createdAtNs": "1794376307783236253",
+      "payerAccountId": "taply-client-2999bc.testnet",
+      "fundedAtNs": "1794376347462112495",
+      "cancelUntilNs": "1794376647462112495",
+      "settlementBranch": "PAYER",
+      "latestOperation": {
+        "nonce": "1",
+        "kind": "PROTECTED_REFUND",
+        "destinationAccountId": "taply-client-2999bc.testnet",
+        "amountBaseUnits": "50000000000000000000000",
+        "status": "SUCCEEDED",
+        "startedAtNs": "1794376378265875395",
+        "resolvedAtNs": "1794376379438250404",
+        "failureCode": null
+      }
+    },
+    "payerNetYocto": "-864018372876600000001",
+    "recipientNetYocto": "0"
+  },
+  "release": {
+    "amount": "0.05",
+    "id": "9168b5e957cb3c97bcfdad4171e958bc0c716d6ec688baad156d912d59b451c1",
+    "recipientBefore": "9987720633310382000000000",
+    "payerBefore": "9999135981627123399999999",
+    "lockedStatus": "LOCKED",
+    "releaseOfferedBeforeCutoff": 0,
+    "payerCancelOfferedAfterCutoff": 0,
+    "finalStatus": "FINAL_PAID",
+    "recipientAfter": "10037146103449198599999999",
+    "payerAfter": "9948848652983603099999999",
+    "chain": {
+      "terms": {
+        "schemaVersion": "taply.intent.v1",
+        "id": "9168b5e957cb3c97bcfdad4171e958bc0c716d6ec688baad156d912d59b451c1",
+        "network": "near-testnet",
+        "contractId": "taply-e2e-ce38a238.testnet",
+        "creationNonce": "b773977138a4de43e41632e5d454385d20af8a992f2aaa16750d1b58ab013934",
+        "creatorAccountId": "taply-freelancer-2e9ae0.testnet",
+        "assetId": "near:native",
+        "amountBaseUnits": "50000000000000000000000",
+        "mode": "protected",
+        "cancelDurationNs": "60000000000",
+        "fundingExpiresAtNs": "1794377291615233542",
+        "permittedPayerAccountId": null,
+        "merchantAccountId": null,
+        "memo": "",
+        "sessionBinding": null
+      },
+      "termsHash": "b7e9a63a218a579e2ecb77d1a9a6146d989db906bd84ace9f38dd79720728279",
+      "sessionCommitment": null,
+      "recipientAccountId": "taply-freelancer-2e9ae0.testnet",
+      "status": "FINAL_PAID",
+      "revision": "4",
+      "createdAtNs": "1794376412166767454",
+      "payerAccountId": "taply-client-2999bc.testnet",
+      "fundedAtNs": "1794376442235524527",
+      "cancelUntilNs": "1794376502235524527",
+      "settlementBranch": "RECIPIENT",
+      "latestOperation": {
+        "nonce": "1",
+        "kind": "PROTECTED_RELEASE",
+        "destinationAccountId": "taply-freelancer-2e9ae0.testnet",
+        "amountBaseUnits": "50000000000000000000000",
+        "status": "SUCCEEDED",
+        "startedAtNs": "1794376523225522688",
+        "resolvedAtNs": "1794376524367050764",
+        "failureCode": null
+      }
+    },
+    "recipientNetYocto": "49425470138816599999999",
+    "payerNetYocto": "-50287328643520300000000"
+  },
+  "confirmations": {
+    "freelancer": [
+      {
+        "label": "refund-create",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Create a payment request From taply-freelancer-2e9ae0.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.00582 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "release-create",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Create a payment request From taply-freelancer-2e9ae0.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.00581 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "release-release",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Release the locked payment to the recipient From taply-freelancer-2e9ae0.testnet To taply-e2e-ce38a238.testnet Attached NEAR 1 yoctoNEAR (required by the token standard) Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      }
+    ],
+    "client": [
+      {
+        "label": "refund-lock",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Lock this payment in the contract (locked, not paid) From taply-client-2999bc.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.05 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "refund-cancel",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Cancel the locked payment and refund it to you From taply-client-2999bc.testnet To taply-e2e-ce38a238.testnet Attached NEAR 1 yoctoNEAR (required by the token standard) Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "release-lock",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Lock this payment in the contract (locked, not paid) From taply-client-2999bc.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.05 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      }
+    ]
+  },
+  "pageLog": [
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/activity?_rsc=tXyZJ52UQVBCVsD3",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/wallet/create?_rsc=5CB68i4pnAekjehf",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/wallet/restore?_rsc=tXyZJ52UQVBCVsD3",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/wallet/create?_rsc=tXyZJ52UQVBCVsD3",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "https://helper.testnet.near.org/account",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/wallet/create?_rsc=5CB68i4pnAekjehf",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/wallet/create?_rsc=tXyZJ52UQVBCVsD3",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/wallet/restore?_rsc=tXyZJ52UQVBCVsD3",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "https://helper.testnet.near.org/account",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/wallet?_rsc=tXyZJ52UQVBCVsD3",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/?_rsc=3oRMoi6UBFVWkkGv",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/activity?_rsc=3oRMoi6UBFVWkkGv",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/protected/9c028a66abc40d19ec64b7bc233ccdbdff45bbdc2a93b397f9dcf275babc0dab?_rsc=3oRMoi6UBFVWkkGv",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/?_rsc=kr3C04-_GT2H8kXK",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/activity?_rsc=kr3C04-_GT2H8kXK",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/?_rsc=VeME13saUh-DtMtr",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/?_rsc=kr3C04-_GT2H8kXK",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/?_rsc=VeME13saUh-DtMtr",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/activity?_rsc=VeME13saUh-DtMtr",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/?_rsc=_oSXZicsbJ8u_cAb",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/activity?_rsc=3oRMoi6UBFVWkkGv",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/?_rsc=3oRMoi6UBFVWkkGv",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/protected/9168b5e957cb3c97bcfdad4171e958bc0c716d6ec688baad156d912d59b451c1?_rsc=5mOftBfryRvcE7AZ",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/?_rsc=IAkI-Q3kr07SfM8p",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/activity?_rsc=IAkI-Q3kr07SfM8p",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/?_rsc=nMZirv15YN93DFZT",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "http://localhost:3111/activity?_rsc=nMZirv15YN93DFZT",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/?_rsc=IAkI-Q3kr07SfM8p",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/activity?_rsc=IAkI-Q3kr07SfM8p",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/?_rsc=nMZirv15YN93DFZT",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "http://localhost:3111/activity?_rsc=nMZirv15YN93DFZT",
+      "why": "net::ERR_ABORTED"
+    }
+  ]
+}

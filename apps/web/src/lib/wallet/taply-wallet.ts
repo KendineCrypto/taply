@@ -2,7 +2,7 @@ import {
   EncryptedTestnetVault, VaultError, WalletEngineError, createWalletChain, ed25519PublicKeyFromHex,
   isNamedTestnetAccount, recoveryPhrasePublicKeyHex, prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
 } from '@taply/near-client';
-import type { LocalWalletIdentity, NearTestnetConfig, VaultSessionStore, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall } from '@taply/near-client';
+import type { LocalWalletIdentity, NearTestnetConfig, VaultSessionStore, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall, PreparedProtectedCall, WalletProtectedContract } from '@taply/near-client';
 import { encodeQr } from '@/lib/qr/encode';
 import { FLAGS } from '@/lib/flags/features';
 import { WalletDeclinedError, WalletError, WalletNotSentError } from './adapter';
@@ -57,6 +57,11 @@ export function createTaplyWalletController(input: {
   /** Deterministic read-only test seam; production uses createWalletChain. */
   readonly chain?: WalletChain;
   readonly confirmTransaction?: (review: WalletTransactionReview) => Promise<boolean>;
+  /**
+   * Protected Pay escrow candidate this wallet may sign for (owner decision
+   * 2026-11-11, Testnet only, unreviewed contract). Absent = every Protected call is refused.
+   */
+  readonly protectedContract?: WalletProtectedContract | null;
   /** Test seam for the public Testnet faucet. */
   readonly requestAccount?: (accountId: string, publicKey: string) => Promise<FaucetResult>;
   /** Test seam for the provisioning poll interval. */
@@ -87,7 +92,8 @@ export function createTaplyWalletController(input: {
     if (!navigator.locks) throw new WalletError('unavailable');
     return navigator.locks.request('taply.testnet-vault-write.v1', { mode: 'exclusive' }, task);
   };
-  const backend = createReviewedWalletBackend({ config: input.config, vault, storage: input.storage, chain,
+  const protectedContract = FLAGS.protectedPay.enabled ? input.protectedContract ?? null : null;
+  const backend = createReviewedWalletBackend({ config: input.config, vault, storage: input.storage, chain, protectedContract,
     ...(input.crypto ? { crypto: input.crypto } : {}),
     policy: { signingPermitted: () => TAPLY_WALLET_SIGNING_ENABLED, contractCallsPermitted: () => FLAGS.instantPay.enabled,
       withExclusiveLock: withVaultWriteLock } });
@@ -160,12 +166,17 @@ export function createTaplyWalletController(input: {
     async signAndSendTransaction(signerAccountId, call) {
       if (!TAPLY_WALLET_SIGNING_ENABLED || !FLAGS.instantPay.enabled || !input.confirmTransaction) throw new WalletError('unavailable');
       if (!connected || !vault.unlocked || vault.getIdentity()?.accountId !== signerAccountId) throw new WalletError('no_account');
-      const payment = ['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName);
-      if (payment && call.actions !== undefined) throw new WalletError('failed');
+      // Protected Pay: only calls addressed to the configured escrow candidate.
+      const escrow = protectedContract !== null && call.receiverId === protectedContract.accountId;
+      const payment = !escrow && ['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName);
+      if ((payment || escrow) && call.actions !== undefined) throw new WalletError('failed');
       try {
         // Payments: rebuilt from the approved contract. Anything else must be an
         // exact curated swap shape (checkedSwapTransaction) or it is refused.
-        const review = payment
+        const review = escrow
+          ? await backend.prepareProtectedCall({ receiverId: call.receiverId, methodName: call.methodName as PreparedProtectedCall['methodName'],
+            args: { ...call.args }, gas: call.gas, depositYocto: call.depositYocto })
+          : payment
           ? await backend.prepareContractCall({ ...call, methodName: call.methodName as PreparedContractCall['methodName'] })
           : await backend.prepareSwapTransaction({ receiverId: call.receiverId,
             actions: (call.actions ?? [call]).map((a) => ({ methodName: a.methodName, args: { ...a.args }, gas: a.gas, depositYocto: a.depositYocto })) });

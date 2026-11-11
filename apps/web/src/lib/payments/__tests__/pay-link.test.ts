@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PAY_INPUT_LENGTH, parsePayInput } from '../pay-link';
+import { MAX_PAY_INPUT_LENGTH, parsePayInput, parseScanInput } from '../pay-link';
 
 const ID = '9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502';
 const APPROVED = ['https://pay.taply.app', 'http://localhost:3000'];
@@ -59,5 +59,16 @@ describe('parsePayInput (pasted links and decoded QR payloads are untrusted)', (
     ]) {
       expect(parsePayInput(text, APPROVED), text.slice(0, 80)).toEqual({ kind: 'invalid' });
     }
+  });
+});
+
+describe('parseScanInput: Protected request links', () => {
+  it('opens this app’s own /protected/<id> page, keeping only the ID', () => {
+    expect(parseScanInput(`https://pay.taply.app/protected/${ID}?amount=1#x`, APPROVED)).toEqual({ kind: 'live', path: `/protected/${ID}` });
+  });
+  it('never follows a Protected link from another site or with a malformed ID', () => {
+    expect(parseScanInput(`https://evil.example/protected/${ID}`, APPROVED)).toEqual({ kind: 'other_site', host: 'evil.example' });
+    expect(parseScanInput('https://pay.taply.app/protected/not-an-id', APPROVED)).toEqual({ kind: 'invalid' });
+    expect(parseScanInput(`https://pay.taply.app/protected/${ID}/extra`, APPROVED)).toEqual({ kind: 'invalid' });
   });
 });

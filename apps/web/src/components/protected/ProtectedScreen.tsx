@@ -17,7 +17,9 @@ import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { StatusBadge } from '@/components/status/StatusBadge';
 import { Icon } from '@/components/shell/Icons';
 import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
-import { ChainTime, SubmitResultNotice } from '@/components/payments/PaymentParts';
+import { ChainTime, ShareActions, SubmitResultNotice } from '@/components/payments/PaymentParts';
+import { QrCode } from '@/components/payments/QrCode';
+import { useShareOrigin } from '@/lib/share/use-share-origin';
 import { durationSeconds, estimateCutoff, formatCountdown } from '@/lib/format/countdown';
 import { fill } from '@/lib/i18n';
 import type { ProtectedFlowCopy } from '@/lib/i18n/protected-types';
@@ -254,6 +256,7 @@ function Body({
   // Token balances are checked by the token contract itself; the NEAR balance only matters for native requests.
   const balance = useNativeBalance(fundable && nativeAsset ? balanceReader : null, accountId);
   const verifiedBalance = displayableBalance(balance.view);
+  const share = useShareOrigin();
 
   if (view === null) {
     return (
@@ -364,6 +367,18 @@ function Body({
             <li>{t.protectedPay.merchantCannot}</li>
           </ul>
         </section>
+      )}
+
+      {/* The recipient hands the open request to the payer: one link, one QR, ID only. */}
+      {request.status === 'OPEN' && isRecipient && response.fundingEligibility !== 'EXPIRED' && share?.kind === 'ok' && (
+        <Card className="flex flex-col items-center gap-3" data-testid="protected-share">
+          <h2 className="self-start text-base font-semibold">{c.shareTitle}</h2>
+          <p className="self-start text-sm leading-relaxed text-[var(--text-secondary)]">{c.shareBody}</p>
+          <QrCode value={`${share.origin}/protected/${request.terms.id}`} label={c.shareQrLabel} />
+          <div className="w-full">
+            <ShareActions link={`${share.origin}/protected/${request.terms.id}`} />
+          </div>
+        </Card>
       )}
 
       {canFund && (

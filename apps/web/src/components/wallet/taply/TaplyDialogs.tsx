@@ -41,7 +41,8 @@ export function describeReview(review: WalletTransactionReview, t: ReturnType<ty
   const near = (v: string) => formatBaseUnits(v, 24, { locale, maxFractionDigits: 5 }).display;
   if (review.kind === 'native_transfer') return [c.transfer];
   if (review.kind === 'contract_call') {
-    const named: Record<string, string> = { pay_instant_native: c.payRequest, create_request: c.createRequest, cancel_unfunded: c.cancelRequest, retry_native_transfer: c.retryPayout };
+    const named: Record<string, string> = { pay_instant_native: c.payRequest, create_request: c.createRequest, cancel_unfunded: c.cancelRequest, retry_native_transfer: c.retryPayout,
+      fund_protected_native: c.lockProtected, cancel_protected: c.cancelProtected, release_protected: c.releaseProtected };
     return [named[review.methodName ?? ''] ?? fill(c.contract, { method: review.methodName ?? '' })];
   }
   let actions: Action[] = [];

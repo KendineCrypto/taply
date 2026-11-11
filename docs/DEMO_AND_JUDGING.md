@@ -1,6 +1,6 @@
 # Taply v0.4 judging, README and demo proof playbook
 
-> The storyboard below is the original product target, not shipped scope. Live on 2026-11-10: username wallets, request and pay (NEAR or test tokens via Ref), and the live two-phone Handshake session (coordination only; contract-bound sessions are not live). Protected Pay is disabled; do not narrate it as live. Current facts: [README](../README.md) and [submission package](HACKATHON_SUBMISSION_PACKAGE.md#what-is-live-today-2026-11-10).
+> The storyboard below is the original product target, not shipped scope. Live on 2026-11-10: username wallets, request and pay (NEAR or test tokens via Ref), and the live two-phone Handshake session (coordination only; contract-bound sessions are not live), and Protected Pay on Testnet since 2026-11-11 (cancel window 1 minute to 1 hour; not audited). Current facts: [README](../README.md) and [submission package](HACKATHON_SUBMISSION_PACKAGE.md#what-is-live-today-2026-11-10).
 
 ## Judging positioning
 **Compared to payment-link tools (e.g., PingPay):** Taply doesn't claim better cross-chain routing. It differentiates on **human-verifiable live merchant Handshake**, explicit settlement states and consent-based Protected Pay, all proven on NEAR Testnet. Do not claim exclusive invention of escrow, QR or wallets. Be honest that existing products cover adjacent capabilities.
