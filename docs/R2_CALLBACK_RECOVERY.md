@@ -74,7 +74,11 @@ Sources:
   and `failed_transfer_and_failed_callback_also_stays_unresolved`.
 - G3 vs candidate: `contracts/payments-r2/sandbox/tests/r2.rs`, 6/6 passed.
   The legacy WASM is built from the unmodified `contracts/payments-protected`
-  source, and its code hash equals the deployed `963iSEB8…` (CI checks this).
+  source. Its code hash equals the deployed `963iSEB8…` when built with
+  `CARGO_HOME=/root/.cargo`, because the WASM embeds dependency source paths.
+  The deployed build used that path; GitHub's default path gives a different
+  hash. CI rebuilds it with that path and reports the result as information
+  only.
 - Recorded outputs: [`evidence/r2-sandbox-2026-11-11/`](evidence/r2-sandbox-2026-11-11/).
 
 Measured gas (real node): the candidate's delivery callback burns about
@@ -208,7 +212,7 @@ the contract's own promise can call the callback.)
 cd contracts/payments-r2
 cargo test --locked --lib -- --test-threads=1          # 40 passed
 cargo fmt --all --check && cargo clippy --locked --all-targets -- -D warnings
-bash scripts/build.sh                                  # 5 WASMs + test token; legacy-g3.wasm = deployed hash
+bash scripts/build.sh                                  # 5 WASMs + test token (legacy-g3.wasm = deployed hash if CARGO_HOME=/root/.cargo)
 bash scripts/sandbox.sh                                # 3 + 6 + 4 passed on a local NEAR node
 pnpm --filter @taply/shared build
 node scripts/check-wire.mjs && node scripts/check-wire.mjs sandbox \
@@ -240,8 +244,10 @@ call. GitHub's runners don't need it.
    are trusted to behave per the standard (R-4).
 4. **Deployed contracts keep R-2.** They are immutable; this candidate only
    helps new requests on a new deployment.
-5. G1's local WASM does not currently reproduce its deployed hash (known drift,
-   see the old PR #8). The G3 escrow does reproduce.
+5. Build reproducibility depends on paths embedded in the WASM. The G3 escrow
+   reproduces its deployed hash with `CARGO_HOME=/root/.cargo`; G1's local WASM
+   does not currently reproduce its deployed hash (known drift, see the old
+   PR #8).
 
 ## 9. Migration plan (requires separate human approval)
 

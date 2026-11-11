@@ -38,7 +38,7 @@ and migration plan: [docs/R2_CALLBACK_RECOVERY.md](../../docs/R2_CALLBACK_RECOVE
 
 ```sh
 cargo test --locked --lib -- --test-threads=1    # 40 unit tests
-bash scripts/build.sh                            # candidate, 2 fault builds, legacy escrow (= deployed hash), test token
+bash scripts/build.sh                            # candidate, 2 fault builds, legacy escrow source, test token
 bash scripts/sandbox.sh                          # real local NEAR node: 3 protected + 6 R-2 + 4 token tests
 ```
 
