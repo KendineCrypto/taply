@@ -1,0 +1,202 @@
+{
+  "kind": "PROTECTED_PAY_BROWSER_TESTNET_RUN",
+  "network": "near-testnet",
+  "base": "https://taplyapp.xyz",
+  "contractId": "taply-e2e-ce38a238.testnet",
+  "note": "Real Chromium, two Taply Wallets (disposable faucet accounts), unreviewed Testnet escrow candidate. Test NEAR only.",
+  "freelancer": "taply-freelancer-7fd0fb.testnet",
+  "client": "taply-client-e19d98.testnet",
+  "device": "Pixel 7",
+  "shares": [
+    {
+      "name": "refund",
+      "shareVisible": true,
+      "qrLabel": "QR code for this Protected request"
+    },
+    {
+      "name": "release",
+      "shareVisible": true,
+      "qrLabel": "QR code for this Protected request"
+    }
+  ],
+  "refund": {
+    "amount": "0.05",
+    "id": "ae97cf3a2f09f8ff3b4b2bd5a7b76b3bcf75d6f0e7de4c8285e66e84efbf8f40",
+    "payerBefore": "10000000000000000000000000",
+    "recipientBefore": "9993855219422597500000000",
+    "lockedStatus": "LOCKED",
+    "payerLocked": "9949712546966165600000000",
+    "recipientSeesPaidWhileLocked": 0,
+    "recipientCanRelease": 0,
+    "recipientCanCancel": 0,
+    "finalStatus": "CANCELLED_REFUNDED",
+    "payerAfter": "9999135378257211399999999",
+    "recipientAfter": "9993855219422597500000000",
+    "chain": {
+      "terms": {
+        "schemaVersion": "taply.intent.v1",
+        "id": "ae97cf3a2f09f8ff3b4b2bd5a7b76b3bcf75d6f0e7de4c8285e66e84efbf8f40",
+        "network": "near-testnet",
+        "contractId": "taply-e2e-ce38a238.testnet",
+        "creationNonce": "e5d6cfdadb290823dc5397abd062f91151a96b673bf4698b2f60424ffa1b99d8",
+        "creatorAccountId": "taply-freelancer-7fd0fb.testnet",
+        "assetId": "near:native",
+        "amountBaseUnits": "50000000000000000000000",
+        "mode": "protected",
+        "cancelDurationNs": "300000000000",
+        "fundingExpiresAtNs": "1794380192637413151",
+        "permittedPayerAccountId": null,
+        "merchantAccountId": null,
+        "memo": "",
+        "sessionBinding": null
+      },
+      "termsHash": "aec0f67ec3cf64ca70e1b54367d5f2fccdf2a2cd95b641bd88b0b3d2a39a1081",
+      "sessionCommitment": null,
+      "recipientAccountId": "taply-freelancer-7fd0fb.testnet",
+      "status": "CANCELLED_REFUNDED",
+      "revision": "4",
+      "createdAtNs": "1794379312578189042",
+      "payerAccountId": "taply-client-e19d98.testnet",
+      "fundedAtNs": "1794379355620883767",
+      "cancelUntilNs": "1794379655620883767",
+      "settlementBranch": "PAYER",
+      "latestOperation": {
+        "nonce": "1",
+        "kind": "PROTECTED_REFUND",
+        "destinationAccountId": "taply-client-e19d98.testnet",
+        "amountBaseUnits": "50000000000000000000000",
+        "status": "SUCCEEDED",
+        "startedAtNs": "1794379383577304186",
+        "resolvedAtNs": "1794379384681776589",
+        "failureCode": null
+      }
+    },
+    "payerNetYocto": "-864621742788600000001",
+    "recipientNetYocto": "0"
+  },
+  "release": {
+    "amount": "0.05",
+    "id": "3c7556730a3417a5ab50826b30fb0464c7c889c27b40d1613d1b5f8d400b3aef",
+    "recipientBefore": "9987720422835084800000000",
+    "payerBefore": "9999135378257211399999999",
+    "lockedStatus": "LOCKED",
+    "releaseOfferedBeforeCutoff": 0,
+    "payerCancelOfferedAfterCutoff": 0,
+    "finalStatus": "FINAL_PAID",
+    "recipientAfter": "10037145880138907799999999",
+    "payerAfter": "9948848028880239899999999",
+    "chain": {
+      "terms": {
+        "schemaVersion": "taply.intent.v1",
+        "id": "3c7556730a3417a5ab50826b30fb0464c7c889c27b40d1613d1b5f8d400b3aef",
+        "network": "near-testnet",
+        "contractId": "taply-e2e-ce38a238.testnet",
+        "creationNonce": "f34e62683fea88eec152e334f17e7bbad357f1c276b672a0e9dd46ab33ac80ba",
+        "creatorAccountId": "taply-freelancer-7fd0fb.testnet",
+        "assetId": "near:native",
+        "amountBaseUnits": "50000000000000000000000",
+        "mode": "protected",
+        "cancelDurationNs": "60000000000",
+        "fundingExpiresAtNs": "1794380296660461383",
+        "permittedPayerAccountId": null,
+        "merchantAccountId": null,
+        "memo": "",
+        "sessionBinding": null
+      },
+      "termsHash": "54a08cc8e74f878d82090edb8103bb8230fad6cc133b653e14aeef54d97d2c21",
+      "sessionCommitment": null,
+      "recipientAccountId": "taply-freelancer-7fd0fb.testnet",
+      "status": "FINAL_PAID",
+      "revision": "4",
+      "createdAtNs": "1794379416585882028",
+      "payerAccountId": "taply-client-e19d98.testnet",
+      "fundedAtNs": "1794379449353488531",
+      "cancelUntilNs": "1794379509353488531",
+      "settlementBranch": "RECIPIENT",
+      "latestOperation": {
+        "nonce": "1",
+        "kind": "PROTECTED_RELEASE",
+        "destinationAccountId": "taply-freelancer-7fd0fb.testnet",
+        "amountBaseUnits": "50000000000000000000000",
+        "status": "SUCCEEDED",
+        "startedAtNs": "1794379538413510983",
+        "resolvedAtNs": "1794379539817824294",
+        "failureCode": null
+      }
+    },
+    "recipientNetYocto": "49425457303822999999999",
+    "payerNetYocto": "-50287349376971500000000"
+  },
+  "confirmations": {
+    "freelancer": [
+      {
+        "label": "refund-create",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Create a payment request From taply-freelancer-7fd0fb.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.00582 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "release-create",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Create a payment request From taply-freelancer-7fd0fb.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.00581 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "release-release",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Release the locked payment to the recipient From taply-freelancer-7fd0fb.testnet To taply-e2e-ce38a238.testnet Attached NEAR 1 yoctoNEAR (required by the token standard) Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      }
+    ],
+    "client": [
+      {
+        "label": "refund-lock",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Lock this payment in the contract (locked, not paid) From taply-client-e19d98.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.05 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "refund-cancel",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Cancel the locked payment and refund it to you From taply-client-e19d98.testnet To taply-e2e-ce38a238.testnet Attached NEAR 1 yoctoNEAR (required by the token standard) Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      },
+      {
+        "label": "release-lock",
+        "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Lock this payment in the contract (locked, not paid) From taply-client-e19d98.testnet To taply-e2e-ce38a238.testnet Attached NEAR 0.05 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+      }
+    ]
+  },
+  "pageLog": [
+    {
+      "role": "freelancer",
+      "failed": "https://helper.testnet.near.org/account",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "https://taplyapp.xyz/wallet/restore?_rsc=tXyZJ52UQVBCVsD3",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "https://helper.testnet.near.org/account",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "https://taplyapp.xyz/protected/ae97cf3a2f09f8ff3b4b2bd5a7b76b3bcf75d6f0e7de4c8285e66e84efbf8f40?_rsc=_oSXZicsbJ8u_cAb",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "https://taplyapp.xyz/protected/ae97cf3a2f09f8ff3b4b2bd5a7b76b3bcf75d6f0e7de4c8285e66e84efbf8f40?_rsc=3oRMoi6UBFVWkkGv",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "https://taplyapp.xyz/protected/ae97cf3a2f09f8ff3b4b2bd5a7b76b3bcf75d6f0e7de4c8285e66e84efbf8f40?_rsc=kwE-et4n8GChq4pn",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "client",
+      "failed": "https://taplyapp.xyz/activity?_rsc=DllgaBPzIkj9vqSf",
+      "why": "net::ERR_ABORTED"
+    },
+    {
+      "role": "freelancer",
+      "failed": "https://taplyapp.xyz/?_rsc=DllgaBPzIkj9vqSf",
+      "why": "net::ERR_ABORTED"
+    }
+  ]
+}

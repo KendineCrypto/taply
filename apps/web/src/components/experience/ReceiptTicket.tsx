@@ -16,7 +16,9 @@ import { AmountHero, DemoStamp, Monogram, NetworkPill, PaperRow, TicketTear, use
  *  - `verified`      ONLY from the independent receipt verifier (or the DEMO tour,
  *                    where `demo` forces a visible DEMO stamp);
  *  - `contract_paid` the contract reports FINAL_PAID, receipts not checked here;
- *  - `cancelled`     cancelled before funding.
+ *  - `cancelled`     cancelled before funding;
+ *  - `released`      Protected Pay: the escrow contract released the amount (contract state);
+ *  - `refunded`      Protected Pay: the amount went back to the payer. Never a payment.
  * The seal is the only place the Verified Paid treatment appears.
  */
 
@@ -42,8 +44,10 @@ export function ReceiptTicket({
   proofActions,
   celebrateKey,
   code = null,
+  mode = 'instant',
+  extraRows = [],
 }: {
-  readonly status: 'verified' | 'contract_paid' | 'cancelled';
+  readonly status: ReceiptStatus;
   readonly amountBaseUnits: string;
   readonly recipientAccountId: string;
   readonly payerAccountId: string | null;
@@ -63,6 +67,9 @@ export function ReceiptTicket({
   readonly celebrateKey?: string;
   /** Phase 7F sale code, the same one both phones showed before payment. */
   readonly code?: string | null;
+  readonly mode?: 'instant' | 'protected';
+  /** Extra facts shown under the parties (e.g. lock time). */
+  readonly extraRows?: ReadonlyArray<{ readonly label: string; readonly value: ReactNode }>;
 }) {
   const t = useT();
   const shortDate = useShortDateTime();
@@ -72,7 +79,10 @@ export function ReceiptTicket({
     verified: { title: r.verified, sub: r.verifiedSub },
     contract_paid: { title: r.contractPaid, sub: r.contractPaidSub },
     cancelled: { title: r.cancelled, sub: r.cancelledSub },
+    released: { title: r.released, sub: r.releasedSub },
+    refunded: { title: r.refunded, sub: r.refundedSub },
   }[status];
+  const refunded = status === 'refunded';
 
   return (
     <section aria-labelledby="receipt-title" className="animate-rise flex flex-col gap-4" data-receipt-status={status}>
@@ -96,19 +106,24 @@ export function ReceiptTicket({
         <TicketTear />
 
         <dl>
-          <PaperRow label={r.paidTo}>
+          <PaperRow label={refunded ? r.recipientNotPaid : r.paidTo}>
             <span className="flex items-center justify-end gap-2">
               <span className="chain-id">{recipientAccountId}</span>
               <Monogram accountId={recipientAccountId} tone="paper" size={26} />
             </span>
           </PaperRow>
           {payerAccountId !== null && (
-            <PaperRow label={r.paidBy}>
+            <PaperRow label={refunded ? r.refundedTo : r.paidBy}>
               <span className="chain-id">{payerAccountId}</span>
             </PaperRow>
           )}
+          {extraRows.map((row) => (
+            <PaperRow key={row.label} label={row.label}>
+              {row.value}
+            </PaperRow>
+          ))}
           {settledAtNs !== null && <PaperRow label={r.settledAt}>{shortDate(settledAtNs)}</PaperRow>}
-          <PaperRow label={t.common.mode}>{t.experience.instantPay}</PaperRow>
+          <PaperRow label={t.common.mode}>{mode === 'protected' ? t.protectedFlow.title : t.experience.instantPay}</PaperRow>
           {code !== null && (
             <PaperRow label={t.commerce.journey.saleCode}>
               <span className="font-mono tracking-[0.14em]">{groupCode(code)}</span>
@@ -184,7 +199,9 @@ function useFirstTime(key: string | undefined): boolean {
   return first;
 }
 
-function Seal({ status, celebrateKey }: { readonly status: 'verified' | 'contract_paid' | 'cancelled'; readonly celebrateKey: string | undefined }) {
+export type ReceiptStatus = 'verified' | 'contract_paid' | 'cancelled' | 'released' | 'refunded';
+
+function Seal({ status, celebrateKey }: { readonly status: ReceiptStatus; readonly celebrateKey: string | undefined }) {
   // Keyed by status in the parent, so this runs when the receipt becomes verified.
   const celebrate = useFirstTime(status === 'verified' ? celebrateKey : undefined);
   if (status === 'verified') {
@@ -211,7 +228,7 @@ function Seal({ status, celebrateKey }: { readonly status: 'verified' | 'contrac
   }
   return (
     <span className="grid size-16 place-items-center rounded-full border-2 border-[var(--ink-line)] text-[var(--ink-secondary)]">
-      <Icon name={status === 'cancelled' ? 'x' : 'clock'} size={28} />
+      <Icon name={status === 'cancelled' ? 'x' : status === 'refunded' ? 'refresh' : status === 'released' ? 'check' : 'clock'} size={28} />
     </span>
   );
 }

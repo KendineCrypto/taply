@@ -11,6 +11,9 @@ export interface ProtectedFlowCopy {
   readonly pilotRefused: ErrorCopy;
   readonly unreviewed: ErrorCopy;
   readonly menuBody: string;
+  /** One line under LOCKED - NOT PAID: who may cancel, what happens after. */
+  readonly rightsShort: string;
+  readonly receiptShare: string;
   readonly sheetBody: string;
   readonly shareTitle: string;
   readonly shareBody: string;
@@ -57,7 +60,6 @@ export interface ProtectedFlowCopy {
   readonly duration: { readonly seconds: string; readonly minutes: string; readonly hours: string };
   readonly create: {
     readonly amountLabel: string;
-    readonly amountHint: string;
     readonly amountTokenLabel: string;
     readonly assetLabel: string;
     readonly windowLabel: string;

@@ -19,6 +19,10 @@ import { Icon } from '@/components/shell/Icons';
 import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
 import { ChainTime, ShareActions, SubmitResultNotice } from '@/components/payments/PaymentParts';
 import { QrCode } from '@/components/payments/QrCode';
+import { ReceiptTicket } from '@/components/experience/ReceiptTicket';
+import type { ReceiptReference } from '@/components/experience/ReceiptTicket';
+import { useShortDateTime } from '@/components/experience/Basics';
+import { CHAIN_CONFIG } from '@/lib/near/config';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
 import { durationSeconds, estimateCutoff, formatCountdown } from '@/lib/format/countdown';
 import { fill } from '@/lib/i18n';
@@ -49,6 +53,17 @@ export function windowLabel(cancelDurationNs: string, copy: ProtectedFlowCopy['d
   if (s % 3600 === 0) return fill(copy.hours, { n: String(s / 3600) });
   if (s >= 120 && s % 60 === 0) return fill(copy.minutes, { n: String(s / 60) });
   return fill(copy.seconds, { n: String(s) });
+}
+
+/** One quiet line instead of a notice card: the escrow is Testnet-only and not audited. */
+export function UnreviewedLine() {
+  const c = useT().protectedFlow;
+  return (
+    <p className="flex items-center gap-1.5 px-1 text-xs text-[var(--tone-caution-fg)]" role="note">
+      <Icon name="alert" size={13} />
+      {c.unreviewed.title} · {c.unreviewed.body}
+    </p>
+  );
 }
 
 export function ProtectedSetupNotice({ setup }: { readonly setup: ProtectedSetup }) {
@@ -192,7 +207,7 @@ function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly se
 
   return (
     <div className="flex flex-col gap-4">
-      {gate !== null && gate.allowed && gate.unreviewed && <InlineNotice copy={c.unreviewed} tone="caution" />}
+      {gate !== null && gate.allowed && gate.unreviewed && <UnreviewedLine />}
       {check.status === 'checking' && <p className="px-1 text-xs text-[var(--text-muted)]">{c.contractChecking}</p>}
       {(check.status === 'unreachable' || (gate !== null && !gate.allowed)) && <InlineNotice copy={c.contractBlocked} tone="neutral" />}
       <Body
@@ -204,6 +219,7 @@ function ProtectedLive({ id, setup, reader }: { readonly id: string; readonly se
         config={check.status === 'verified' ? check.config : null}
         cancelSent={cancelSent}
         canSign={canSign}
+        entries={entries}
         busy={busy}
         blocking={blocking}
         onRun={run}
@@ -229,6 +245,7 @@ function Body({
   config,
   cancelSent,
   canSign,
+  entries,
   busy,
   blocking,
   onRun,
@@ -241,6 +258,7 @@ function Body({
   readonly config: ProtectedContractConfig | null;
   readonly cancelSent: boolean;
   readonly canSign: boolean;
+  readonly entries: ReadonlyArray<JournalEntry>;
   readonly busy: boolean;
   readonly blocking: (method: JournalMethod) => boolean;
   readonly onRun: (make: (config: ProtectedContractConfig) => PreparedProtectedCall | PreparedTokenCall, operationNonce?: string) => Promise<void>;
@@ -306,6 +324,11 @@ function Body({
       request.status === 'RELEASE_FAILED_RECOVERABLE' ||
       request.status === 'FINAL_PAID');
 
+  // Settled, native NEAR: the person gets a receipt instead of the working view.
+  if (!isToken && (request.status === 'FINAL_PAID' || request.status === 'CANCELLED_REFUNDED')) {
+    return <ProtectedReceipt request={request} entries={entries} contractId={contractId} />;
+  }
+
   const countdown =
     locked && request.cancelUntilNs !== null && receivedAtMs !== null
       ? estimateCutoff({ cancelUntilNs: request.cancelUntilNs, observedAtNs, observedAtLocalMs: receivedAtMs, nowMs: now })
@@ -318,9 +341,12 @@ function Body({
           <StatusBadge {...input} />
           <span className="text-xs text-[var(--text-muted)]">{t.mode.protected}</span>
         </div>
-        <p className="text-sm text-[var(--text-secondary)]">
-          {presentation.audience === 'recipient' ? t.status[request.status].recipient : t.status[request.status].payer}
-        </p>
+        {/* While locked, the LOCKED - NOT PAID panel below says it; no second sentence here. */}
+        {!locked && (
+          <p className="text-sm text-[var(--text-secondary)]">
+            {presentation.audience === 'recipient' ? t.status[request.status].recipient : t.status[request.status].payer}
+          </p>
+        )}
         <dl>
           <DetailRow label={c.fields.amount} emphasis>
             {asset === null ? <Spinner /> : <Amount baseUnits={request.terms.amountBaseUnits} asset={asset} />}
@@ -360,25 +386,22 @@ function Body({
               {countdown.phase === 'open' ? fill(c.countdown, { time: formatCountdown(countdown.remainingMs) }) : c.countdownReached}
             </p>
           )}
-          <p className="text-xs text-[var(--text-muted)]">{t.protectedPay.countdownApproximate}</p>
-          <ul className="mt-1 flex list-disc flex-col gap-1 pl-5 text-sm text-[var(--text-secondary)]">
-            <li>{t.protectedPay.whoCanCancel}</li>
-            <li>{t.protectedPay.whoCanRelease}</li>
-            <li>{t.protectedPay.merchantCannot}</li>
-          </ul>
+          <p className="text-sm text-[var(--text-secondary)]">{c.rightsShort}</p>
         </section>
       )}
 
       {/* The recipient hands the open request to the payer: one link, one QR, ID only. */}
       {request.status === 'OPEN' && isRecipient && response.fundingEligibility !== 'EXPIRED' && share?.kind === 'ok' && (
-        <Card className="flex flex-col items-center gap-3" data-testid="protected-share">
-          <h2 className="self-start text-base font-semibold">{c.shareTitle}</h2>
-          <p className="self-start text-sm leading-relaxed text-[var(--text-secondary)]">{c.shareBody}</p>
-          <QrCode value={`${share.origin}/protected/${request.terms.id}`} label={c.shareQrLabel} />
-          <div className="w-full">
-            <ShareActions link={`${share.origin}/protected/${request.terms.id}`} />
-          </div>
-        </Card>
+        <div data-testid="protected-share">
+          <Card className="flex flex-col items-center gap-3">
+            <h2 className="self-start text-base font-semibold">{c.shareTitle}</h2>
+            <p className="self-start text-sm leading-relaxed text-[var(--text-secondary)]">{c.shareBody}</p>
+            <QrCode value={`${share.origin}/protected/${request.terms.id}`} label={c.shareQrLabel} />
+            <div className="w-full">
+              <ShareActions link={`${share.origin}/protected/${request.terms.id}`} />
+            </div>
+          </Card>
+        </div>
       )}
 
       {canFund && (
@@ -479,5 +502,61 @@ function Body({
       {request.status === 'CANCELLED_REFUNDED' && <InlineNotice copy={c.refunded} tone="neutral" />}
       {request.status === 'FINAL_PAID' && <InlineNotice copy={c.released} tone="neutral" />}
     </>
+  );
+}
+
+/**
+ * Receipt for a settled native Protected request. Everything on it comes from
+ * the escrow contract's final state; transaction links come from this device's
+ * own journal. A refund is labelled as a refund, never as a payment, and a
+ * release is "released", not "Verified Paid" (no independent Protected receipt
+ * verifier exists yet).
+ */
+function ProtectedReceipt({
+  request,
+  entries,
+  contractId,
+}: {
+  readonly request: Extract<PaymentView, { kind: 'ok' }>['request'];
+  readonly entries: ReadonlyArray<JournalEntry>;
+  readonly contractId: string;
+}) {
+  const t = useT();
+  const c = t.protectedFlow;
+  const r = t.experience.receipt;
+  const shortDate = useShortDateTime();
+  const share = useShareOrigin();
+  const refunded = request.status === 'CANCELLED_REFUNDED';
+  const op = request.latestOperation;
+  const methodLabel: Partial<Record<JournalMethod, string>> = {
+    create_request: c.newTitle,
+    fund_protected_native: c.lockAction,
+    cancel_protected: c.cancelAction,
+    release_protected: c.releaseAction,
+    retry_native_transfer: refunded ? c.retryRefundAction : c.retryReleaseAction,
+  };
+  const references: ReceiptReference[] = [
+    ...entries.flatMap((e) =>
+      e.transactionHash !== null && methodLabel[e.method] !== undefined
+        ? [{ label: methodLabel[e.method] as string, value: e.transactionHash, transaction: true }]
+        : [],
+    ),
+    { label: r.escrowContract, value: contractId },
+  ];
+  const link = share?.kind === 'ok' ? `${share.origin}/protected/${request.terms.id}` : null;
+  return (
+    <ReceiptTicket
+      status={refunded ? 'refunded' : 'released'}
+      mode="protected"
+      amountBaseUnits={request.terms.amountBaseUnits}
+      recipientAccountId={request.recipientAccountId}
+      payerAccountId={request.payerAccountId}
+      memo={request.terms.memo}
+      settledAtNs={op?.resolvedAtNs ?? null}
+      extraRows={request.fundedAtNs !== null ? [{ label: r.lockedAt, value: shortDate(request.fundedAtNs) }] : []}
+      references={references}
+      explorerBaseUrl={CHAIN_CONFIG.ok ? CHAIN_CONFIG.explorerBaseUrl : null}
+      actions={link !== null ? <ShareActions link={link} /> : undefined}
+    />
   );
 }

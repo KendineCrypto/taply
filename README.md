@@ -68,7 +68,8 @@ account with free test NEAR from the public faucet.
 | 3 | Tap **Request**, enter `0.05`, create it | Taply's **Confirm transaction** dialog, then the request page with a QR, a sale code and a **Live session** card |
 | 4 | Open the payment link in a second browser (or a private window) and create another wallet there | Both screens show each other **online** and the **same sale code**; the merchant sees "Reviewing the payment" |
 | 5 | Pay in NEAR — or pick **USDC** (or USDT, NST, LNC, PEM) under *Pay with* | Each step has its own confirmation. Both phones switch to **Payment recorded** from the chain; the merchant receives exactly the NEAR requested and the balance updates |
-| 6 | Open **[the 2026-11-01 pilot receipt](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su)** | The independent verifier re-checks the funding, transfer and callback receipts, code hash and access keys: **Verified Paid** |
+| 6 | Tap the centre **Tap** button → **New Protected request**, enter `0.05`, keep **60 seconds**, create it; open its link in the second browser, tick the box and **Lock payment in wallet** | Both screens say **LOCKED - NOT PAID** with a countdown. **Cancel and refund me** before it ends returns the amount to the payer; after it, **Release to recipient** pays the recipient |
+| 7 | Open **[the 2026-11-01 pilot receipt](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su)** | The independent verifier re-checks the funding, transfer and callback receipts, code hash and access keys: **Verified Paid** |
 
 Also worth a look: [taplyapp.xyz/demo](https://taplyapp.xyz/demo) (the whole
 journey with synthetic data, stamped **DEMO**) and **Settings → Türkçe** (the
@@ -87,7 +88,7 @@ transactions in a real browser.
 | **On-chain request per sale** | The merchant signs one immutable request (recipient, exact yoctoNEAR amount, expiry). The QR holds only its ID; the payer's phone reads the terms from the contract | [create + pay run](docs/evidence/production-taply-wallet-2026-11-09/create-request-result.json) |
 | **Pay with any supported asset** | The merchant always asks for NEAR. The payer may use NEAR, USDC, USDT, NST, LNC or PEM; the token is swapped to NEAR on Ref/Rhea Testnet first (curated pools, quote at a final block, 0.5 % buffer, 5 % price-impact cap) | [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json) · [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json) · [in browser](docs/evidence/production-taply-wallet-2026-11-09/result.json) |
 | **Live Handshake** | The merchant's QR opens a live two-phone session: online / reviewing / paying, disconnect and reconnect, same sale code, countdown to expiry. The QR is drawn once and never changes; any camera or Taply's own scanner opens it. A second phone with the same QR is refused. Payment status is never taken from the session | [production run](docs/evidence/production-live-handshake-2026-11-10/result.json) · [QR + scanner on production](docs/evidence/production-qr-stable-2026-11-10/result.json) |
-| **Protected Pay** | The payer locks the amount in an escrow contract instead of paying at once. Until the on-chain cutoff (1 minute to 1 hour, signed into the request) the payer can cancel and is refunded in full; after it, the amount is released to the recipient. Both screens say **LOCKED - NOT PAID** while it is locked; a refund is never shown as a payment | [two-wallet run](docs/evidence/protected-pay-taply-wallet-2026-11-11/result.json) |
+| **Protected Pay** | The payer locks the amount in an escrow contract instead of paying at once. Until the on-chain cutoff (1 minute to 1 hour, signed into the request) the payer can cancel and is refunded in full; after it, the amount is released to the recipient. Both screens say **LOCKED - NOT PAID** while it is locked; a refund is never shown as a payment | [production run](docs/evidence/production-protected-pay-2026-11-11/result.json) · [Android emulation](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json) |
 | **Honest states** | Ready → Payment observed → **Paid per contract** → **Verified Paid**. Wallet returns, server events and timers never mark anything paid | [state machine](docs/PAYMENT_STATE_MACHINE.md) |
 | **Independent receipt verifier** | Each phone checks the funding, transfer and callback receipts, the contract code hash and access keys. Falls back to a clearly labelled archived record if public RPCs are busy | [ledger](docs/EVIDENCE.md) |
 | **Live balance** | The Taply Wallet balance refreshes after every signature, every 20 s and when the app comes back to the foreground | [production run](docs/evidence/production-balance-2026-11-10/balance-refresh-result.json) |
@@ -269,8 +270,11 @@ The two candidates stay off on the public site until a human security review.
 - **Live Handshake is coordination only.** The sale code identifies the sale;
   it is not merchant authentication. Merchants are shown by account ID.
 - **History, contacts and templates are stored on the device**; there is no
-  indexer. The site sends `noindex` on purpose. Android has not been tested on
-  a physical device.
+  indexer. The site sends `noindex` on purpose. Android was checked on taplyapp.xyz with
+  Chromium's Pixel 7 emulation (Android Chrome user agent, viewport and touch:
+  [pay run](docs/evidence/production-android-emulation-2026-11-11/result.json),
+  [Protected Pay run](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json)),
+  not on a physical device.
 
 ## How it was built
 

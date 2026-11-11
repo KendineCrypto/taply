@@ -74,7 +74,7 @@ describe('ProtectedScreen gates', () => {
 describe('ProtectedScreen actions (QA build)', () => {
   it('LOCKED before the cutoff: payer cancels with exactly 1 yoctoNEAR', async () => {
     const { signed } = show(PROTECTED.locked, cutoff - 30_000_000_000n, 'bob.testnet');
-    expect(await screen.findByText('Testnet escrow, not audited')).toBeTruthy();
+    expect(await screen.findByText(/Testnet escrow, not audited/)).toBeTruthy();
     expect(await screen.findByText('About 0:30 left to cancel')).toBeTruthy();
     const cancel = await screen.findByRole('button', { name: /Cancel and refund me/ });
     await waitFor(() => expect(cancel).toHaveProperty('disabled', false));
@@ -118,7 +118,7 @@ describe('ProtectedScreen actions (QA build)', () => {
 
   it('OPEN: the payer must accept the exact window before locking the exact amount', async () => {
     const { signed } = show(PROTECTED.open, BigInt(PROTECTED.open.createdAtNs), 'bob.testnet');
-    expect(await screen.findByText(/You can cancel for 60 seconds starting when this payment funds on-chain/)).toBeTruthy();
+    expect(await screen.findByText(/You can cancel for 60 seconds after locking/)).toBeTruthy();
     const lock = await screen.findByRole('button', { name: /Lock payment in wallet/ });
     expect(lock).toHaveProperty('disabled', true);
     fireEvent.click(screen.getByRole('checkbox'));
@@ -223,13 +223,24 @@ describe('ProtectedScreen NEP-141 tokens', () => {
 describe('ProtectedScreen terminal states', () => {
   it('refunded says refunded and never paid', async () => {
     show(PROTECTED.refunded, BigInt(PROTECTED.refunded.latestOperation?.resolvedAtNs ?? '0') + 1n, 'bob.testnet');
-    expect(await screen.findByText('Refunded — not a payment')).toBeTruthy();
-    expect(screen.queryByText(/Paid per contract/)).toBeNull();
+    // A receipt that says refunded, names the payer as "Refunded to" and the recipient as not paid.
+    const receipt = await screen.findByRole('region', { name: 'Refunded' });
+    expect(receipt.closest('[data-receipt-status]')?.getAttribute('data-receipt-status')).toBe('refunded');
+    expect(screen.getByText('Not a payment: the amount went back to the payer')).toBeTruthy();
+    expect(screen.getByText('Refunded to')).toBeTruthy();
+    expect(screen.getByText('Recipient (not paid)')).toBeTruthy();
+    expect(screen.queryByText(/Paid per contract|Payment released|Verified Paid/)).toBeNull();
+    expect(screen.getByText('Protected Pay')).toBeTruthy();
   });
 
   it('released shows contract-reported payment without a Verified claim', async () => {
     show(PROTECTED.paid, BigInt(PROTECTED.paid.latestOperation?.resolvedAtNs ?? '0') + 1n, 'alice.testnet');
-    expect(await screen.findByText('Paid per contract (released)')).toBeTruthy();
-    expect(screen.queryByText(/Verified Paid/)).toBeNull();
+    const receipt = await screen.findByRole('region', { name: 'Payment released' });
+    expect(receipt.closest('[data-receipt-status]')?.getAttribute('data-receipt-status')).toBe('released');
+    expect(screen.getByText('Paid to')).toBeTruthy();
+    expect(screen.getByText('Locked (chain time)')).toBeTruthy();
+    expect(screen.queryByText(/Verified Paid|Refunded/)).toBeNull();
+    // No action is offered on a settled request.
+    expect(screen.queryByRole('button', { name: /Cancel and refund me|Release to recipient|Lock payment/ })).toBeNull();
   });
 });

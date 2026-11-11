@@ -26,7 +26,7 @@ import { ContactMatch, ContactPicker } from '@/components/contacts/ContactPicker
 import { FLAGS } from '@/lib/flags/features';
 import { useContactBook } from '@/lib/contacts/use-contacts';
 import { useWalletMode } from '@/components/wallet/taply/mode';
-import { ProtectedSetupNotice, windowLabel } from './ProtectedScreen';
+import { ProtectedSetupNotice, UnreviewedLine, windowLabel } from './ProtectedScreen';
 
 /**
  * `/protected/new`: the recipient signs one immutable Protected request with
@@ -140,7 +140,7 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[0.9375rem] leading-relaxed text-[var(--text-secondary)]">{c.intro}</p>
-      {gate !== null && gate.allowed && gate.unreviewed && <InlineNotice copy={c.unreviewed} />}
+      {gate !== null && gate.allowed && gate.unreviewed && <UnreviewedLine />}
       {check.status === 'checking' && <p className="px-1 text-xs text-[var(--text-muted)]">{c.contractChecking}</p>}
       {(check.status === 'unreachable' || (gate !== null && !gate.allowed)) && <InlineNotice copy={c.contractBlocked} tone="neutral" />}
       <Card className="flex flex-col gap-4">
@@ -164,9 +164,7 @@ function CreateLive({ setup, reader }: { readonly setup: Ready; readonly reader:
             autoComplete="off"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            aria-describedby={`${ids.amount}-hint`}
           />
-          <p id={`${ids.amount}-hint`} className="text-xs text-[var(--text-muted)]">{c.create.amountHint}</p>
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor={ids.window} className="text-sm font-medium">{c.create.windowLabel}</label>
