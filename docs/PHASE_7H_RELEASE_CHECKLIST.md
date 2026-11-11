@@ -1,5 +1,11 @@
 # Phase 7H release and submission checklist
 
+> **Archived status report.** This file records what was true on the date in its
+> title or sections and is kept unchanged as history. It is not the current status.
+> Current status (2026-11-11): payments are signed on taplyapp.xyz, the live two-phone
+> Handshake and Protected Pay (Testnet escrow, not audited) are on. Authoritative:
+> [README](../README.md) and [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md).
+
 > Historical planning checklist. Use the [current submission checklist](SUBMISSION_CHECKLIST.md); no earlier checked box grants current release approval.
 
 Prepared 2026-11-06 on `feature/phase7h-release` (local only). Every box below

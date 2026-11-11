@@ -12,8 +12,10 @@ import { resolveContractSetting } from '@/lib/near/config';
  *     UNREVIEWED_CANDIDATE, and only when this build explicitly says it is a
  *     protected QA build (`NEXT_PUBLIC_TAPLY_PROTECTED_QA=on`).
  *
- * Production sets none of these, so Protected Pay can only ever render its
- * "not enabled" explanation there.
+ * Since 2026-11-11 the production build sets all three in
+ * `apps/web/.env.production` (owner decision, NEAR Testnet only, escrow not
+ * audited). A hosting-dashboard `NEXT_PUBLIC_TAPLY_FLAG_PROTECTED_PAY=off`
+ * overrides that file and is the kill switch.
  */
 export const PILOT_CONTRACT_ID = 'taply-pay-pilot-1.testnet';
 

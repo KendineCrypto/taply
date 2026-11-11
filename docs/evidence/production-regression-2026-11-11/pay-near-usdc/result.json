@@ -1,0 +1,62 @@
+{
+  "kind": "TAPLY_WALLET_BROWSER_SIGNING_TESTNET_PROOF",
+  "network": "near-testnet",
+  "base": "https://taplyapp.xyz",
+  "note": "Real Chromium + Taply Wallet (in-app key, owner decision 2026-11-09, no independent security review). Merchant is a disposable automation account. Test USDC has no real value.",
+  "payerAccountId": "taply-pay-8cf9ef.testnet",
+  "merchantAccountId": "taply-merchant-2a36413e.testnet",
+  "nearPayment": {
+    "requestId": "1ed0dcfdd8b181bca1733fb7b0cdfda92c0a7bb5011694e03f8610780e9605b1",
+    "amountYocto": "200000000000000000000000",
+    "finalStatus": "FINAL_PAID",
+    "merchantDeltaYocto": "200000000000000000000000",
+    "payout": {
+      "nonce": "1",
+      "kind": "INSTANT_PAYOUT",
+      "destinationAccountId": "taply-merchant-2a36413e.testnet",
+      "amountBaseUnits": "200000000000000000000000",
+      "status": "SUCCEEDED",
+      "startedAtNs": "1794381952482059884",
+      "resolvedAtNs": "1794381953714056154",
+      "failureCode": null
+    }
+  },
+  "usdcPayment": {
+    "requestId": "8d95d88f387620f3c13a1079edf35d342561fb1a983f4b2259561b2a63fc2614",
+    "amountYocto": "250000000000000000000000",
+    "finalStatus": "FINAL_PAID",
+    "merchantDeltaYocto": "280610999463464400000000",
+    "payout": {
+      "nonce": "1",
+      "kind": "INSTANT_PAYOUT",
+      "destinationAccountId": "taply-merchant-2a36413e.testnet",
+      "amountBaseUnits": "250000000000000000000000",
+      "status": "SUCCEEDED",
+      "startedAtNs": "1794382048627250869",
+      "resolvedAtNs": "1794382049893569809",
+      "failureCode": null
+    }
+  },
+  "confirmations": [
+    {
+      "label": "pay-near",
+      "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Pay this request From taply-pay-8cf9ef.testnet To taply-pay-pilot-1.testnet Attached NEAR 0.2 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+    },
+    {
+      "label": "register-usdc",
+      "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Register this account for USDC From taply-pay-8cf9ef.testnet To usdc.itachicara.testnet Attached NEAR 0.00125 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+    },
+    {
+      "label": "buy-usdc",
+      "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Register this account for wNEAR Swap 0.27 NEAR → at least 0.5646 USDC From taply-pay-8cf9ef.testnet To wrap.testnet Attached NEAR 0.27125 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+    },
+    {
+      "label": "convert-usdc",
+      "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Swap 0.5312 USDC → at least 0.25 NEAR From taply-pay-8cf9ef.testnet To usdc.itachicara.testnet Attached NEAR 1 yoctoNEAR (required by the token standard) Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+    },
+    {
+      "label": "pay-after-convert",
+      "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Pay this request From taply-pay-8cf9ef.testnet To taply-pay-pilot-1.testnet Attached NEAR 0.25 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+    }
+  ]
+}

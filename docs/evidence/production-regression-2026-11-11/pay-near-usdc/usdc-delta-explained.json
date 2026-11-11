@@ -1,0 +1,38 @@
+{
+  "kind": "TAPLY_BALANCE_DELTA_EXPLANATION",
+  "network": "near-testnet",
+  "account": "taply-merchant-2a36413e.testnet",
+  "question": "result.json usdcPayment.merchantDeltaYocto is 0.280610999463464400 NEAR, not the requested 0.25 NEAR. Why?",
+  "method": "EXPERIMENTAL_changes account_changes for the merchant, block by block, on https://test.rpc.fastnear.com (2026-11-11).",
+  "changes": [
+    {
+      "block": 277184128,
+      "cause": "receipt_processing",
+      "id": "6w894nZkj93tE3xNo64VurEU8sSZyqpwiZebHq9fGvMA",
+      "amountYocto": "10193887875857569500000000",
+      "note": "state before creating the USDC request"
+    },
+    {
+      "block": 277184142,
+      "cause": "transaction_processing",
+      "id": "5ve8zeouGowsqLu7xDxcwCmSY2XCVjmajjTXBMkZxTmp",
+      "amountYocto": "10157094632716632000000000",
+      "note": "merchant signs create_request (deposit + prepaid gas reserved); the script read its 'before' balance here"
+    },
+    {
+      "block": 277184144,
+      "cause": "receipt_processing",
+      "id": "BvGdgwkDtNnsetE7EftDQpJGb7T2mhfregy1RcePmmBW",
+      "amountYocto": "10187705632180096400000000",
+      "note": "+0.030610999463464400: refund to the merchant from its own create_request transaction, two blocks later"
+    },
+    {
+      "block": 277184291,
+      "cause": "receipt_processing",
+      "id": "DFS6AfUXBTeodE5B8VypYgSHayD2rzZbTNRkE6PPFBou",
+      "amountYocto": "10437705632180096400000000",
+      "note": "+0.250000000000000000: the Instant Pay payout, exactly the requested amount"
+    }
+  ],
+  "conclusion": "The payout was exactly 0.25 NEAR (also recorded by the contract: latestOperation.amountBaseUnits). The extra 0.0306 NEAR in the script's delta is the merchant's own transaction refund that landed after the script took its 'before' reading. Not an overpayment."
+}

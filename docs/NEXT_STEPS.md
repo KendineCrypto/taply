@@ -1,5 +1,11 @@
 # Taply — Immediate Windows Execution Plan after protocol freeze
 
+> **Archived status report.** This file records what was true on the date in its
+> title or sections and is kept unchanged as history. It is not the current status.
+> Current status (2026-11-11): payments are signed on taplyapp.xyz, the live two-phone
+> Handshake and Protected Pay (Testnet escrow, not audited) are on. Authoritative:
+> [README](../README.md) and [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md).
+
 **Important:** `docs/LEAD_PROTOCOL_FREEZE_v1.md` is a lead reconciliation of both agent reports. It approves interface direction **only**, not security, handling production funds, or mainnet deployment.
 
 **Hackathon eligibility timing (corrected 2026-10-29):** Official [HACKATHON.md](../HACKATHON.md), Q-001, explicitly permits code written since the announcement on **19 Oct 2026**. The [official website](https://nearhackathon.com/) also says code written since the announcement counts. This supersedes this guide's former November 1 coding restriction; the lead has authorized Backend/Protocol Phase 0 now. **Submission**, separately, opens **1 Nov 2026 00:00 UTC** and closes **14 Nov 2026 23:59 UTC**. Testnet-only projects are eligible (Q-010). No publishing, pushing, submission, contract deployment or sensitive wallet enablement is authorized by this timing correction.

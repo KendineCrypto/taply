@@ -1,5 +1,11 @@
 # Phase 7H release-candidate report
 
+> **Archived status report.** This file records what was true on the date in its
+> title or sections and is kept unchanged as history. It is not the current status.
+> Current status (2026-11-11): payments are signed on taplyapp.xyz, the live two-phone
+> Handshake and Protected Pay (Testnet escrow, not audited) are on. Authoritative:
+> [README](../README.md) and [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md).
+
 > Historical Phase 7H report. Current status and blockers are in [Phase 7I release readiness](RELEASE_READINESS.md). Earlier readiness and next-step recommendations are not current release approval.
 
 2026-11-06. Frontend + release work on the operator's Windows machine.

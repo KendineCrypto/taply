@@ -6,9 +6,14 @@ needed or authorized. Frames live in
 [`apps/web/docs/screenshots/final/`](../apps/web/docs/screenshots/final/)
 (offline production build, 2026-11-06, every external request blocked).
 
-**Update 2026-11-09:** Taply is hosted at https://taplyapp.xyz (public, read-only
-Testnet, signing off). Record from the live site; the X post and form text are in
-[HACKATHON_SUBMISSION_PACKAGE.md](HACKATHON_SUBMISSION_PACKAGE.md).
+> **Superseded on 2026-11-11.** This shot list was written while taplyapp.xyz was a
+> read-only build (2026-11-06/09). Since then payments are signed on the live site
+> (Instant Pay, Taply Wallet, other-asset pay), the live two-phone Handshake is on and
+> Protected Pay is on (Testnet, escrow not audited). For what the video may claim use
+> "What is live today" and the "Video" section of
+> [HACKATHON_SUBMISSION_PACKAGE.md](HACKATHON_SUBMISSION_PACKAGE.md); the current
+> status of every feature is in [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md).
+> The DEMO walkthrough below still works and stays stamped DEMO.
 
 ## 1. Publication screenshot sequence
 
@@ -49,10 +54,11 @@ Setup (about 5 minutes, no wallet, no funds):
 | 24–34 | `progress`, then `receipt` | "Paid per contract and Verified Paid are different. Verified needs the funding, transfer and callback receipts." | DEMO badge on the receipt |
 | 34–46 | `/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502`, then its receipt | "This is a real 0.1 NEAR Testnet sale from 1 November, read from the contract right now." | Caption "Historical pilot payment, 1 Nov 2026". Show Verified Paid only if the live check succeeds. **Fallback:** show [the archived verifier JSON](evidence/instant-pay-2026-11-01-receipt.json) with caption "Archived verification, 1 Nov 2026" |
 | 46–53 | Cut to `en-fixture-unresolved-390.png` | "If the wallet result is unclear, even a 'declined', Taply blocks paying again until the chain explains it." | Caption "Synthetic UI state" |
-| 53–60 | README status section | "NEAR Testnet only. Live at taplyapp.xyz, open source on GitHub. Payment signing, Handshake and Protected Pay are switched off on the public site." | `https://taplyapp.xyz` and the repository URL |
+| 53–60 | README status section | "NEAR Testnet only. Live at taplyapp.xyz, open source on GitHub. Not audited." *(Was: "payment signing, Handshake and Protected Pay are switched off"; true on 2026-11-09, no longer true.)* | `https://taplyapp.xyz` and the repository URL |
 
-Never: stage a new payment, fake a network read, show a wallet seed or key,
-imply two live authenticated phones, or show Protected Pay as shipped.
+Never: fake a network read or a "paid" screen, show a wallet seed or key, call the
+sale code merchant authentication, or call the escrow contract audited. (A new real
+Testnet payment recorded on the live site is fine since 2026-11-11.)
 
 ### Screenshot fallback
 

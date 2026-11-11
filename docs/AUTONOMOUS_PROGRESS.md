@@ -75,6 +75,36 @@ refused, Verified on 2 providers); signing path unit/browser CI green. NOT verif
 browser-wallet (wallet selector) signature — run TESTNET_ACCEPTANCE_PLAN.md once after enabling.
 Rollback: set the variable back to `off` and redeploy (or Instant Rollback to the previous deployment).
 
+## 2026-11-11
+
+### Increment 17 — Release verification: production regression, escrow attacks, CI gaps, consistent docs
+
+Owner asked for a verification pass, not features. Source at start: `main` = `release/taplyapp` = `7c30061`;
+another session merged PR #27 at 07:10 UTC, so the final source is `ce5e9e9` (production serves its content:
+escrow contract ID + code hash and PR #27 copy found in the live JavaScript; a content match, not a SHA proof).
+
+- Escrow contract `taply-e2e-ce38a238.testnet`: code hash `963iSEB8…` matches the pinned value, 0 access keys,
+  `reviewStatus UNREVIEWED_NOT_FOR_REAL_FUNDS`. PR #27's production refund/release requests re-read from chain:
+  `CANCELLED_REFUNDED` (0.05 back to payer) and `FINAL_PAID` (0.05 to recipient).
+- New: 14 adversarial calls on the live escrow contract, all refused with the request unchanged (wrong amount ±1
+  yocto, wrong terms hash, other cancel window, instant-pay bypass, second funding by payer/stranger,
+  stranger/recipient cancel, early release by recipient/stranger, double cancel, release/fund after refund)
+  (`docs/evidence/protected-adversarial-2026-11-11/`).
+- Production regression on `ce5e9e9` (`docs/evidence/production-regression-2026-11-11/`): handshake (join, same
+  code, reviewing, disconnect/reconnect, third phone refused, `FINAL_PAID`); NEAR + USDC pay with exact payout
+  records (one USDC balance delta was +0.0306 high: the merchant's own create-request refund landed after the
+  script's reading, shown block by block); QR + scanner; **Verified Paid** live check on the receipt page, no
+  second payment after reload, direct second `pay_instant_native` refused `NOT_OPEN`.
+- CI: dispatched `instant-pay-sandbox`, `protected-pay-candidate`, `wallet-browser-check` on `ce5e9e9`: all
+  passed. Skips explained: 6 web + 2 API tests need `redis-server` (absent on the runner), 1 web test needs
+  `TAPLY_LIVE_RPC`. Locally with Redis: web 6/6, API 72/72; `near-client test:integration` 3/3. The live-RPC
+  test is BLOCKED (regular RPC lacks 1 Nov blocks; archival RPCs 429). `workspace-check` now installs
+  `redis-server` and also runs on `README.md` / `docs/**` changes.
+- Docs: contract READMEs said "not deployed"; RELEASE_DEMO said signing/Handshake/Protected off; dated reports
+  had no archival notice; README did not mention R-2. Fixed; new `docs/VERIFICATION_MATRIX.md`.
+- LICENSE: the brand sentence (also in NOTICE) made GitHub show "Other"; removed from LICENSE so it detects MIT.
+  Owner to confirm.
+
 ## 2026-11-10
 
 ### Increment 16 — Merchant QR no longer changes by itself; scanner reads live-session QRs

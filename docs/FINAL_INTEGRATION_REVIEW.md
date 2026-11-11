@@ -1,5 +1,11 @@
 # Final integration safety review — 2026-11-06
 
+> **Archived status report.** This file records what was true on the date in its
+> title or sections and is kept unchanged as history. It is not the current status.
+> Current status (2026-11-11): payments are signed on taplyapp.xyz, the live two-phone
+> Handshake and Protected Pay (Testnet escrow, not audited) are on. Authoritative:
+> [README](../README.md) and [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md).
+
 **Recommendation: NO-GO for an all-checks-passed publication recommendation, signing, merge or release.** The cumulative inventory and risk-based assessment cover all **704 inherited changed paths**. The confirmed HIGH signing-boundary defect F-01 is **fixed locally** (commits `9db43fb`, `24cf04a`, see F-01 below) and awaits independent review; F-02 to F-06 and the human gates remain open. This review is not an independent security audit or a claim that every line or image was manually inspected. No push or PR was performed.
 
 ## Exact scope and provenance
