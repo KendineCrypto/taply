@@ -1,0 +1,10 @@
+{
+ "accountId": "taply-srp-04775a.testnet",
+ "vaultVersion": 2,
+ "copiedMatches": true,
+ "onChainPermission": "FullAccess",
+ "importedSameKey": true,
+ "backupDownloads": 0,
+ "phraseInStorage": false,
+ "note": "Recovery phrase and public key removed from this file."
+}

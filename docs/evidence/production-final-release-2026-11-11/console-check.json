@@ -1,0 +1,188 @@
+[
+ {
+  "width": 390,
+  "path": "/",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/wallet",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/wallet/create",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/wallet/restore",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/request/new",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/scan",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/protected/new",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/merchant",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/activity",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/contacts",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/pay/bdd31b860f90e5b1d3dab5dec2bb0ab9b97526daf933d0a0baacae192874b1c2",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/receipt/bdd31b860f90e5b1d3dab5dec2bb0ab9b97526daf933d0a0baacae192874b1c2",
+  "status": 200,
+  "errors": [
+   "console: Access to fetch at 'https://archival-rpc.testnet.fastnear.com/' from origin 'https://taplyapp.xyz' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested ",
+   "console: Failed to load resource: net::ERR_FAILED",
+   "console: Access to fetch at 'https://archival-rpc.testnet.near.org/' from origin 'https://taplyapp.xyz' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Acc",
+   "console: Failed to load resource: net::ERR_FAILED"
+  ]
+ },
+ {
+  "width": 390,
+  "path": "/protected/6fb90cb523e0b97e65aca8d0b673090262b8475f3c03225dc7bb687891f9338f",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 390,
+  "path": "/this-page-does-not-exist",
+  "status": 404,
+  "errors": [
+   "console: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ },
+ {
+  "width": 1280,
+  "path": "/",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/wallet",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/wallet/create",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/wallet/restore",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/request/new",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/scan",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/protected/new",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/merchant",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/activity",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/contacts",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/pay/bdd31b860f90e5b1d3dab5dec2bb0ab9b97526daf933d0a0baacae192874b1c2",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/receipt/bdd31b860f90e5b1d3dab5dec2bb0ab9b97526daf933d0a0baacae192874b1c2",
+  "status": 200,
+  "errors": [
+   "console: Access to fetch at 'https://archival-rpc.testnet.fastnear.com/' from origin 'https://taplyapp.xyz' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested ",
+   "console: Failed to load resource: net::ERR_FAILED",
+   "console: Access to fetch at 'https://archival-rpc.testnet.near.org/' from origin 'https://taplyapp.xyz' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Acc",
+   "console: Failed to load resource: net::ERR_FAILED",
+   "console: Access to fetch at 'https://archival-rpc.testnet.fastnear.com/' from origin 'https://taplyapp.xyz' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested ",
+   "console: Failed to load resource: net::ERR_FAILED",
+   "console: Access to fetch at 'https://archival-rpc.testnet.near.org/' from origin 'https://taplyapp.xyz' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Acc",
+   "console: Failed to load resource: net::ERR_FAILED"
+  ]
+ },
+ {
+  "width": 1280,
+  "path": "/protected/6fb90cb523e0b97e65aca8d0b673090262b8475f3c03225dc7bb687891f9338f",
+  "status": 200,
+  "errors": []
+ },
+ {
+  "width": 1280,
+  "path": "/this-page-does-not-exist",
+  "status": 404,
+  "errors": [
+   "console: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ }
+]

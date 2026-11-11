@@ -1,0 +1,78 @@
+{
+  "kind": "TAPLY_LIVE_HANDSHAKE_TWO_BROWSER_TESTNET_PROOF",
+  "base": "https://taplyapp.xyz",
+  "requestId": "536d67f1da36806aa995fcdfe4a30dbf442372e94904c8f244b8c31e0a149d39",
+  "roomId": "jbd0X7wRQFHtyujNFsiJjw",
+  "merchantAccountId": "taply-shop-4178ce.testnet",
+  "customerAccountId": "taply-buyer-7e9a57.testnet",
+  "sameSaleCode": true,
+  "saleCode": "ADP PFW 12",
+  "joinSecretRemovedFromUrl": true,
+  "merchantSawJoined": true,
+  "thirdPhone": "ALREADY_JOINED",
+  "chainStatus": "FINAL_PAID",
+  "payout": {
+    "nonce": "1",
+    "kind": "INSTANT_PAYOUT",
+    "destinationAccountId": "taply-shop-4178ce.testnet",
+    "amountBaseUnits": "50000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1794401741237825608",
+    "resolvedAtNs": "1794401742350372010",
+    "failureCode": null
+  },
+  "steps": [
+    {
+      "atMs": 1794401647926,
+      "step": "merchant wallet taply-shop-4178ce.testnet"
+    },
+    {
+      "atMs": 1794401674115,
+      "step": "request created 536d67f1da36806aa995fcdfe4a30dbf442372e94904c8f244b8c31e0a149d39"
+    },
+    {
+      "atMs": 1794401678942,
+      "step": "merchant sees: \"Waiting for the customer to scan\""
+    },
+    {
+      "atMs": 1794401696928,
+      "step": "customer wallet taply-buyer-7e9a57.testnet"
+    },
+    {
+      "atMs": 1794401701653,
+      "step": "customer sees: \"Merchant Online\""
+    },
+    {
+      "atMs": 1794401701657,
+      "step": "merchant sees: \"Customer Reviewing the payment\""
+    },
+    {
+      "atMs": 1794401702831,
+      "step": "customer left the page"
+    },
+    {
+      "atMs": 1794401712432,
+      "step": "merchant sees: \"Disconnected · last seen 9 s ago\""
+    },
+    {
+      "atMs": 1794401717226,
+      "step": "merchant sees: \"Customer reconnected\""
+    },
+    {
+      "atMs": 1794401721595,
+      "step": "third phone refused: ALREADY_JOINED"
+    },
+    {
+      "atMs": 1794401733515,
+      "step": "customer confirmed the payment"
+    },
+    {
+      "atMs": 1794401744671,
+      "step": "chain: FINAL_PAID"
+    },
+    {
+      "atMs": 1794401753319,
+      "step": "both phones show \"Payment recorded\" (from the chain)"
+    }
+  ]
+}
