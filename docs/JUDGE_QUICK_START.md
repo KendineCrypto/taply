@@ -72,7 +72,7 @@ workflow.
   [Live Handshake](evidence/production-live-handshake-2026-11-10/).
 - Testnet only, not audited. Taply Wallet has not had an independent security
   review; it is on for Testnet by the owner's decision. Contract-bound merchant sessions are off; the Protected Pay escrow contract
-  is not audited. Android was checked with Chromium's Pixel 7 emulation, not on
-  a physical device.
+  is not audited. The owner tested by hand on a physical Samsung (Android) and
+  iPhone, with Taply Wallet and external wallets (owner report, 2026-11-11).
 - If an RPC answers `429` or times out, the app keeps the uncertain result and
   signs nothing. Retry later; never pay again to make a demo succeed.

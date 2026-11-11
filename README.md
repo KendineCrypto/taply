@@ -270,11 +270,13 @@ The two candidates stay off on the public site until a human security review.
 - **Live Handshake is coordination only.** The sale code identifies the sale;
   it is not merchant authentication. Merchants are shown by account ID.
 - **History, contacts and templates are stored on the device**; there is no
-  indexer. The site sends `noindex` on purpose. Android was checked on taplyapp.xyz with
-  Chromium's Pixel 7 emulation (Android Chrome user agent, viewport and touch:
-  [pay run](docs/evidence/production-android-emulation-2026-11-11/result.json),
-  [Protected Pay run](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json)),
-  not on a physical device.
+  indexer. The site sends `noindex` on purpose.
+- **Devices.** On 2026-11-11 the owner tested taplyapp.xyz by hand on a
+  physical Samsung (Android) and a physical iPhone, with Taply Wallet and with
+  external wallets, and reported no problems (owner report; no recording is
+  stored). Automated proof is from Chromium, including Pixel 7 emulation
+  ([pay run](docs/evidence/production-android-emulation-2026-11-11/result.json),
+  [Protected Pay run](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json)).
 
 ## How it was built
 

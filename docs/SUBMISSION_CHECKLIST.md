@@ -36,7 +36,7 @@ History: the 2026-11-06 version of this file is in Git.
 ## Open (disclose, do not hide)
 
 - [ ] Taply Wallet has no independent security review (on for Testnet by owner decision; disclosed in README).
-- [ ] The owner tested all flows by hand on 2026-11-10 (reported as passing); an external browser-wallet (Meteor) payment is not yet stored as evidence. Android untested on a physical device.
+- [x] The owner tested by hand on taplyapp.xyz on 2026-11-11 on a physical Samsung (Android) and iPhone, with Taply Wallet and external wallets, and reported no problems (owner report; no recording stored).
 - [ ] F-02 (`main` has no branch protection), F-03 (CI path coverage), F-06 (production auth for the `apps/api` room service) remain open. F-04 has no production impact (`pnpm audit --prod` clean). F-05 fixed.
 - [ ] Keep contract-bound merchant sessions, merchant sale signing and sponsored gas off. Protected Pay is on for Testnet since 2026-11-11 (owner decision; escrow contract not audited).
 
