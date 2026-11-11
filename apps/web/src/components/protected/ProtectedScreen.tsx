@@ -371,14 +371,16 @@ function Body({
 
       {/* The recipient hands the open request to the payer: one link, one QR, ID only. */}
       {request.status === 'OPEN' && isRecipient && response.fundingEligibility !== 'EXPIRED' && share?.kind === 'ok' && (
-        <Card className="flex flex-col items-center gap-3" data-testid="protected-share">
-          <h2 className="self-start text-base font-semibold">{c.shareTitle}</h2>
-          <p className="self-start text-sm leading-relaxed text-[var(--text-secondary)]">{c.shareBody}</p>
-          <QrCode value={`${share.origin}/protected/${request.terms.id}`} label={c.shareQrLabel} />
-          <div className="w-full">
-            <ShareActions link={`${share.origin}/protected/${request.terms.id}`} />
-          </div>
-        </Card>
+        <div data-testid="protected-share">
+          <Card className="flex flex-col items-center gap-3">
+            <h2 className="self-start text-base font-semibold">{c.shareTitle}</h2>
+            <p className="self-start text-sm leading-relaxed text-[var(--text-secondary)]">{c.shareBody}</p>
+            <QrCode value={`${share.origin}/protected/${request.terms.id}`} label={c.shareQrLabel} />
+            <div className="w-full">
+              <ShareActions link={`${share.origin}/protected/${request.terms.id}`} />
+            </div>
+          </Card>
+        </div>
       )}
 
       {canFund && (
