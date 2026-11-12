@@ -1,0 +1,47 @@
+{
+  "kind": "TAPLY_CASHIER_AUTO_VERIFY",
+  "network": "near-testnet",
+  "base": "https://taplyapp.xyz",
+  "contractId": "taply-pay-pilot-1.testnet",
+  "merchantAccountId": "taply-till-b0d2d1.testnet",
+  "payerAccountId": "taply-shopper-58bd23aa.testnet",
+  "requestId": "58261cb067f3f981abf8aaa4a650d65beb7ea2ade566d5007ce7eb107c6768a3",
+  "fundingTx": "8S16Ya7DvAHqEtfQ7VLpCgGypTkbofA4ESFPXjsZZ1TT",
+  "receiptOpenedByItself": true,
+  "receiptUrlHasHint": false,
+  "verifiedPaidShown": true,
+  "chainStatus": "FINAL_PAID",
+  "payout": {
+    "nonce": "1",
+    "kind": "INSTANT_PAYOUT",
+    "destinationAccountId": "taply-till-b0d2d1.testnet",
+    "amountBaseUnits": "10000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1794464501113578397",
+    "resolvedAtNs": "1794464502177739459",
+    "failureCode": null
+  },
+  "pageErrors": [],
+  "log": [
+    {
+      "atUtc": "2026-11-12T06:21:07.793Z",
+      "step": "merchant wallet taply-till-b0d2d1.testnet"
+    },
+    {
+      "atUtc": "2026-11-12T06:21:35.476Z",
+      "step": "request created in the app 58261cb067f3f981abf8aaa4a650d65beb7ea2ade566d5007ce7eb107c6768a3"
+    },
+    {
+      "atUtc": "2026-11-12T06:21:44.729Z",
+      "step": "customer taply-shopper-58bd23aa.testnet paid, tx 8S16Ya7DvAHqEtfQ7VLpCgGypTkbofA4ESFPXjsZZ1TT"
+    },
+    {
+      "atUtc": "2026-11-12T06:21:50.964Z",
+      "step": "cashier screen opened /receipt/58261cb067f3f981abf8aaa4a650d65beb7ea2ade566d5007ce7eb107c6768a3 by itself after 6 s"
+    },
+    {
+      "atUtc": "2026-11-12T06:22:05.000Z",
+      "step": "Verified Paid after 20 s"
+    }
+  ]
+}

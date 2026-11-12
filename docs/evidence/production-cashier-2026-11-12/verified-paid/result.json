@@ -1,0 +1,27 @@
+{
+  "kind": "TAPLY_PRODUCTION_VERIFIED_PAID_CHECK",
+  "network": "near-testnet",
+  "base": "https://taplyapp.xyz",
+  "atUtc": "2026-11-12T06:23:36.449Z",
+  "payerAccountId": "taply-verify-cceff7.testnet",
+  "merchantAccountId": "taply-merchant-833bf24a.testnet",
+  "requestId": "b34b7af96c802d48f2cff73b6f2e75464ec8fcb5f456d22cff7e10045ab0188e",
+  "finalStatus": "FINAL_PAID",
+  "merchantDeltaYocto": "50000000000000000000000",
+  "receiptPath": "/receipt/b34b7af96c802d48f2cff73b6f2e75464ec8fcb5f456d22cff7e10045ab0188e",
+  "receiptOpenedBy": "app",
+  "receiptHasFundingTx": true,
+  "verifiedPaidShown": true,
+  "archivedRecordShown": false,
+  "approveOfferedAfterReload": false,
+  "secondPayRefused": true,
+  "secondPayTx": "2axPktWNJSsSDvUGLcYwwhLwwV7KNYhF4rvDXpxdJGM5",
+  "secondPayFailure": "{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: NOT_OPEN\"}}}}",
+  "statusAfterSecondPay": "FINAL_PAID",
+  "confirmations": [
+    {
+      "label": "pay",
+      "text": "Confirm transaction Taply Wallet will sign this NEAR Testnet transaction with your key. Check every line. Action Pay this request From taply-verify-cceff7.testnet To taply-pay-pilot-1.testnet Attached NEAR 0.05 NEAR Network fee Paid from your NEAR (at most 0.06 NEAR reserved) Network NEAR Testnet This review expires in 60 seconds. Reject Confirm"
+    }
+  ]
+}
