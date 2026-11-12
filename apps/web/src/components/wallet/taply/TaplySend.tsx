@@ -52,8 +52,8 @@ export function TaplySend() {
     if (params.get('source') !== 'x-tip') return;
     const to = params.get('to');
     const value = params.get('amount');
-    if (to === null || !isNamedTestnetAccount(to)) return;
-    if (value === null || !/^(?:0|[1-9]\\d{0,5})(?:\\.\\d{1,24})?$/.test(value)) return;
+    if (to === null || (!isNamedTestnetAccount(to) && !/^[0-9a-f]{64}$/.test(to))) return;
+    if (value === null || !/^(?:0|[1-9]\d{0,5})(?:\.\d{1,24})?$/.test(value)) return;
     const [whole, decimal = ''] = value.split('.');
     if (BigInt(whole) * 10n ** 24n + BigInt((decimal + '0'.repeat(24)).slice(0, 24)) <= 0n) return;
     setReceiver(to);
