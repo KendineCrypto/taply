@@ -65,6 +65,20 @@ Taply fixes all three with public NEAR data: one immutable request per sale, a
 QR that carries only the request ID, and a receipt verifier that runs on both
 phones. We do not claim to have invented QR payments, payment links or escrow.
 
+## Check it in 2 minutes (no wallet needed)
+
+Open these links on any device. Each one reads NEAR Testnet live; nothing is signed.
+
+| | Open | You should see |
+| --- | --- | --- |
+| 1 | [Pilot receipt (2026-11-01)](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) | After about 10–20 s, **Verified Paid**: this browser re-checked the funding, transfer and callback receipts, code hash and keys. **Technical proof** lists them |
+| 2 | [Payment from 2026-11-12](https://taplyapp.xyz/receipt/d3a3b9233e334cbf7d8ebffdfce76ff2ea6bc2ac5f190d773e14edb8f6de6bbb?ftx=5bVG95dehWcr9VTinPiLHBMNWxmu9jdxxAEwG21MnSFc) | **Verified Paid**, 0.01 NEAR, on the same deployed contract |
+| 3 | [Protected Pay, refunded](https://taplyapp.xyz/protected/a7d901b4ae748c265ad3e28348439ecbd44c0993d10e7b2cd1aa832385ef6ceb) and [Protected Pay, released](https://taplyapp.xyz/protected/6fb90cb523e0b97e65aca8d0b673090262b8475f3c03225dc7bb687891f9338f) | **Refunded · Not a payment** (recipient marked *not paid*) versus **Payment released** |
+| 4 | [Escrow contract on NearBlocks](https://testnet.nearblocks.io/address/taply-e2e-ce38a238.testnet) | No access keys: nobody can change or drain it |
+| 5 | [taplyapp.xyz/demo](https://taplyapp.xyz/demo) | The whole journey with synthetic data, **DEMO** on every screen |
+
+Then do the real flow below with two browsers. More detail: [docs/JUDGE_QUICK_START.md](docs/JUDGE_QUICK_START.md).
+
 ## Try it in 5 minutes
 
 No wallet or funds of your own are needed: the app creates a NEAR Testnet
@@ -100,7 +114,7 @@ production browser) and what is *not* proven is in
 | **Pay with any supported asset** | The merchant always asks for NEAR. The payer may use NEAR, USDC, USDT, NST, LNC or PEM; the token is swapped to NEAR on Ref/Rhea Testnet first (curated pools, quote at a final block, 0.5 % buffer, 5 % price-impact cap) | [USDC](docs/evidence/testnet-e2e/2026-11-09T17-43-37-563Z-usdc-pay.json) · [USDT](docs/evidence/testnet-e2e/2026-11-09T18-19-47-447Z-usdt-pay.json) · [in browser](docs/evidence/production-taply-wallet-2026-11-09/result.json) |
 | **Live Handshake** | The merchant's QR opens a live two-phone session: online / reviewing / paying, disconnect and reconnect, same sale code, countdown to expiry. The QR is drawn once and never changes; any camera or Taply's own scanner opens it. A second phone with the same QR is refused. Payment status is never taken from the session | [production run](docs/evidence/production-live-handshake-2026-11-10/result.json) · [QR + scanner on production](docs/evidence/production-qr-stable-2026-11-10/result.json) |
 | **Protected Pay** | The payer locks the amount in an escrow contract instead of paying at once. Until the on-chain cutoff (1 minute to 1 hour, signed into the request) the payer can cancel and is refunded in full; after it, the amount is released to the recipient. Both screens say **LOCKED - NOT PAID** while it is locked; a refund is never shown as a payment | [production run](docs/evidence/production-protected-pay-2026-11-11/result.json) · [Android emulation](docs/evidence/production-protected-pay-2026-11-11/android-emulation/result.json) |
-| **Honest states** | Ready → Payment observed → **Paid per contract** → **Verified Paid**. Wallet returns, server events and timers never mark anything paid | [state machine](docs/PAYMENT_STATE_MACHINE.md) |
+| **Honest states** | Ready → **Payment recorded** (the contract says paid) → **Verified Paid** (this phone checked the receipts itself). Wallet returns, server events and timers never mark anything paid | [state machine](docs/PAYMENT_STATE_MACHINE.md) |
 | **Independent receipt verifier** | Each phone checks the funding, transfer and callback receipts, the contract code hash and access keys. Falls back to a clearly labelled archived record if public RPCs are busy | [ledger](docs/EVIDENCE.md) |
 | **Live balance** | The Taply Wallet balance refreshes after every signature, every 20 s and when the app comes back to the foreground | [production run](docs/evidence/production-balance-2026-11-10/balance-refresh-result.json) |
 | **Merchant tools** | Register and store QR (`/merchant`, `/checkout/<account>`), QR scanner, contacts (on device), Split Pay and Recurring templates (they pre-fill normal requests; nothing runs automatically) | live site |
@@ -203,8 +217,8 @@ cp apps/web/env/public-readonly.env.example apps/web/.env.local
 pnpm --filter @taply/web build && pnpm --filter @taply/web start   # http://localhost:3000
 ```
 
-Results on 2026-11-11 (final release): shared **93**, near-client **253**,
-web **1,211** passed and **1** skipped, API **72** passed
+Results on 2026-11-12: shared **93**, near-client **253**,
+web **1,216** passed and **1** skipped, API **72** passed
 (`node --test apps/api/test/*.test.mts`). Eight of those tests need a local
 `redis-server`; without one they are skipped (CI installs it). The skipped web
 test reads live Testnet and runs only with `TAPLY_LIVE_RPC=<archival RPC>`.
@@ -280,9 +294,12 @@ The two candidates stay off on the public site until a human security review.
 
 ## Limitations
 
-- **Known open risk R-2 (High):** if a payout or refund transfer succeeds but
-  its callback fails (for example out of gas), the request stays "in flight"
-  with no retry and no admin override. Nothing is paid twice, but funds can be
+- **Known open risk R-2 (High impact, no known user path):** if a payout or
+  refund transfer succeeds but its callback fails, the request stays "in flight"
+  with no retry and no admin override. We found no input that makes either
+  deployed callback fail: fixed 15 TGas against 2.1–2.3 TGas measured on real
+  receipts, no storage growth, liquidity checked before every transfer
+  ([reachability and design options](docs/R2_REACHABILITY.md)). Nothing is paid twice, but funds can be
   stuck. This applies to both contracts and is not fixed
   ([review](docs/SECURITY_REVIEW_2026-11-09.md)). The app never shows such a
   payment as paid or Verified Paid: tested with request views from a real
@@ -293,6 +310,11 @@ The two candidates stay off on the public site until a human security review.
   **not merged and not deployed**: under Taply's "paid only after confirmed
   delivery" rule, a contract cannot learn the outcome when the callback fails.
   Test NEAR only.
+- **Each sale costs the merchant a small permanent deposit.** Creating a request
+  locks about 0.00578 NEAR of storage, plus about 0.0003 NEAR of gas
+  ([measured](docs/evidence/testnet-e2e/2026-11-09T07-13-12-743Z-g1-instant.json)).
+  Requests are never deleted, so every receipt stays checkable. The deposit is
+  not returned.
 - **NEAR Testnet only, not audited.** Configured-RPC trust model (not a light
   client). The pilot contract keeps a full-access key; the verifier refuses a
   receipt if the contract's keys changed during the payment window.
@@ -325,8 +347,11 @@ The two candidates stay off on the public site until a human security review.
   contract, backend and shared packages. The human owner makes every product
   and release decision. Testnet runs use disposable faucet accounts; the
   owner's wallets were never used by an agent. Disclosed per HACKATHON.md Q-005.
-- **No template or earlier app.** The first commit is `db10264` (2026-10-29),
-  inside the eligible window.
+- **No template or earlier app.** The project scaffold `db10264` (2026-10-29)
+  is on the `feature/*` branches. `main` was assembled from separately grown
+  branches, so it has three root commits: `a085353` (2026-11-01), `4a76769`
+  (2026-11-02) and `b076359` (2026-11-05). All of them are inside the eligible
+  window, which starts on 2026-10-19 (Q-001).
 - **Main dependencies** (exact versions in `pnpm-lock.yaml` and
   `contracts/payments/Cargo.lock`): `next`, `react`, `@hot-labs/near-connect`,
   `jsqr`, `zod`, `near-api-js`, `lossless-json`, `jsonc-parser`,

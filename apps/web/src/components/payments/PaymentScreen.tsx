@@ -23,7 +23,7 @@ import { isBlocking } from '@/lib/payments/journal';
 import type { JournalEntry, JournalMethod } from '@/lib/payments/journal';
 import { mapChainState } from '@/lib/payments/map-chain-state';
 import type { MapInput } from '@/lib/payments/map-chain-state';
-import { claimFollowUp, ownFundingAttempt, receiptPath, sessionFollowUpStorage } from '@/lib/payments/follow-up';
+import { claimFollowUp, ownFundingAttempt, ownSaleCreation, receiptPath, sessionFollowUpStorage } from '@/lib/payments/follow-up';
 import { dateToNs, reconcile, submitCall } from '@/lib/payments/submit';
 import { canonicalPayUrl } from '@/lib/share/origin';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
@@ -121,8 +121,17 @@ function PaymentLive({ id }: { readonly id: string }) {
   const matchingReturn = walletReturnsPending > 0 && setup.status === 'ready' && setup.verifierRpc !== null;
   useEffect(() => {
     if (view?.kind !== 'ok') return;
-    const own = ownFundingAttempt(view.request, entries, Date.now());
-    if (own === null || (own.transactionHash === null && matchingReturn) || !claimFollowUp(sessionFollowUpStorage(), own)) return;
+    const now = Date.now();
+    const own = ownFundingAttempt(view.request, entries, now);
+    if (own !== null) {
+      if ((own.transactionHash === null && matchingReturn) || !claimFollowUp(sessionFollowUpStorage(), own)) return;
+      router.push(receiptPath(view.request, entries));
+      return;
+    }
+    // The cashier who created this sale on this device: open its receipt once,
+    // so the independent check starts without another tap.
+    const sale = ownSaleCreation(view.request, entries, now);
+    if (sale === null || !claimFollowUp(sessionFollowUpStorage(), sale)) return;
     router.push(receiptPath(view.request, entries));
   }, [view, entries, router, matchingReturn]);
 
