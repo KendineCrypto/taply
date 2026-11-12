@@ -1,9 +1,16 @@
-# Judge quick start (updated 2026-11-11)
+# Judge quick start (updated 2026-11-12)
 
 **Taply is live at [https://taplyapp.xyz](https://taplyapp.xyz) on NEAR
 Testnet with payments on.** You need no wallet and no funds of your own: the
 app can create a real `username.testnet` account with free test NEAR from the
 public faucet. Everything uses test tokens with no real value.
+
+## 0. Two minutes, no wallet
+
+The [README](../README.md#check-it-in-2-minutes-no-wallet-needed) lists five links
+you can open without signing: two **Verified Paid** receipts checked live in
+your browser, a refunded and a released Protected Pay request, the escrow
+contract with no access keys, and the synthetic demo.
 
 ## 1. Full flow in the browser (about 5 minutes)
 
@@ -17,7 +24,7 @@ use a second browser or a private window as the "customer".
 | 3 | Tap **Request**, enter `0.05`, **Continue**, **Create request in wallet** | The review shows amount, recipient, deadline and cost (storage deposit + network fee). Taply's **Confirm transaction** dialog shows exactly what will be signed. After Confirm: the request page with QR, sale code and a **Live session** card ("Waiting for the customer to scan"). |
 | 4 | **Copy link**, open it in the second browser, create a second wallet there | Both phones show **Live session**: merchant *Online*, customer *Reviewing the payment*, and the **same sale code**. The join secret disappears from the customer's URL. |
 | 5 | Close the customer tab, then reopen `taplyapp.xyz/s/<room>` | The merchant sees *Disconnected · last seen N s ago*, then *Customer reconnected*. A third browser opening the original link is refused ("already joined"). |
-| 6 | On the customer phone, tick the check box → **Approve in wallet** → **Confirm** | Both phones move to **Payment recorded**, read from the chain (never from the live session). The receipt runs the independent verifier; the merchant's Taply Wallet balance shows the extra 0.05 NEAR without a reload. |
+| 6 | On the customer phone, tick the check box → **Approve in wallet** → **Confirm** | Both phones move to **Payment recorded**, read from the chain (never from the live session). The payer's phone opens the receipt by itself; the merchant taps **Verify receipt**. On both, the independent verifier reaches **Verified Paid**; the merchant's Taply Wallet balance shows the extra 0.05 NEAR without a reload. |
 | 7 | Optional: on a new request, choose **USDC** (or USDT, NST, LNC, PEM) under *Pay with* | Enable → Get test USDC → Convert → Pay, each with its own confirmation. The merchant still receives exactly the NEAR requested. |
 | 8 | **Protected Pay:** tap the centre **Tap** button → **New Protected request**, enter `0.05`, keep **60 seconds**, create it; open its link in the second browser, tick the box and **Lock payment in wallet** | Both screens say **LOCKED - NOT PAID** with a countdown. Before it ends, **Cancel and refund me** returns the amount to the payer (`CANCELLED_REFUNDED`); after it, **Release to recipient** pays the recipient (`FINAL_PAID`). A refund is never shown as a payment. The escrow contract is not audited. |
 | 9 | Optional: Settings → **Türkçe** | The whole app in Turkish; the choice persists. |
@@ -29,7 +36,7 @@ Already have a NEAR Testnet wallet (Meteor, HERE, MyNearWallet…)? Choose
 
 | Open | Expect |
 | --- | --- |
-| [Pilot sale](https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502) | The first real payment (2026-11-01), read now from `taply-pay-pilot-1.testnet`: 0.1 NEAR to `taplytest.testnet`, sale code `KED 5E9`, **Paid per contract**. |
+| [Pilot sale](https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502) | The first real payment (2026-11-01), read now from `taply-pay-pilot-1.testnet`: 0.1 NEAR to `taplytest.testnet`, sale code `KED 5E9`, **Payment recorded · Awaiting verification** (the contract's word; the receipt below is the independent check). |
 | [Pilot receipt](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su) | The verifier re-checks funding, transfer and callback receipts, code hash and keys: **Verified Paid**. If a public RPC is busy it says so and shows the 2026-11-01 result as **"Archived record · not a live check"**, never as a fresh verification. |
 | [taplyapp.xyz/demo](https://taplyapp.xyz/demo) | The whole journey with synthetic data, **DEMO** on every screen. Nothing touches the chain. |
 
@@ -76,8 +83,11 @@ workflow.
   [Protected Pay](evidence/production-protected-pay-2026-11-11/) and the
   [2026-11-11 regression on the current build](evidence/production-regression-2026-11-11/)
   (including a live **Verified Paid** check).
-- Known open risk **R-2 (High)**: a transfer that succeeds while its callback
-  fails stays in flight with no retry ([review](SECURITY_REVIEW_2026-11-09.md)).
+- Known open risk **R-2 (High impact, no known user path)**: a transfer that
+  succeeds while its callback fails stays in flight with no retry. Nothing is
+  paid twice and the app never calls it paid. Reachability evidence and the
+  three design options: [R2_REACHABILITY.md](R2_REACHABILITY.md); the
+  [review](SECURITY_REVIEW_2026-11-09.md).
 - Testnet only, not audited. Taply Wallet has not had an independent security
   review; it is on for Testnet by the owner's decision. Contract-bound merchant sessions are off; the Protected Pay escrow contract
   is not audited. Android was checked with Chromium's Pixel 7 emulation, not on

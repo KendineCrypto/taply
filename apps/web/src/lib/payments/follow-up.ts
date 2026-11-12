@@ -54,6 +54,31 @@ export function ownFundingAttempt(
   return age >= 0 && age <= FOLLOW_UP_WINDOW_MS ? entry : null;
 }
 
+/**
+ * The cashier's side: THIS device created the sale (its journal holds the
+ * recipient's own `create_request`), recently enough to follow it to its
+ * receipt. The receipt then starts the independent verifier by itself (it
+ * finds the funding transaction from public chain data); it never shows
+ * Verified Paid on the strength of this navigation.
+ */
+export function ownSaleCreation(
+  request: ContractRequest,
+  entries: ReadonlyArray<JournalEntry>,
+  nowMs: number,
+): JournalEntry | null {
+  if (request.status !== 'FINAL_PAID') return null;
+  const entry = entries.find(
+    (e) =>
+      e.requestId === request.terms.id &&
+      e.method === 'create_request' &&
+      e.signerAccountId === request.terms.creatorAccountId &&
+      e.phase !== 'USER_REJECTED',
+  );
+  if (entry === undefined) return null;
+  const age = nowMs - Date.parse(entry.startedAt);
+  return age >= 0 && age <= FOLLOW_UP_WINDOW_MS ? entry : null;
+}
+
 function consumed(storage: FollowUpStorage): string[] {
   try {
     const value: unknown = JSON.parse(storage.getItem(CONSUMED_KEY) ?? '[]');

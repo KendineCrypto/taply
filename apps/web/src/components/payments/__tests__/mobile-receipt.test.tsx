@@ -168,6 +168,43 @@ describe('same-device mobile redirect → receipt → Verified Paid', () => {
   });
 });
 
+describe('the cashier who created the sale', () => {
+  const CREATOR = paidRestricted.terms.creatorAccountId;
+  async function ownSale() {
+    const storage = memoryStorage();
+    await new SubmissionJournal(storage, undefined, inProcessJournalLock()).begin({
+      method: 'create_request',
+      network: 'near-testnet',
+      contractId: paidRestricted.terms.contractId,
+      requestId: ID,
+      termsHash: paidRestricted.termsHash,
+      signerAccountId: CREATOR,
+      terms: paidRestricted.terms,
+      operationNonce: null,
+    });
+    return storage;
+  }
+
+  it('opens the receipt once when the sale is paid, without inventing a funding hint', async () => {
+    const { setup } = paidWorld();
+    const storage = await ownSale();
+    renderWithChain(<PaymentScreen id={ID} />, { setup, adapter: recordingWallet(CREATOR).adapter, storage });
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/receipt/${ID}`));
+    cleanup();
+    renderWithChain(<PaymentScreen id={ID} />, { setup, adapter: recordingWallet(CREATOR).adapter, storage });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it('a device that neither created nor paid the sale is not navigated', async () => {
+    const { setup } = paidWorld();
+    renderWithChain(<PaymentScreen id={ID} />, { setup, adapter: recordingWallet(null).adapter, storage: memoryStorage() });
+    expect(await screen.findByRole('link', { name: 'Check receipt' })).toBeTruthy();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(push).not.toHaveBeenCalled();
+  });
+});
+
 describe('missing transaction evidence stays honest', () => {
   it('the wallet returned nothing: receipt opens without a hint and says the wallet kept the reference', async () => {
     const { setup } = paidWorld();

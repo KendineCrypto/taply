@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURES, memoryStorage, must } from '@/test/chain';
 import { hashOf } from '@/lib/verify/__tests__/fake-chain';
-import { FOLLOW_UP_WINDOW_MS, claimFollowUp, ownFundingAttempt, receiptPath } from '../follow-up';
+import { FOLLOW_UP_WINDOW_MS, claimFollowUp, ownFundingAttempt, ownSaleCreation, receiptPath } from '../follow-up';
 import type { JournalEntry } from '../journal';
 
 /** Phase 6A: same-device receipt follow-up and reference propagation. */
@@ -68,6 +68,29 @@ describe('ownFundingAttempt', () => {
     expect(ownFundingAttempt(paidRestricted, [entry({ phase: 'USER_REJECTED' })], T0)).toBeNull();
     expect(ownFundingAttempt(paidRestricted, [entry({ signerAccountId: 'mallory.testnet' })], T0)).toBeNull();
     expect(ownFundingAttempt(openRestricted, [entry({ requestId: openRestricted.terms.id })], T0)).toBeNull();
+  });
+});
+
+describe('ownSaleCreation (the cashier who created the sale)', () => {
+  const CREATOR = paidRestricted.terms.creatorAccountId;
+  const created = (overrides: Partial<JournalEntry> = {}) =>
+    entry({ method: 'create_request', signerAccountId: CREATOR, transactionHash: hashOf('create'), ...overrides });
+
+  it('is this device’s recent create_request for a FINAL_PAID request', () => {
+    expect(ownSaleCreation(paidRestricted, [created()], T0 + 60_000)).not.toBeNull();
+  });
+
+  it('ignores old sales, declined prompts, other signers, other methods and unpaid requests', () => {
+    expect(ownSaleCreation(paidRestricted, [created()], T0 + FOLLOW_UP_WINDOW_MS + 1)).toBeNull();
+    expect(ownSaleCreation(paidRestricted, [created({ phase: 'USER_REJECTED' })], T0)).toBeNull();
+    expect(ownSaleCreation(paidRestricted, [created({ signerAccountId: 'mallory.testnet' })], T0)).toBeNull();
+    // The payer's own attempt is not a sale this device created.
+    expect(ownSaleCreation(paidRestricted, [entry()], T0)).toBeNull();
+    expect(ownSaleCreation(openRestricted, [created({ requestId: openRestricted.terms.id })], T0)).toBeNull();
+  });
+
+  it('its receipt path carries no invented hint (the receipt finds the funding transaction itself)', () => {
+    expect(receiptPath(paidRestricted, [created()])).toBe(`/receipt/${paidRestricted.terms.id}`);
   });
 });
 
