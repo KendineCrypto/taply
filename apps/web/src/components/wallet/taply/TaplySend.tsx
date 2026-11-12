@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Amount } from '@/components/primitives/Amount';
@@ -11,6 +11,7 @@ import { fill } from '@/lib/i18n';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { NEAR_NATIVE } from '@/lib/protocol';
+import { isNamedTestnetAccount } from '@taply/near-client';
 import { useTaplyWallet } from './TaplyWalletProvider';
 import type { SendOutcome, TaplyErrorCode } from './TaplyWalletProvider';
 import { TaplyErrorNotice } from './TaplyWalletUi';
@@ -40,6 +41,25 @@ export function TaplySend() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<TaplyErrorCode | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
+  const [fromXTip, setFromXTip] = useState(false);
+
+  // Optional handoff from Taply for X. Query strings are user-controlled and
+  // unverified: populate inputs only, NEVER prepare, sign or submit a transfer.
+  // The normal controller checks recipient, balances, gas, storage and wallet
+  // consent, and the user must still review and explicitly approve.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('source') !== 'x-tip') return;
+    const to = params.get('to');
+    const value = params.get('amount');
+    if (to === null || !isNamedTestnetAccount(to)) return;
+    if (value === null || !/^(?:0|[1-9]\\d{0,5})(?:\\.\\d{1,24})?$/.test(value)) return;
+    const [whole, decimal = ''] = value.split('.');
+    if (BigInt(whole) * 10n ** 24n + BigInt((decimal + '0'.repeat(24)).slice(0, 24)) <= 0n) return;
+    setReceiver(to);
+    setAmount(value);
+    setFromXTip(true);
+  }, []);
 
   if (state.status === 'checking') {
     return (
@@ -174,6 +194,10 @@ export function TaplySend() {
       }}
     >
       <InlineNotice copy={{ title: s.preview.title, body: n.send.signingOff }} tone="neutral" />
+      {fromXTip && <InlineNotice tone="caution" copy={{
+        title: 'Unverified X profile — check the recipient',
+        body: 'This address came from a locally saved X handle mapping. X identity is not verified. Check the full NEAR Testnet account and amount before reviewing or signing.',
+      }} />}
       <div className="flex flex-col gap-1.5">
         <label htmlFor={receiverId} className="text-sm font-medium">
           {s.recipientLabel}
