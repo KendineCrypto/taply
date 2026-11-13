@@ -59,8 +59,16 @@ jobs:
       - name: Measure production candidate artifact
         run: node contracts/payments-mainnet/scripts/measure-wasm.mjs
       - name: Real NEAR sandbox and adversarial router tests
+        # Build the independent receipt verifier before actual sandbox execution.
+        # Every existing Rust and wire gate remains required.
+        if: success()
         working-directory: contracts/payments-mainnet
-        run: bash scripts/sandbox.sh
+        run: |
+          npm install -g pnpm@11.5.0
+          pnpm --dir ../.. install --frozen-lockfile
+          pnpm --dir ../.. --filter @taply/shared run build
+          pnpm --dir ../.. --filter @taply/near-client run build
+          bash scripts/sandbox.sh
       - name: Frozen existing source
         run: node contracts/payments/scripts/check-isolation.mjs
       - name: Mainnet shared wire integration

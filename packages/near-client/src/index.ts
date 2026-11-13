@@ -74,3 +74,5 @@ export type { MainnetNativeReview, MainnetExternalSigner } from './mainnet-walle
 export * from './mainnet-reconciliation.js';
 export * from './mainnet-operation-policy.js';
 export * from './mainnet-wallet-v2.js';
+export * from './mainnet-settlement-receipts.js';
+export * from './mainnet-commerce-binding.js';

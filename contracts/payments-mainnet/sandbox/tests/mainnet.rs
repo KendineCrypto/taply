@@ -249,6 +249,26 @@ fn evidence(name: &str, r: &ExecutionFinalResult, state: Value) -> Result<()> {
     println!("MEASURE {name} gas_burnt={}", r.total_gas_burnt.as_gas());
     Ok(())
 }
+async fn independent_receipt(s: &Setup, t: &Value, r: &ExecutionFinalResult, name: &str) -> Result<()> {
+    s.w.fast_forward(5).await?;
+    let hash = r
+        .clone()
+        .into_result()?
+        .outcome()
+        .transaction_hash
+        .to_string();
+    let status = std::process::Command::new("node")
+        .arg("../../../packages/near-client/test/mainnet-sandbox-receipts.mjs")
+        .arg(s.w.rpc_addr())
+        .arg(s.c.id().as_str())
+        .arg(t["id"].as_str().unwrap())
+        .arg(hash)
+        .arg(s.payer.id().as_str())
+        .arg(format!("../artifacts/mainnet-sandbox/{name}-proof.json"))
+        .status()?;
+    anyhow::ensure!(status.success(), "independent receipt verification failed");
+    Ok(())
+}
 async fn recovery(
     s: &Setup,
     who: &Account,
@@ -281,6 +301,7 @@ async fn exact_direct_usdc_and_native_payouts_are_observed() -> Result<()> {
     assert_eq!(request(&s, &t).await?["status"], "FINAL_PAID");
     assert_eq!(balance(&s.token, s.merchant.id().as_str()).await?, AMOUNT);
     evidence("direct-usdc", &r, conserved(&s).await?)?;
+    independent_receipt(&s, &t, &r, "direct-usdc").await?;
     let t = terms(&s, 2, true).await?;
     create(&s, &t).await?;
     s.w.fast_forward(10).await?;
@@ -300,6 +321,7 @@ async fn exact_direct_usdc_and_native_payouts_are_observed() -> Result<()> {
         NATIVE
     );
     evidence("direct-native", &r, accounting(&s).await?)?;
+    independent_receipt(&s, &t, &r, "direct-native").await?;
     Ok(())
 }
 
