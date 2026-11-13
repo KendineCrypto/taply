@@ -8,7 +8,7 @@ const require=createRequire(realpathSync(resolve(root,'apps/web/node_modules/vit
 const {createServer}=await import(pathToFileURL(require.resolve('vite')).href);
 const {chromium}=await import(pathToFileURL(resolve(process.argv[2])).href);
 const output=resolve(process.argv[3]);mkdirSync(output,{recursive:true});
-const server=await createServer({root,configFile:false,server:{host:'127.0.0.1',port:0,fs:{allow:[root]}},logLevel:'error'});
+const server=await createServer({root,configFile:false,server:{host:'127.0.0.1',port:0,fs:{allow:[root]},watch:{ignored:['**/artifacts/**','**/.git/**']}},logLevel:'error'});
 server.middlewares.use('/attempt-test',(_req,res)=>{res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>Mainnet IndexedDB test</title>');});
 await server.listen();const url=`http://127.0.0.1:${server.httpServer.address().port}/attempt-test`;
 const userData=resolve(output,`profile-${Date.now()}`);
@@ -27,7 +27,8 @@ try{
   await a.evaluate(async()=>{const x=await window.journal.read('alice.near');await window.journal.transition(x,'HANDOFF');});
   assert.equal(await b.evaluate(async old=>{try{await window.journal.transition(old,'HANDOFF');return false;}catch{return true;}},attempt),true);
   checks.push('stale reservation cannot hand off twice');
-  const cdp=await context.newCDPSession(a);await cdp.send('Page.crash').catch(()=>{});
+  const cdp=await context.newCDPSession(a),crashed=a.waitForEvent('crash',{timeout:10000});
+  void cdp.send('Page.crash').catch(()=>{});await crashed;
   const survivor=await page();assert.equal((await survivor.evaluate(()=>window.journal.read('alice.near'))).state,'HANDOFF');
   checks.push('acknowledged handoff survives renderer crash');
   await context.close();context=await chromium.launchPersistentContext(userData,{headless:true});

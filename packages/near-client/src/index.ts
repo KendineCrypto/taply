@@ -69,3 +69,5 @@ export type { MainnetDirectReceipt } from './mainnet-direct-receipt.js';
 export * from './mainnet-escrow-client.js';
 export { verifyMainnetNativePayment, verifyMainnetGiftReceipt } from './mainnet-payout-receipt.js';
 export type { MainnetPayoutVerification } from './mainnet-payout-receipt.js';
+export { createMainnetNativeWalletBackend } from './mainnet-wallet-review.js';
+export type { MainnetNativeReview, MainnetExternalSigner } from './mainnet-wallet-review.js';

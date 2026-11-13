@@ -5,7 +5,7 @@ import {MainnetEscrowRequestSchema,calculateMainnetEscrowTermsHash} from '@taply
 import {MainnetEscrowConfigSchema,prepareMainnetFundProtectedNative,prepareMainnetCancelProtected,prepareMainnetReleaseProtected,
   prepareMainnetRetryProtectedTransfer,prepareMainnetProtectedTokenFunding,createMainnetWalletChain,
   MainnetGiftConfigSchema,prepareMainnetCreateGift,prepareMainnetGiftSettlement,signMainnetGiftClaim,
-  verifyMainnetDirectTransfer,MAINNET_GENESIS_HASH} from '../dist/index.js';
+  verifyMainnetDirectTransfer,MAINNET_GENESIS_HASH,createMainnetNativeWalletBackend} from '../dist/index.js';
 const dir=new URL('./fixtures/mainnet-protocol/',import.meta.url);
 const fixture=name=>JSON.parse(readFileSync(new URL(name+'.json',dir),'utf8'));
 const config=fixture('token-config');
@@ -78,6 +78,22 @@ test('activation proves exact FullAccess key and anchor; wrong network/key never
   assert.equal((await createMainnetWalletChain(profile,mock()).snapshot('alice.near',key)).network,'near-mainnet');
   for(const change of [{chain:'testnet'},{permission:{FunctionCall:{}}},{keyBlock:receiptHash}])
     await assert.rejects(createMainnetWalletChain(profile,mock(change)).snapshot('alice.near',key));
+});
+
+test('native confirmation review is exact and immutable; closed gate never prompts, reserves or signs',async()=>{
+  let signed=0,confirmed=0,written=0;
+  const store={read:async()=>null,compareAndSwap:async()=>{written++;throw new Error('must not reserve');}};
+  const adapter={network:'near-mainnet',accountId:'alice.near',publicKey:'ed25519:11111111111111111111111111111111',
+    signAndSendNativeTransfer:async()=>{signed++;throw new Error('must not sign');}};
+  const backend=createMainnetNativeWalletBackend({profile,store,signer:{kind:'external',adapter}},mock(),()=>1000);
+  const review=await backend.prepare('bob.near','0.1');
+  assert.equal(review.depositYocto,'100000000000000000000000');
+  assert.equal(review.nonce,'1');assert.equal(review.expiresAtMs,61000);assert.ok(Object.isFrozen(review));
+  await assert.rejects(backend.submit(review.id,async()=>{confirmed++;return true;}),/MAINNET_SIGNING_DISABLED/);
+  assert.deepEqual([signed,confirmed,written],[0,0,0]);
+  await assert.rejects(backend.prepare('bob.testnet','0.1'));
+  const unresolved=createMainnetNativeWalletBackend({profile,store:{...store,read:async()=>JSON.stringify({version:1,network:'near-mainnet',accountId:'alice.near',operationHash:'a'.repeat(64),attemptId:crypto.randomUUID(),state:'HANDOFF',transactionHash:null})},signer:{kind:'external',adapter}},mock());
+  await assert.rejects(unresolved.prepare('bob.near','0.1'),/OUTCOME_UNRESOLVED/);
 });
 test('personal Gift verifier rejects fake success, wrong action/amount, disconnected or duplicate receipts and wrong network',async()=>{
   const ref={txHash:hash,from:'alice.near',to:'bob.near',amountYocto:'1'};
