@@ -13,10 +13,10 @@ If any of these is still a placeholder, stop and ask me.
 | Staging contract account (keeps its key, deleted afterwards) | `devkendinecrypto.near` — owner supplied; must verify it is dedicated and disposable before any proposed account deletion |
 | Recovery account (my own named mainnet account, see 4.3) | `kendinecrypto.near` — owner supplied; personal account keys MUST be retained |
 | Per-request cap, USDC | `25000000` (25 USDC) unless I say otherwise |
-| Per-request cap, NEAR | **UNCONFIRMED** — owner must provide an explicit number in yoctoNEAR or choose a supported default before real-money work |
+| Per-request cap, NEAR | `1000000000000000000000000` yoctoNEAR (= **1 NEAR**) — owner confirmed 2026-11-13 |
 | 1Click API key | none (see 3) unless I give one |
 
-**Owner inputs confirmed on 2026-11-13:** hostname, separate production contract account, staging account, recovery account. Mainnet contract account registration, funding, signing, deployment, deletion of access keys, and real transfers remain blocked pending final numeric cap, security verification, and a separate explicit deployment GO. Never delete or modify access keys on `kendinecrypto.near`. Do not delete `devkendinecrypto.near` unless the owner independently confirms it is a disposable account with no other assets or purpose.
+**Owner inputs confirmed on 2026-11-13:** hostname, separate production contract account, staging account, recovery account, USDC 25-token limit and native NEAR 1-token limit. Mainnet contract account registration, funding, signing, deployment, deletion of access keys, and real transfers remain blocked pending security verification and a separate explicit deployment GO. Never delete or modify access keys on `kendinecrypto.near`. Do not delete `devkendinecrypto.near` unless the owner independently confirms it is a disposable account with no other assets or purpose.
 
 ## 1. Mission
 
