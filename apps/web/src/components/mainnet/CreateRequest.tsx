@@ -229,6 +229,7 @@ export function CreateRequest() {
             <Row label={c.create.amountLabel}>{parsed?.ok ? formatMainnetAmount(parsed.baseUnits, asset, locale) : '—'}</Row>
             {memo !== '' && <Row label={c.create.memoLabel}>{memo}</Row>}
             <Row label={c.pay.contract} mono>{contractId ?? '—'}</Row>
+            {terms !== null && <Row label={c.pay.requestId} mono><span data-testid="create-request-id">{terms.id}</span></Row>}
             <Row label={c.create.storageTitle}>
               {bond.kind === 'fixture'
                 ? fill(c.create.storageFixture, { amount: formatMainnetAmount(bond.depositYocto, MAINNET_ASSETS.NEAR, locale).replace(' NEAR', '') })

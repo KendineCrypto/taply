@@ -21,7 +21,10 @@ import { useLocalProduct } from '@/lib/mainnet/use-product';
 import { ActivityList } from './Activity';
 import { TaplyWalletHome, WalletCreate, WalletRestore, WalletSend } from './Wallet';
 import { ProtectedFixtures } from './Protected';
+import { MerchantCheckout, MerchantRegister } from './Merchant';
+import { ProtectedCreate, ProtectedRequestPage } from './ProtectedLive';
 import { GiftMainnet } from './GiftMainnet';
+import { PersonalGiftCompose, PersonalGiftOpen } from './GiftPages';
 import { requestPrefill } from '@/lib/mainnet/prefill';
 import { openCamera, stopStream } from '@/lib/qr/camera';
 import { createFrameDecoder, type FrameDecoder } from '@/lib/qr/decoder';
@@ -71,10 +74,11 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'contacts' && <Contacts />}
     {section === 'split' && <Split />}
     {section === 'recurring' && <DraftComposer kind="recurring" />}
-    {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <><GiftMainnet /><DraftComposer kind="gift" /></> : <Notice tone="caution">{c.blocked}</Notice>}</>}
+    {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <><PersonalGiftCompose /><GiftMainnet /><DraftComposer kind="gift" /></> : path === 'gift/p' ? <PersonalGiftOpen /> : <Notice tone="caution">{c.blocked}</Notice>}</>}
+    {(path === 'merchant/register' || path === 'merchant/setup') && <MerchantRegister />}
     {(section === 'activity' || section === 'merchant') && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><ActivityList removeLabel={c.remove} /><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
-    {section === 'checkout' && <Card><p className="break-all font-mono">{path.slice(9)}</p><p className="mt-2">{c.checkoutHelp}</p><Link href="/m/pay">{c.pay}</Link></Card>}
-    {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice><ProtectedFixtures /></>}
+    {section === 'checkout' && <MerchantCheckout account={path.slice(9)} />}
+    {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice>{/^protected\/[0-9a-f]{64}(\/receipt)?$/.test(path) ? <ProtectedRequestPage id={path.slice(10, 74)} /> : <><ProtectedCreate /><ProtectedFixtures /></>}</>}
     {(section === 's' || section === 'handshake') && <Notice tone="caution">{c.handshakeHelp}</Notice>}
     {section === 'receipt' && <><Notice tone="caution">{c.receiptHelp}</Notice><Link href={`/m/pay/${path.slice(8)}` as Route}>{c.open}</Link></>}
     {section === 'settings' && <><Card><p>{c.local}</p><p className="mt-2">{c.vaultHelp}</p><WalletPanel /></Card><PaymentNetworks /><ProductLinks /></>}

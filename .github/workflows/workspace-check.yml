@@ -127,12 +127,16 @@ jobs:
       # Phase 2 parity (docs/MAINNET_PARITY_MATRIX.md): Mainnet Live Handshake on a
       # REAL redis-server (via the repo's Upstash REST shim) across two browser
       # contexts, Solana/Tron origins, receipt, split prefill, Turkish, leak scan.
-      - name: Mainnet phase 2 browser checks (Handshake on real Redis, fixtures only)
+      - name: Mainnet phase 2-4 browser checks (Handshake on real Redis, fixtures + synthetic RPC only)
         working-directory: apps/web
         timeout-minutes: 10
         run: |
           set -a; . ./env/mainnet.env.example; set +a
           export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_SHARE_ORIGIN= NEXT_PUBLIC_TAPLY_CONTRACT_ID= NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES=on NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on
+          # Phase 4: SYNTHETIC Gift/escrow profiles (fixture accounts, answered only by the in-browser responder).
+          export NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID=gift.fixture.near NEXT_PUBLIC_TAPLY_GIFT_CODE_HASH=GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf \
+            NEXT_PUBLIC_TAPLY_GIFT_MIN_YOCTO=10000000000000000000000 NEXT_PUBLIC_TAPLY_GIFT_MAX_YOCTO=2000000000000000000000000 NEXT_PUBLIC_TAPLY_GIFT_FEE_YOCTO=10000000000000000000000 \
+            NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID=payments.fixture.near NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CODE_HASH=GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf
           KV_REST_API_URL=https://build-placeholder.invalid KV_REST_API_TOKEN=placeholder pnpm run build:mainnet
           redis-server --port 6390 --save '' --appendonly no --daemonize yes
           node scripts/redis-rest-shim.mjs 6390 8079 ci-local-token > "$RUNNER_TEMP/taply-redis-shim.log" 2>&1 &
@@ -148,6 +152,8 @@ jobs:
           node scripts/mainnet-parity-phase2-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase2" http://127.0.0.1:3120
           # Phase 3: wallet create/restore/activation/send review, Protected Pay, Gift (synthetic in-browser RPC).
           node scripts/mainnet-integration-phase3-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase3" http://127.0.0.1:3120
+          # Phase 4: Send USDC, Personal/Open Gift pages, Protected create+fund, merchant register/checkout, filtered activity.
+          node scripts/mainnet-phase4-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase4" http://127.0.0.1:3120
           test "$(redis-cli -p 6390 --scan | grep -vc '^taply:mainnet:')" = "0"
 
       - name: Preserve Mainnet browser evidence

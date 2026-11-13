@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/primitives/Button';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
 import { nsToDate } from '@/lib/format/time';
@@ -15,6 +15,8 @@ import type { MainnetRequest } from '@/lib/mainnet/fixtures';
 import { readerOrNull } from '@/lib/mainnet/hooks';
 import { derivePaymentView } from '@/lib/mainnet/status';
 import { useLocalProduct } from '@/lib/mainnet/use-product';
+import { useMainnetWallet } from '@/lib/mainnet/wallet';
+import { useMainnetVault } from './Wallet';
 import { Notice, Row, short } from './bits';
 
 /**
@@ -59,6 +61,11 @@ const activityEn = {
   readAt: 'Read at a final block',
   explorer: 'Contract on nearblocks',
   fixture: 'FIXTURE receipt — not on chain.',
+  filterLabel: 'Show',
+  filters: { all: 'All', received: 'Received', paid: 'Paid by me', open: 'Open' },
+  filterAccounts: 'Matched against',
+  noMatch: 'No saved requests match this filter.',
+  noAccount: 'Connect a wallet or unlock your Taply Wallet to filter by account.',
 };
 type ActivityCopy = typeof activityEn;
 const activityTr: ActivityCopy = {
@@ -91,6 +98,11 @@ const activityTr: ActivityCopy = {
   readAt: 'Kesinleşmiş blokta okundu',
   explorer: 'Sözleşme nearblocks\'ta',
   fixture: 'FİKSTÜR makbuzu — zincirde değil.',
+  filterLabel: 'Göster',
+  filters: { all: 'Tümü', received: 'Alınan', paid: 'Benim ödediklerim', open: 'Açık' },
+  filterAccounts: 'Eşleştirilen hesaplar',
+  noMatch: 'Bu filtreye uyan kayıtlı talep yok.',
+  noAccount: 'Hesaba göre filtrelemek için bir cüzdan bağlayın veya Taply Cüzdan\'ınızı açın.',
 };
 export const ACTIVITY_COPY = { en: activityEn, tr: activityTr };
 export function useActivityCopy(): ActivityCopy {
@@ -101,33 +113,57 @@ type Read = { kind: 'loading' } | { kind: 'error' } | { kind: 'missing' } | { ki
 
 /** One final-block read (or fixture), refreshed on demand. */
 export function useRequestOnce(id: string): Read {
-  const [read, setRead] = useState<Read>({ kind: 'loading' });
+  const [read, setRead] = useState<{ id: string; value: Read } | null>(null);
   useEffect(() => {
     let live = true;
-    const run = async () => {
-      if (MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures) {
-        const entry = fixtureById(id, Date.now());
-        if (live) setRead(entry === null ? { kind: 'missing' } : { kind: 'ok', request: entry.request, fixture: true, readAtMs: Date.now() });
-        return;
-      }
-      const reader = readerOrNull();
-      if (reader === null) {
-        if (live) setRead({ kind: 'error' });
-        return;
-      }
-      try {
-        const r = await reader.readRequest(id);
-        if (live) setRead(r.data === null ? { kind: 'missing' } : { kind: 'ok', request: r.data, fixture: false, readAtMs: Date.now() });
-      } catch {
-        if (live) setRead({ kind: 'error' });
-      }
-    };
-    void run();
+    void readOne(id).then((value) => { if (live) setRead({ id, value }); });
     return () => {
       live = false;
     };
   }, [id]);
-  return read;
+  return read?.id === id ? read.value : { kind: 'loading' };
+}
+
+async function readOne(id: string): Promise<Read> {
+  if (MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures) {
+    const entry = fixtureById(id, Date.now());
+    return entry === null ? { kind: 'missing' } : { kind: 'ok', request: entry.request, fixture: true, readAtMs: Date.now() };
+  }
+  const reader = readerOrNull();
+  if (reader === null) return { kind: 'error' };
+  try {
+    const r = await reader.readRequest(id);
+    return r.data === null ? { kind: 'missing' } : { kind: 'ok', request: r.data, fixture: false, readAtMs: Date.now() };
+  } catch {
+    return { kind: 'error' };
+  }
+}
+
+/** Reads every saved request so the list can be filtered by account relation. */
+function useRequestsOnce(ids: readonly string[]): ReadonlyMap<string, Read> {
+  const key = ids.join(',');
+  const [reads, setReads] = useState<{ key: string; map: ReadonlyMap<string, Read> }>({ key: '', map: new Map() });
+  useEffect(() => {
+    let live = true;
+    const list = key === '' ? [] : key.split(',');
+    void Promise.all(list.map(async (id) => [id, await readOne(id)] as const)).then((entries) => {
+      if (live) setReads({ key, map: new Map(entries) });
+    });
+    return () => { live = false; };
+  }, [key]);
+  return reads.key === key ? reads.map : new Map();
+}
+
+export type ActivityFilter = 'all' | 'received' | 'paid' | 'open';
+
+/** Pure: does a contract record match the filter for these accounts? Unread rows only show under "all". */
+export function matchesActivityFilter(read: Read | undefined, filter: ActivityFilter, accounts: ReadonlySet<string>): boolean {
+  if (filter === 'all') return true;
+  if (read === undefined || read.kind !== 'ok') return false;
+  const r = read.request;
+  if (filter === 'received') return accounts.has(r.recipientAccountId);
+  if (filter === 'paid') return r.payerAccountId !== null && accounts.has(r.payerAccountId);
+  return r.status === 'OPEN';
 }
 
 export function TrackRequestButton({ requestId }: { readonly requestId: string }) {
@@ -147,11 +183,10 @@ export function TrackRequestButton({ requestId }: { readonly requestId: string }
   );
 }
 
-function ActivityRow({ id, onRemove, removeLabel }: { id: string; onRemove: () => void; removeLabel: string }) {
+function ActivityRow({ id, read, onRemove, removeLabel }: { id: string; read: Read; onRemove: () => void; removeLabel: string }) {
   const c = useActivityCopy();
   const m = useMainnetCopy();
   const { locale } = useMainnetLocale();
-  const read = useRequestOnce(id);
   return (
     <li>
       <Card>
@@ -184,13 +219,37 @@ function ActivityRow({ id, onRemove, removeLabel }: { id: string; onRemove: () =
 export function ActivityList({ removeLabel }: { readonly removeLabel: string }) {
   const c = useActivityCopy();
   const local = useLocalProduct();
+  const { accountId } = useMainnetWallet();
+  const { identity } = useMainnetVault();
+  const [filter, setFilter] = useState<ActivityFilter>('all');
+  const accounts = useMemo(() => new Set([accountId, identity?.accountId].filter((a): a is string => typeof a === 'string' && a !== '')), [accountId, identity?.accountId]);
+  const ids = useMemo(() => [...local.data.requests].reverse(), [local.data.requests]);
+  const reads = useRequestsOnce(ids);
+  const shown = ids.filter((id) => matchesActivityFilter(reads.get(id), filter, accounts));
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[14px] text-[var(--text-secondary)]">{c.lead}</p>
       {local.ready && local.data.requests.length === 0 && <Notice tone="muted">{c.empty}</Notice>}
+      {ids.length > 0 && (
+        <fieldset className="flex flex-wrap gap-2" data-testid="activity-filter">
+          <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.filterLabel}</legend>
+          {(['all', 'received', 'paid', 'open'] as const).map((f) => (
+            <label key={f} className="flex min-h-[var(--tap-target)] cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 text-[14px] has-[:checked]:border-[var(--accent)]">
+              <input type="radio" name="activity-filter" value={f} checked={filter === f} onChange={() => setFilter(f)} />
+              {c.filters[f]}
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {(filter === 'received' || filter === 'paid') && (
+        accounts.size === 0
+          ? <Notice tone="muted" testId="activity-no-account">{c.noAccount}</Notice>
+          : <p className="break-all text-[12px] text-[var(--text-muted)]" data-testid="activity-accounts">{c.filterAccounts}: {[...accounts].join(', ')}</p>
+      )}
+      {ids.length > 0 && shown.length === 0 && filter !== 'all' && <Notice tone="muted" testId="activity-no-match">{c.noMatch}</Notice>}
       <ul className="flex flex-col gap-2" data-testid="activity-list">
-        {[...local.data.requests].reverse().map((id) => (
-          <ActivityRow key={id} id={id} removeLabel={removeLabel} onRemove={() => local.save({ ...local.data, requests: local.data.requests.filter((r) => r !== id) })} />
+        {shown.map((id) => (
+          <ActivityRow key={id} id={id} read={reads.get(id) ?? { kind: 'loading' }} removeLabel={removeLabel} onRemove={() => local.save({ ...local.data, requests: local.data.requests.filter((r) => r !== id) })} />
         ))}
       </ul>
     </div>
