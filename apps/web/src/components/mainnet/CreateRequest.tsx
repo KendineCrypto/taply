@@ -16,8 +16,11 @@ import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { CallPreview, Notice, Row } from './bits';
 import { readPrefill } from '@/lib/mainnet/prefill';
 import { WalletPanel } from './WalletPanel';
-import { OperationError, OperationReview, useOperation } from './Operation';
-import { bindSale, encodeSale, newCommerceSession, rememberSale } from '@/lib/mainnet/commerce';
+import { OperationError, OperationReview, useOperation, useSigner } from './Operation';
+import { bindSale, displayMemo, encodeSale, newCommerceSession, rememberSale } from '@/lib/mainnet/commerce';
+import { AuthorityError, createHttpMainnetAuthority } from '@/lib/mainnet/authority-client';
+import { authoritySignerFor, currentAuthority, signingProfiles } from '@/lib/mainnet/wallet-ops';
+import { canonicalJson } from '@taply/shared';
 import type { MainnetCommerceSession } from '@taply/near-client';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
@@ -60,6 +63,22 @@ export function buildTerms(input: {
 
 type CreateQuote = Parameters<typeof prepareMainnetCreateRequest>[0]['quote'];
 type Bond = ({ kind: 'fixture' | 'quoted' } & CreateQuote) | { kind: 'unknown' };
+
+type FreezeStatus = 'frozen' | 'gated' | 'unavailable' | 'mismatch';
+/** Ask the authority to freeze the sale; the returned commitment must equal the locally bound one. */
+async function freezeSale(signer: ReturnType<typeof useSigner>, session: MainnetCommerceSession, terms: MainnetIntentTerms): Promise<FreezeStatus> {
+  const profiles = signingProfiles();
+  if (profiles === null || signer.kind !== 'ok' || signer.accountId !== session.merchantAccountId) return 'unavailable';
+  // The draft is the bound terms with the commitment line removed (bindCommerce binds the draft itself).
+  const draft = { ...terms, memo: displayMemo(terms.memo) };
+  try {
+    const http = createHttpMainnetAuthority({ signer: authoritySignerFor(signer.signer, async () => window.confirm('Freeze this sale?')), profiles });
+    const out = await http.bindCommerce('instant', draft, session);
+    return canonicalJson(out.terms) === canonicalJson(terms) ? 'frozen' : 'mismatch';
+  } catch (e) {
+    return e instanceof AuthorityError && e.code === 'SIGNING_DISABLED' ? 'gated' : 'unavailable';
+  }
+}
 
 /** `commerce`: merchant register — each instance is one sale bound to a fresh commerce session (Codex binding). */
 export function CreateRequest({ commerce = false }: { readonly commerce?: boolean } = {}) {
@@ -114,6 +133,16 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
   useEffect(() => {
     if (bound?.sale && terms) { try { rememberSale(window.localStorage, terms.id, bound.sale); } catch { /* the sale link still works */ } }
   }, [bound, terms]);
+  // Authenticated mode: the authority freezes this session's exact terms (Codex bindCommerce); gated/unreachable → not frozen.
+  const freezer = useSigner();
+  const [frozen, setFrozen] = useState<{ id: string; status: FreezeStatus } | null>(null);
+  useEffect(() => {
+    if (!commerce || !bound?.sale || terms === null || currentAuthority().kind !== 'http') return;
+    let live = true;
+    const draftKey = terms.id;
+    void freezeSale(freezer, bound.sale.session, bound.terms).then((status) => { if (live) setFrozen({ id: draftKey, status }); });
+    return () => { live = false; };
+  }, [commerce, bound, terms, freezer]);
 
   // Storage bond: the contract's quote_create_request (real) or the labelled sandbox value (fixture).
   useEffect(() => {
@@ -265,6 +294,7 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
               <p className="text-[13px] font-semibold">{c.create.saleTitle}</p>
               <p className="text-[12px] text-[var(--text-secondary)]">{c.create.saleHelp}</p>
               <p data-testid="sale-link" className="break-all font-mono text-[11px]">{saleLink}</p>
+              {terms !== null && frozen?.id === terms.id && <p data-testid="sale-freeze" data-status={frozen.status} className="text-[12px] text-[var(--tone-caution-fg)]">{c.create.saleFreeze[frozen.status]}</p>}
             </div>
           )}
           {createCall !== null && <div className="mt-3"><CallPreview call={createCall} title={c.create.callTitle} /></div>}

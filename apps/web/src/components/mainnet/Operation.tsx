@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { MainnetOperation, MainnetWalletReview } from '@taply/near-client';
+import type { MainnetAuthorityCommand, MainnetOperation, MainnetWalletReview } from '@taply/near-client';
 import { MAINNET_USDC } from '@taply/shared';
 import { Button } from '@/components/primitives/Button';
 import { Card } from '@/components/primitives/Surface';
@@ -13,6 +13,8 @@ import {
   currentAuthority, deviceId, prepareOperation, signingProfiles, walletBackend,
 } from '@/lib/mainnet/wallet-ops';
 import type { AuthorityState, PreparedOperation, WalletSigner } from '@/lib/mainnet/wallet-ops';
+import { authoritySignerFor } from '@/lib/mainnet/wallet-ops';
+import { AuthorityError, createHttpMainnetAuthority } from '@/lib/mainnet/authority-client';
 import { useMainnetVault, vault } from './Wallet';
 import { Notice, Row } from './bits';
 import { DirectTransferCheck } from './Settlement';
@@ -32,6 +34,10 @@ const en = {
   authority: 'Payment authority',
   authorityUnavailable: 'Not available on this build. Taply cannot check this account\'s pending payments on other devices, so nothing can be reserved or sent.',
   authoritySimulated: 'SIMULATED — test harness in this browser only, not account-wide. Never for real funds.',
+  authorityHttp: 'Checked by the authenticated payment authority (isolated test configuration — not a production authority).',
+  authorityHttpGated: 'The payment authority answered, but your wallet cannot authorize it yet: wallet signing stays disabled until the release review. Nothing can be reserved or sent.',
+  authorityHttpUnavailable: 'The payment authority is not reachable or refused this device. Nothing can be reserved or sent.',
+  confirmCommand: (what: string): string => `Authorize this Taply payment-safety step with your wallet?\n\n${what}\n\nThis does not send money by itself.`,
   confirm: 'Confirm and send',
   gate: 'Sending real funds is disabled until the owner-approved release review and a reviewed payment authority. Nothing was signed.',
   pickSigner: 'Pay from', taplyWallet: 'Taply Wallet', external: 'Connected wallet',
@@ -40,6 +46,9 @@ const en = {
   ledgerTitle: 'Payment safety',
   ledgerUnavailable: 'Outcome checks across devices need the payment authority, which is not available on this build. Sending stays disabled.',
   ledgerSimulated: 'SIMULATED authority (this browser only).',
+  ledgerHttpGated: 'Reading this account\'s payment record needs a wallet authorization, which stays disabled until the release review. Sending stays disabled.',
+  ledgerHttpUnavailable: 'The payment authority is not reachable from this build or refused this device. Sending stays disabled.',
+  ledgerHttpOk: 'Payment record read from the authenticated authority (isolated test configuration).',
   pendingTitle: 'A payment from this account has an unknown outcome',
   pendingLead: 'New payments are blocked until its FINAL outcome is read from the chain. Do not pay again.',
   pendingState: 'Recorded state', states: { RESERVED: 'Reserved before signing', HANDOFF: 'Handed to the signer', UNCERTAIN: 'Outcome unknown' },
@@ -54,6 +63,7 @@ const en = {
   history: 'Executed on this account (permanent record)', none: 'No payment attempts recorded for this account.',
   errors: {
     OUTCOME_UNRESOLVED: 'A previous payment has an unknown outcome. Check it below. Do not pay again.',
+    AUTHORITY_POLICY_MISMATCH: 'The payment authority answered with a different account, key or contract policy than this app expects. Nothing was signed.',
     LEGACY_OUTCOME_UNRESOLVED: 'An older payment record on this device has an unknown outcome. It is not migrated automatically, so sending stays blocked.',
     JOURNAL_UNAVAILABLE: 'This browser\'s payment safety record is unavailable. Sending is blocked.',
     OTHER_DEVICE_READ_ONLY: 'Another device owns payments for this account. This device is read-only.',
@@ -91,6 +101,10 @@ const tr: Copy = {
   authority: 'Ödeme yetkilisi',
   authorityUnavailable: 'Bu sürümde yok. Taply bu hesabın diğer cihazlardaki bekleyen ödemelerini kontrol edemez; bu yüzden hiçbir şey ayrılamaz veya gönderilemez.',
   authoritySimulated: 'SİMÜLE — yalnızca bu tarayıcıda test düzeneği, hesap genelinde değil. Asla gerçek para için değil.',
+  authorityHttp: 'Kimliği doğrulanmış ödeme yetkilisi tarafından kontrol edildi (yalıtılmış test yapılandırması — üretim yetkilisi değil).',
+  authorityHttpGated: 'Ödeme yetkilisi yanıt verdi, ancak cüzdanınız henüz yetkilendiremez: sürüm incelemesine kadar cüzdan imzası kapalı. Hiçbir şey ayrılamaz veya gönderilemez.',
+  authorityHttpUnavailable: 'Ödeme yetkilisine ulaşılamıyor veya bu cihazı reddetti. Hiçbir şey ayrılamaz veya gönderilemez.',
+  confirmCommand: (what: string): string => `Bu Taply ödeme güvenliği adımını cüzdanınızla yetkilendirmek istiyor musunuz?\n\n${what}\n\nBu tek başına para göndermez.`,
   confirm: 'Onayla ve gönder',
   gate: 'Sahibin onaylayacağı sürüm incelemesine ve incelenmiş bir ödeme yetkilisine kadar gerçek para göndermek kapalı. Hiçbir şey imzalanmadı.',
   pickSigner: 'Ödeyen', taplyWallet: 'Taply Cüzdan', external: 'Bağlı cüzdan',
@@ -99,6 +113,9 @@ const tr: Copy = {
   ledgerTitle: 'Ödeme güvenliği',
   ledgerUnavailable: 'Cihazlar arası sonuç kontrolü ödeme yetkilisi gerektirir; bu sürümde yok. Gönderme kapalı kalır.',
   ledgerSimulated: 'SİMÜLE yetkili (yalnızca bu tarayıcı).',
+  ledgerHttpGated: 'Bu hesabın ödeme kaydını okumak cüzdan yetkilendirmesi gerektirir; sürüm incelemesine kadar kapalı. Gönderme kapalı kalır.',
+  ledgerHttpUnavailable: 'Ödeme yetkilisine bu sürümden ulaşılamıyor veya bu cihazı reddetti. Gönderme kapalı kalır.',
+  ledgerHttpOk: 'Ödeme kaydı kimliği doğrulanmış yetkiliden okundu (yalıtılmış test yapılandırması).',
   pendingTitle: 'Bu hesaptan bir ödemenin sonucu bilinmiyor',
   pendingLead: 'KESİN sonucu zincirden okunana kadar yeni ödemeler engellendi. Tekrar ödemeyin.',
   pendingState: 'Kaydedilen durum', states: { RESERVED: 'İmzadan önce ayrıldı', HANDOFF: 'İmzalayıcıya teslim edildi', UNCERTAIN: 'Sonuç bilinmiyor' },
@@ -113,6 +130,7 @@ const tr: Copy = {
   history: 'Bu hesapta yürütülenler (kalıcı kayıt)', none: 'Bu hesap için kayıtlı ödeme denemesi yok.',
   errors: {
     OUTCOME_UNRESOLVED: 'Önceki bir ödemenin sonucu bilinmiyor. Aşağıdan kontrol edin. Tekrar ödemeyin.',
+    AUTHORITY_POLICY_MISMATCH: 'Ödeme yetkilisi bu uygulamanın beklediğinden farklı bir hesap, anahtar veya sözleşme politikasıyla yanıt verdi. Hiçbir şey imzalanmadı.',
     LEGACY_OUTCOME_UNRESOLVED: 'Bu cihazdaki eski bir ödeme kaydının sonucu bilinmiyor. Otomatik taşınmaz; gönderme engelli kalır.',
     JOURNAL_UNAVAILABLE: 'Bu tarayıcının ödeme güvenlik kaydı kullanılamıyor. Gönderme engellendi.',
     OTHER_DEVICE_READ_ONLY: 'Bu hesabın ödemeleri başka bir cihaza ait. Bu cihaz salt okunur.',
@@ -184,6 +202,17 @@ function useEnv(): { authority: AuthorityState; device: string | null } {
   return env;
 }
 
+/** The wallet is asked to authorize an authority command only after the person sees exactly which step it is. */
+async function confirmCommand(command: MainnetAuthorityCommand): Promise<boolean> {
+  const c = document.documentElement.lang === 'tr' ? tr : en;
+  const what = command.method === 'reserve' ? `Reserve payment ${command.args[0].slice(0, 12)}… (blocks other payments until its outcome is known)`
+    : command.method === 'handoff' ? 'Record that the signed transaction is being handed to the network'
+    : command.method === 'uncertain' ? 'Record that the outcome is not known yet'
+    : command.method === 'bindCommerce' ? 'Freeze this sale\'s terms for this merchant session'
+    : command.method === 'reconcile' ? 'Check the FINAL outcome on chain' : 'Read this account\'s payment record';
+  return window.confirm(c.confirmCommand(what));
+}
+
 /** Prepare one operation through Codex's planner/backend. */
 export function useOperation() {
   const signer = useSigner();
@@ -200,7 +229,7 @@ export function useOperation() {
       if ((need === 'instant' && !profiles.instant) || (need === 'escrow' && !profiles.escrow) || (need === 'gift' && !profiles.gift)) throw new Error('CONTRACT_NOT_CONFIGURED');
       if (need === 'usdc' && !profiles.usdcCodeHash) throw new Error('TOKEN_CODE_PIN_REQUIRED');
       if (env.device === null) throw new Error('JOURNAL_UNAVAILABLE');
-      const prepared = await prepareOperation({ operation, signer: signer.signer, profiles, authority: env.authority, deviceId: env.device });
+      const prepared = await prepareOperation({ operation, signer: signer.signer, profiles, authority: env.authority, deviceId: env.device, confirm: confirmCommand });
       setState({ busy: false, error: '', prepared });
       return prepared;
     } catch (e) {
@@ -259,7 +288,7 @@ export function OperationReview({ prepared, title, children }: { readonly prepar
           <Row label={c.reserved}>{formatMainnetAmount((BigInt(r.gasReserveYocto) + BigInt(r.storageReserveYocto)).toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
           <Row label={c.opId} mono><span data-testid="op-hash">{r.operationHash}</span></Row>
           <Row label={c.network}>NEAR Mainnet</Row>
-          <Row label={c.authority}><span data-testid="op-authority" className="text-[var(--tone-caution-fg)]">{prepared.authority === 'simulated' ? c.authoritySimulated : c.authorityUnavailable}</span></Row>
+          <Row label={c.authority}><span data-testid="op-authority" className="text-[var(--tone-caution-fg)]">{prepared.authority === 'simulated' ? c.authoritySimulated : prepared.authority === 'http' ? c.authorityHttp : prepared.authority === 'http-gated' ? c.authorityHttpGated : prepared.authority === 'http-unavailable' ? c.authorityHttpUnavailable : c.authorityUnavailable}</span></Row>
         </dl>
         {a.kind === 'call' && (
           <details className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] p-3 text-[12px]">
@@ -300,6 +329,7 @@ export function LedgerPanel() {
   }, [key]);
   if (signer.kind !== 'ok') return null;
   if (env.authority.kind === 'unavailable') return <Notice tone="muted" testId="ledger-unavailable">{c.ledgerUnavailable}</Notice>;
+  if (env.authority.kind === 'http') return <HttpLedgerStatus signer={signer.signer} accountId={signer.accountId} />;
   const l = ledger?.key === key ? ledger.value : null;
   async function check() {
     if (backend === null) return;
@@ -354,5 +384,34 @@ export function LedgerPanel() {
         )}
       </div>
     </Card>
+  );
+}
+
+/** Authenticated authority mode: reading the record needs a wallet authorization (gated → fail closed). */
+function HttpLedgerStatus({ signer, accountId }: { readonly signer: WalletSigner; readonly accountId: string }) {
+  const c = useOperationCopy();
+  const [state, setState] = useState<{ key: string; value: 'checking' | 'gated' | 'unavailable' | 'policy' | 'ok' } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const profiles = signingProfiles();
+    const run = async () => {
+      if (profiles === null) return 'unavailable' as const;
+      try {
+        await createHttpMainnetAuthority({ signer: authoritySignerFor(signer, confirmCommand), profiles }).read(accountId);
+        return 'ok' as const;
+      } catch (e) {
+        if (e instanceof AuthorityError) return e.code === 'SIGNING_DISABLED' ? 'gated' as const : e.code === 'INVALID_AUTHORITY_CHALLENGE' || e.code === 'IDENTITY_MISMATCH' ? 'policy' as const : 'unavailable' as const;
+        return 'unavailable' as const;
+      }
+    };
+    void run().then((value) => { if (live) setState({ key: accountId, value }); });
+    return () => { live = false; };
+  }, [signer, accountId]);
+  const v = state?.key === accountId ? state.value : 'checking';
+  if (v === 'checking') return null;
+  return (
+    <Notice tone={v === 'ok' ? 'muted' : 'caution'} testId="ledger-http" >
+      <span data-state={v}>{v === 'gated' ? c.ledgerHttpGated : v === 'ok' ? c.ledgerHttpOk : v === 'policy' ? c.errors['AUTHORITY_POLICY_MISMATCH'] : c.ledgerHttpUnavailable}</span>
+    </Notice>
   );
 }

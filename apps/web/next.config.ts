@@ -70,7 +70,10 @@ const nextConfig: NextConfig = {
 export default function config(phase: string): NextConfig {
   // Mainnet only: the test-harness flag is always a build-time constant ('off' unless set),
   // so the simulated wallet authority is dead code and stripped from every other bundle.
-  if (process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet') (process.env as Record<string, string | undefined>)['NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION'] ??= 'off';
+  if (process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet') {
+    (process.env as Record<string, string | undefined>)['NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION'] ??= 'off';
+    (process.env as Record<string, string | undefined>)['NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY'] ??= 'off';
+  }
   if (phase === PHASE_PRODUCTION_BUILD && process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet') {
     const { checks } = evaluateMainnetEnv({ env: process.env, vercelEnv: process.env['VERCEL_ENV'], requireMainnet: true });
     const failed = checks.filter((c) => !c.ok);

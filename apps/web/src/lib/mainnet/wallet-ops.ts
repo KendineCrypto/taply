@@ -8,6 +8,7 @@ import {
 } from '@taply/near-client';
 import type {
   EncryptedMainnetVault,
+  MainnetAuthorityCommand,
   MainnetGlobalAttemptStore,
   MainnetNearConnectWallet,
   MainnetOperation,
@@ -15,6 +16,8 @@ import type {
   MainnetWalletReview,
 } from '@taply/near-client';
 import { MAINNET_CONFIG } from './config';
+import { AuthorityError, createHttpMainnetAuthority, nearConnectAuthoritySigner, vaultAuthoritySigner } from './authority-client';
+import type { AuthoritySigner } from './authority-client';
 import { ESCROW_PROFILE } from './escrow-profile';
 import { GIFT_PROFILE } from './gift-profile';
 
@@ -71,7 +74,9 @@ export function deviceId(storage: Pick<Storage, 'getItem' | 'setItem'>): string 
 
 export type AuthorityState =
   | { readonly kind: 'unavailable' }
-  | { readonly kind: 'simulated'; readonly store: MainnetGlobalAttemptStore };
+  | { readonly kind: 'simulated'; readonly store: MainnetGlobalAttemptStore }
+  /** Isolated test configurations only: Codex's authenticated authority over its unmounted HTTP adapter. */
+  | { readonly kind: 'http' };
 
 export const SIM_AUTHORITY_PREFIX = 'taply.mainnet.sim-authority.v2:';
 /** TEST ONLY. Single-browser localStorage CAS. Declared account-global for Codex's coordinator; it is not. */
@@ -87,8 +92,15 @@ export function simulatedAuthorityStore(storage: Pick<Storage, 'getItem' | 'setI
   };
 }
 
-export function resolveAuthority(flag: string | undefined, fixtures: boolean, storage: Pick<Storage, 'getItem' | 'setItem'> | null): AuthorityState {
-  if (flag === 'on' && fixtures && storage !== null) return { kind: 'simulated', store: simulatedAuthorityStore(storage) };
+/**
+ * `sim` = NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION, `http` = NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY.
+ * Both are test-configuration flags refused on Production. Setting both is ambiguous → unavailable.
+ */
+export function resolveAuthority(sim: string | undefined, fixtures: boolean, storage: Pick<Storage, 'getItem' | 'setItem'> | null, http?: string): AuthorityState {
+  const wantsSim = sim === 'on', wantsHttp = http === 'isolated-http';
+  if (wantsSim && wantsHttp) return { kind: 'unavailable' };
+  if (wantsHttp) return { kind: 'http' };
+  if (wantsSim && fixtures && storage !== null) return { kind: 'simulated', store: simulatedAuthorityStore(storage) };
   return { kind: 'unavailable' };
 }
 export function currentAuthority(): AuthorityState {
@@ -96,7 +108,17 @@ export function currentAuthority(): AuthorityState {
     process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION,
     MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures,
     typeof window === 'undefined' ? null : window.localStorage,
+    process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY,
   );
+}
+
+/** The authority signer for this wallet: Codex's fixed-purpose authorization only (gated). */
+export function authoritySignerFor(signer: WalletSigner, confirm: (command: MainnetAuthorityCommand) => Promise<boolean>): AuthoritySigner {
+  const id = signerIdentity(signer);
+  if (signer.kind === 'internal') return vaultAuthoritySigner(signer.vault, id, confirm);
+  const w = signer.wallet as MainnetNearConnectWallet & { signMessage?: (p: unknown) => Promise<{ accountId: string; publicKey: string; signature: string }> };
+  if (typeof w.signMessage !== 'function') throw new Error('EXTERNAL_KEY_UNKNOWN');
+  return nearConnectAuthoritySigner(w as never, id, confirm);
 }
 
 export type WalletSigner =
@@ -112,8 +134,11 @@ export function signerIdentity(signer: WalletSigner): { accountId: string; publi
 
 export interface PreparedOperation {
   readonly review: Readonly<MainnetWalletReview>;
-  /** 'reviewable' = exact review only, nothing can be reserved (no authority). */
-  readonly authority: 'unavailable' | 'simulated';
+  /**
+   * unavailable / http-gated / http-unavailable = exact review only, nothing can be reserved;
+   * simulated = test harness; http = reviewed through the authenticated authority.
+   */
+  readonly authority: 'unavailable' | 'simulated' | 'http' | 'http-gated' | 'http-unavailable';
 }
 
 /** Legacy v1 IndexedDB journal: never migrated. Any entry (or an unreadable journal) blocks new payments. */
@@ -133,6 +158,8 @@ export async function legacyAttemptBlocks(accountId: string): Promise<'none' | '
 export async function prepareOperation(input: {
   operation: MainnetOperation; signer: WalletSigner; profiles: MainnetSigningProfiles; authority: AuthorityState; deviceId: string;
   fetcher?: (url: string, init: RequestInit) => Promise<Response>;
+  /** Shown before the wallet authorizes an authority command. */
+  confirm?: (command: MainnetAuthorityCommand) => Promise<boolean>;
 }): Promise<PreparedOperation> {
   const fetcher = input.fetcher ?? ((u, i) => globalThis.fetch(u, i));
   const id = signerIdentity(input.signer);
@@ -142,6 +169,23 @@ export async function prepareOperation(input: {
   if (input.authority.kind === 'simulated') {
     const backend = createMainnetWalletBackend({ profiles: input.profiles, deviceId: input.deviceId, signer: input.signer, store: input.authority.store }, fetcher);
     return { review: await backend.prepare(input.operation), authority: 'simulated' };
+  }
+  let fallback: PreparedOperation['authority'] = 'unavailable';
+  if (input.authority.kind === 'http') {
+    // Codex's backend with the authenticated authority: the ledger read (pending, owner device,
+    // tombstones) needs a wallet authorization. Gate closed / endpoint absent → exact review only.
+    try {
+      const http = createHttpMainnetAuthority({ signer: authoritySignerFor(input.signer, input.confirm ?? (async () => false)), profiles: input.profiles, fetcher });
+      await http.checkChallenge({ method: 'read' });
+      const device = http.deviceId();
+      if (device === null) throw new AuthorityError('AUTHORITY_UNAVAILABLE');
+      const backend = createMainnetWalletBackend({ profiles: input.profiles, deviceId: device, signer: input.signer, authority: http }, fetcher);
+      return { review: await backend.prepare(input.operation), authority: 'http' };
+    } catch (e) {
+      if (!(e instanceof AuthorityError)) throw e;
+      if (e.code === 'INVALID_AUTHORITY_CHALLENGE' || e.code === 'IDENTITY_MISMATCH') throw new Error('AUTHORITY_POLICY_MISMATCH');
+      fallback = e.code === 'SIGNING_DISABLED' ? 'http-gated' : 'http-unavailable';
+    }
   }
   const snapshot = await createMainnetWalletChain(input.profiles.network, fetcher).snapshot(id.accountId, id.publicKey);
   if (snapshot === null) throw new Error('ACCOUNT_NOT_ACTIVATED');
@@ -153,7 +197,7 @@ export async function prepareOperation(input: {
     blockHash: snapshot.blockHash, blockHeight: snapshot.blockHeight,
     gasReserveYocto: plan.gasReserveYocto, storageReserveYocto: plan.storageReserveYocto, expiresAtMs: Date.now() + 60_000,
   });
-  return { review, authority: 'unavailable' };
+  return { review, authority: fallback };
 }
 
 /** Ledger read / FINAL reconciliation, only through Codex's backend and only with an authority. */

@@ -70,6 +70,7 @@ export const mainnetTr: MainnetCopy = {
     usdcRegCta: 'USDC\'ye kaydol (depolama yatırımı)',
     review: 'Talebi incele',
     reviewTitle: 'İnceleme',
+    saleFreeze: { frozen: 'Ödeme yetkilisi tarafından donduruldu: bu oturum asla başka koşullar taşıyamaz.', gated: 'Ödeme yetkilisi tarafından dondurulmadı: sürüm incelemesine kadar cüzdan yetkilendirmesi kapalı.', unavailable: 'Dondurulmadı: bu sürümden ödeme yetkilisine ulaşılamıyor.', mismatch: 'Ödeme yetkilisi farklı koşullar döndürdü. Bu satışı kullanmayın.' },
     saleTitle: 'Satış taahhüdü (yalnızca bu satış)',
     saleHelp: 'Bunu müşteriye gösterin. Bağlantısı satış taahhüdünü taşır; ödeme sayfası eşleşmeyen her talebi reddeder.',
     saleBindError: 'Bu satış bağlanamadı (not, satış taahhüdü için çok uzun olabilir). Notu kısaltın.',

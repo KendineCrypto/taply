@@ -70,6 +70,7 @@ export interface MainnetCopy {
     readonly review: string;
     readonly reviewTitle: string;
     readonly saleTitle: string;
+    readonly saleFreeze: { readonly frozen: string; readonly gated: string; readonly unavailable: string; readonly mismatch: string };
     readonly saleHelp: string;
     readonly saleBindError: string;
     readonly callTitle: string;
@@ -216,6 +217,7 @@ export const mainnetEn: MainnetCopy = {
     usdcRegCta: 'Register on USDC (storage deposit)',
     review: 'Review request',
     reviewTitle: 'Review',
+    saleFreeze: { frozen: 'Frozen by the payment authority: this session can never carry other terms.', gated: 'Not frozen by the payment authority: wallet authorization stays disabled until the release review.', unavailable: 'Not frozen: the payment authority is not reachable from this build.', mismatch: 'The payment authority returned different terms. Do not use this sale.' },
     saleTitle: 'Sale commitment (this sale only)',
     saleHelp: 'Show this to the customer. Its link carries the sale commitment; the pay page refuses any request that does not match it.',
     saleBindError: 'This sale could not be bound (the note may be too long for the sale commitment). Shorten the note.',

@@ -35,6 +35,7 @@ interface MainnetWalletValue {
 interface ExternalWallet {
   getAccounts(o: { network: 'mainnet' }): Promise<ReadonlyArray<{ accountId: string; publicKey?: string }>>;
   signAndSendTransaction(params: unknown): Promise<unknown>;
+  signMessage(params: unknown): Promise<unknown>;
 }
 
 const Ctx = createContext<MainnetWalletValue | null>(null);
@@ -70,7 +71,9 @@ export function MainnetWalletProvider({ children }: { readonly children: ReactNo
     walletRef.current = wallet ? {
       getAccounts: async () => (await wallet.getAccounts({ network: 'mainnet' })).map((a) => ({ accountId: a.accountId, ...(a.publicKey ? { publicKey: a.publicKey } : {}) })),
       signAndSendTransaction: (params) => wallet.signAndSendTransaction(params as never),
-    } : null;
+      // Only reachable through Codex's authorizeMainnetNearConnectCommand (exact payload checks; gated).
+      signMessage: (params: unknown) => wallet.signMessage(params) as Promise<{ accountId: string; publicKey: string; signature: string }>,
+    } as MainnetNearConnectWallet : null;
     const ok = acceptMainnetAccount(raw);
     if (ok === null) {
       setError(typeof raw === 'string' && raw.endsWith('.testnet') ? 'testnet_account' : 'failed');
