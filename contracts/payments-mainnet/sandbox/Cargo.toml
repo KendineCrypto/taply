@@ -3,6 +3,11 @@ name = "taply-payments-mainnet-sandbox"
 version = "0.5.0"
 edition = "2024"
 publish = false
+autotests = false
+
+[[test]]
+name = "mainnet"
+path = "tests/mainnet.rs"
 
 [dependencies]
 near-workspaces = "=0.24.0"
