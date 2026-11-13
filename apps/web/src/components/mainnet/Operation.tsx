@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MainnetAuthorityCommand, MainnetOperation, MainnetWalletReview } from '@taply/near-client';
 import { MAINNET_USDC } from '@taply/shared';
 import { Button } from '@/components/primitives/Button';
@@ -391,7 +391,11 @@ export function LedgerPanel() {
 function HttpLedgerStatus({ signer, accountId }: { readonly signer: WalletSigner; readonly accountId: string }) {
   const c = useOperationCopy();
   const [state, setState] = useState<{ key: string; value: 'checking' | 'gated' | 'unavailable' | 'policy' | 'ok' } | null>(null);
+  const signerRef = useRef(signer);
+  useEffect(() => { signerRef.current = signer; });
   useEffect(() => {
+    // Once per account: the signer object is rebuilt on every render, so it must not drive this effect.
+    const signer = signerRef.current;
     let live = true;
     const profiles = signingProfiles();
     const run = async () => {
@@ -406,7 +410,7 @@ function HttpLedgerStatus({ signer, accountId }: { readonly signer: WalletSigner
     };
     void run().then((value) => { if (live) setState({ key: accountId, value }); });
     return () => { live = false; };
-  }, [signer, accountId]);
+  }, [accountId]);
   const v = state?.key === accountId ? state.value : 'checking';
   if (v === 'checking') return null;
   return (

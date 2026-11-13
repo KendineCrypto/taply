@@ -93,6 +93,7 @@ export function simulatedAuthorityStore(storage: Pick<Storage, 'getItem' | 'setI
 }
 
 /**
+ * Pure form of currentAuthority() for tests (the app calls currentAuthority()).
  * `sim` = NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION, `http` = NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY.
  * Both are test-configuration flags refused on Production. Setting both is ambiguous → unavailable.
  */
@@ -103,13 +104,20 @@ export function resolveAuthority(sim: string | undefined, fixtures: boolean, sto
   if (wantsSim && fixtures && storage !== null) return { kind: 'simulated', store: simulatedAuthorityStore(storage) };
   return { kind: 'unavailable' };
 }
+/**
+ * Same decision as resolveAuthority, but every flag is compared as an inlined build-time constant
+ * BEFORE the simulated store is referenced, so normal and authenticated-mode bundles do not contain
+ * the test harness at all (CI greps every Mainnet bundle for it).
+ */
 export function currentAuthority(): AuthorityState {
-  return resolveAuthority(
-    process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION,
-    MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures,
-    typeof window === 'undefined' ? null : window.localStorage,
-    process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY,
-  );
+  if (process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY === 'isolated-http') {
+    return process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION === 'on' ? { kind: 'unavailable' } : { kind: 'http' };
+  }
+  if (process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION === 'on') {
+    const storage = typeof window === 'undefined' ? null : window.localStorage;
+    if (MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures && storage !== null) return { kind: 'simulated', store: simulatedAuthorityStore(storage) };
+  }
+  return { kind: 'unavailable' };
 }
 
 /** The authority signer for this wallet: Codex's fixed-purpose authorization only (gated). */

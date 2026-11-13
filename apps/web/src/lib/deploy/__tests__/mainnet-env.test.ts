@@ -178,6 +178,12 @@ describe('host and store isolation', () => {
 });
 
 describe('mainnet integration switches', () => {
+  it('the authenticated authority test mode is refused on Production, allowed on a staging Preview', () => {
+    expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY: 'isolated-http' }).failed).toEqual(['authenticated authority test mode off on Production']);
+    expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY: 'off' }).failed).toEqual([]);
+    expect(run({ ...PRODUCTION, VERCEL_ENV: 'preview', NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: undefined, NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY: 'isolated-http' }).failed).toEqual([]);
+  });
+
   it('the simulated wallet authority test harness is refused on Production', () => {
     expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION: 'on' }).failed).toEqual(['simulated wallet authority off on Production']);
     expect(run({ ...PRODUCTION, VERCEL_ENV: 'preview', NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: undefined, NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION: 'on' }).failed).toEqual([]);

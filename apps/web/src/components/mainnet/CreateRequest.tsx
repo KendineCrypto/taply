@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateMainnetRequestId, calculateMainnetTermsHash, MainnetIntentTermsSchema } from '@taply/shared';
 import type { MainnetIntentTerms } from '@taply/shared';
 import { prepareMainnetCreateRequest, prepareMainnetTokenStorageDeposit } from '@taply/near-client';
@@ -135,14 +135,21 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
   }, [bound, terms]);
   // Authenticated mode: the authority freezes this session's exact terms (Codex bindCommerce); gated/unreachable → not frozen.
   const freezer = useSigner();
+  const freezerRef = useRef(freezer);
+  useEffect(() => { freezerRef.current = freezer; });
+  const freezerKey = freezer.kind === 'ok' ? freezer.accountId : freezer.kind;
   const [frozen, setFrozen] = useState<{ id: string; status: FreezeStatus } | null>(null);
+  const saleKey = commerce && bound?.sale && terms !== null ? `${terms.id}|${bound.sale.termsHash}` : null;
   useEffect(() => {
-    if (!commerce || !bound?.sale || terms === null || currentAuthority().kind !== 'http') return;
+    // Once per bound sale (keyed by request id + terms hash) — never on every render.
+    if (saleKey === null || !bound?.sale || terms === null || currentAuthority().kind !== 'http') return;
     let live = true;
     const draftKey = terms.id;
-    void freezeSale(freezer, bound.sale.session, bound.terms).then((status) => { if (live) setFrozen({ id: draftKey, status }); });
+    void freezeSale(freezerRef.current, bound.sale.session, bound.terms).then((status) => { if (live) setFrozen({ id: draftKey, status }); });
     return () => { live = false; };
-  }, [commerce, bound, terms, freezer]);
+    // bound/terms are captured by saleKey; freezer identity changes every render, its account is in freezerKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saleKey, freezerKey]);
 
   // Storage bond: the contract's quote_create_request (real) or the labelled sandbox value (fixture).
   useEffect(() => {

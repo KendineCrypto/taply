@@ -187,6 +187,38 @@ jobs:
           node scripts/mainnet-phase5-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase5" http://127.0.0.1:3121
           test "$(redis-cli -p 6391 --scan | grep -vc '^taply:mainnet:')" = "0"
 
+      # Phase 6: the app's authority client against Codex's REAL authenticated authority (createMainnetAuthorityHttp +
+      # createAuthenticatedMainnetAuthority + fenced Redis persistence) on real Redis with an IN-MEMORY TEST witness.
+      - name: Mainnet authority integration (Codex HTTP authority, real Redis, test witness)
+        run: TAPLY_REQUIRE_REDIS=1 node --test apps/web/scripts/mainnet-authority-integration.test.mts
+
+      # Phase 6 real browser at the exact origin https://mainnet.taplyapp.xyz: challenge issued and validated, wallet
+      # refused at the closed gate, fail-closed paths, no authority endpoint on the app server, no simulated authority.
+      - name: Mainnet phase 6 browser checks (authenticated authority, isolated test configuration)
+        working-directory: apps/web
+        timeout-minutes: 10
+        run: |
+          set -a; . ./env/mainnet.env.example; set +a
+          export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_SHARE_ORIGIN= NEXT_PUBLIC_TAPLY_CONTRACT_ID= NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES=on NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on
+          export NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID=gift.fixture.near NEXT_PUBLIC_TAPLY_GIFT_CODE_HASH=GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf \
+            NEXT_PUBLIC_TAPLY_GIFT_MIN_YOCTO=10000000000000000000000 NEXT_PUBLIC_TAPLY_GIFT_MAX_YOCTO=2000000000000000000000000 NEXT_PUBLIC_TAPLY_GIFT_FEE_YOCTO=10000000000000000000000 \
+            NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID=payments.fixture.near NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CODE_HASH=GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf \
+            NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH=GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY=isolated-http
+          KV_REST_API_URL=https://build-placeholder.invalid KV_REST_API_TOKEN=placeholder pnpm run build:mainnet
+          if grep -rl 'taply.mainnet.sim-authority' .next/static; then
+            echo "Simulated wallet authority found in the authenticated-authority bundle"; exit 1
+          fi
+          redis-server --port 6392 --save '' --appendonly no --daemonize yes
+          TAPLY_ONECLICK_MODE=fixture pnpm exec next start -p 3122 --hostname 127.0.0.1 > "$RUNNER_TEMP/taply-browser-server-phase6.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"; redis-cli -p 6392 shutdown nosave || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3122/m > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/mainnet-phase6-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase6" http://127.0.0.1:3122 6392
+          test "$(redis-cli -p 6392 -n 2 --scan | grep -vc '^taply:mainnet:authority:')" = "0"
+
       - name: Preserve Mainnet browser evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -199,3 +231,4 @@ jobs:
             ${{ runner.temp }}/taply-browser-server.log
             ${{ runner.temp }}/taply-browser-server-phase2.log
             ${{ runner.temp }}/taply-browser-server-phase5.log
+            ${{ runner.temp }}/taply-browser-server-phase6.log

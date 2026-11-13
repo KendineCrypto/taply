@@ -129,8 +129,10 @@ async function send(res: ServerResponse, out: Response) {
  * Routing: challenge → by publicKey; execute → by the challenge id it answers. That routing is HARNESS
  * glue; a multi-account production deployment needs a reviewed account router (open requirement).
  */
-export async function startAuthorityHarness(input: { port: number; redisPort: number; profiles?: MainnetSigningProfiles; chain?: ReturnType<typeof syntheticChain> }) {
+export async function startAuthorityHarness(input: { port: number; redisPort: number; redisDb?: number; profiles?: MainnetSigningProfiles; chain?: ReturnType<typeof syntheticChain> }) {
   const redis = resp(input.redisPort);
+  // Each harness owns one Redis logical database (two harnesses must never share an authority record).
+  if (input.redisDb !== undefined) await redis.command(['SELECT', String(input.redisDb)]);
   const witness = testWitness();
   const chain = input.chain ?? syntheticChain();
   const profiles = input.profiles ?? harnessProfiles();
@@ -180,6 +182,7 @@ export async function startAuthorityHarness(input: { port: number; redisPort: nu
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.argv[2] ?? 8790), redisPort = Number(process.argv[3] ?? 6390);
-  await startAuthorityHarness({ port, redisPort });
+  const profiles = process.env['TAPLY_HARNESS_PROFILES'] ? JSON.parse(process.env['TAPLY_HARNESS_PROFILES']) as MainnetSigningProfiles : undefined;
+  await startAuthorityHarness({ port, redisPort, ...(profiles ? { profiles } : {}) });
   console.log(`authority harness (TEST ONLY) on http://127.0.0.1:${port} (redis ${redisPort})`);
 }
