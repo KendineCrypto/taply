@@ -11,6 +11,7 @@ import type { OneClickMode } from './service';
 import { memoryQuoteStore, redisQuoteStore } from './store';
 import type { QuoteStore } from './store';
 import { MANAGER_PUBLIC_KEY } from './verify';
+import { limiterFromEnv } from './rate-limit';
 
 /**
  * Composition root for the 1Click service from server-only env:
@@ -43,6 +44,7 @@ export function serviceFromEnv(env: Readonly<Record<string, string | undefined>>
       store: fixtureStore,
       managerPublicKey: fixtureSigner.publicKey,
       now: Date.now,
+      rateLimit: id => limiterFromEnv(env)([{ key: `request:${id}`, limit: 30 }]),
       fixtureHint: (id) => fixtureById(id, Date.now())?.scenario.oneClick ?? null,
     });
   }
@@ -54,5 +56,6 @@ export function serviceFromEnv(env: Readonly<Record<string, string | undefined>>
     store: redis === null ? null : redisQuoteStore(redis),
     managerPublicKey: MANAGER_PUBLIC_KEY,
     now: Date.now,
+    rateLimit: id => limiterFromEnv(env)([{ key: `request:${id}`, limit: 30 }]),
   });
 }

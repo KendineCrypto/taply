@@ -13,6 +13,7 @@ import { OneClickHttpError } from './client';
 import type { OneClickClient, OneClickErrorCode } from './client';
 import { buildQuoteRequest } from './quote-request';
 import type { QuoteRecord, QuoteStore } from './store';
+import { MAX_ATTEMPTS } from './store';
 import { EXPIRY_MARGIN_MS, verifyQuoteResponse } from './verify';
 import type { QuoteRejection } from './verify';
 
@@ -40,6 +41,8 @@ export type ServiceError =
   | 'FUNDED_QUOTES_NOT_APPROVED'
   | 'CONTRACT_NOT_CONFIGURED'
   | 'STORE_UNAVAILABLE'
+  | 'ATTEMPT_UNCERTAIN'
+  | 'RATE_LIMITED'
   | 'INVALID_INPUT'
   | 'ORIGIN_NOT_ALLOWED'
   | 'REFUND_ADDRESS_INVALID'
@@ -69,6 +72,8 @@ export const HTTP_STATUS: Readonly<Record<string, number>> = {
   FUNDED_QUOTES_NOT_APPROVED: 503,
   CONTRACT_NOT_CONFIGURED: 503,
   STORE_UNAVAILABLE: 503,
+  ATTEMPT_UNCERTAIN: 409,
+  RATE_LIMITED: 429,
   INVALID_INPUT: 400,
   ORIGIN_NOT_ALLOWED: 400,
   REFUND_ADDRESS_INVALID: 400,
@@ -129,11 +134,9 @@ export interface PublicStatus {
 export const LIMITS = Object.freeze({
   /** 0.50 USDC: 1Click refused 0.10 USDC from Base (brief §3). */
   minPrincipal: 500_000n,
-  maxQuotesPerRequest: 3,
+  maxQuotesPerRequest: MAX_ATTEMPTS,
   quoteTtlMs: 20 * 60_000,
   minQuoteWindowMs: 10 * 60_000,
-  /** Keep the signed record for support/refund evidence after the deadline. */
-  retainAfterDeadlineMs: 24 * 3_600_000,
 });
 
 const QuoteInputSchema = z.strictObject({
@@ -178,6 +181,7 @@ export interface ServiceDeps {
   readonly now: () => number;
   /** Fixture mode only: the scripted cross-chain hint per request. */
   readonly fixtureHint?: (requestId: string) => OneClickStatus | null;
+  readonly rateLimit?: (requestId: string) => Promise<boolean>;
 }
 
 function publicQuote(record: QuoteRecord, contractId: string, reused: boolean): PublicQuote {
@@ -229,7 +233,12 @@ export function createOneClickService(deps: ServiceDeps) {
     if (!refund.ok) return fail('REFUND_ADDRESS_INVALID');
     const requestId = input.data.requestId;
 
-    const locked = await store.withRequestLock(requestId, async (): Promise<Result<PublicQuote>> => {
+    try {
+      if (deps.rateLimit && !await deps.rateLimit(requestId)) return fail('RATE_LIMITED');
+      const previousAttempt = await store.current(requestId);
+      if (previousAttempt && previousAttempt.state !== 'READY') return fail('ATTEMPT_UNCERTAIN');
+      // Expiry or an upstream hint can NEVER release a potentially fundable attempt.
+      if (previousAttempt?.mode === 'funded') return fail('PREVIOUS_QUOTE_IN_PROGRESS');
       // 1. Contract and request at a final block.
       let problems: ReadonlyArray<string>;
       let read: Awaited<ReturnType<ChainView['readRequest']>>;
@@ -265,20 +274,15 @@ export function createOneClickService(deps: ServiceDeps) {
       }
 
       // 3. One live quote per request; never a second quote while one may be funded.
-      const previous = await store.latest(requestId);
+      const previous = previousAttempt?.record ?? null;
       if (previous !== null) {
         if (previous.deadlineMs > nowMs) {
           return previous.refundTo === refund.address && previous.originAssetId === origin.assetId
             ? { ok: true, value: publicQuote(previous, chain.contractId, true) }
             : fail('ACTIVE_QUOTE_EXISTS');
         }
-        if (previous.depositAddress !== null) {
-          const prior = await statusFor(previous).catch(() => null);
-          const settledOrFree = prior !== null && (prior.hint === 'PENDING_DEPOSIT' || prior.hint === 'REFUNDED' || prior.hint === 'FAILED');
-          if (!settledOrFree) return fail('PREVIOUS_QUOTE_IN_PROGRESS');
-        }
+        if (previous.depositAddress !== null) return fail('PREVIOUS_QUOTE_IN_PROGRESS');
       }
-      if ((await store.issuedCount(requestId)) >= LIMITS.maxQuotesPerRequest) return fail('QUOTE_LIMIT_REACHED');
 
       // 4. In dry/funded mode the asset must still be listed by 1Click, identically.
       if (deps.mode !== 'fixture') {
@@ -302,14 +306,29 @@ export function createOneClickService(deps: ServiceDeps) {
         amountBaseUnits: t.amountBaseUnits,
         deadlineMs: Math.min(nowMs + LIMITS.quoteTtlMs, latestUsable),
       });
+      let reservation;
+      try {
+        reservation = await store.reserve({ id: crypto.randomUUID(), requestId,
+          mode: deps.mode === 'fixture' ? 'fixture' : dry ? 'dry' : 'funded',
+          payload: JSON.stringify(sent), createdAtMs: deps.now() }, previousAttempt?.id ?? null);
+      } catch { return fail('ATTEMPT_UNCERTAIN'); }
+      if (typeof reservation === 'string') return fail(reservation === 'LIMIT' ? 'QUOTE_LIMIT_REACHED' : reservation === 'LEGACY_BLOCKED' ? 'ATTEMPT_UNCERTAIN' : 'BUSY');
+      // No external quote call until BOTH durable writes have acknowledged.
+      // Lost acknowledgements leave RESERVED/DISPATCHING blocked across restart.
+      try {
+        if (!await store.transition(reservation, 'DISPATCHING')) return fail('ATTEMPT_UNCERTAIN');
+      } catch { return fail('ATTEMPT_UNCERTAIN'); }
+      const dispatch = { ...reservation, state: 'DISPATCHING' as const };
+      const uncertain = async () => { await store.transition(dispatch, 'UNCERTAIN').catch(() => false); };
       let raw: unknown;
       try {
         raw = await deps.client.quote(sent);
-      } catch (error) {
-        return error instanceof OneClickHttpError ? fail(`UPSTREAM_${error.code}`) : fail('UPSTREAM_UNAVAILABLE');
+      } catch {
+        await uncertain();
+        return fail('ATTEMPT_UNCERTAIN');
       }
       const checked = verifyQuoteResponse(raw, sent, { nowMs: deps.now(), requestExpiresAtMs: expiresAtMs, managerPublicKey: deps.managerPublicKey });
-      if (!checked.ok) return fail('QUOTE_REJECTED', checked.code);
+      if (!checked.ok) { await uncertain(); return fail('QUOTE_REJECTED', checked.code); }
       const q = checked.quote;
 
       const record: QuoteRecord = {
@@ -329,10 +348,11 @@ export function createOneClickService(deps: ServiceDeps) {
         timeEstimateSec: q.timeEstimateSec,
         signedResponse: JSON.stringify(q.response),
       };
-      await store.save(record, q.deadlineMs - nowMs + LIMITS.retainAfterDeadlineMs);
+      try {
+        if (!await store.transition(dispatch, 'READY', record)) { await uncertain(); return fail('ATTEMPT_UNCERTAIN'); }
+      } catch { await uncertain(); return fail('ATTEMPT_UNCERTAIN'); }
       return { ok: true, value: publicQuote(record, chain.contractId, false) };
-    });
-    return locked === 'BUSY' ? fail('BUSY') : locked;
+    } catch { return fail('STORE_UNAVAILABLE'); }
   }
 
   async function statusFor(record: QuoteRecord): Promise<PublicStatus> {
@@ -371,7 +391,13 @@ export function createOneClickService(deps: ServiceDeps) {
     const id = HashHexSchema.safeParse(raw);
     if (!id.success) return fail('INVALID_INPUT');
     // Lookup by request id only: the browser cannot point this proxy at an arbitrary deposit address.
-    const record = await deps.store!.latest(id.data);
+    let record: QuoteRecord | null;
+    try {
+      if (deps.rateLimit && !await deps.rateLimit(id.data)) return fail('RATE_LIMITED');
+      const attempt = await deps.store!.current(id.data);
+      if (attempt && attempt.state !== 'READY') return fail('ATTEMPT_UNCERTAIN');
+      record = attempt?.record ?? null;
+    } catch { return fail('STORE_UNAVAILABLE'); }
     if (record === null) {
       if (deps.mode === 'fixture' && deps.fixtureHint) {
         const hint = deps.fixtureHint(id.data);

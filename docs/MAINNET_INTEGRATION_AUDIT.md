@@ -1,5 +1,11 @@
 # Independent Mainnet integration audit — 2026-11-13
 
+**Follow-up:** P1-3, P2-4 and P2-5 have implementation fixes and new regression
+coverage on `codex/mainnet-integration-hardening`; see
+[MAINNET_HARDENING.md](MAINNET_HARDENING.md) for the current decision and limits.
+The findings/evidence below describe the original audit revision. The former
+lease reproducer entry point now checks that durable reservation blocks takeover.
+
 **Decision: GO for technical review and labelled, non-funding previews; NO-GO for Mainnet funds.**
 
 Reviewed `claude/festive-brahmagupta-qkqex1` at

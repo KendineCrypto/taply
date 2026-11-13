@@ -1,0 +1,458 @@
+{
+  "base": "http://127.0.0.1:3113",
+  "results": [
+    {
+      "name": "mobile-390: / redirects to /m",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: network pill",
+      "ok": true,
+      "detail": "NEAR Mainnet"
+    },
+    {
+      "name": "mobile-390: real funds / unaudited / cap banner",
+      "ok": true,
+      "detail": "NEAR Mainnet · real funds · unaudited candidateCapped at 1 NEAR or 25 USDC per request by the contract. Real-money payments are not enabled yet. You can review every step; nothing can be signed or funded."
+    },
+    {
+      "name": "mobile-390: fixture banner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: exact USDC amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: awaiting state",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: verified unavailable note",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: checksum error blocks quote",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: quote review shows exact principal",
+      "ok": true,
+      "detail": "Payment instructionsFIXTURE quote, signed with a test key. Not a real 1Click quote.You send on Base12.628863 USDC · BaseMerchant receives (exact)12.5 USDCDelivered todevkendinecrypto.nearQuote valid u"
+    },
+    {
+      "name": "mobile-390: quote review shows Base amount with buffer",
+      "ok": true,
+      "detail": "Payment instructionsFIXTURE quote, signed with a test key. Not a real 1Click quote.You send on Base12.628863 USDC · BaseMerchant receives (exact)12.5 USDCDelivered todevkendinecrypto.nearQuote valid until13 Nov 2026, 17:12 · 20:00 leftRefunds go to0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaedQuote sign"
+    },
+    {
+      "name": "mobile-390: deposit address withheld",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: no 0x deposit address rendered",
+      "ok": true,
+      "detail": "Payment instructionsFIXTURE quote, signed with a test key. Not a real 1Click quote.You send on Base12.628863 USDC · BaseMerchant receives (exact)12.5 USDCDelivered todevkendinecrypto.nearQuote valid until13 Nov 2026, 17:12 · 20:00 leftRefunds go to0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaedQuote signature verified with the official 1Click key path; recipient, asset, amount and message match.Deposit address withheldFunded quotes are not approved for real money yet. Do not send anything.The amount includes the 1Click slippage buffer; any unused part is refunded to your address. The Base leg is reported by 1Click and is not verified by Taply."
+    },
+    {
+      "name": "mobile-390: duplicate active quote refused",
+      "ok": true,
+      "detail": "{\"status\":409,\"body\":{\"error\":\"ACTIVE_QUOTE_EXISTS\"}}"
+    },
+    {
+      "name": "mobile-390: usdc-recorded -> PAYMENT_RECORDED",
+      "ok": true,
+      "detail": "PAYMENT_RECORDED"
+    },
+    {
+      "name": "mobile-390: usdc-recorded says do not pay again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: usdc-recorded never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: usdc-refunded -> REFUNDED",
+      "ok": true,
+      "detail": "REFUNDED"
+    },
+    {
+      "name": "mobile-390: usdc-refunded never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: usdc-r2-unknown -> UNKNOWN",
+      "ok": true,
+      "detail": "UNKNOWN"
+    },
+    {
+      "name": "mobile-390: usdc-r2-unknown says do not pay again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: usdc-r2-unknown never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: usdc-deposit-seen -> DEPOSIT_OBSERVED",
+      "ok": true,
+      "detail": "DEPOSIT_OBSERVED"
+    },
+    {
+      "name": "mobile-390: usdc-deposit-seen never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: usdc-failed -> FAILED",
+      "ok": true,
+      "detail": "FAILED"
+    },
+    {
+      "name": "mobile-390: usdc-failed never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: USDC cap enforced",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390: create_request candidate on the contract with exact terms",
+      "ok": true,
+      "detail": "{\"receiverId\":\"devkendinecrypto.near\",\"methodName\":\"create_request\",\"args\":{\"terms\":{\"schemaVersion\":\"taply.intent.v1\",\"id\":\"57f9b23e84755534bf23331feda0c78f6558723a3d12443ba9e4104d62c97200\",\"network\""
+    },
+    {
+      "name": "mobile-390: sign button disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: / redirects to /m",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: network pill",
+      "ok": true,
+      "detail": "NEAR Mainnet"
+    },
+    {
+      "name": "desktop-1280: real funds / unaudited / cap banner",
+      "ok": true,
+      "detail": "NEAR Mainnet · real funds · unaudited candidateCapped at 1 NEAR or 25 USDC per request by the contract. Real-money payments are not enabled yet. You can review every step; nothing can be signed or funded."
+    },
+    {
+      "name": "desktop-1280: fixture banner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: exact USDC amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: awaiting state",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: verified unavailable note",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: checksum error blocks quote",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: quote review shows exact principal",
+      "ok": true,
+      "detail": "Payment instructionsFIXTURE quote, signed with a test key. Not a real 1Click quote.Showing the quote already prepared for this request.You send on Base12.628863 USDC · BaseMerchant receives (exact)12."
+    },
+    {
+      "name": "desktop-1280: quote review shows Base amount with buffer",
+      "ok": true,
+      "detail": "Payment instructionsFIXTURE quote, signed with a test key. Not a real 1Click quote.Showing the quote already prepared for this request.You send on Base12.628863 USDC · BaseMerchant receives (exact)12.5 USDCDelivered todevkendinecrypto.nearQuote valid until13 Nov 2026, 17:12 · 19:57 leftRefunds go to"
+    },
+    {
+      "name": "desktop-1280: deposit address withheld",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: no 0x deposit address rendered",
+      "ok": true,
+      "detail": "Payment instructionsFIXTURE quote, signed with a test key. Not a real 1Click quote.Showing the quote already prepared for this request.You send on Base12.628863 USDC · BaseMerchant receives (exact)12.5 USDCDelivered todevkendinecrypto.nearQuote valid until13 Nov 2026, 17:12 · 19:57 leftRefunds go to0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaedQuote signature verified with the official 1Click key path; recipient, asset, amount and message match.Deposit address withheldFunded quotes are not approved for real money yet. Do not send anything.The amount includes the 1Click slippage buffer; any unused part is refunded to your address. The Base leg is reported by 1Click and is not verified by Taply."
+    },
+    {
+      "name": "desktop-1280: duplicate active quote refused",
+      "ok": true,
+      "detail": "{\"status\":409,\"body\":{\"error\":\"ACTIVE_QUOTE_EXISTS\"}}"
+    },
+    {
+      "name": "desktop-1280: usdc-recorded -> PAYMENT_RECORDED",
+      "ok": true,
+      "detail": "PAYMENT_RECORDED"
+    },
+    {
+      "name": "desktop-1280: usdc-recorded says do not pay again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: usdc-recorded never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: usdc-refunded -> REFUNDED",
+      "ok": true,
+      "detail": "REFUNDED"
+    },
+    {
+      "name": "desktop-1280: usdc-refunded never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: usdc-r2-unknown -> UNKNOWN",
+      "ok": true,
+      "detail": "UNKNOWN"
+    },
+    {
+      "name": "desktop-1280: usdc-r2-unknown says do not pay again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: usdc-r2-unknown never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: usdc-deposit-seen -> DEPOSIT_OBSERVED",
+      "ok": true,
+      "detail": "DEPOSIT_OBSERVED"
+    },
+    {
+      "name": "desktop-1280: usdc-deposit-seen never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: usdc-failed -> FAILED",
+      "ok": true,
+      "detail": "FAILED"
+    },
+    {
+      "name": "desktop-1280: usdc-failed never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: USDC cap enforced",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1280: create_request candidate on the contract with exact terms",
+      "ok": true,
+      "detail": "{\"receiverId\":\"devkendinecrypto.near\",\"methodName\":\"create_request\",\"args\":{\"terms\":{\"schemaVersion\":\"taply.intent.v1\",\"id\":\"957831f3d0fd31505120e4768472f2c41592c84d69e1b95da79e0aed9adf6947\",\"network\""
+    },
+    {
+      "name": "desktop-1280: sign button disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: / redirects to /m",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: network pill",
+      "ok": true,
+      "detail": "NEAR Mainnet"
+    },
+    {
+      "name": "mobile-tr: real funds / unaudited / cap banner",
+      "ok": true,
+      "detail": "NEAR Mainnet · gerçek para · denetlenmemiş adaySözleşme her talebi en fazla 1 NEAR veya 25 USDC ile sınırlar. Gerçek parayla ödeme henüz açık değil. Her adımı inceleyebilirsiniz; hiçbir şey imzalanamaz veya fonlanamaz."
+    },
+    {
+      "name": "mobile-tr: fixture banner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: exact USDC amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: awaiting state",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: verified unavailable note",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: checksum error blocks quote",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: quote review shows exact principal",
+      "ok": true,
+      "detail": "Ödeme talimatıFİKSTÜR teklifi, test anahtarıyla imzalandı. Gerçek bir 1Click teklifi değil.Bu talep için önceden hazırlanmış teklif gösteriliyor.Base üzerinde göndereceğiniz12.628863 USDC · Baseİşletm"
+    },
+    {
+      "name": "mobile-tr: quote review shows Base amount with buffer",
+      "ok": true,
+      "detail": "Ödeme talimatıFİKSTÜR teklifi, test anahtarıyla imzalandı. Gerçek bir 1Click teklifi değil.Bu talep için önceden hazırlanmış teklif gösteriliyor.Base üzerinde göndereceğiniz12.628863 USDC · Baseİşletmenin alacağı (tam)12,5 USDCTeslim edileceği yerdevkendinecrypto.nearTeklifin geçerliliği13 Kas 2026 "
+    },
+    {
+      "name": "mobile-tr: deposit address withheld",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: no 0x deposit address rendered",
+      "ok": true,
+      "detail": "Ödeme talimatıFİKSTÜR teklifi, test anahtarıyla imzalandı. Gerçek bir 1Click teklifi değil.Bu talep için önceden hazırlanmış teklif gösteriliyor.Base üzerinde göndereceğiniz12.628863 USDC · Baseİşletmenin alacağı (tam)12,5 USDCTeslim edileceği yerdevkendinecrypto.nearTeklifin geçerliliği13 Kas 2026 17:12 · 19:55 kaldıİadeler şuraya gider0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaedTeklif imzası resmi 1Click anahtar yoluyla doğrulandı; alıcı, varlık, tutar ve mesaj eşleşiyor.Yatırma adresi gösterilmiyorFonlanan teklifler henüz gerçek para için onaylanmadı. Hiçbir şey göndermeyin.Tutar 1Click kayma payını içerir; kullanılmayan kısım adresinize iade edilir. Base ayağını 1Click bildirir; Taply bunu doğrulamaz."
+    },
+    {
+      "name": "mobile-tr: duplicate active quote refused",
+      "ok": true,
+      "detail": "{\"status\":409,\"body\":{\"error\":\"ACTIVE_QUOTE_EXISTS\"}}"
+    },
+    {
+      "name": "mobile-tr: usdc-recorded -> PAYMENT_RECORDED",
+      "ok": true,
+      "detail": "PAYMENT_RECORDED"
+    },
+    {
+      "name": "mobile-tr: usdc-recorded says do not pay again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: usdc-recorded never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: usdc-refunded -> REFUNDED",
+      "ok": true,
+      "detail": "REFUNDED"
+    },
+    {
+      "name": "mobile-tr: usdc-refunded never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: usdc-r2-unknown -> UNKNOWN",
+      "ok": true,
+      "detail": "UNKNOWN"
+    },
+    {
+      "name": "mobile-tr: usdc-r2-unknown says do not pay again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: usdc-r2-unknown never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: usdc-deposit-seen -> DEPOSIT_OBSERVED",
+      "ok": true,
+      "detail": "DEPOSIT_OBSERVED"
+    },
+    {
+      "name": "mobile-tr: usdc-deposit-seen never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: usdc-failed -> FAILED",
+      "ok": true,
+      "detail": "FAILED"
+    },
+    {
+      "name": "mobile-tr: usdc-failed never shows Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: USDC cap enforced",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-tr: create_request candidate on the contract with exact terms",
+      "ok": true,
+      "detail": "{\"receiverId\":\"devkendinecrypto.near\",\"methodName\":\"create_request\",\"args\":{\"terms\":{\"schemaVersion\":\"taply.intent.v1\",\"id\":\"11c289bec9d3cde7830a40f9e12c3e9f6a7119b64424bff9a8710be37a103395\",\"network\""
+    },
+    {
+      "name": "mobile-tr: sign button disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "leak scan over 20 loaded scripts: no Testnet RPC, contract, code hash, receipt endpoint or mnemonic vault",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "browser never contacts 1Click or an RPC (quotes are server-side; fixture mode reads no chain)",
+      "ok": true,
+      "detail": "raw.githubusercontent.com"
+    },
+    {
+      "name": "only external host is the near-connect wallet manifest (raw.githubusercontent.com) or none",
+      "ok": true,
+      "detail": "raw.githubusercontent.com"
+    },
+    {
+      "name": "no console errors except the deliberate 409 duplicate-quote probe",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "scripts": 20,
+  "hosts": [
+    "127.0.0.1:3113",
+    "raw.githubusercontent.com"
+  ],
+  "consoleErrors": [
+    "mobile-390: Failed to load resource: the server responded with a status of 409 (Conflict)",
+    "desktop-1280: Failed to load resource: the server responded with a status of 409 (Conflict)",
+    "mobile-tr: Failed to load resource: the server responded with a status of 409 (Conflict)"
+  ],
+  "residual": [
+    "TESTNET_GENESIS_HASH export (near-client rpc module) in 0j65y0tc5f9bw.js"
+  ]
+}

@@ -18,8 +18,6 @@ import { WalletPanel } from './WalletPanel';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
 const HOUR_NS = 3_600_000_000_000n;
-/** USDC registration bound used only to show the storage_deposit candidate; the real value is read fresh (storage_balance_bounds). */
-const FIXTURE_USDC_REGISTRATION_YOCTO = '1250000000000000000000';
 
 function randomNonce(): string {
   const b = new Uint8Array(32);
@@ -56,7 +54,8 @@ export function buildTerms(input: {
   });
 }
 
-type Bond = { kind: 'fixture' | 'quoted'; depositYocto: string; gas: string } | { kind: 'unknown' };
+type CreateQuote = Parameters<typeof prepareMainnetCreateRequest>[0]['quote'];
+type Bond = ({ kind: 'fixture' | 'quoted' } & CreateQuote) | { kind: 'unknown' };
 
 export function CreateRequest() {
   const c = useMainnetCopy();
@@ -69,7 +68,8 @@ export function CreateRequest() {
   const [reviewAtMs, setReviewAtMs] = useState<number | null>(null);
   const reviewing = reviewAtMs !== null;
   const [nonce] = useState(randomNonce);
-  const [quotedBond, setQuotedBond] = useState<{ termsId: string; bond: Bond } | null>(null);
+  const [quotedBond, setQuotedBond] = useState<{ termsHash: string; bond: Bond } | null>(null);
+  const [storageBounds, setStorageBounds] = useState<{ account: string; min: string } | null>(null);
 
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
   const asset = MAINNET_ASSETS[assetKey];
@@ -78,7 +78,7 @@ export function CreateRequest() {
     ? (MAINNET_CONFIG.contract.accountId as 'taply-pay.kendinecrypto.near' | 'devkendinecrypto.near')
     : fixtures ? FIXTURE_CONTRACT : null;
   const registration = useUsdcRegistration(assetKey === 'USDC' ? creator : null);
-  const parsed = amount.trim() === '' ? null : parseMainnetAmount(amount, asset);
+  const parsed = useMemo(() => amount.trim() === '' ? null : parseMainnetAmount(amount, asset), [amount, asset]);
   const memoOk = new TextEncoder().encode(memo).length <= 256;
 
   const terms = useMemo(() => {
@@ -99,8 +99,13 @@ export function CreateRequest() {
     reader
       .quoteCreateRequest(terms)
       .then((r) => {
-        const q = r.data as { depositYocto?: unknown; gas?: unknown } | null;
-        if (live && q && typeof q.depositYocto === 'string' && typeof q.gas === 'string') setQuotedBond({ termsId: terms.id, bond: { kind: 'quoted', depositYocto: q.depositYocto, gas: q.gas } });
+        const q = r.data as CreateQuote | null;
+        if (q && MAINNET_CONFIG.ok && MAINNET_CONFIG.profile) {
+          // Validate the ORIGINAL quote, including its hash/version. Never
+          // synthesize a current hash around a stale storage deposit.
+          prepareMainnetCreateRequest({ profile: MAINNET_CONFIG.profile, terms, signerAccountId: terms.creatorAccountId, quote: q });
+          if (live) setQuotedBond({ termsHash: calculateMainnetTermsHash(terms), bond: { ...q, kind: 'quoted' } });
+        }
       })
       .catch(() => undefined);
     return () => {
@@ -108,11 +113,22 @@ export function CreateRequest() {
     };
   }, [terms, fixtures]);
 
+  useEffect(() => {
+    if (fixtures || creator === null || registration !== 'not_registered') return;
+    const reader = readerOrNull();
+    if (reader === null) return;
+    let live = true;
+    reader.readUsdcStorageBounds().then(r => {
+      if (live) setStorageBounds({ account: creator, min: r.data.min });
+    }).catch(() => { if (live) setStorageBounds(null); });
+    return () => { live = false; };
+  }, [creator, fixtures, registration]);
+
   const bond: Bond = terms === null
     ? { kind: 'unknown' }
     : fixtures
-      ? { kind: 'fixture', depositYocto: FIXTURE_STORAGE_BOND_YOCTO, gas: '30000000000000' }
-      : quotedBond !== null && quotedBond.termsId === terms.id ? quotedBond.bond : { kind: 'unknown' };
+      ? { kind: 'fixture', requestId: terms.id, termsHash: calculateMainnetTermsHash(terms), quoteVersion: '1', depositYocto: FIXTURE_STORAGE_BOND_YOCTO, gas: '30000000000000' }
+      : quotedBond !== null && quotedBond.termsHash === calculateMainnetTermsHash(terms) ? quotedBond.bond : { kind: 'unknown' };
   const profile = MAINNET_CONFIG.ok ? MAINNET_CONFIG.profile : null;
   const profileForBuild = profile ?? (fixtures && contractId !== null && MAINNET_CONFIG.ok
     ? { network: 'near-mainnet' as const, rpcUrl: MAINNET_CONFIG.rpcUrl, rpcProviderId: MAINNET_CONFIG.rpcProviderId, contract: { accountId: contractId, expectedCodeHash: FIXTURE_CODE_HASH } }
@@ -125,15 +141,16 @@ export function CreateRequest() {
         profile: profileForBuild,
         terms,
         signerAccountId: creator,
-        quote: { requestId: terms.id, termsHash: calculateMainnetTermsHash(terms), quoteVersion: '1', depositYocto: bond.depositYocto, gas: bond.gas },
+        quote: bond,
       });
     } catch {
       createCall = null;
     }
   }
   let registerCall: MainnetCall | null = null;
-  if (assetKey === 'USDC' && registration === 'not_registered' && profileForBuild !== null && creator !== null) {
-    registerCall = prepareMainnetTokenStorageDeposit(profileForBuild, creator, FIXTURE_USDC_REGISTRATION_YOCTO);
+  if (!fixtures && assetKey === 'USDC' && registration === 'not_registered' && profileForBuild !== null && creator !== null && storageBounds?.account === creator) {
+    try { registerCall = prepareMainnetTokenStorageDeposit(profileForBuild, creator, storageBounds.min); }
+    catch { registerCall = null; }
   }
 
   if (!MAINNET_CONFIG.ok) return <Notice tone="danger">{c.home.configBroken}</Notice>;

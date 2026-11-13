@@ -10,12 +10,13 @@ import type { ChainView } from '../../chain';
 import { classifyUpstreamError, createOneClickClient, OneClickHttpError } from '../client';
 import type { OneClickClient } from '../client';
 import { createFixtureClient, createFixtureSigner, fixtureAmountIn, fixtureQuoteResponse } from '../fixture-client';
-import { handleQuote, handleStatus } from '../http';
+import { handleQuote as guardedQuote, handleStatus as guardedStatus } from '../http';
 import { buildQuoteRequest } from '../quote-request';
 import { ONE_CLICK_MANAGER_PUB_KEY, verifyQuoteSignatureSdk } from '../sdk';
 import { createOneClickService, httpStatusOf, LIMITS, parseOneClickMode } from '../service';
 import type { ServiceDeps } from '../service';
 import { memoryQuoteStore, redisQuoteStore } from '../store';
+import type { QuoteStore, QuoteRecord } from '../store';
 import { resolveMode } from '../runtime';
 import { MANAGER_PUBLIC_KEY, verifyQuoteResponse } from '../verify';
 
@@ -26,6 +27,14 @@ import { MANAGER_PUBLIC_KEY, verifyQuoteResponse } from '../verify';
  */
 
 const NOW = Date.UTC(2026, 10, 13, 12, 20, 0);
+const handleQuote = (r: Request, s: Parameters<typeof guardedQuote>[1], m: boolean) => guardedQuote(r, s, m, async () => true);
+const handleStatus = (r: Request, s: Parameters<typeof guardedStatus>[1], m: boolean) => guardedStatus(r, s, m, async () => true);
+async function seed(store: QuoteStore, record: QuoteRecord) {
+  const a = await store.reserve({ id: crypto.randomUUID(), requestId: record.requestId, mode: record.mode, payload: '{}', createdAtMs: NOW }, null);
+  if (typeof a === 'string') throw new Error(a);
+  expect(await store.transition(a, 'DISPATCHING')).toBe(true);
+  expect(await store.transition({ ...a, state: 'DISPATCHING' }, 'READY', record)).toBe(true);
+}
 const REFUND = '0x1111111111111111111111111111111111111111';
 const signer = createFixtureSigner();
 const entries = fixtureRequests(NOW);
@@ -287,17 +296,17 @@ describe('quote service', () => {
   it('an expired funded quote whose deposit may be moving blocks a new quote (no double delivery)', async () => {
     const now = NOW;
     const store = memoryQuoteStore(() => now);
-    await store.save({
+    await seed(store, {
       requestId: AWAITING.terms.id, correlationId: 'c1', mode: 'funded', originAssetId: BASE_USDC.assetId, refundTo: REFUND,
       depositAddress: '0x9999999999999999999999999999999999999999', depositMemo: null, deadlineMs: NOW - 1, createdAtMs: NOW - 1_000_000,
       amountIn: '1', amountInFormatted: '1', minAmountIn: '1', amountOut: AWAITING.terms.amountBaseUnits, timeEstimateSec: 35, signedResponse: '{}',
-    }, 10_000_000);
+    });
     const quoteResponse = { quote: { depositAddress: '0x9999999999999999999999999999999999999999' } };
     const status = vi.fn(async () => ({ status: 'PROCESSING', correlationId: 'c1', quoteResponse }));
     const service = createOneClickService(deps({ store, client: { ...createFixtureClient(signer, () => now), status } }));
     expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PREVIOUS_QUOTE_IN_PROGRESS' });
     status.mockResolvedValueOnce({ status: 'REFUNDED', correlationId: 'c1', quoteResponse });
-    expect((await service.prepareQuote(input())).ok).toBe(true);
+    expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PREVIOUS_QUOTE_IN_PROGRESS' });
   });
 
   it('a quote that fails verification is refused with its reason and not stored', async () => {
@@ -308,12 +317,12 @@ describe('quote service', () => {
     expect(await store.latest(AWAITING.terms.id)).toBeNull();
   });
 
-  it('upstream errors map to plain codes', async () => {
+  it('quote errors are conservatively uncertain; HTTP classification remains available for preflight', async () => {
     const failing = (code: ConstructorParameters<typeof OneClickHttpError>[0]): OneClickClient => ({
       quote: async () => { throw new OneClickHttpError(code); }, status: async () => null, tokens: async () => [],
     });
-    expect(await createOneClickService(deps({ client: failing('MIN_AMOUNT') })).prepareQuote(input())).toEqual({ ok: false, code: 'UPSTREAM_MIN_AMOUNT' });
-    expect(await createOneClickService(deps({ client: failing('NO_LIQUIDITY') })).prepareQuote(input())).toEqual({ ok: false, code: 'UPSTREAM_NO_LIQUIDITY' });
+    expect(await createOneClickService(deps({ client: failing('MIN_AMOUNT') })).prepareQuote(input())).toEqual({ ok: false, code: 'ATTEMPT_UNCERTAIN' });
+    expect(await createOneClickService(deps({ client: failing('NO_LIQUIDITY') })).prepareQuote(input())).toEqual({ ok: false, code: 'ATTEMPT_UNCERTAIN' });
     expect(httpStatusOf('UPSTREAM_MIN_AMOUNT')).toBe(422);
     expect(httpStatusOf('ACTIVE_QUOTE_EXISTS')).toBe(409);
   });
@@ -351,11 +360,11 @@ describe('status service', () => {
   it('a funded record: status must echo our deposit address and correlation id; links are built by Taply', async () => {
     const store = memoryQuoteStore(() => NOW);
     const deposit = '0x9999999999999999999999999999999999999999';
-    await store.save({
+    await seed(store, {
       requestId: AWAITING.terms.id, correlationId: 'corr-1', mode: 'funded', originAssetId: BASE_USDC.assetId, refundTo: REFUND,
       depositAddress: deposit, depositMemo: null, deadlineMs: NOW + 60_000, createdAtMs: NOW, amountIn: '1', amountInFormatted: '1',
       minAmountIn: '1', amountOut: AWAITING.terms.amountBaseUnits, timeEstimateSec: 35, signedResponse: '{}',
-    }, 10_000_000);
+    });
     const originHash = `0x${'ab'.repeat(32)}`;
     const nearHash = 'Afo9C89HutErBxJgqU4N9NrhMqEAV5BZLnxNSFddqzWE';
     const good = { status: 'SUCCESS', correlationId: 'corr-1', quoteResponse: { correlationId: 'corr-1', quote: { depositAddress: deposit } },
@@ -403,16 +412,14 @@ describe('HTTP client', () => {
 });
 
 describe('Redis quote store', () => {
-  it('uses the mainnet key prefix, NX lock with compare-and-delete release', async () => {
+  it('uses a durable mainnet ledger and atomic reservation rather than an expiring lock', async () => {
     const calls: Array<ReadonlyArray<string | number>> = [];
-    const redis = vi.fn(async (args: ReadonlyArray<string | number>) => { calls.push(args); return args[0] === 'SET' ? 'OK' : args[0] === 'INCR' ? 1 : null; });
+    const redis = vi.fn(async (args: ReadonlyArray<string | number>) => { calls.push(args); return 'BUSY'; });
     const store = redisQuoteStore(redis);
-    await store.withRequestLock('e'.repeat(64), async () => 1);
-    expect(calls[0]?.slice(0, 2)).toEqual(['SET', `taply:mainnet:1click:lock:${'e'.repeat(64)}`]);
-    expect(calls[0]).toContain('NX');
-    expect(calls[1]?.[0]).toBe('EVAL');
-    redis.mockResolvedValueOnce(null);
-    expect(await store.withRequestLock('e'.repeat(64), async () => 1)).toBe('BUSY');
+    expect(await store.reserve({ id: 'attempt', requestId: 'e'.repeat(64), mode: 'dry', payload: '{}', createdAtMs: NOW }, null)).toBe('BUSY');
+    expect(calls[0]?.[0]).toBe('EVAL');
+    expect(calls[0]).toContain(`taply:mainnet:1click:ledger:v1:${'e'.repeat(64)}`);
+    expect(calls[0]?.[1]).not.toContain('PEXPIRE');
   });
 });
 

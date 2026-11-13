@@ -2,8 +2,8 @@ import type { RedisCommand } from '@/server/handshake/redis';
 
 /**
  * Quote bookkeeping for replay and duplicate control (docs/MAINNET_BRIEF.md
- * §7.2): one live quote per request, a small lifetime limit per request, and a
- * short creation lock so two concurrent calls cannot both ask 1Click.
+ * §7.2): durable per-attempt reservations, a lifetime attempt limit and atomic
+ * state transitions. A worker restart or elapsed time never releases uncertainty.
  *
  * Mainnet keys live under their own prefix and, in production, in the mainnet
  * project's own Upstash database (docs/MAINNET_INFRA.md §4.1).
@@ -27,79 +27,117 @@ export interface QuoteRecord {
   readonly signedResponse: string;
 }
 
+export type AttemptState = 'RESERVED' | 'DISPATCHING' | 'READY' | 'UNCERTAIN';
+export interface Attempt {
+  readonly id: string;
+  readonly requestId: string;
+  readonly fence: number;
+  readonly mode: QuoteRecord['mode'];
+  readonly payload: string;
+  readonly createdAtMs: number;
+  readonly state: AttemptState;
+  readonly record: QuoteRecord | null;
+}
+export type Reservation = Omit<Attempt, 'fence' | 'state' | 'record'>;
+export type ReserveResult = Attempt | 'BUSY' | 'LIMIT' | 'LEGACY_BLOCKED';
 export interface QuoteStore {
-  /** Runs `fn` under a short per-request lock; 'BUSY' if another call holds it. */
-  withRequestLock<T>(requestId: string, fn: () => Promise<T>): Promise<T | 'BUSY'>;
+  current(requestId: string): Promise<Attempt | null>;
   latest(requestId: string): Promise<QuoteRecord | null>;
-  issuedCount(requestId: string): Promise<number>;
-  save(record: QuoteRecord, retainMs: number): Promise<void>;
+  reserve(input: Reservation, expectedId: string | null): Promise<ReserveResult>;
+  transition(attempt: Attempt, state: 'DISPATCHING' | 'READY' | 'UNCERTAIN', record?: QuoteRecord): Promise<boolean>;
 }
 
 export const KEY_PREFIX = 'taply:mainnet:1click:';
-const LOCK_MS = 30_000;
-const COUNT_WINDOW_MS = 86_400_000;
-
-function randomToken(): string {
-  const bytes = new Uint8Array(16);
-  globalThis.crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-const RELEASE = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
+export const MAX_ATTEMPTS = 3;
+// One no-TTL ledger contains the monotonic fence, active pointer and every attempt.
+// Lua changes it in ONE SET: no partial multi-command reservation/counter writes.
+const RESERVE = `
+if redis.call('EXISTS', KEYS[2]) == 1 then return 'LEGACY_BLOCKED' end
+local raw = redis.call('GET', KEYS[1])
+local ledger = raw and cjson.decode(raw) or {version=1, fence=0, active='', attempts={}}
+if ledger.version ~= 1 then return redis.error_reply('LEDGER_VERSION') end
+if ledger.active ~= ARGV[2] then return 'BUSY' end
+if ledger.active ~= '' then
+  local old = ledger.attempts[ledger.active]
+  if old.mode == 'funded' or old.state ~= 'READY' or old.record == cjson.null or old.record.depositAddress ~= cjson.null or old.record.deadlineMs > tonumber(ARGV[3]) then return 'BUSY' end
+end
+if ledger.fence >= ${MAX_ATTEMPTS} then return 'LIMIT' end
+local a = cjson.decode(ARGV[1])
+if ledger.attempts[a.id] then return 'BUSY' end
+ledger.fence = ledger.fence + 1
+a.fence = ledger.fence; a.state = 'RESERVED'; a.record = cjson.null
+ledger.active = a.id; ledger.attempts[a.id] = a
+redis.call('SET', KEYS[1], cjson.encode(ledger))
+return cjson.encode(a)`;
+const TRANSITION = `
+local raw = redis.call('GET', KEYS[1]); if not raw then return 0 end
+local ledger = cjson.decode(raw)
+local a = ledger.attempts[ARGV[1]]
+if ledger.version ~= 1 or ledger.active ~= ARGV[1] or not a or a.fence ~= tonumber(ARGV[2]) or a.state ~= ARGV[3] then return 0 end
+local target = ARGV[4]
+if not ((a.state == 'RESERVED' and target == 'DISPATCHING') or (a.state == 'DISPATCHING' and (target == 'READY' or target == 'UNCERTAIN'))) then return 0 end
+if target == 'READY' then
+  local record = cjson.decode(ARGV[5])
+  if record.requestId ~= a.requestId or record.mode ~= a.mode or (a.mode ~= 'funded' and record.depositAddress ~= cjson.null) then return 0 end
+  a.record = record
+end
+a.state = target
+redis.call('SET', KEYS[1], cjson.encode(ledger))
+return 1`;
 
 export function redisQuoteStore(redis: RedisCommand): QuoteStore {
-  const k = (kind: string, id: string) => `${KEY_PREFIX}${kind}:${id}`;
-  return {
-    async withRequestLock(requestId, fn) {
-      const token = randomToken();
-      if ((await redis(['SET', k('lock', requestId), token, 'NX', 'PX', LOCK_MS])) !== 'OK') return 'BUSY';
-      try {
-        return await fn();
-      } finally {
-        await redis(['EVAL', RELEASE, 1, k('lock', requestId), token]).catch(() => undefined);
-      }
+  const key = (id: string) => `${KEY_PREFIX}ledger:v1:${id}`;
+  const store: QuoteStore = {
+    async current(id) {
+      const raw = await redis(['GET', key(id)]);
+      if (raw === null) return null;
+      if (typeof raw !== 'string') throw new Error('INVALID_LEDGER');
+      const ledger = JSON.parse(raw);
+      const active = ledger.attempts?.[ledger.active];
+      if (ledger.version !== 1 || !active || active.requestId !== id) throw new Error('INVALID_LEDGER');
+      return active as Attempt;
     },
-    async latest(requestId) {
-      const raw = await redis(['GET', k('quote', requestId)]);
-      return typeof raw === 'string' ? (JSON.parse(raw) as QuoteRecord) : null;
+    async latest(id) { return (await store.current(id))?.record ?? null; },
+    async reserve(input, expectedId) {
+      const result = await redis(['EVAL', RESERVE, 2, key(input.requestId), `${KEY_PREFIX}quote:${input.requestId}`, JSON.stringify(input), expectedId ?? '', input.createdAtMs]);
+      if (result === 'BUSY' || result === 'LIMIT' || result === 'LEGACY_BLOCKED') return result;
+      if (typeof result !== 'string') throw new Error('RESERVATION_UNCERTAIN');
+      return JSON.parse(result) as Attempt;
     },
-    async issuedCount(requestId) {
-      const raw = await redis(['GET', k('count', requestId)]);
-      return typeof raw === 'string' || typeof raw === 'number' ? Number.parseInt(String(raw), 10) || 0 : 0;
-    },
-    async save(record, retainMs) {
-      await redis(['SET', k('quote', record.requestId), JSON.stringify(record), 'PX', Math.max(1, Math.ceil(retainMs))]);
-      const count = await redis(['INCR', k('count', record.requestId)]);
-      if (String(count) === '1') await redis(['PEXPIRE', k('count', record.requestId), COUNT_WINDOW_MS]);
+    async transition(a, state, record) {
+      return await redis(['EVAL', TRANSITION, 1, key(a.requestId), a.id, a.fence, a.state, state, JSON.stringify(record ?? null)]) === 1;
     },
   };
+  return store;
 }
 
-/** Single-process store: tests and fixture mode only (not durable across serverless instances). */
-export function memoryQuoteStore(now: () => number = Date.now): QuoteStore {
-  const locks = new Set<string>();
-  const quotes = new Map<string, { record: QuoteRecord; until: number }>();
-  const counts = new Map<string, number>();
-  return {
-    async withRequestLock(requestId, fn) {
-      if (locks.has(requestId)) return 'BUSY';
-      locks.add(requestId);
-      try {
-        return await fn();
-      } finally {
-        locks.delete(requestId);
-      }
+/** Only fixtures/tests. Never a fallback when the durable database is unavailable. */
+export function memoryQuoteStore(_now: () => number = Date.now): QuoteStore {
+  void _now; // Compatibility for fixture callers; attempt records intentionally never expire.
+  const ledgers = new Map<string, Attempt[]>();
+  const store: QuoteStore = {
+    async current(id) { return ledgers.get(id)?.at(-1) ?? null; },
+    async latest(id) { return (await store.current(id))?.record ?? null; },
+    async reserve(input, expectedId) {
+      const attempts = ledgers.get(input.requestId) ?? [];
+      const old = attempts.at(-1);
+      if ((old?.id ?? null) !== expectedId) return 'BUSY';
+      if (old && (old.mode === 'funded' || old.state !== 'READY' || !old.record || old.record.depositAddress !== null || old.record.deadlineMs > input.createdAtMs)) return 'BUSY';
+      if (attempts.length >= MAX_ATTEMPTS) return 'LIMIT';
+      if (attempts.some(a => a.id === input.id)) return 'BUSY';
+      const attempt: Attempt = { ...input, fence: attempts.length + 1, state: 'RESERVED', record: null };
+      ledgers.set(input.requestId, [...attempts, attempt]);
+      return attempt;
     },
-    async latest(requestId) {
-      const entry = quotes.get(requestId);
-      return entry !== undefined && entry.until > now() ? entry.record : null;
-    },
-    async issuedCount(requestId) {
-      return counts.get(requestId) ?? 0;
-    },
-    async save(record, retainMs) {
-      quotes.set(record.requestId, { record, until: now() + retainMs });
-      counts.set(record.requestId, (counts.get(record.requestId) ?? 0) + 1);
+    async transition(a, state, record) {
+      const attempts = ledgers.get(a.requestId);
+      const old = attempts?.at(-1);
+      if (!old || old.id !== a.id || old.fence !== a.fence || old.state !== a.state) return false;
+      if (!(old.state === 'RESERVED' && state === 'DISPATCHING' || old.state === 'DISPATCHING' && (state === 'READY' || state === 'UNCERTAIN'))) return false;
+      if (state === 'READY' && (!record || record.requestId !== a.requestId || record.mode !== a.mode || a.mode !== 'funded' && record.depositAddress !== null)) return false;
+      ledgers.set(a.requestId, [...attempts!.slice(0, -1), { ...old, state, record: record ?? old.record }]);
+      return true;
     },
   };
+  return store;
 }

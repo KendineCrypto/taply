@@ -104,3 +104,31 @@ jobs:
           if grep -rl -e 'taply-e2e-ce38a238' -e 'taply.testnet-vault.v1' .next/static; then
             echo "Testnet contract or vault key found in the mainnet bundle"; exit 1
           fi
+
+      - name: Mainnet 88 browser checks (local fixtures only)
+        working-directory: apps/web
+        timeout-minutes: 8
+        run: |
+          npm install --prefix "$RUNNER_TEMP/taply-browser" --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/taply-browser/node_modules/playwright/cli.js" install --with-deps chromium --only-shell
+          set -a; . ./env/mainnet.env.example; set +a
+          export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_SHARE_ORIGIN= NEXT_PUBLIC_TAPLY_CONTRACT_ID= NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES=on TAPLY_ONECLICK_MODE=fixture
+          pnpm exec next start -p 3113 --hostname 127.0.0.1 > "$RUNNER_TEMP/taply-browser-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3113/m > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/mainnet-1click-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence" http://127.0.0.1:3113
+
+      - name: Preserve Mainnet browser evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: mainnet-browser-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/taply-browser-evidence
+            ${{ runner.temp }}/taply-browser-server.log
