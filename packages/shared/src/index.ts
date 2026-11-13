@@ -5,3 +5,4 @@ export * from "./payments.js";
 export * from "./receipts.js";
 export * from "./transport.js";
 export * from "./methods.js";
+export * from "./mainnet.js";

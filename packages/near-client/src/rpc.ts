@@ -49,7 +49,7 @@ type Method = "status" | "block" | "query" | "tx_status" | "EXPERIMENTAL_tx_stat
 const ERROR_BODY_STATUSES = new Set([400, 404, 408, 422, 500]);
 const EnvelopeSchema = z.object({ jsonrpc: z.literal("2.0"), id: z.string(), result: z.unknown().optional(), error: z.unknown().optional() });
 
-export function createRpc(config: Config, fetcher: Fetch) {
+export function createRpc(config: Omit<Config, "network"> & { network: "near-testnet" | "near-mainnet" }, fetcher: Fetch) {
   let nextId = 0;
   return async (method: Method, params: unknown): Promise<unknown> => {
     const id = `taply-read-${++nextId}`;

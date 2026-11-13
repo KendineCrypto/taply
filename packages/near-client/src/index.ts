@@ -1,4 +1,5 @@
 import { buildClient } from "./client.js";
+export * from "./mainnet.js";
 import type { NearTestnetClient, NearTestnetConfig } from "./types.js";
 
 export function createNearTestnetClient(config: NearTestnetConfig): NearTestnetClient {
