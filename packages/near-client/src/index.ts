@@ -71,3 +71,6 @@ export { verifyMainnetNativePayment, verifyMainnetGiftReceipt } from './mainnet-
 export type { MainnetPayoutVerification } from './mainnet-payout-receipt.js';
 export { createMainnetNativeWalletBackend } from './mainnet-wallet-review.js';
 export type { MainnetNativeReview, MainnetExternalSigner } from './mainnet-wallet-review.js';
+export * from './mainnet-reconciliation.js';
+export * from './mainnet-operation-policy.js';
+export * from './mainnet-wallet-v2.js';

@@ -4,6 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { connect } from 'node:net';
 import { randomBytes } from 'node:crypto';
 import { RedisDurableStore, upstashCommand, sessionKeyFromEnv, type RedisCommand } from '../src/redis-store.mts';
+import {createMainnetGlobalRedisStore} from '../src/mainnet-wallet-store.mts';
 
 // Real Redis semantics (EVAL/Lua, PX TTL) through a local redis-server; skipped only if absent.
 const hasRedis = spawnSync('redis-server', ['--version']).status === 0;
@@ -83,6 +84,24 @@ async function withRedis(fn: (port: number) => Promise<void>): Promise<void> {
 
 const store = (command: RedisCommand, key: Uint8Array = randomBytes(32), ttlMs = 60_000) =>
   new RedisDurableStore<{ n: number }>({ command, key, namespace: 'handshake-test', initial: () => ({ n: 0 }), ttlMs });
+
+test('real Redis Mainnet wallet authority: atomic reservation, no TTL, reconnect persistence and account isolation', {skip:!hasRedis}, async()=>{
+  await withRedis(async port=>{
+    const clients=Array.from({length:4},()=>resp(port));
+    try{
+      const stores=clients.map(c=>createMainnetGlobalRedisStore(c.command,'alice.near'));
+      const next=JSON.stringify({version:2,network:'near-mainnet',accountId:'alice.near',pending:'fixture'});
+      const wins=await Promise.all(Array.from({length:20},(_,i)=>stores[i%4]!.compareAndSwap('alice.near',null,next)));
+      assert.equal(wins.filter(Boolean).length,1);
+      assert.equal(await clients[0]!.command(['PTTL','taply:mainnet:wallet:v2:alice.near']),-1);
+      const restart=resp(port);try{assert.equal(await createMainnetGlobalRedisStore(restart.command,'alice.near').read('alice.near'),next);}finally{restart.close();}
+      await assert.rejects(stores[0]!.read('bob.near'),/UNAUTHORIZED/);
+      assert.equal(await stores[1]!.compareAndSwap('alice.near',null,next),false);
+      await clients[0]!.command(['PEXPIRE','taply:mainnet:wallet:v2:alice.near','60000']);
+      await assert.rejects(stores[0]!.compareAndSwap('alice.near',next,next),/DURABILITY/);
+    }finally{clients.forEach(c=>c.close());}
+  });
+});
 
 test('real redis: 50 concurrent increments from 5 independent clients lose nothing (atomic CAS)', { skip: !hasRedis }, async () => {
   await withRedis(async (port) => {
