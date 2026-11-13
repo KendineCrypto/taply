@@ -1,97 +1,83 @@
-# Taply Mainnet ↔ Testnet parity matrix
+# Taply Mainnet ↔ Testnet parity matrix (integrated)
 
-Updated 2026-11-13 by Claude Code (application integration, phase 2).
-Base: Codex `codex/mainnet-full-parity` @ `8ca5059`. Plan of record:
+Updated 2026-11-13, phase 3. Integration branch: Codex protocol
+`codex/mainnet-parity-protocol` @ `39cb44d` + Claude application `0fc2468`
+(cherry-picked) + phase 3 wiring. Plans of record:
+[MAINNET_PROTOCOL_PHASE2.md](MAINNET_PROTOCOL_PHASE2.md),
 [MAINNET_FULL_PARITY.md](MAINNET_FULL_PARITY.md).
 
-**Status: NO-GO for Mainnet funds; full functional parity NOT reached.** All
-three release gates, `protectedPay:false` and `intentsRouter:false` are
-unchanged. Nothing was deployed, signed, funded, or changed in hosting/DNS.
+**NO-GO for Mainnet funds. Full functional parity NOT reached.** Every
+real-money gate is closed (`MAINNET_SIGNING_RELEASE_APPROVED`,
+`MAINNET_PROTOCOL_SIGNING_RELEASED`, `ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED`,
+`MAINNET_INDEPENDENT_VERIFIER_AVAILABLE`, `intentsRouter:false`). Nothing was
+deployed, signed, funded, or changed in hosting/DNS/keys.
 
-## Status vocabulary (read literally)
+## Status columns (cumulative; read literally)
 
-| Status | Meaning |
-| --- | --- |
-| **Functional** | Works end to end on a Mainnet build for its stated scope, tested in a real browser. Moves no funds. |
-| **Functional (read)** | Reads real Mainnet state (or labelled fixtures in a Preview); no transaction involved. |
-| **Review-only** | Builds and shows the exact unsigned transaction from Codex's builders; signing is gated off. **Not a completed feature.** |
-| **Blocked** | Needs an interface or contract that does not exist yet. **Not a completed feature**, whatever the screen shows. |
+- **IMPLEMENTED** — code exists in the Mainnet app, wired to the reviewed interface.
+- **TESTED** — unit and/or real-browser tests pass (fixtures/sandbox/synthetic RPC).
+- **FUNCTIONAL** — a user can complete the feature end to end on a Mainnet build
+  for its full purpose. Any feature that moves funds is **not** FUNCTIONAL while
+  signing is gated: a rendered screen or an exact unsigned transaction is not completion.
+- **BLOCKED** — what prevents FUNCTIONAL, and who owns it.
+- **LIVE VERIFIED** — observed against live Mainnet. Fixtures never count.
 
-"Real Mainnet evidence" lists only observations against live Mainnet. Fixtures
-and synthetic signatures are never evidence of a payment.
+| # | Feature | IMPL | TESTED | FUNCTIONAL | BLOCKED by (owner) | LIVE VERIFIED |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Build isolation, routes, Testnet untouched | ✅ | ✅ unit + Testnet runtime parity vs `39cb44d` | ✅ | — | — |
+| 2 | Navigation, EN/TR, 360–1280 px, PWA identity | ✅ | ✅ copy parity; product 98 + phase 2/3 browser | ✅ | — | — |
+| 3 | Wallet create (12 words, backup check, encrypted Mainnet vault) | ✅ `EncryptedMainnetVault` | ✅ browser: weak password, words shown once, 3-word check, no plaintext phrase, Mainnet-only storage key | ✅ (local wallet only) | — | — |
+| 4 | Wallet restore (12 words; Testnet backups rejected) | ✅ | ✅ browser: invalid phrase refused; restore on 2nd device = same account | ✅ | — | — |
+| 5 | Unlock / lock (password, session expiry) | ✅ | ✅ browser: wrong password refused, correct unlocks | ✅ | — | — |
+| 6 | Implicit-account activation state | ✅ `createMainnetWalletChain` final account + FullAccess key | ✅ browser: not activated → activated only with account+key evidence (synthetic RPC) | ✅ (read) | — | Codex read-only live snapshot of staging account (`docs/evidence/mainnet-protocol-live-read-2026-11-13.json`) |
+| 7 | Balances (native, available after storage/gas reserve, USDC) | ✅ | ✅ browser (synthetic RPC); Codex reader tests | ✅ (read) | — | Codex live balance read (staging, zero) |
+| 8 | Send NEAR — exact review (recipient, amount, signer key, nonce, block, reserves, 60 s expiry) | ✅ `createMainnetNativeWalletBackend.prepare` | ✅ browser: bad recipient, over-balance, exact review | ❌ | signing gate + release review (owner); physical/external signer acceptance (Codex) | — |
+| 9 | Send USDC | ⚠️ builder exists (`prepareMainnetUsdcTransfer`), no UI | ❌ | ❌ | token signing policy (Codex), UI (Claude) | — |
+| 10 | Pending / uncertain transactions block new payments | ✅ durable IndexedDB journal read on wallet + send | ✅ Codex IndexedDB browser test (CAS, crash, restart); UI blocks when unresolved | ⚠️ blocks correctly, **cannot resolve** | terminal reconciliation not implemented (Codex) | — |
+| 11 | External wallet (NEAR Connect, Mainnet only) | ✅ connect/disconnect | ✅ unit | ❌ for payments | physical-wallet acceptance + signing gate | — |
+| 12 | Receive (QR, implicit address) | ✅ | ✅ | ✅ | — | — |
+| 13 | Payment request create (NEAR/USDC) | ✅ unsigned `create_request` | ✅ checkout 88 | ❌ | deployed contract + signing (owner) | — |
+| 14 | Pay request (NEAR wallet) | ✅ unsigned | ✅ | ❌ | same | — |
+| 15 | 1Click Base USDC | ✅ quote pipeline, durable attempts | ✅ server + browser | ❌ funding | funded-quote gate, router gas, R-2, deployment acceptance (owner/Codex) | Codex live signed **dry** quote verified |
+| 16 | 1Click Solana USDC / Tron USDT | ✅ discovery from live token list only | ✅ server + browser | ❌ | live token-list match + dry quote not recorded; funded gate | — |
+| 17 | Payment status incl. R-2 unknown, do-not-repay | ✅ | ✅ | ✅ (read) | — | — |
+| 18 | Live Handshake (two devices, same terms, presence, rejoin, end) | ✅ isolated `taply:mainnet:hs` | ✅ 2-device browser on real Redis, 0 foreign keys | ✅ coordination | immutable merchant/session binding into on-chain terms (Codex); Mainnet Redis DB (owner) | — |
+| 19 | Merchant QR, store identity, tracked sales | ✅ | ✅ product suite | ⚠️ partial | indexed sales; per-sale request needs signing | — |
+| 20 | Checkout `/m/checkout/[account]` fresh request per sale | ⚠️ identity only | ✅ | ❌ | merchant profile reader + signing | — |
+| 21 | Split (exact shares → request prefill) / Recurring (drafts → prefill) | ✅ | ✅ unit + browser | ✅ local tools; on-chain requests need signing | signing for request creation | — |
+| 22 | Contacts | ✅ | ✅ | ✅ | — | — |
+| 23 | Activity / history (tracked, live status) | ✅ | ✅ | ⚠️ device-local list | Mainnet history index (backend) | — |
+| 24 | Receipt — contract state ("Payment recorded") | ✅ | ✅ | ✅ (read) | — | — |
+| 25 | Receipt — independently Verified Paid | ⚠️ Codex verifiers exist (native first-attempt, gift, direct transfer) | ✅ Codex synthetic RPC tests | ❌ public label never shown | verifier gate; USDC/router/retry/escrow receipts not implemented (Codex) | — |
+| 26 | Protected Pay — state display (OPEN…CANCELLED_REFUNDED), cutoff, payer rights | ✅ on Rust-emitted states | ✅ unit + browser (8 states, before/after cutoff) | ✅ (display) | — | — |
+| 27 | Protected Pay — lock / cancel+refund / release / retry | ✅ actions from reviewed builders only | ✅ browser: LOCKED→cancel (before) / release (after); FAILED→retry; IN_FLIGHT→none + R-2 | ❌ | escrow account not configured/deployed; escrow release acceptance; signing (owner/Codex) | — |
+| 28 | Protected Pay — create protected request | ⚠️ builder exists, no create UI | ❌ | ❌ | needs quote from deployed escrow; UI (Claude) | — |
+| 29 | Open Gift — create (fee, limits, link key, envelope) | ✅ `prepareMainnetCreateGift`, fresh Ed25519 link key | ✅ browser: total = amount + fee, link key only in fragment | ❌ | no approved Gift account/fee/limits; signing (owner) | — |
+| 30 | Open Gift — claim (link-key signature, Mainnet domain) | ✅ `signMainnetGiftClaim` → `claim_gift` | ✅ browser: 64-byte signature, claim call | ❌ | same | — |
+| 31 | Gift expiry refund / failed-payout retry / PENDING (R-2) | ✅ from `prepareMainnetGiftSettlement` | ✅ browser: refund only expired+creator; retry only FAILED; PENDING → no action | ❌ | same | — |
+| 32 | Personal Gift (direct transfer + verifier) | ⚠️ verifier exists (`verifyMainnetDirectTransfer`); send path = row 8 | ❌ UI | ❌ | signing gate; UI wiring (Claude) | — |
+| 33 | Gift receipt page | ⚠️ `verifyMainnetGiftReceipt` exists | ❌ UI | ❌ | live gift + verifier gate | — |
 
-## Matrix
+Counts: FUNCTIONAL ✅ 17 (all non-financial or read-only) · partial ⚠️ 3 ·
+not functional ❌ 13 (every feature that moves funds). LIVE VERIFIED: only
+Codex's read-only snapshots and one signed dry quote.
 
-| # | Feature | Testnet | Mainnet route | Status | Test evidence | Real Mainnet evidence | Blocker / owner |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Build-time network isolation, route allowlist, Testnet untouched | — | all | Functional | route tests; Testnet runtime parity vs `8ca5059` (§Verification) | — | — |
-| 2 | Navigation (Wallet · Activity · Tap/tools · Contacts · Settings) | `/` | `/m`, `/m/tools` | Functional | Codex product suite 98/98 (rerun on this commit) | — | — |
-| 3 | EN/TR copy, mobile 360–430 px | yes | all | Functional | key-parity tests (mainnet, product, live, activity, origin copy); browser at 360/390/430/1280 | — | — |
-| 4 | PWA install identity | `manifest.webmanifest` | `/m/manifest.webmanifest` | Functional (this phase) | build + manifest test | — | — |
-| 5 | External wallet connect (NEAR Connect, mainnet only) | `/wallet` | `/m/wallet` | Functional (code) | unit tests (options, Testnet accounts refused) | none: no real mainnet wallet session tested | real-device wallet test (owner) |
-| 6 | Balances (NEAR + USDC, final block) | `/wallet` | `/m/wallet` | Functional (read) | Codex reader tests | Codex live read of staging account (`docs/evidence/mainnet-full-parity-2026-11-13/live-balance-read.json`) | spendable/storage-staked calculation (client) |
-| 7 | Taply Wallet create (internal, mnemonic) | `/wallet/create` | `/m/wallet/create` | **Blocked** | — | — | Mainnet vault + custody review + account funding (Codex signing, owner) |
-| 8 | Taply Wallet restore | `/wallet/restore` | `/m/wallet/restore` | **Blocked** | Testnet vault provably absent from mainnet bundle | — | same as 7 |
-| 9 | Send NEAR / USDC | `/send` | `/m/send` | **Blocked** (draft only) | — | — | reviewed direct-transfer builders + signing (Codex) |
-| 10 | Receive (QR + account) | `/receive` | `/m/receive` | Functional | product suite | — | share sheet polish (frontend) |
-| 11 | Transaction review (exact unsigned call) | yes | create / pay / storage_deposit | Review-only | unit + browser: exact `create_request`, `ft_transfer_call` with shared message, `storage_deposit` | — | signing gate (owner) |
-| 12 | Create payment request (NEAR/USDC, caps, storage bond, USDC registration) | `/request/new` | `/m/request/new` | Review-only | 1Click/QA suites | — | deployed contract pin + signing (Codex, owner) |
-| 13 | Request prefill from Split / Recurring | — | `/m/request/new?…` | Functional (this phase) | prefill tests; browser: split share → composer with exact `3.333334` | — | — |
-| 14 | Pay request with NEAR wallet | `/pay/[id]` | `/m/pay/[id]` | Review-only | unit + browser | — | signing (Codex, owner) |
-| 15 | Pay from Base USDC (1Click) | — | `/m/pay/[id]` | Functional quote pipeline (fixture/dry); funding gated | 1Click server + browser suites; checkout 88/88 | Codex: live signed **dry** quote verified (`docs/evidence/mainnet-audit-2026-11-13/live-dry-probe.json`; `minAmountOut == amountOut`) | funded quotes gate, `intentsRouter:false`, router gas envelope (Codex, owner) |
-| 16 | Pay from Solana USDC (1Click) | — | same | Functional quote pipeline (this phase), route offered only if 1Click's live token list matches mint `EPjFWdd5…` exactly | 5 service tests, validators, browser: Solana quote review | **none** (sandbox cannot reach 1Click) | live dry quote recording; funded gate (owner) |
-| 17 | Pay from Tron USDT (1Click) | — | same | Functional quote pipeline (this phase), resolved from live token list (contract `TR7NHqje…`) | validators (base58check), service test, browser: contract refused as refund | **none**; Tron asset ID not yet observed live | live token-list + dry quote recording (owner/Claude) |
-| 18 | Payment status (Awaiting … Unknown), R-2 unknown, do-not-repay | yes | `/m/pay/[id]` | Functional (read) | state-model tests; browser | — | — |
-| 19 | QR scan (camera + paste, same-origin only) | `/scan` | `/m/scan` | Functional | product suite (paste); cross-origin rejection tests | — | real-device camera test |
-| 20 | Merchant dashboard / store QR | `/merchant` | `/m/merchant` | Partial: identity QR, tracked requests with live status | product suite | — | indexed sales, registration interface (Codex) |
-| 21 | Merchant checkout `/checkout/[account]` (fresh request per sale) | yes | `/m/checkout/[account]` | **Blocked** for per-sale creation | identity validation tests | — | merchant profile reader + signing (Codex) |
-| 22 | Live Handshake (two screens, same request, comparison code, presence, rejoin, end, expiry) | `/s/[id]` | `/m/s/[roomId]` + merchant panel on `/m/pay/[id]` | **Functional (this phase)** | 7 unit tests; browser two-device run 15 checks against **real Redis**; all keys under `taply:mainnet:hs:` | — (no Mainnet host/DB yet) | mainnet Upstash DB + deployed contract (owner) |
-| 23 | Activity / payment history | `/activity` | `/m/activity` | Functional for this device's tracked requests, each read live (this phase) | unit + product suite | — | complete Mainnet history index (backend) |
-| 24 | Receipt (contract state: amount, merchant, payer/router, times, operation, hashes) | `/receipt/[id]` | `/m/receipt/[id]` | Functional (read) (this phase) — "Payment recorded", never "Verified" | 3 UI tests; browser | — | — |
-| 25 | Verified receipt (independent receipt graph) | `/receipt/[id]` | — | **Blocked** | gate test (`MAINNET_INDEPENDENT_VERIFIER_AVAILABLE=false`) | — | mainnet verifier (Codex) |
-| 26 | Protected Pay lock / refund / release | `/protected/*` | `/m/protected/*` | **Blocked** | — | — | Mainnet escrow contract (`protectedPay:false`), interface (Codex) |
-| 27 | Personal Gift / Open Gift — compose + animated envelope | `/gift/new` | `/m/gift/new` | Functional draft (Codex) | product suite | — | — |
-| 28 | Gift funding, claim, Open Gift page, gift receipt | `/gift/*` | `/m/gift/*` | **Blocked** | — | — | Mainnet Gift contract/config, claim interface (Codex) |
-| 29 | Contacts (per-account, local) | `/contacts` | `/m/contacts` | Functional | Codex tests + product suite | — | edit/import/export (frontend) |
-| 30 | Split (exact integer shares) | `/split` | `/m/split` | Functional calc + per-share request prefill | Codex tests; prefill browser check | — | on-chain per-share requests need signing |
-| 31 | Recurring (drafts, never auto-debit) | `/recurring` | `/m/recurring` | Functional drafts + "Prepare request" prefill | Codex tests; prefill tests | — | occurrence IDs/timezone (frontend/shared) |
-| 32 | Settings | `/settings` | `/m/settings` | Functional | product suite | — | internal-wallet security settings (blocked with 7) |
+## Exact remaining blockers
 
-Counts: Functional/Functional(read) 21, Review-only 3, Partial 1, Blocked 7.
-Rows 7–9, 21, 25, 26, 28 cannot be completed without Codex's interfaces and owner
-approvals; their screens explain this and offer no controls that look active.
+**Protocol / contract (Codex):** terminal attempt reconciliation (unresolved
+attempts currently block forever); cross-device/rollback policy;
+physical-wallet acceptance and contract/token signing policies; USDC/router/
+retry/escrow independent receipts; immutable merchant and Handshake binding
+into on-chain terms; upstream router gas envelope; R-2 contained, not eliminated.
 
-## This phase's changes (Claude Code)
+**UI (Claude):** USDC send UI; Protected Pay create flow; Personal Gift send +
+verifier wiring; Gift claim page at `/m/gift/<id>#k=` and gift receipt page;
+merchant per-sale checkout; history index integration when a backend exists.
 
-- Live Handshake on Mainnet: the reviewed Testnet room engine gains a
-  `namespace` option (default `taply:hs` = Testnet unchanged); Mainnet uses
-  `taply:mainnet:hs`, its own API (`/api/mainnet/handshake/*`), its own browser
-  storage keys, and opens rooms only for OPEN instant requests on the pinned
-  Mainnet contract (or labelled fixtures in a Preview).
-- Activity with live per-request status; contract-state receipt page.
-- Solana USDC and Tron USDT origins: asset IDs resolved from 1Click's token list
-  by exact (chain, symbol, decimals, contract) match; Solana base58 and Tron
-  base58check refund validation; `/api/mainnet/oneclick/origins`; chain picker.
-- Split/Recurring → request composer prefills (re-validated, never coerced).
-- Mainnet PWA manifest.
+**Owner configuration:** see the delivery report (accounts, code hashes,
+Gift fee/limits, escrow account, Upstash DB, release reviews).
 
-No signing, escrow, Gift, Handshake engine or verifier was duplicated.
+## Verification
 
-## Verification (2026-11-13, this sandbox: Node 24.22.3, pnpm 11.5.0, real redis-server 7)
-
-| Check | Result |
-| --- | --- |
-| `pnpm check` | exit 0 — shared 93/93, near-client 278/278, web **1493 passed / 1 skipped** (Codex `8ca5059`: 1,457 + skips) |
-| API (strict types, lint, offline tests incl. real Redis) | 72/72 |
-| Phase 2 unit/UI tests | server 17 (Solana/Tron validators and resolution, Solana/Tron quotes, origins, Handshake namespace isolation and deadlines, prefills, manifest); UI 8 (copy parity, receipt never "Verified", Live client storage/API isolation) |
-| Testnet runtime parity vs `8ca5059` (both production builds served, normalized HTML) | **29/29** paths identical before the manifest change, **24/24** after it (Testnet pages, `/s/…`, `/api/handshake/health`, 404s, all `/m*` and `/api/mainnet/*`) |
-| Testnet Webpack build (CI step) | exit 0 |
-| Mainnet preview build (fixtures, Handshake on) | guard PASS; no Testnet vault key or contract in any static file |
-| Phase 2 browser suite (`scripts/mainnet-parity-phase2-qa.mjs`) | **26/26** — evidence `docs/evidence/mainnet-parity-phase2-2026-11-13/` |
-| Codex checkout suite / product suite, on this build | **88/88** / **98/98** |
-| Redis after the two-device run | 10 keys, **0** outside `taply:mainnet:` |
-| Mainnet server errors during all suites | 0 |
-
-Not verified: anything live on Mainnet from this sandbox (1Click and Mainnet
-RPC are blocked by the egress proxy), a real Mainnet wallet session, camera
-hardware, Handshake on a deployed host with the Mainnet Upstash database.
+Filled from the final run of the integrated commit; see the delivery report for
+the exact SHA and CI links.

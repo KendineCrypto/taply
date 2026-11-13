@@ -1,0 +1,203 @@
+{
+  "base": "http://127.0.0.1:3120",
+  "rpc": "SYNTHETIC responder in the browser (no Mainnet access)",
+  "results": [
+    {
+      "name": "weak password refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "12-word recovery phrase shown once",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "backup confirmation required before continuing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "wallet created after backup check",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "vault stored only under the Mainnet key (no Testnet vault key)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "phrase never stored in clear text",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "fresh implicit account is NOT activated (final-block evidence)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "account is a 64-hex implicit Mainnet account",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "wrong password does not unlock",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "correct password unlocks",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "activated only once account + FullAccess key are proven",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "available balance excludes storage and gas reserves (< 2 NEAR)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC balance shown from the same final block",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "invalid recipient refused before any review",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "amount above the available balance refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "exact review: recipient, 0.25 NEAR, next nonce, final block, Mainnet",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "confirm is disabled (signing gate closed)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "invalid phrase refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "restore on another device yields the same Mainnet account",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOCKED before cutoff: only payer cancel",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOCKED is labelled NOT PAID",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOCKED after cutoff: only release",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "release-failed: actions [\"retry_native_transfer\"]",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "refund-failed: actions [\"retry_native_transfer\"]",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "release-in-flight: actions []",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "refund-in-flight: actions []",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "final-paid: actions []",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "cancelled-refunded: actions []",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "IN_FLIGHT shows the R-2 unknown warning, no retry",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "every escrow action button is disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Open Gift: total = amount + fixture fee (0.51 NEAR)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Open Gift: create_gift call with the link public key, claim link carries the key only in the fragment",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "claim signed with the one-use link key -> claim_gift with a 64-byte signature",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "expired gift: creator refund offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "payout PENDING: R-2 warning and no action",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "recorded payout failure: recipient retry offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "refunded gift: no action",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "leak scan over 18 loaded scripts (incl. Testnet vault key and Testnet gift claim domain)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no page errors",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "scripts": 18,
+  "errors": []
+}

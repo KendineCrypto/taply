@@ -23,9 +23,10 @@ try {
       check(`${locale} ${path}: no horizontal overflow`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
     await page.goto(`${base}/m/wallet/restore`);
-    check(`${locale} restore: no phrase input`, await page.locator('textarea,input[type=password]').count() === 0);
+    // Phase 3: restore is the Mainnet vault form; it never touches Testnet storage.
+    check(`${locale} restore: Mainnet vault phrase form only`, await page.locator('textarea#mw-phrase').count() === 1 && !(await page.evaluate(() => Object.keys(localStorage).some((k) => k.includes('testnet')))));
     await page.goto(`${base}/m/send`);
-    check(`${locale} send: disabled`, await page.getByRole('button', { name: locale === 'tr' ? 'Gönder' : 'Send', exact: true }).isDisabled());
+    check(`${locale} send: no enabled confirm`, await page.getByRole('button', { name: locale === 'tr' ? 'Onayla ve gönder' : 'Confirm and send' }).count() === 0 || await page.getByRole('button', { name: locale === 'tr' ? 'Onayla ve gönder' : 'Confirm and send' }).isDisabled());
     await page.goto(`${base}/m/split`);
     await page.getByLabel(locale === 'tr' ? 'Tutar' : 'Amount', { exact: true }).fill('0.000005');
     await page.getByRole('button', { name: locale === 'tr' ? 'Kesin payları hesapla' : 'Calculate exact shares' }).click();
@@ -33,7 +34,8 @@ try {
     await page.goto(`${base}/m/gift/new`);
     await page.getByLabel(locale === 'tr' ? 'Mesaj / not' : 'Message / memo').fill('Taply 💚');
     await page.getByRole('button', { name: locale === 'tr' ? 'Zarfı önizle' : 'Preview envelope' }).click();
-    check(`${locale} Gift: opened preview only`, await page.locator('.gift-env').getAttribute('data-open') === 'true');
+    // Phase 3 adds the Open Gift and gift-state envelopes on this page; this check targets the draft envelope.
+    check(`${locale} Gift: opened preview only`, await page.getByRole('img', { name: locale === 'tr' ? 'Taslak · fon gönderilmedi' : 'Draft · no funds sent' }).getAttribute('data-open') === 'true');
     check(`${locale} Gift: no funded link`, await page.locator('a[href*="#k="]').count() === 0);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(250);

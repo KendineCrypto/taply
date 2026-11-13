@@ -32,10 +32,14 @@ it('Gift envelope preview never creates a secret, transaction or fundable link',
   expect(screen.getByRole('img', { name: 'Draft · no funds sent' }).getAttribute('data-open')).toBe('true');
   expect(document.querySelector('a[href*="#k="]')).toBeNull(); expect(localStorage.length).toBe(0);
 });
-it('restore never exposes a phrase input, and Send remains disabled in both languages', () => {
-  const ui = render(view('wallet/restore')); expect(screen.getByText(/No recovery phrase is collected/)).toBeTruthy();
-  expect(document.querySelector('textarea')).toBeNull();
-  ui.rerender(view('send', 'tr')); expect((screen.getByRole('button', { name: 'Gönder' }) as HTMLButtonElement).disabled).toBe(true);
+it('restore collects the phrase only into the Mainnet vault form; Send never offers an enabled confirm (both languages)', () => {
+  // Phase 3: restore is implemented on EncryptedMainnetVault (Testnet backups rejected there).
+  const ui = render(view('wallet/restore')); expect(screen.getByText(/Testnet wallets and backups cannot be opened here/)).toBeTruthy();
+  expect(document.querySelectorAll('textarea#mw-phrase')).toHaveLength(1);
+  expect(Object.keys(localStorage).some((k) => k.includes('testnet'))).toBe(false);
+  ui.rerender(view('send', 'tr'));
+  expect(screen.queryByRole('button', { name: /Onayla ve gönder/ })).toBeNull();
+  expect([...document.querySelectorAll('button')].some((b) => /gönder/i.test(b.textContent ?? '') && !(b as HTMLButtonElement).disabled && /onayla/i.test(b.textContent ?? ''))).toBe(false);
 });
 it('uncertain/unsupported receipt, protected and Handshake screens never claim paid', () => {
   for (const path of ['receipt/' + 'a'.repeat(64), 'protected/new', 'handshake', 'gift/p']) {

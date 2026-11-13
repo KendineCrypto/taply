@@ -59,11 +59,11 @@ export function useMainnetVault(): { identity: MainnetWalletIdentity | null; unl
     },
     () => '||0',
   );
+  // Derived from the store snapshot only, so the hydration render matches the server render.
   return useMemo(() => {
-    if (typeof window === 'undefined') return { identity: null, unlocked: false };
-    void snap;
-    const v = vault();
-    return { identity: v.getIdentity(), unlocked: v.unlocked };
+    const [accountId, , unlocked] = snap.split('|');
+    if (!accountId) return { identity: null, unlocked: false };
+    return { identity: vault().getIdentity(), unlocked: unlocked === '1' };
   }, [snap]);
 }
 
@@ -103,6 +103,7 @@ export function WalletCreate() {
   const [done, setDone] = useState(false);
   const positions = useMemo(() => (words ? pick3(words.length) : []), [words]);
 
+  if (done) return <Notice tone="success" testId="wallet-created">{c.created} <Link className="underline" href="/m/wallet">{c.openWallet}</Link></Notice>;
   if (identity !== null && words === null) return <ExistingWallet c={c} />;
   async function create() {
     setError('');
@@ -114,7 +115,6 @@ export function WalletCreate() {
       setPassword(''); setConfirm('');
     } catch (e) { setError(vaultError(c, e)); } finally { setBusy(false); }
   }
-  if (done) return <Notice tone="success" testId="wallet-created">{c.created} <Link className="underline" href="/m/wallet">{c.openWallet}</Link></Notice>;
   if (words !== null) {
     const ok = positions.every((p) => (check[p] ?? '').trim().toLowerCase() === words[p]);
     return (

@@ -146,6 +146,8 @@ jobs:
             sleep 1
           done
           node scripts/mainnet-parity-phase2-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase2" http://127.0.0.1:3120
+          # Phase 3: wallet create/restore/activation/send review, Protected Pay, Gift (synthetic in-browser RPC).
+          node scripts/mainnet-integration-phase3-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase3" http://127.0.0.1:3120
           test "$(redis-cli -p 6390 --scan | grep -vc '^taply:mainnet:')" = "0"
 
       - name: Preserve Mainnet browser evidence
