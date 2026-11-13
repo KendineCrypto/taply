@@ -21,7 +21,7 @@ export function nep413Payload(message: string, nonce: string, recipient: string,
   return Buffer.concat([tag, text(message), base64(nonce, 32), text(recipient),
     callbackUrl === undefined ? Buffer.from([0]) : Buffer.concat([Buffer.from([1]), text(callbackUrl)])]);
 }
-function publicBytes(key: string): Buffer {
+export function publicBytes(key: string): Buffer {
   if (typeof key !== 'string' || !/^ed25519:[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(key)) return refuse();
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   let n = 0n; for (const c of key.slice(8)) n = n * 58n + BigInt(alphabet.indexOf(c));
