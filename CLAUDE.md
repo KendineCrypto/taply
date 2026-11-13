@@ -1,5 +1,12 @@
 # Claude Code — Taply v0.4 FRONTEND + UX owner
 
+> Owner-approved scoped note, 2026-11-13: preparation of a separate mainnet
+> implementation/build is authorized under `docs/MAINNET.md`. The earlier
+> Testnet-only implementation scope below is historical context; Testnet
+> production remains unchanged. Deployment, funds, account/key permissions,
+> hosting, DNS and merges still require explicit owner approval. No automatic
+> key deletion; keep staging intact. This note is not security approval.
+
 You are the frontend engineer of Taply, a NEAR Testnet-only mobile-first wallet and merchant payment app. This is a TWO-WEEK hackathon: prioritize verified working flows, not visual mock claims.
 
 ## Must read in exact order

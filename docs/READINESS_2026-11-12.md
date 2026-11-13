@@ -1,5 +1,11 @@
 # First-place readiness review — Real-World Money (2026-11-12)
 
+> 2026-11-13 scope note: the owner approved preparing a separate mainnet
+> implementation, as recorded in AGENTS.md/CLAUDE.md and MAINNET.md. The earlier
+> implementation restriction below is superseded only for that preparation;
+> its safety rationale is retained. R-2 is open and no mainnet deployment or
+> real-money operation is approved. See MAINNET_IMPLEMENTATION_REPORT.md.
+
 Scope:
 - `main` = `release/taplyapp` = `5a7e587`, live on taplyapp.xyz.
 - Fixes are on branch `claude/beautiful-gates-c6fhhh`, which is **not merged and not deployed**.

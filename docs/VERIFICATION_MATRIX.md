@@ -1,5 +1,18 @@
 # Feature verification matrix
 
+## Mainnet preparation — 2026-11-13, not deployed
+
+| Feature | Local proof | Mainnet proof | Status |
+| --- | --- | --- | --- |
+| Independent native/USDC contract | Candidate source, unexecuted Rust tests | None | NO-GO; Rust/sandbox validation blocked |
+| Mainnet schemas/readers/builders | Compiles; client regression and new tests pass | None | Frontend/external-wallet integration pending |
+| Router hold/recovery | Candidate source only | None | Quote/signing integration disabled; gas envelope and R-2 unresolved |
+| Deployment planner | 5 offline tests pass | None | Read-only; no signer or key deletion |
+| Base-origin payment / Verified Paid | None | None | Not proven / verifier not implemented on mainnet |
+
+See [implementation report](MAINNET_IMPLEMENTATION_REPORT.md). Historical
+Testnet evidence below is not proof for this new candidate.
+
 Updated **2026-11-11** (final hackathon release). Production evidence below was
 recorded on `ce5e9e9`; the final release adds only a tab-return race fix in the
 payment screen and tests (no contract or flag change). NEAR **Testnet** only for every row. Nothing here is audited.

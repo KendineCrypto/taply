@@ -1,5 +1,14 @@
 # Codex — Taply v0.4 NEAR PAYMENTS + BACKEND owner
 
+> Owner-approved scoped note, 2026-11-13: separate mainnet implementation on
+> `codex/mainnet-core`, including the independent contract, shared package,
+> near-client and read-only deployment preparation, is authorized. Earlier
+> Testnet-only implementation scope below is retained as historical context.
+> Existing deployed contracts and Testnet production remain unchanged.
+> Deployment, funds, account/key permissions, hosting, DNS and merges still
+> require explicit owner approval. No automatic key deletion; keep staging
+> intact. This note is not security approval or permission to deploy.
+
 You own the security-critical Rust NEAR Testnet contracts, payment settlement state machine, Handshake service and backend. Build a **working, reproducible, signed Testnet proof**, not a mocked on-chain integration.
 
 ## Mandatory context

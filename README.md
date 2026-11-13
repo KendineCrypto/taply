@@ -36,6 +36,13 @@ contract**, approves in their own wallet, and may pay with NEAR or with another
 Testnet asset that is converted to NEAR first. Both phones then verify the
 receipt on chain. Nothing says "paid" until the chain does.
 
+**Mainnet preparation, not live:** an independent capped instant NEAR/USDC
+candidate is being prepared for `mainnet.taplyapp.xyz` on `codex/mainnet-core`.
+Testnet at `taplyapp.xyz` is unchanged. No mainnet payment or deployment is proven.
+The candidate is unaudited, R-2 remains open, and `kendinecrypto.near` would control
+manual recovery of unclaimed router funds only. See the
+[protocol](docs/MAINNET.md) and [implementation report](docs/MAINNET_IMPLEMENTATION_REPORT.md).
+
 <table>
   <tr>
     <td align="center"><img src="docs/screenshots/01-welcome.png" width="200" alt="Welcome screen: connect a wallet or create a Taply Wallet"><br><sub>Start in seconds</sub></td>

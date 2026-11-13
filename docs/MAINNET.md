@@ -142,3 +142,8 @@ External wallets first; mainnet must never unlock a Testnet vault. Protected Pay
 internal wallet creation, split, recurring, swaps and CSV are outside this pilot.
 No mainnet funds moved; size/funding estimates and tests remain to be measured.
 Current recommendation: **NO-GO for real funds**.
+
+Implementation status and exact observed checks:
+[MAINNET_IMPLEMENTATION_REPORT.md](MAINNET_IMPLEMENTATION_REPORT.md).
+Contract-source commit: `ed3be1efdff26f89f6188bd6210d12c187049411`
+(uncompiled candidate, not a release artifact).
