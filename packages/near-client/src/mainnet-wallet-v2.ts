@@ -1,7 +1,7 @@
 import {PublicKey,actions,baseDecode,baseEncode,createTransaction,encodeTransaction} from 'near-api-js';
 import {canonicalJson,parseStrictJson,MainnetAccountSchema} from '@taply/shared';
 import {createMainnetOperationPlanner,type MainnetOperation,type MainnetSigningProfiles} from './mainnet-operation-policy.js';
-import {createMainnetTransactionCoordinator,type MainnetGlobalAttemptStore,type MainnetPendingTransaction,MainnetReviewedActionSchema} from './mainnet-reconciliation.js';
+import {createMainnetTransactionCoordinator,type MainnetGlobalAttemptStore,type MainnetPendingTransaction,type MainnetTransactionExpectation,MainnetReviewedActionSchema} from './mainnet-reconciliation.js';
 import {createMainnetWalletChain} from './mainnet-wallet-chain.js';
 import {EncryptedMainnetVault,MAINNET_PROTOCOL_SIGNING_RELEASED,signMainnetVaultTransaction} from './mainnet-vault.js';
 import {OneShotMainnetProvider} from './mainnet-wallet-transport.js';
@@ -24,13 +24,16 @@ export function mainnetNearConnectParameters(accountId:string,receiverId:string,
 export type MainnetWalletReview={id:string;network:'near-mainnet';accountId:string;publicKey:string;receiverId:string;
   action:z.infer<typeof MainnetReviewedActionSchema>;operationHash:string;nonce:string|null;minimumNonce:string;
   blockHash:string;blockHeight:string;gasReserveYocto:string;storageReserveYocto:string;expiresAtMs:number};
+export type MainnetWalletAuthority=Omit<ReturnType<typeof createMainnetTransactionCoordinator>,'reserve'>&{
+  reserve(operationHash:string,expectation:MainnetTransactionExpectation,operation:MainnetOperation):Promise<MainnetPendingTransaction>};
 /** Unified policy path. Never accepts arbitrary caller transactions or raw keys.
  * The public submit gate and internal vault gate are independent and both closed. */
-export function createMainnetWalletBackend(input:{profiles:MainnetSigningProfiles;store:MainnetGlobalAttemptStore;deviceId:string;
-  signer:{kind:'internal';vault:EncryptedMainnetVault}|{kind:'near-connect';wallet:MainnetNearConnectWallet;accountId:string;publicKey:string}},
+export function createMainnetWalletBackend(input:{profiles:MainnetSigningProfiles;deviceId:string;
+  signer:{kind:'internal';vault:EncryptedMainnetVault}|{kind:'near-connect';wallet:MainnetNearConnectWallet;accountId:string;publicKey:string}}&
+  ({authority:MainnetWalletAuthority;store?:never}|{store:MainnetGlobalAttemptStore;authority?:never}),
   fetcher:Fetch=(u,i)=>globalThis.fetch(u,i),now:()=>number=Date.now){
   const planner=createMainnetOperationPlanner(input.profiles,fetcher),chain=createMainnetWalletChain(input.profiles.network,fetcher);
-  const journal=createMainnetTransactionCoordinator({store:input.store,deviceId:input.deviceId,profile:input.profiles.network},fetcher);
+  const journal:MainnetWalletAuthority=input.authority??createMainnetTransactionCoordinator({store:input.store!,deviceId:input.deviceId,profile:input.profiles.network},fetcher);
   const plans=new Map<string,{review:Readonly<MainnetWalletReview>;operation:MainnetOperation}>();
   async function identity(){
     if(input.signer.kind==='internal'){const id=input.signer.vault.getIdentity();if(!id||id.network!=='near-mainnet')throw Error('WALLET_NOT_CREATED');
@@ -63,7 +66,7 @@ export function createMainnetWalletBackend(input:{profiles:MainnetSigningProfile
         canonicalJson(fresh.action)!==canonicalJson(r.action)||fresh.receiverId!==r.receiverId||BigInt(s.blockHeight)<BigInt(r.blockHeight)||
         (s.blockHeight===r.blockHeight&&s.blockHash!==r.blockHash)||BigInt(fresh.gasReserveYocto)>BigInt(r.gasReserveYocto)||BigInt(fresh.storageReserveYocto)>BigInt(r.storageReserveYocto))throw Error('REVIEW_CHANGED');
       const attempt=await journal.reserve(r.operationHash,{accountId:r.accountId,publicKey:r.publicKey,receiverId:r.receiverId,action:r.action,
-        nonce:r.nonce,minimumNonce:r.minimumNonce,anchorHash:r.blockHash,anchorHeight:r.blockHeight});
+        nonce:r.nonce,minimumNonce:r.minimumNonce,anchorHash:r.blockHash,anchorHeight:r.blockHeight},plan.operation);
       let pending:MainnetPendingTransaction=attempt,hash:string|null=null;
       try{
         active();

@@ -81,3 +81,23 @@ Gift fee/limits, escrow account, Upstash DB, release reviews).
 
 Filled from the final run of the integrated commit; see the delivery report for
 the exact SHA and CI links.
+
+## Phase 4 protocol delta (isolated development branch)
+
+See [exact typed interfaces and security decision](MAINNET_PHASE4_PROTOCOL.md).
+This section supersedes the corresponding protocol gaps above; it does not
+increase the number of live functional financial features.
+
+| Area | Implemented now | Still required |
+| --- | --- | --- |
+| Wallet uncertain outcomes | Exact FINAL execution reconciliation, permanent replay tombstones, nonce/account/device CAS fencing | Authenticated semantic authority adapter, production durability/rollback controls, UI migration, release acceptance |
+| Native / USDC / contract signing | Unified internal/external wallet policy, fresh pinned reads, exact actions, Gift link signature preflight | Physical wallet acceptance; all real-money signing remains disabled |
+| Independent receipts | Native/USDC instant, Protected refund/release, retry histories, Gift retry histories, NEAR-side router delivery | Actual full-chain integration evidence, UI wiring, public verifier release gate; no upstream refund proof |
+| Merchant / Handshake | Immutable exact terms/session commitment and deterministic per-sale request ID using existing contract ABI | Session service must freeze metadata and compare pinned FINAL terms; native registry capabilities remain disabled |
+| Gift | Shared signing policy and independent claim/refund/retry verification | Approved account/caps/fee, deployment and end-to-end proof, remaining Claude page wiring |
+| Protected Pay | Signing policies and full settlement-history verifier | Approved escrow configuration, release acceptance, actual integration evidence; R-2 stays contained |
+
+No Testnet contract source or frontend route is changed by this protocol work.
+Base USDC / 1Click durable-attempt hardening remains intact. Solana/Tron inventory
+and all existing workflow gates remain required. **NO-GO for real funds and for
+claiming complete product parity** until the named security/integration gaps close.
