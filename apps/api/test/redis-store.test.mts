@@ -9,9 +9,37 @@ import {join} from 'node:path';
 import {once} from 'node:events';
 import { RedisDurableStore, upstashCommand, sessionKeyFromEnv, type RedisCommand } from '../src/redis-store.mts';
 import {createMainnetGlobalRedisStore} from '../src/mainnet-wallet-store.mts';
+import {createFencedMainnetRedisPersistence,authorityAnchor} from '../src/mainnet-authority-persistence.mts';
+import {initialMainnetAuthorityState} from '../src/mainnet-authenticated-authority.mts';
+import {canonicalJson} from '../../../packages/shared/dist/index.js';
+import {createMainnetAuthorityRateLimiter} from '../src/mainnet-authority-http.mts';
 
 // Real Redis semantics (EVAL/Lua, PX TTL) through a local redis-server; skipped only if absent.
 const hasRedis = spawnSync('redis-server', ['--version']).status === 0;
+
+test('real Redis fenced authority: concurrent CAS, rollback/eviction detection and atomic account rate limit',{skip:!hasRedis},async()=>{
+  await withRedis(async port=>{
+    const clients=Array.from({length:4},()=>resp(port)),key='taply:mainnet:authority:v1:alice.near';
+    const initial={epoch:'d'.repeat(64),revision:'0',payload:initialMainnetAuthorityState('alice.near')};
+    let head=authorityAnchor('alice.near',initial);
+    const witness={read:async()=>structuredClone(head),compareAndSwap:async(_scope:string,old:typeof head,next:typeof head)=>{
+      if(canonicalJson(old)!==canonicalJson(head))return false;head=structuredClone(next);return true;}};
+    try {
+      await clients[0]!.command(['SET',key,canonicalJson(initial),'NX']);
+      const stores=clients.map(c=>createFencedMainnetRedisPersistence(c.command,'alice.near',witness));
+      const wins=await Promise.all(Array.from({length:20},(_,i)=>stores[i%4]!.compareAndSwap(initial,'reserved')));
+      assert.equal(wins.filter(Boolean).length,1);assert.equal(await clients[0]!.command(['PTTL',key]),-1);
+      assert.equal((await createFencedMainnetRedisPersistence(clients[0]!.command,'alice.near',witness).read()).payload,'reserved');
+      await clients[0]!.command(['SET',key,canonicalJson(initial)]);
+      await assert.rejects(createFencedMainnetRedisPersistence(clients[0]!.command,'alice.near',witness).read(),/RECOVERY/);
+      await clients[0]!.command(['DEL',key]);
+      await assert.rejects(createFencedMainnetRedisPersistence(clients[0]!.command,'alice.near',witness).read(),/RECOVERY/);
+      const limiter=createMainnetAuthorityRateLimiter(clients[0]!.command);
+      const rates=await Promise.allSettled(Array.from({length:40},()=>limiter.consume('127.0.0.1','alice.near')));
+      assert.equal(rates.filter(x=>x.status==='fulfilled').length,30);
+    }finally{clients.forEach(c=>c.close());}
+  });
+});
 
 /** Minimal RESP2 client: one TCP socket, replies matched in order. */
 function resp(port: number): { command: RedisCommand; close: () => void } {
@@ -126,9 +154,16 @@ test('real Redis AOF: acknowledged wallet reservation survives process kill and 
   }
   try{
     await start();
+    const initial={epoch:'e'.repeat(64),revision:'0',payload:initialMainnetAuthorityState('alice.near')};
+    let head=authorityAnchor('alice.near',initial);
+    const witness={read:async()=>structuredClone(head),compareAndSwap:async(_scope:string,old:typeof head,next:typeof head)=>{
+      if(canonicalJson(old)!==canonicalJson(head))return false;head=structuredClone(next);return true;}};
+    await client!.command(['SET','taply:mainnet:authority:v1:alice.near',canonicalJson(initial),'NX']);
+    assert.equal(await createFencedMainnetRedisPersistence(client!.command,'alice.near',witness).compareAndSwap(initial,'uncertain-attempt'),true);
     const ledger=JSON.stringify({version:2,network:'near-mainnet',accountId:'alice.near',pending:{state:'HANDOFF',attemptId:crypto.randomUUID()}});
     assert.equal(await createMainnetGlobalRedisStore(client!.command,'alice.near').compareAndSwap('alice.near',null,ledger),true);
     await kill();await start();
+    assert.equal((await createFencedMainnetRedisPersistence(client!.command,'alice.near',witness).read()).payload,'uncertain-attempt');
     const restored=createMainnetGlobalRedisStore(client!.command,'alice.near');
     assert.equal(await restored.read('alice.near'),ledger);
     assert.equal(await restored.compareAndSwap('alice.near',null,ledger),false);

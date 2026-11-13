@@ -9,6 +9,24 @@ import {ed25519PublicKeyFromHex} from './wallet-chain.js';
 import {HashSchema} from './validation.js';
 import type {Fetch} from './rpc.js';
 import type {z} from 'zod';
+import {mainnetAuthorityMessageParameters,type MainnetAuthorityCommand} from './mainnet-wallet-auth.js';
+import {executeReservedMainnetHandoff} from './mainnet-handoff.js';
+
+export async function authorizeMainnetNearConnectCommand(wallet:Pick<MainnetNearConnectWallet,'getAccounts'>&{
+  signMessage(params:Awaited<ReturnType<typeof mainnetAuthorityMessageParameters>>):Promise<{accountId:string;publicKey:string;signature:string}>},
+  challenge:unknown,expected:{accountId:string;publicKey:string;command:MainnetAuthorityCommand;policyHash:string},
+  confirm:(command:MainnetAuthorityCommand)=>Promise<boolean>,now=Date.now){
+  if(!MAINNET_PROTOCOL_SIGNING_RELEASED)throw Error('MAINNET_SIGNING_DISABLED');
+  const reviewed=structuredClone(expected),original=structuredClone(challenge);
+  const identity=async()=>{if(!(await wallet.getAccounts()).some(a=>a.accountId===reviewed.accountId&&a.publicKey===reviewed.publicKey))throw Error('EXTERNAL_IDENTITY_MISMATCH');};
+  await identity();await mainnetAuthorityMessageParameters(original,reviewed,now());
+  if(await confirm(structuredClone(reviewed.command))!==true)throw Error('USER_REJECTED');
+  await identity();const params=await mainnetAuthorityMessageParameters(original,reviewed,now());
+  const signed=await wallet.signMessage(params);
+  await mainnetAuthorityMessageParameters(original,reviewed,now());
+  if(signed.accountId!==reviewed.accountId||signed.publicKey!==reviewed.publicKey)throw Error('EXTERNAL_IDENTITY_MISMATCH');
+  return signed;
+}
 
 export interface MainnetNearConnectWallet {
   getAccounts():Promise<Array<{accountId:string;publicKey?:string}>>;
@@ -68,27 +86,27 @@ export function createMainnetWalletBackend(input:{profiles:MainnetSigningProfile
         (s.blockHeight===r.blockHeight&&s.blockHash!==r.blockHash)||BigInt(fresh.gasReserveYocto)>BigInt(r.gasReserveYocto)||BigInt(fresh.storageReserveYocto)>BigInt(r.storageReserveYocto))throw Error('REVIEW_CHANGED');
       const attempt=await journal.reserve(r.operationHash,{accountId:r.accountId,publicKey:r.publicKey,receiverId:r.receiverId,action:r.action,
         nonce:r.nonce,minimumNonce:r.minimumNonce,anchorHash:r.blockHash,anchorHeight:r.blockHeight},plan.operation);
-      let pending:MainnetPendingTransaction=attempt,hash:string|null=null;
-      try{
+      return executeReservedMainnetHandoff(journal,attempt,async()=>{
         active();
         if(input.signer.kind==='internal'){
           const a=r.action,tx=createTransaction(r.accountId,PublicKey.fromString(r.publicKey),r.receiverId,BigInt(r.nonce!),
             [a.kind==='transfer'?actions.transfer(BigInt(a.depositYocto)):actions.functionCall(a.methodName,new TextEncoder().encode(a.argsJson),BigInt(a.gas),BigInt(a.depositYocto))],baseDecode(r.blockHash));
-          const bytes=new Uint8Array(encodeTransaction(tx));hash=baseEncode(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)));
+          const bytes=new Uint8Array(encodeTransaction(tx)),hash=baseEncode(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)));
           // Persist the deterministic hash BEFORE asking the vault to sign.
-          pending=await journal.handoff(attempt,hash);active();
-          const signed=await signMainnetVaultTransaction(input.signer.vault,tx);active();signed.assertActive();
+          const vault=input.signer.vault;
+          return {transactionHash:hash,async send(){active();
+          const signed=await signMainnetVaultTransaction(vault,tx);active();signed.assertActive();
           if(baseEncode(signed.txHash)!==hash)throw Error('SIGNATURE_MISMATCH');
           await new OneShotMainnetProvider(profiles.network,fetcher,()=>{active();signed.assertActive();}).sendTransactionUntil(signed.signedTransaction,'FINAL');
+          return hash;}};
         }else{
-          pending=await journal.handoff(attempt,null);active();
+          const wallet=input.signer.wallet;
+          return {transactionHash:null,async send(){active();
           const id=await identity();active();if(id.accountId!==r.accountId||id.publicKey!==r.publicKey)throw Error('IDENTITY_CHANGED');
-          const result=await input.signer.wallet.signAndSendTransaction(mainnetNearConnectParameters(r.accountId,r.receiverId,r.action));
-          const value=result as {transaction?:{hash?:unknown}};hash=HashSchema.parse(value?.transaction?.hash);
+          const result=await wallet.signAndSendTransaction(mainnetNearConnectParameters(r.accountId,r.receiverId,r.action));
+          const value=result as {transaction?:{hash?:unknown}};return HashSchema.parse(value?.transaction?.hash);}};
         }
-      }catch{/* Wallet rejection/timeout is not proof of non-submission. */}
-      try{await journal.uncertain(pending,hash);}catch{/* Last acknowledged reservation still fences further handoff. */}
-      return {kind:'OUTCOME_UNRESOLVED' as const,transactionHash:hash};
+      });
     },
     async readAttempt(){return journal.read((await identity()).accountId);},
     async reconcile(hashHint?:string){return journal.reconcile((await identity()).accountId,hashHint);},

@@ -88,3 +88,81 @@ are not real Mainnet signing or physical wallet evidence. Final tests and exact 
 SHA must be reported separately. Full functional parity and release are not yet
 proven; UI migration, production witness, physical wallet acceptance, approved
 contract configurations and actual authorized Mainnet end-to-end evidence remain.
+
+## Completed integration interfaces
+
+`MainnetAuthorityCommand` and `MainnetAuthorityChallenge` are now also exported
+from `@taply/near-client`. `mainnetAuthorityMessageParameters(challenge,expected)`
+validates the intended command, exact account/key and locally trusted policy hash
+before constructing NEAR Connect 0.12 `signMessage` parameters. Never just copy
+the server's policy hash into expected configuration. Client/server NEP-413 bytes
+are compared in tests.
+
+`EncryptedMainnetVault.authorizeAuthorityCommand(...)` and
+`authorizeMainnetNearConnectCommand(...)` implement fixed-purpose authorization
+with confirmation and expiry/identity checks. Both reject under the closed signing
+gate. There is no arbitrary raw-message signer.
+
+The additional command `bindCommerce` takes `[kind,draftTerms,session]`.
+Authenticated merchant and owner device freeze exact terms and session identity
+in witnessed storage. Conflicting reuse of a session ID fails; identical reuse
+after fresh authorization returns the same commitment. Pass its terms to the
+reviewed instant/escrow creation operation, then read the actual contract request.
+This is not a deployed registry or payment status. Join/presence tokens stay out
+of public commitments. The full live-session UI/service migration remains Claude
+integration work; this phase implements its authenticated immutable binding.
+
+`createMainnetProtocolVerification(profiles).commerce(...)` reads the pinned FINAL
+request and checks the payer-reviewed hash. Its `receipt` dispatcher covers
+native, USDC, instant/escrow, Gift and retry-history readers. Pins come from server
+configuration. The browser's independent reader remains required for public
+verification labels; a server response or socket event never substitutes for it.
+
+The internal handoff sequencer is now separately tested with inert callbacks.
+Fourteen cases cover internal/external hash conventions, rejection, lost response,
+RPC ambiguity, Redis failure and lost acknowledgements. It persists handoff before
+sending and always returns unresolved until reconciliation. No release gate is
+overridden in these tests. Nine API test groups cover disposable cryptographic
+authorization, replay, devices, merchant bindings, rollback and HTTP bounds.
+Real Redis tests additionally cover witnessed CAS, rollback/deletion, rate limits
+and AOF process-kill/restart. Local Windows lacks Redis: Linux CI must run these.
+Policy tests retain native, USDC, request, Protected and Gift coverage and add exact
+USDC transfer-call message checks. Physical signing acceptance is still separate.
+
+Subsystem `736868fd6bbee015c9b1eb4c21065cca36216924` passed
+[Workspace CI](https://github.com/KendineCrypto/taply/actions/runs/43490535155).
+This does not certify later changes. Final CI must match the delivered SHA.
+
+## Router and R-2 reassessment, 2026-11-13
+
+The [published FtWithdraw interface](https://near.github.io/intents/defuse_core/intents/tokens/struct.FtWithdraw.html)
+documents configurable `min_gas`, a 50 TGas default for the token transfer-call
+and distribution of remaining gas across promises. That is an outer token-call
+allocation, not a Taply receiver gas guarantee. It does not bind the deployed
+router/token versions, solver-selected values or a Taply quote.
+The [withdrawal documentation](https://docs.agentsonintents.com/integration/verifier-contract/deposits-and-withdrawals/withdrawals)
+warns that using `msg` does not have simple-transfer refund protection. Returned
+tokens must not be represented as a customer refund.
+
+Release requires actual finalized graphs for configured router/USDC deployments,
+receiver gas across adversarial paths, a supported upstream gas/refund commitment,
+quote-to-delivery attribution and proof of recovery/refunds. No live Taply delivery
+was performed. R-2 remains contained by refusing unknown-callback retries. Wallet
+execution reconciliation cannot repair the unresolved contract obligation.
+
+## Remaining release requirements
+
+1. Independently provision and review the monotonic witness, Redis durability,
+   no-eviction, backup and controlled recovery. No production witness is supplied.
+2. Review device loss/revocation/takeover and bounded-history archival. There is
+   no automatic reset or safe takeover; lost credentials currently block writes.
+3. Integrate the unmounted HTTP adapter, trusted-IP extraction and browser flow;
+   assess CSP/XSS, cookie isolation and complete transaction confirmations.
+4. Physically test supported NEAR Connect wallets and internal vault recovery,
+   nonce behavior and uncertain outcomes under a separately authorized plan.
+5. Approve Gift/escrow accounts, limits and code pins; obtain authorized end-to-end
+   payment/refund/receipt evidence and resolve or explicitly accept R-2 exposure.
+6. Owner separately authorizes release gates and deployment/funding operations.
+
+**NO-GO for real funds and a claim of complete functional parity.** No contract
+code, Testnet behavior, production route, workflow gate or hosting setting changes.

@@ -1,15 +1,18 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync,sign,createHash} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import {canonicalJson} from '../../../packages/shared/dist/index.js';
-import {MAINNET_GENESIS_HASH,createMainnetOperationPlanner,type MainnetSigningProfiles} from '../../../packages/near-client/dist/index.js';
+import {MAINNET_GENESIS_HASH,createMainnetOperationPlanner,mainnetAuthorityMessageParameters,mainnetAuthorityPayload,authorizeMainnetNearConnectCommand,EncryptedMainnetVault,type MainnetSigningProfiles} from '../../../packages/near-client/dist/index.js';
 import {ed25519PublicKeyFromHex} from '../../../packages/near-client/dist/wallet-chain.js';
 import {nep413Payload} from '../src/nep413.mts';
 import {createAuthenticatedMainnetAuthority,initialMainnetAuthorityState,type MainnetAuthorityCommand} from '../src/mainnet-authenticated-authority.mts';
 import {createFencedMainnetRedisPersistence,authorityAnchor,type AuthorityRecord} from '../src/mainnet-authority-persistence.mts';
 import {createMainnetAuthorityHttp} from '../src/mainnet-authority-http.mts';
+import {createMainnetProtocolVerification} from '../src/mainnet-protocol-verification.mts';
 const origin='https://mainnet.taplyapp.xyz',block='1'.repeat(31)+'2';
-const profiles:MainnetSigningProfiles={network:{network:'near-mainnet',rpcUrl:'https://rpc.mainnet.fastnear.com',rpcProviderId:'synthetic'}};
+const network={network:'near-mainnet' as const,rpcUrl:'https://rpc.mainnet.fastnear.com' as const,rpcProviderId:'synthetic'};
+const profiles:MainnetSigningProfiles={network,escrow:{...network,contract:{accountId:'payments.fixture.near',expectedCodeHash:'1'.repeat(31)+'9'}}};
 function fixture(){
   const keys=generateKeyPairSync('ed25519'),publicKey=ed25519PublicKeyFromHex(keys.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('hex'));
   let record:AuthorityRecord={epoch:'a'.repeat(64),revision:'0',payload:initialMainnetAuthorityState('alice.near')},time=1000,permission:unknown='FullAccess',rpcCalls=0,fail=false;
@@ -96,4 +99,52 @@ test('HTTP adapter rejects origin, oversized bodies and caller identities; limit
   assert.equal((await handler(req(JSON.stringify({publicKey:f.publicKey,command:{method:'read'},accountId:'mallory.near'})),'trusted-ip')).status,503);
   const response=await handler(req(JSON.stringify({publicKey:f.publicKey,command:{method:'read'}})),'trusted-ip');
   assert.equal(response.status,200);assert.match(response.headers.get('set-cookie')!,/Secure; HttpOnly; SameSite=Strict/);
+});
+test('client challenge validation matches server NEP-413 bytes; internal and NEAR Connect release gates prevent any signing',async()=>{
+  const f=fixture(),c={method:'read'} as const,i=await f.issue(c),ch=i.challenge;
+  const expected={accountId:'alice.near',publicKey:f.publicKey,command:c,policyHash:ch.policyHash};
+  const params=await mainnetAuthorityMessageParameters(ch,expected,1000);
+  assert.deepEqual(Buffer.from(mainnetAuthorityPayload(params)),nep413Payload(ch.message,ch.nonceBase64,ch.recipient));
+  for(const patch of [{network:'near-testnet'},{origin:'https://evil.example'},{accountId:'bob.near'},
+    {expiresAtMs:1000},{policyHash:'b'.repeat(64)},{message:'different'},{nonceBase64:'bad'}])
+    await assert.rejects(mainnetAuthorityMessageParameters({...ch,...patch},expected,1000));
+  await assert.rejects(mainnetAuthorityMessageParameters(ch,{...expected,command:{method:'reconcile'}},1000));
+  let calls=0;
+  const wallet={getAccounts:async()=>{calls++;return [];},signMessage:async()=>{calls++;throw Error('must not sign');}};
+  await assert.rejects(authorizeMainnetNearConnectCommand(wallet,ch,expected,async()=>{calls++;return true;}),/SIGNING_DISABLED/);
+  const vault=new EncryptedMainnetVault({getItem:()=>null,setItem:()=>{calls++;}});
+  await assert.rejects(vault.authorizeAuthorityCommand(ch,c,ch.policyHash,async()=>{calls++;return true;}),/SIGNING_DISABLED/);
+  assert.equal(calls,0);
+});
+test('authenticated commerce freezes session identity and exact terms; second device and merchant substitution fail',async()=>{
+  const f=fixture(),draft=JSON.parse(readFileSync(new URL('../../../packages/near-client/test/fixtures/mainnet-protocol/protected-open.json',import.meta.url),'utf8')).terms;
+  const session={version:'taply.commerce.v1' as const,network:'near-mainnet' as const,contractId:draft.contractId,merchantAccountId:'alice.near',
+    sessionId:'f'.repeat(64),sessionNonce:'a'.repeat(64),expiresAtNs:draft.fundingExpiresAtNs};
+  const c:MainnetAuthorityCommand={method:'bindCommerce',args:['escrow',draft,session]},i=await f.issue(c);
+  const result=await f.execute(c,i) as any;assert.equal(result.terms.creatorAccountId,'alice.near');
+  const same=await f.issue(c,i.deviceCredential);assert.deepEqual(await f.execute(c,same),result);
+  for(const args of [['escrow',{...draft,amountBaseUnits:'2'},session],['escrow',draft,{...session,sessionNonce:'b'.repeat(64)}],
+    ['escrow',draft,{...session,merchantAccountId:'mallory.near'}]]){
+    const changed={method:'bindCommerce',args} as MainnetAuthorityCommand,j=await f.issue(changed,i.deviceCredential);
+    await assert.rejects(f.execute(changed,j));
+  }
+  const second=await f.issue(c);await assert.rejects(f.execute(c,second),/OTHER_DEVICE/);
+  assert.equal(Object.keys(JSON.parse(f.record().payload).commerce).length,1);
+});
+test('receipt integration refuses absent deployment/token pins and never accepts client terminal state',async()=>{
+  const f=fixture(),reader=createMainnetProtocolVerification({network},f.rpc);
+  await assert.rejects(reader.receipt({kind:'gift',reference:{giftId:'a'.repeat(32),operations:[]}}),/CONFIGURED/);
+  await assert.rejects(reader.receipt({kind:'instant',reference:{id:'a'.repeat(64),funding:{transactionHash:block,signerAccountId:'alice.near'},operations:[]}}),/CONFIGURED/);
+  await assert.rejects(reader.receipt({kind:'usdc',reference:{transactionHash:block,from:'alice.near',to:'bob.near',amountBaseUnits:'1',usdcCodeHash:block}}),/PIN/);
+  assert.equal(f.calls(),0);
+});
+test('body timeout and rate failure prevent buffering indefinitely or reaching wallet RPC',async()=>{
+  const f=fixture(),handler=createMainnetAuthorityHttp(f.service,'alice.near',{consume:async()=>{}});
+  let cancelled=false;
+  const request=new Request(origin+'/api/mainnet/authority/challenge',{method:'POST',headers:{origin,'content-type':'application/json'},
+    body:new ReadableStream({cancel(){cancelled=true;}}),duplex:'half'} as RequestInit);
+  assert.equal((await handler(request,'trusted-ip')).status,503);assert.equal(cancelled,true);assert.equal(f.calls(),0);
+  const denied=createMainnetAuthorityHttp(f.service,'alice.near',{consume:async()=>{throw Error('REDIS_DOWN');}});
+  const r=new Request(origin+'/api/mainnet/authority/challenge',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'});
+  assert.equal((await denied(r,'trusted-ip')).status,503);assert.equal(r.bodyUsed,false);
 });

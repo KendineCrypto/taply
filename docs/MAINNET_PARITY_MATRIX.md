@@ -1,5 +1,16 @@
 # Taply Mainnet ↔ Testnet parity matrix (integrated)
 
+## Phase 5 protocol delta
+
+See [secure signing authority](MAINNET_SIGNING_AUTHORITY.md). Account/key ownership,
+single-use command challenges, server-issued device enrollment, witnessed Redis
+CAS, fixed-purpose wallet auth, immutable merchant bindings and receipt dispatch
+are implemented in the isolated protocol branch. Production routes remain
+unmounted and all release gates remain false. Independent production witness,
+device recovery, physical wallet acceptance, full application wiring, approved
+Gift/escrow configurations, R-2 and live router delivery evidence remain blockers.
+This delta does not mark Wallet, Gift, Protected Pay or merchant flows live.
+
 Updated 2026-11-13, phase 3. Integration branch: Codex protocol
 `codex/mainnet-parity-protocol` @ `39cb44d` + Claude application `0fc2468`
 (cherry-picked) + phase 3 wiring. Plans of record:
