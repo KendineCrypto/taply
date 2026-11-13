@@ -441,7 +441,9 @@ function VerificationNotice({
 
 function ShareVerification({ id, receipt }: { readonly id: string; readonly receipt: VerifiedReceipt }) {
   const t = useT();
+  const { locale } = useLocale();
   const { status, copy } = useCopy();
+  const embedCopy = useCopy();
   const share = useShareOrigin();
   // Only a public HTTPS origin makes a link another device can open (Phase 6A).
   if (share?.kind !== 'ok') return null;
@@ -452,14 +454,32 @@ function ShareVerification({ id, receipt }: { readonly id: string; readonly rece
     funding: receipt.fundingTransaction,
     retries,
   });
+  // Embed only the read-only route. ReceiptScreen ALWAYS does a new on-chain
+  // check in the iframe; a verified receipt here does not force it to say Paid.
+  const proofUrl = new URL(link);
+  proofUrl.pathname = `/proof/${id}`;
+  const escapedSrc = proofUrl.toString().replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+  const html = `<iframe title="Taply live blockchain payment proof" src="${escapedSrc}" width="480" height="760" loading="lazy" referrerpolicy="no-referrer" style="width:100%;max-width:480px;border:0;border-radius:16px;" ></iframe>`;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       <Button size="lg" block onClick={() => copy(link)}>
         <Icon name={status === 'copied' ? 'check' : 'link'} size={18} />
         {status === 'copied' ? t.payment.verification.linkCopied : t.payment.verification.copyLink}
       </Button>
+      <Button variant="secondary" size="lg" block onClick={() => embedCopy.copy(html)} data-testid="proof-embed-copy">
+        <Icon name={embedCopy.status === 'copied' ? 'check' : 'copy'} size={18} />
+        {locale === 'tr'
+          ? embedCopy.status === 'copied' ? 'Yerleştirme kodu kopyalandı' : 'Canlı kanıt kodunu kopyala'
+          : embedCopy.status === 'copied' ? 'Embed code copied' : 'Copy live proof embed'}
+      </Button>
+      <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+        {locale === 'tr'
+          ? 'Yerleştirilen makbuz bağımsız zincir kontrolü yapar. RPC yanıt vermezse Verified Paid göstermez.'
+          : 'Embedded receipts run an independent chain check. If RPC is unavailable, they do not claim Verified Paid.'}
+      </p>
       <span className="sr-only" role="status">
         {status === 'copied' ? t.payment.verification.linkCopied : ''}
+        {embedCopy.status === 'copied' ? 'Embed copied' : ''}
       </span>
     </div>
   );
