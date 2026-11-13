@@ -32,8 +32,9 @@ export function createMainnetWalletBackend(input:{profiles:MainnetSigningProfile
   signer:{kind:'internal';vault:EncryptedMainnetVault}|{kind:'near-connect';wallet:MainnetNearConnectWallet;accountId:string;publicKey:string}}&
   ({authority:MainnetWalletAuthority;store?:never}|{store:MainnetGlobalAttemptStore;authority?:never}),
   fetcher:Fetch=(u,i)=>globalThis.fetch(u,i),now:()=>number=Date.now){
-  const planner=createMainnetOperationPlanner(input.profiles,fetcher),chain=createMainnetWalletChain(input.profiles.network,fetcher);
-  const journal:MainnetWalletAuthority=input.authority??createMainnetTransactionCoordinator({store:input.store!,deviceId:input.deviceId,profile:input.profiles.network},fetcher);
+  const profiles=structuredClone(input.profiles);
+  const planner=createMainnetOperationPlanner(profiles,fetcher),chain=createMainnetWalletChain(profiles.network,fetcher);
+  const journal:MainnetWalletAuthority=input.authority??createMainnetTransactionCoordinator({store:input.store!,deviceId:input.deviceId,profile:profiles.network},fetcher);
   const plans=new Map<string,{review:Readonly<MainnetWalletReview>;operation:MainnetOperation}>();
   async function identity(){
     if(input.signer.kind==='internal'){const id=input.signer.vault.getIdentity();if(!id||id.network!=='near-mainnet')throw Error('WALLET_NOT_CREATED');
@@ -78,7 +79,7 @@ export function createMainnetWalletBackend(input:{profiles:MainnetSigningProfile
           pending=await journal.handoff(attempt,hash);active();
           const signed=await signMainnetVaultTransaction(input.signer.vault,tx);active();signed.assertActive();
           if(baseEncode(signed.txHash)!==hash)throw Error('SIGNATURE_MISMATCH');
-          await new OneShotMainnetProvider(input.profiles.network,fetcher,()=>{active();signed.assertActive();}).sendTransactionUntil(signed.signedTransaction,'FINAL');
+          await new OneShotMainnetProvider(profiles.network,fetcher,()=>{active();signed.assertActive();}).sendTransactionUntil(signed.signedTransaction,'FINAL');
         }else{
           pending=await journal.handoff(attempt,null);active();
           const id=await identity();active();if(id.accountId!==r.accountId||id.publicKey!==r.publicKey)throw Error('IDENTITY_CHANGED');

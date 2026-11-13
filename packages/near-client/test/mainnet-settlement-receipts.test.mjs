@@ -83,3 +83,22 @@ for(const options of [{},{token:true},{protectedPay:true},{protectedPay:true,ref
     assert.equal((await verifyMainnetSettlement(f.input,f.ref,rpc(f,{keyActivity:true}))).kind,'NOT_VERIFIED');
   });
 }
+
+test('USDC resolver refunds, router underpayment and false failed-predecessor history cannot prove settlement',async()=>{
+  for(const router of [false,true]){
+    const original=scenario({token:true,router});
+    const mutate=[
+      g=>{const p=g.receipts.find(p=>p.receipt.Action.actions[0].FunctionCall?.method_name==='ft_on_transfer');const c=p.receipt.Action.actions[0].FunctionCall,a=JSON.parse(Buffer.from(c.args,'base64'));a.amount='1';c.args=b64(a);},
+      g=>{const p=g.receipts.find(p=>p.receipt.Action.actions[0].FunctionCall?.method_name==='ft_resolve_transfer');g.receipts_outcome.find(o=>o.id===p.receipt_id).outcome.status={SuccessValue:b64('0')};},
+      g=>{const p=g.receipts.find(p=>p.receipt.Action.actions[0].FunctionCall?.method_name==='ft_on_transfer');p.predecessor_id='wrong-token.near';},
+      g=>{const p=g.receipts.find(p=>p.receipt.Action.actions[0].FunctionCall?.method_name==='ft_on_transfer');const c=p.receipt.Action.actions[0].FunctionCall,a=JSON.parse(Buffer.from(c.args,'base64'));a.msg='{"id":"bad"}';c.args=b64(a);},
+    ];
+    for(const change of mutate){const f=structuredClone(original);change(f.graphs.get(f.ref.funding.transactionHash));assert.equal((await verifyMainnetSettlement(f.input,f.ref,rpc(f))).kind,'NOT_VERIFIED');}
+  }
+  for(const failure of [false,true]){
+    const f=scenario({token:true,retry:true}),g=f.graphs.get(f.ref.funding.transactionHash);
+    const p=g.receipts.find(p=>p.receipt.Action.actions[0].FunctionCall?.method_name==='on_native_transfer_complete');
+    g.receipts_outcome.find(o=>o.id===p.receipt_id).outcome.status=failure?{Failure:{ActionError:{index:0}}}:{SuccessValue:b64(true)};
+    assert.equal((await verifyMainnetSettlement(f.input,f.ref,rpc(f))).kind,'NOT_VERIFIED');
+  }
+});

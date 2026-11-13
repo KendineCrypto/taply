@@ -85,3 +85,9 @@ test('unified wallet gate refuses before confirmation, shared reservation or ext
   assert.equal(r.nonce,null);assert.equal(r.minimumNonce,'7');assert.ok(Object.isFrozen(r));
   await assert.rejects(backend.submit(r.id,async()=>{confirms++;return true;}),/SIGNING_DISABLED/);assert.deepEqual([writes,signs,confirms],[0,0,0]);
 });
+
+test('caller profile mutation cannot change a policy instance code pin',async()=>{
+  const config=structuredClone(profiles),planner=createMainnetOperationPlanner(config,fetcher({wrongCode:true}));
+  config.usdcCodeHash=H(8);
+  await assert.rejects(planner.prepare({kind:'usdcSend',receiverId:'bob.near',amountBaseUnits:'1',businessId:'a'.repeat(64)},snapshot),/EVIDENCE/);
+});

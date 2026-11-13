@@ -197,6 +197,13 @@ existing inventory; this work provides no new verified live route evidence.
 
 Subsystem `ee38e8af08264b7c7cef0f749e896718d85cb02e` passed
 [Workspace CI](https://github.com/KendineCrypto/taply/actions/runs/43474371217).
+Subsystem `2e1d262340418082bf8450e34337e1ccac51aab8` passed
+[Core CI including actual native and USDC receipt verification](https://github.com/KendineCrypto/taply/actions/runs/43478762655).
+The updated Chromium harness passed all 7 checks locally (four existing
+IndexedDB checks plus three v2 global-authority/crash/device checks). Its initial
+CI failure came from registering a test-only POST handler after Vite's terminal
+middleware; the handler is now registered through `configureServer`. No wallet
+policy or assertion was loosened to resolve it.
 Subsequent sandbox development runs caught a formatting error and a test bridge
 RPC-ID mismatch; these failures were fixed, not bypassed. Final seven-workflow
 results must be checked against the exact delivered SHA; earlier green commits

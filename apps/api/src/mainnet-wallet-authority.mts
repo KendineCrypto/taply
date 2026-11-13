@@ -9,7 +9,7 @@ import {createMainnetTransactionCoordinator,createMainnetOperationPlanner,create
  * Keep HTTP exposure disabled pending that separate security integration. */
 export function createMainnetWalletAuthority(input:{principal:{accountId:string;publicKey:string;deviceId:string};
   profiles:MainnetSigningProfiles;store:MainnetGlobalAttemptStore},fetcher:typeof fetch=globalThis.fetch):MainnetWalletAuthority{
-  const {principal,profiles,store}=input;
+  const principal=Object.freeze({...input.principal}),profiles=structuredClone(input.profiles),store=input.store;
   const coordinator=createMainnetTransactionCoordinator({store,deviceId:principal.deviceId,profile:profiles.network},fetcher);
   const chain=createMainnetWalletChain(profiles.network,fetcher),planner=createMainnetOperationPlanner(profiles,fetcher);
   const scoped=(accountId:string)=>{if(accountId!==principal.accountId)throw Error('UNAUTHORIZED_ACCOUNT');};

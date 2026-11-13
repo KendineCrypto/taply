@@ -29,7 +29,8 @@ export interface MainnetSigningProfiles {network:MainnetReadProfile;instant?:Mai
 const storage=z.strictObject({total:U128Schema,available:U128Schema}).nullable();
 /** Reconstructs a single permitted action from fresh block-anchored chain data.
  * Caller-supplied method/action JSON is not an input. Public builder, not signer. */
-export function createMainnetOperationPlanner(profiles:MainnetSigningProfiles,fetcher:Fetch=(u,i)=>globalThis.fetch(u,i)){
+export function createMainnetOperationPlanner(inputProfiles:MainnetSigningProfiles,fetcher:Fetch=(u,i)=>globalThis.fetch(u,i)){
+  const profiles=structuredClone(inputProfiles);
   const {rpc}=mainnetTransport(profiles.network,fetcher);
   return Object.freeze({async prepare(operation:MainnetOperation,snapshot:MainnetWalletSnapshot){
     const s=MainnetWalletSnapshotSchema.parse(snapshot),op=structuredClone(operation);
