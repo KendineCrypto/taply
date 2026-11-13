@@ -1,28 +1,21 @@
 # Taply Mainnet ↔ Testnet parity matrix (integrated)
 
-Updated 2026-11-13, **phase 5**. Integration branch `claude/mainnet-phase5`
-(pushed to `claude/festive-brahmagupta-qkqex1`): merge of Codex protocol
-`codex/mainnet-phase4-protocol` @ `3a186a7` with Claude application `3a9d842`
-(merge `fdea61d`), plus phase 5 integration on Codex's unified wallet protocol.
-Protocol decision record: [MAINNET_PHASE4_PROTOCOL.md](MAINNET_PHASE4_PROTOCOL.md).
-
-## Phase 5 protocol delta
-
-See [secure signing authority](MAINNET_SIGNING_AUTHORITY.md). Account/key ownership,
-single-use command challenges, server-issued device enrollment, witnessed Redis
-CAS, fixed-purpose wallet auth, immutable merchant bindings and receipt dispatch
-are implemented in the isolated protocol branch. Production routes remain
-unmounted and all release gates remain false. Independent production witness,
-device recovery, physical wallet acceptance, full application wiring, approved
-Gift/escrow configurations, R-2 and live router delivery evidence remain blockers.
-This delta does not mark Wallet, Gift, Protected Pay or merchant flows live.
+Updated 2026-11-13, **phase 6**. Branch `claude/mainnet-phase6` (pushed to
+`claude/festive-brahmagupta-qkqex1`): merge `492d4e1` of Codex signing authority
+`codex/mainnet-signing-authority` @ `850080d` into the phase 5 application `c14c5cf`,
+plus the application side of the authenticated authority
+([MAINNET_AUTHORITY_INTEGRATION.md](MAINNET_AUTHORITY_INTEGRATION.md)). Protocol records:
+[MAINNET_SIGNING_AUTHORITY.md](MAINNET_SIGNING_AUTHORITY.md),
+[MAINNET_PHASE4_PROTOCOL.md](MAINNET_PHASE4_PROTOCOL.md).
 
 **NO-GO for Mainnet funds. Full functional parity NOT reached.** No transaction
 can execute: `MAINNET_SIGNING_RELEASE_APPROVED`, `MAINNET_PROTOCOL_SIGNING_RELEASED`,
 `ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED`, `MAINNET_INDEPENDENT_VERIFIER_AVAILABLE`
-and `intentsRouter:false` are all closed, and **no authenticated account-global
-wallet authority exists in the app** (every real build resolves it as
-UNAVAILABLE). Nothing was deployed, signed, funded, or changed in hosting, DNS or keys.
+and `intentsRouter:false` are all closed. The app now speaks to Codex's
+**authenticated** authority, but only in isolated test configurations: every real
+build resolves it as UNAVAILABLE, the app server has no authority endpoint, no
+production witness exists, and wallet authorization of authority commands is itself
+refused while signing is gated. Nothing was deployed, signed, funded, or changed in hosting, DNS or keys.
 
 ## Evidence classes (never mixed)
 
@@ -32,6 +25,8 @@ UNAVAILABLE). Nothing was deployed, signed, funded, or changed in hosting, DNS o
   real code runs against it. Not Mainnet.
 - **SIMULATED AUTHORITY** — single-browser localStorage CAS handed to Codex's own
   coordinator in test builds only (refused on Production). Not account-global.
+- **TEST AUTHORITY** — Codex's real authenticated authority + HTTP adapter + fenced
+  Redis persistence on real Redis with an in-memory TEST witness (not production).
 - **LIVE READ** — read-only calls to Mainnet RPC
   ([evidence](evidence/mainnet-phase5-2026-11-13/live-mainnet-read-only.json)).
 - **SETTLEMENT** — a real Mainnet transfer verified on chain. **None exists.**
@@ -60,19 +55,19 @@ real builds, no own coordinator and no own token reader.
 | 5 | Unlock / lock | ✅ | ✅ browser | ✅ | — | — |
 | 6 | Implicit-account activation | ✅ `createMainnetWalletChain` | ✅ browser (synthetic RPC) | ✅ (read) | — | ✅ staging account snapshot, block 224405330 |
 | 7 | Balances (native, available, USDC) | ✅ | ✅ browser (synthetic RPC) | ✅ (read) | — | ✅ staging account read (0 NEAR) |
-| 8 | Send NEAR — exact review | ✅ `nativeSend` (planner/backend), stable business id | ✅ browser: over-balance (planner), exact review, authority UNAVAILABLE label (phase 4); SIMULATED authority review (phase 5) | ❌ | authenticated authority adapter (Codex/owner); signing release (owner) | — |
+| 8 | Send NEAR — exact review | ✅ `nativeSend` via Codex backend; authenticated-authority mode wired (challenge → wallet authorization → execute) | ✅ browser: planner errors, review, authority UNAVAILABLE (phase 4), SIMULATED (phase 5), TEST AUTHORITY reached + gated (phase 6); Node integration: reserve/handoff/uncertain/reconcile over HTTP | ❌ | production witness + mounted adapter (owner/Codex); wallet authorization + signing release (owner) | — |
 | 9 | Send USDC — exact review | ✅ `usdcSend`; planner reads balance + both registrations + pinned token code at the snapshot block (app-side reader removed) | ✅ browser: precision, cap, balance, unregistered (planner errors), exact review | ❌ | USDC code pin approval (observed live: `DVJx7F3d…NX8q`); authority; signing | ✅ USDC contract code hash observed |
-| 10 | Pending / unknown outcome, FINAL reconciliation, tombstones, device ownership | ✅ `LedgerPanel` on Codex's coordinator: pending state + hash, hash hint, `reconcile`, permanent record, other-device read-only; legacy v1 entries block (not migrated) | ✅ browser (SIMULATED authority + synthetic RPC): blocks while UNCERTAIN, FINAL_EXECUTION retires (settlement not established), same operation refused forever, explicit new payment only, other device read-only, no-hash/unknown-hint stay unresolved | ⚠️ works only with the simulated test authority | authenticated account-global authority + durable Redis/no-eviction + rollback detection (Codex/owner) | — |
-| 11 | External wallet (NEAR Connect) | ✅ connect; reported public key exposed; wallets without it unsupported | ✅ unit | ❌ for payments | physical-wallet acceptance; authority; signing | — |
+| 10 | Pending / unknown outcome, FINAL reconciliation, tombstones, device ownership | ✅ simulated (phase 5) and authenticated (phase 6) paths; legacy v1 entries still block | ✅ phase 5 browser (simulated); **Node integration on Codex's real authority + real Redis**: lost response → UNCERTAIN → blocks → FINAL_EXECUTION (settlement not established) → replay refused; second device read-only; external hash lost before persistence stays blocked; rollback fails closed | ⚠️ proven against the TEST authority only | production witness, durability/rollback controls, device recovery (owner/Codex) | — |
+| 11 | External wallet (NEAR Connect) | ✅ reported key; `signMessage` routed only through `authorizeMainnetNearConnectCommand` | ✅ unit: gated, `signMessage` never called | ❌ for payments | physical wallet acceptance; lost-hash recovery protocol; signing | — |
 | 12 | Receive (QR, implicit address) | ✅ | ✅ | ✅ | — | — |
 | 13 | Payment request create | ✅ `instantCreate` (planner) + quote-validated preview | ✅ unit (Codex hardening tests kept); browser (fixture preview) | ❌ | pilot contract not deployed (`taply-pay.kendinecrypto.near` UNKNOWN_ACCOUNT on Mainnet); authority; signing | ✅ contract account confirmed absent |
 | 14 | Pay request (NEAR wallet) | ✅ `instantPay`; recipient `instantCancel` / `instantRetry` | ✅ browser (fixture); planner path not browser-tested (needs a configured contract build) | ❌ | same | — |
 | 15 | 1Click Base USDC | ✅ quote pipeline, durable attempts | ✅ server + browser (1Click suite) | ❌ funding | funded-quote gate, router gas, R-2 (owner/Codex) | Codex signed dry quote (earlier phase) |
 | 16 | 1Click Solana USDC / Tron USDT | ✅ | ✅ | ❌ | live route evidence; funded gate | — |
 | 17 | Payment status incl. R-2 unknown | ✅ | ✅ | ✅ (read) | — | — |
-| 18 | Live Handshake (two devices) | ✅ isolated namespace; join link carries the public sale commitment, customer device verifies it | ✅ 2-device browser on real Redis (phase 2 + phase 5), 0 foreign keys | ✅ coordination | session service does not freeze commerce metadata server-side (Codex requirement 1) | — |
-| 19 | Merchant register, store identity | ✅ every sale bound with `bindMainnetCommerceTerms` (fresh session, deterministic id, commitment in memo) | ✅ unit + browser: distinct ids per sale, commitment in `create_request` memo | ⚠️ partial | request creation needs signing; no merchant registry (`merchantProfiles:false`) | — |
-| 20 | Checkout → per-sale request, wrong merchant / wrong sale refused | ✅ `verifyMainnetCommerceBinding` on the FINAL request before any payment method | ✅ browser: bound sale verified; tampered hash, other session, malformed refused; wrong store refused | ❌ | signing + deployed contract | — |
+| 18 | Live Handshake (two devices) | ✅ join link carries the public sale commitment; customer device verifies it; presence never settles | ✅ 2-device browser on real Redis (phases 2, 5) | ✅ coordination | server-side freeze of session metadata is now `bindCommerce` (authority, gated); Handshake server still freezes only the request id | — |
+| 19 | Merchant register, store identity | ✅ every sale bound locally; authority `bindCommerce` freeze attempted and its status shown | ✅ browser (phases 5, 6); Node integration: same session+terms → same; changed amount / merchant → refused; repeated creation → same id | ⚠️ partial | request creation needs signing; freeze needs wallet authorization (gated) | — |
+| 20 | Checkout → per-sale request, wrong merchant / wrong sale refused | ✅ FINAL request compared with the reviewed sale before any payment method | ✅ browser (phase 5) + Node integration (invalid commitment, different request) | ❌ | signing + deployed contract | — |
 | 21 | Split / Recurring (prefills) | ✅ | ✅ | ✅ local tools | on-chain request creation needs signing | — |
 | 22 | Contacts | ✅ (owner: external wallet or Taply Wallet) | ✅ | ✅ | — | — |
 | 23 | Activity / history | ✅ account filters + the account's permanent execution record | ✅ unit + browser | ⚠️ device-local + own ledger | Mainnet history index (backend) | — |
@@ -88,19 +83,21 @@ real builds, no own coordinator and no own token reader.
 | 33 | Gift receipt page | ✅ contract-state receipt + settlement check | ✅ browser | ❌ | no deployed Gift contract; verifier gate | — |
 
 Counts: FUNCTIONAL ✅ 17 (all non-financial or read-only) · partial ⚠️ 3 ·
-not functional ❌ 13. **Unchanged from phase 4, by design:** phase 5 replaced
-the app's transaction path with Codex's planner, coordinator, commerce binding
-and settlement verifiers, but no transaction can execute until the authority
-adapter exists and the release gates open. LIVE: read-only only. SETTLEMENT: none.
+not functional ❌ 13. **Unchanged, by design:** phase 6 connects the app to
+Codex's authenticated authority end to end in an isolated test configuration, but
+no financial feature can complete: the authority endpoint is not mounted in any
+deployment, no production witness exists, and wallet authorization and transaction
+signing are both gated. LIVE: read-only only. SETTLEMENT: none.
 
 ## Exact remaining blockers
 
-**Security / protocol (Codex):**
-1. Authenticated HTTP adapter for `createMainnetWalletAuthority` (principal from
-   authentication, never from the request body) and its browser client; until
-   then the app cannot reserve, hand off or reconcile across devices.
-2. Production durability of the authority store (no eviction, AOF/fsync),
-   rollback detection, account enrollment/recovery.
+**Security / protocol (Codex/owner):** see
+[MAINNET_AUTHORITY_INTEGRATION.md](MAINNET_AUTHORITY_INTEGRATION.md) for the witness,
+mounting, multi-account routing, device-loss and recovery requirements.
+1. Production witness (permanent, linearizable, outside Redis's restore domain) and
+   its security review; the authority endpoint stays unmounted until then.
+2. Production durability of the authority store (no eviction, AOF/fsync), rollback
+   recovery procedure, device loss/recovery (no takeover exists).
 3. Physical NEAR Connect acceptance with the unified policies (wallets must report
    the account public key; external hash is only a hint).
 4. R-2: a successful transfer with a failed/unknown callback stays IN_FLIGHT /
@@ -116,8 +113,8 @@ account/fee/limits, escrow account and review, USDC code pin, Mainnet Upstash DB
 and the signing / funded-quote / verifier release reviews.
 
 **Claude (app):** browser test of the instant planner path on a configured
-contract build; history index integration when a backend exists; swap the
-UNAVAILABLE authority for the reviewed adapter when delivered.
+contract build; a complete authority-command confirmation UI (reachable only once
+wallet authorization is released); history index integration when a backend exists.
 
 ## Verification
 

@@ -1,0 +1,99 @@
+{
+  "origin": "https://mainnet.taplyapp.xyz",
+  "authority": "Codex createMainnetAuthorityHttp + createAuthenticatedMainnetAuthority + fenced Redis persistence; REAL Redis; IN-MEMORY TEST WITNESS (not production)",
+  "rpc": "SYNTHETIC chain",
+  "signing": "gated (closed) — authority commands refused at the wallet",
+  "results": [
+    {
+      "name": "Taply Wallet created at the exact Mainnet origin and provisioned in the TEST authority",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "authority answered with a challenge that the app validated; the wallet refused at the closed gate → exact review only, labelled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the browser reached Codex's HTTP authority (challenge requests observed)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "server-issued device credential: __Host- cookie, HttpOnly, Secure, SameSite=Strict, not readable by page script",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "confirm stays disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "payment record: reading it needs wallet authorization → gated, sending stays disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "server state: challenges recorded, none executed, no ledger written, no device enrolled (no authenticated command happened)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "authority record in Redis has no TTL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "authority with a different policy hash → refused (AUTHORITY_POLICY_MISMATCH), no review",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "authority answering 503 → review only, \"not reachable\", nothing reservable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the app server itself has NO authority endpoint (production behaviour): 404",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "without the harness the app fails closed: review only, labelled unavailable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no Redis or CAS surface on the app origin (no Redis answer comes back)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "sale still bound locally with Codex bindMainnetCommerceTerms (deterministic id, commitment in memo)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "authority freeze (bindCommerce) attempted; not frozen because the store wallet is not the authority account → shown as not frozen",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "leak scan over 21 scripts (incl. no simulated authority in this build)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no uncaught page errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no wallet-authorization prompt was ever shown (the gate refuses before any confirmation)",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "errors": []
+}

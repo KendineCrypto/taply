@@ -60,8 +60,8 @@ function device() {
       const headers = new Headers(init.headers);
       headers.set('origin', 'https://mainnet.taplyapp.xyz');
       if (cookie) headers.set('cookie', cookie);
-      const { credentials: _c, ...rest } = init;
-      const res = await fetch(url, { ...rest, headers });
+      // Node fetch has no browser credentials mode; the cookie jar above plays that role.
+      const res = await fetch(url, { method: init.method ?? 'GET', body: init.body ?? null, headers, cache: 'no-store', redirect: 'error' });
       const set = res.headers.get('set-cookie');
       if (set) { assert.match(set, /HttpOnly/); assert.match(set, /Secure/); assert.match(set, /SameSite=Strict/); cookie = set.split(';')[0]!; }
       return res;

@@ -1,0 +1,18 @@
+(node:8433) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/taply-mainnet-phase6/apps/web/src/lib/mainnet/authority-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/user/taply-mainnet-phase6/apps/web/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ authentication: NEP-413 challenge per command, HttpOnly device enrollment, single use, policy pinned locally (225.132595ms)
+✔ device ownership: first enrolled device owns writes; a second device can read but never reserve (no takeover) (101.887845ms)
+✔ reserve-before-handoff, lost response, durable UNCERTAIN, FINAL reconciliation, permanent replay prevention (210.81826ms)
+✔ external wallet: a hash lost before persistence is never attributed later (account stays blocked) (100.610064ms)
+✔ merchant binding: one session ↔ one immutable set of terms (Codex bindCommerce) (84.297446ms)
+✔ fail closed: Redis rollback behind the witness, missing provisioning and unknown routes (19.634311ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1178.964851
