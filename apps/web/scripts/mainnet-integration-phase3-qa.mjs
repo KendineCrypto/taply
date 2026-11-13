@@ -98,14 +98,14 @@ check('invalid recipient refused before any review', /valid NEAR account/.test(a
 await w.page.locator('#mw-to').fill('bob.near');
 await w.page.locator('#mw-amount').fill('5');
 await w.page.getByTestId('send-review').click();
-await w.page.waitForSelector('[data-testid=wallet-error]', { timeout: 30000 });
-check('amount above the available balance refused', /Not enough NEAR/.test(await w.page.getByTestId('wallet-error').textContent()));
+await w.page.waitForSelector('[data-testid=op-error]', { timeout: 30000 });
+check('amount above the available balance refused (Codex planner)', /Not enough NEAR/.test(await w.page.getByTestId('op-error').textContent()));
 await w.page.locator('#mw-amount').fill('0.25');
 await w.page.getByTestId('send-review').click();
 await w.page.waitForSelector('[data-testid=send-review-card]', { timeout: 30000 }).catch(() => {});
 const review = (await w.page.getByTestId('send-review-card').textContent().catch(() => '')) ?? '';
 check('exact review: recipient, 0.25 NEAR, next nonce, final block, Mainnet', /bob\.near/.test(review) && /0[.,]25 NEAR/.test(review) && /8/.test(review) && review.includes(HASH) && /NEAR Mainnet/.test(review), review.slice(0, 300));
-check('confirm is disabled (signing gate closed)', await w.page.getByTestId('send-confirm').isDisabled());
+check('confirm is disabled (signing gate closed)', await w.page.getByTestId('op-confirm').isDisabled());
 await w.page.screenshot({ path: `${OUT}/wallet-04-send-review.png`, fullPage: true });
 // Restore the same wallet on a second device.
 const d2 = await ctx('restore');

@@ -43,8 +43,11 @@ const giftConfig = { contract: 'taply-gift-mainnet', version: '0.2.0-mainnet', n
   claimDomain: 'taply-gift-claim:near-mainnet:v1' };
 const GIFT = { available: 'a'.repeat(32), expired: 'b'.repeat(32), pending: 'c'.repeat(32), failed: 'd'.repeat(32), refunded: 'e'.repeat(32) };
 const SEED = '07'.repeat(32);
+const { createPrivateKey, createPublicKey } = await import('node:crypto');
+const SEED_PUBLIC_HEX = createPublicKey(createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.from(SEED, 'hex')]), format: 'der', type: 'pkcs8' }))
+  .export({ format: 'der', type: 'spki' }).subarray(-32).toString('hex');
 function giftView(id) {
-  const base = { id, creator: 'carol.near', amountYocto: '500000000000000000000000', publicKey: 'f'.repeat(64), message: 'Mutlu yıllar — happy new year', design: 1,
+  const base = { id, creator: 'carol.near', amountYocto: '500000000000000000000000', publicKey: SEED_PUBLIC_HEX, message: 'Mutlu yıllar — happy new year', design: 1,
     createdAtNs: '1793510000000000000', createdHeight: '199990000', expiresAtNs: '1793600000000000000', status: 'AVAILABLE',
     beneficiary: null, settledAtNs: null, settledHeight: null, payout: null, payoutNonce: null };
   const settled = (beneficiary, payout, status = 'CLAIMED') => ({ ...base, status, beneficiary, settledAtNs: '1793515000000000000', settledHeight: '199995000', payout, payoutNonce: 1 });
@@ -149,19 +152,20 @@ await w.getByTestId('send-review').click();
 check('USDC: above the 25 USDC pilot cap refused', /pilot limit/.test(await text(w, 'wallet-error')));
 await w.locator('#mw-amount').fill('20');
 await w.getByTestId('send-review').click();
-await w.waitForFunction(() => /Not enough USDC/.test(document.querySelector('[data-testid=wallet-error]')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => {});
-check('USDC: amount above the balance read at the snapshot block refused', /Not enough USDC/.test(await text(w, 'wallet-error')));
+await w.waitForFunction(() => /Not enough USDC/.test(document.querySelector('[data-testid=op-error]')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => {});
+check('USDC: amount above the balance read at the snapshot block refused (Codex planner)', /Not enough USDC/.test(await text(w, 'op-error')) && (await w.locator('[data-testid=op-error] [data-code]').getAttribute('data-code')) === 'TOKEN_BALANCE_OR_STORAGE');
 await w.locator('#mw-to').fill('unregistered.near');
 await w.locator('#mw-amount').fill('12.5');
 await w.getByTestId('send-review').click();
-await w.waitForFunction(() => /not registered/.test(document.querySelector('[data-testid=wallet-error]')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => {});
-check('USDC: recipient without USDC storage refused before any review', /not registered with the USDC contract/.test(await text(w, 'wallet-error')));
+await w.waitForFunction(() => /not registered/.test(document.querySelector('[data-testid=op-error]')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => {});
+check('USDC: recipient without USDC storage refused before any review (Codex planner)', /not registered with the USDC contract/.test(await text(w, 'op-error')) && !(await w.getByTestId('op-review').isVisible().catch(() => false)));
 await w.locator('#mw-to').fill('bob.near');
 await w.getByTestId('send-review').click();
 const usdcReview = await waitFor(w, 'send-review-card') ? await text(w, 'send-review-card') : '';
 check('USDC: exact ft_transfer review (recipient, 12.5 USDC, token contract, 1 yocto, 30 Tgas, block, next nonce 8)',
   /bob\.near/.test(usdcReview) && /12[.,]5 USDC/.test(usdcReview) && usdcReview.includes(USDC) && /ft_transfer/.test(usdcReview) && /1 yoctoNEAR/.test(usdcReview) && /30 Tgas/.test(usdcReview) && usdcReview.includes(HASH) && /Nonce\s*8/.test(usdcReview) && /NEAR Mainnet/.test(usdcReview), usdcReview.slice(0, 400));
-check('USDC: review card is for asset USDC and confirm stays disabled', (await w.getByTestId('send-review-card').getAttribute('data-asset')) === 'USDC' && await w.getByTestId('send-confirm').isDisabled());
+check('no payment authority on this build: review says nothing can be reserved or sent', (await w.getByTestId('op-review').getAttribute('data-authority')) === 'unavailable' && /Not available on this build/.test(await text(w, 'op-authority')));
+check('USDC: review card is for asset USDC and confirm stays disabled', (await w.getByTestId('send-review-card').getAttribute('data-asset')) === 'USDC' && await w.getByTestId('op-confirm').isDisabled());
 await noOverflow(w, 'p4-01-usdc-review');
 await w.screenshot({ path: `${OUT}/p4-01-usdc-review.png`, fullPage: true });
 
@@ -217,10 +221,10 @@ check('Open Gift: AVAILABLE read from the Gift contract', (await w.getByTestId('
 check('Open Gift: unwrap and claim are separate actions', await w.getByTestId('og-unwrap').isVisible() && await w.getByTestId('og-sign').isVisible());
 await w.getByTestId('og-unwrap').click();
 check('unwrapping does not claim', !(await w.getByTestId('og-claim-ready').isVisible().catch(() => false)));
-check('claimant defaults to this Taply Wallet', (await w.locator('#og-claimant').inputValue()) === ME);
+check('claimant is this Taply Wallet (the account that would sign)', (await text(w, 'og-claimant')).trim() === ME);
 await w.getByTestId('og-sign').click();
 const claimReady = await waitFor(w, 'og-claim-ready') ? await text(w, 'og-claim-ready') : '';
-check('claim signed with the one-use link key → claim_gift with a 64-byte signature (unsigned transaction)', /claim_gift/.test(claimReady) && /[0-9a-f]{128}/.test(claimReady), claimReady.slice(0, 200));
+check('claim signed with the one-use link key → Codex planner verified it and prepared claim_gift (unsigned)', /claim_gift/.test(claimReady) && /[0-9a-f]{128}/.test(claimReady) && (await w.getByTestId('op-review').getAttribute('data-method')) === 'claim_gift', claimReady.slice(0, 200));
 await noOverflow(w, 'p4-04-open-gift-claim');
 await w.screenshot({ path: `${OUT}/p4-04-open-gift-claim.png`, fullPage: true });
 const { page: nokey } = await ctx('no-key');
@@ -228,13 +232,17 @@ await nokey.goto(`${BASE}/m/gift/${GIFT.available}`);
 check('Open Gift without the link key: claim not possible', await waitFor(nokey, 'og-no-key'));
 await w.goto(`${BASE}/m/gift/${GIFT.expired}`);
 await waitFor(w, 'open-gift');
-check('expired gift (creator = this wallet): refund_gift offered, no claim', (await w.getByTestId('og-state').getAttribute('data-status')) === 'EXPIRED' && /refund_gift/.test(await text(w, 'og-refund')) && !(await w.getByTestId('og-sign').isVisible().catch(() => false)));
+check('expired gift (creator = this wallet): refund offered, no claim', (await w.getByTestId('og-state').getAttribute('data-status')) === 'EXPIRED' && await w.getByTestId('og-refund').isVisible() && !(await w.getByTestId('og-sign').isVisible().catch(() => false)));
+await w.getByTestId('og-refund-review').click();
+check('refund prepared by the planner as refund_gift (unsigned)', await waitFor(w, 'og-refund-ready') && (await w.getByTestId('op-review').getAttribute('data-method')) === 'refund_gift');
 await w.goto(`${BASE}/m/gift/${GIFT.pending}`);
 await waitFor(w, 'open-gift');
 check('claimed, payout PENDING (R-2): no retry, no refund', (await w.getByTestId('og-payout').getAttribute('data-payout')) === 'PENDING' && !(await w.getByTestId('og-retry').isVisible().catch(() => false)) && !(await w.getByTestId('og-refund').isVisible().catch(() => false)));
 await w.goto(`${BASE}/m/gift/${GIFT.failed}`);
 await waitFor(w, 'open-gift');
-check('claimed, payout FAILED: retry_payout offered to the beneficiary', /retry_payout/.test(await text(w, 'og-retry')));
+check('claimed, payout FAILED: retry offered to the beneficiary', await w.getByTestId('og-retry').isVisible());
+await w.getByTestId('og-retry-review').click();
+check('retry prepared by the planner as retry_payout (unsigned)', await waitFor(w, 'og-retry-ready') && (await w.getByTestId('op-review').getAttribute('data-method')) === 'retry_payout');
 await w.goto(`${BASE}/m/gift/${GIFT.refunded}/receipt`);
 await waitFor(w, 'og-receipt');
 const receipt = await text(w, 'og-receipt');
@@ -269,7 +277,7 @@ check('unreviewed escrow candidate is labelled', await w.getByTestId('pc-unrevie
 check('call hidden until the recipient consents', !(await w.getByTestId('pc-ready').isVisible().catch(() => false)));
 await w.getByText(/I agree that the payer can cancel/).click();
 const pcReady = await text(w, 'pc-ready');
-check('after consent: create_request call with the exact terms + payer link; create stays disabled', /create_request/.test(pcReady) && pcReady.includes(pcId) && /600000000000|900000000000/.test(pcReady) && await w.getByTestId('pc-create').isDisabled(), pcReady.slice(0, 300));
+check('after consent: create_request call with the exact terms + payer link; create stays disabled', /create_request/.test(pcReady) && pcReady.includes(pcId) && /600000000000|900000000000/.test(pcReady) && await w.getByTestId('op-confirm').isDisabled(), pcReady.slice(0, 300));
 await noOverflow(w, 'p4-05-protected-create');
 await w.screenshot({ path: `${OUT}/p4-05-protected-create.png`, fullPage: true });
 await w.getByTestId('pc-quote').click();
@@ -286,7 +294,7 @@ check('payer consent recorded by tapping its text', await w.getByTestId('pr-cons
 await waitFor(w, 'pr-fund-ready');
 const fund = await text(w, 'pr-fund-ready');
 check('payer consent → fund_protected_native with exact principal, terms hash and accepted window; Fund disabled',
-  (await w.getByTestId('pr-fund-ready').getAttribute('data-method')) === 'fund_protected_native' && fund.includes(open.termsHash) && fund.includes(open.terms.amountBaseUnits) && await w.getByTestId('pr-fund-button').isDisabled(), fund.slice(0, 300));
+  (await w.getByTestId('pr-fund-ready').getAttribute('data-method')) === 'fund_protected_native' && fund.includes(open.termsHash) && /Attached deposit\s*1 NEAR/.test(fund) && await w.getByTestId('op-confirm').isDisabled(), fund.slice(0, 300));
 await noOverflow(w, 'p4-06-protected-fund');
 await w.screenshot({ path: `${OUT}/p4-06-protected-fund.png`, fullPage: true });
 // The Rust fixtures are one request at successive states; the synthetic chain serves one state at a chosen final-block time.
