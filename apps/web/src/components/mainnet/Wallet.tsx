@@ -22,7 +22,6 @@ import { newBusinessId, stableBusinessId } from '@/lib/mainnet/wallet-ops';
 import { LedgerPanel, OperationError, OperationReview, OPERATION_COPY, useOperation } from './Operation';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
-import { MAINNET_SIGNING_RELEASE_APPROVED } from '@/lib/mainnet/release-gates';
 import { walletEn, walletTr } from '@/lib/mainnet/wallet-copy';
 import type { WalletCopy } from '@/lib/mainnet/wallet-copy';
 import { Notice, Row } from './bits';
