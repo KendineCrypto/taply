@@ -346,7 +346,8 @@ async function prepareUsdc(profile: MainnetReadProfile, identity: MainnetWalletI
   if (!evidence.receiverRegistered) throw new Error('TOKEN_RECEIVER_UNREGISTERED');
   if (BigInt(parsed.baseUnits) > BigInt(evidence.balance)) throw new Error('INSUFFICIENT_TOKEN_BALANCE');
   const call = prepareMainnetUsdcTransfer({ snapshot, receiverId, amountBaseUnits: parsed.baseUnits, tokenEvidence: evidence });
-  return Object.freeze({ ...call, balance: evidence.balance, blockHash: snapshot.blockHash, nonce: snapshot.nonce,
+  return Object.freeze({ ...call, balance: evidence.balance, blockHash: snapshot.blockHash, nonce: (BigInt(snapshot.nonce) + 1n).toString(), // the nonce this transaction would use, as in the NEAR review
+   
     publicKey: snapshot.publicKey, amount: parsed.baseUnits, expiresAtMs: Date.now() + 60_000 });
 }
 
@@ -400,7 +401,7 @@ export function WalletSend() {
       {attempt === 'unavailable' && <Notice tone="danger" live testId="attempt-unavailable">{c.journalUnavailable}</Notice>}
       <Card>
         <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
-          <p className="text-[13px] text-[var(--text-secondary)]">{c.from}: <span className="font-mono">{me.accountId}</span></p>
+          <p className="text-[13px] text-[var(--text-secondary)]">{c.from}: <span className="break-all font-mono">{me.accountId}</span></p>
           <fieldset className="flex gap-2" data-testid="send-asset">
             <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.asset}</legend>
             {(['NEAR', 'USDC'] as const).map((a) => (

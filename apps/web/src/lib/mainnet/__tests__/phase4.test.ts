@@ -156,3 +156,13 @@ describe('merchant sale codes and routes', () => {
       expect(isProductRoute(p)).toBe(false);
   });
 });
+
+describe('Personal Gift tx hash accepts every 32-byte base58 encoding', () => {
+  const base: PersonalGiftPayload = { v: 1, network: 'near-mainnet', from: 'alice.near', to: 'bob.near', amountYocto: '1', txHash: HASH, message: '', design: 0 };
+  it.each([HASH, '11111111111111111111111111111114', 'EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H'])('%s', (h) => {
+    expect(decodePersonalGift(encodePersonalGift({ ...base, txHash: h }))).not.toBeNull();
+  });
+  it.each(['1111111111111111111111111111111', 'z'.repeat(44), '0'.repeat(43)])('rejects %s', (h) => {
+    expect(() => encodePersonalGift({ ...base, txHash: h })).toThrow();
+  });
+});

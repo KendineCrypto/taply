@@ -5,13 +5,16 @@ import { emptyProductData, loadProductData, saveProductData, type ProductData } 
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { productEn, productTr } from '@/lib/mainnet/product-copy';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
+import { useMainnetVault } from '@/components/mainnet/Wallet';
 
 function useProductCopy() { return useMainnetLocale().locale === 'tr' ? productTr : productEn; }
 
 /** Only explicit user actions write local drafts. Account changes cannot display
- * or overwrite another account's data; invalid storage fails closed. */
+ * or overwrite another account's data; invalid storage fails closed. The owner is
+ * the connected external wallet, else this device's Taply Wallet (vault) account. */
 export function useLocalProduct() {
-  const { accountId } = useMainnetWallet(); const c = useProductCopy();
+  const external = useMainnetWallet().accountId; const { identity } = useMainnetVault(); const c = useProductCopy();
+  const accountId = external ?? identity?.accountId ?? null;
   const [state, setState] = useState<{ owner: string; data: ProductData } | null>(null);
   const [message, setMessage] = useState('');
   useEffect(() => {

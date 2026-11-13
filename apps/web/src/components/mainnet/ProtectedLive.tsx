@@ -56,7 +56,7 @@ const en = {
   pageTitle: 'Protected request', notFound: 'This request does not exist on the configured escrow.',
   loading: 'Reading the escrow at a final block…', readAt: 'Read at final block',
   fundTitle: 'Fund this protected payment', payAs: 'Paying from',
-  payerConsent: (m: string) => `I understand I can cancel and get a full refund only within ${m} minutes of funding. After that, the funds can be released to the merchant.`,
+  payerConsent: (m: string) => `I understand I can cancel and get a full refund only within ${m} ${m === '1' ? 'minute' : 'minutes'} of funding. After that, the funds can be released to the merchant.`,
   fund: 'Fund protected payment', notPermitted: 'Only the named payer can fund this request.',
   expired: 'The funding deadline has passed. This request can no longer be funded.',
   countdown: 'Cancellation window ends in', windowOver: 'Cancellation window has ended.',
@@ -173,7 +173,7 @@ export function ProtectedCreate() {
         <h2 className="font-semibold">{c.createTitle}</h2>
         <p className="mt-1 text-[14px] text-[var(--text-secondary)]">{c.createLead}</p>
         <form className="mt-3 flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void quote(); }} onChange={() => { setPrepared(null); setConsent(false); }}>
-          <p className="text-[13px] text-[var(--text-secondary)]">{c.creator}: <span className="font-mono" data-testid="pc-creator">{me}</span></p>
+          <p className="text-[13px] text-[var(--text-secondary)]">{c.creator}: <span className="break-all font-mono" data-testid="pc-creator">{me}</span></p>
           <fieldset className="flex gap-2">
             <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.asset}</legend>
             {(['NEAR', 'USDC'] as const).map((x) => (
@@ -213,8 +213,8 @@ export function ProtectedCreate() {
               <Row label={c.contract} mono>{prepared.config.contractId} · {prepared.config.contractVersion}</Row>
               <Row label={c.review}>{mainnetEscrowConfigProblems(prepared.config, prepared.config.contractId).includes('UNREVIEWED_CANDIDATE') ? <span data-testid="pc-unreviewed" className="text-[var(--tone-caution-fg)]">{c.unreviewed}</span> : '—'}</Row>
             </dl>
-            <label className="flex items-start gap-2 text-[14px]">
-              <input type="checkbox" data-testid="pc-consent" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <label className="flex min-h-[var(--tap-target)] cursor-pointer items-start gap-3 text-[14px]">
+              <input type="checkbox" data-testid="pc-consent" className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--taply-lime)]" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
               <span>{c.consent}</span>
             </label>
             {consent && (
@@ -232,7 +232,7 @@ export function ProtectedCreate() {
   );
 }
 
-type Live = { kind: 'loading' } | { kind: 'error' } | { kind: 'missing' } | { kind: 'ok'; request: MainnetEscrowRequest; config: MainnetEscrowConfig; blockHash: string; timestampNs: string };
+type Live = { kind: 'loading' } | { kind: 'error' } | { kind: 'missing' } | { kind: 'ok'; request: MainnetEscrowRequest; config: MainnetEscrowConfig; blockHash: string; timestampNs: string; readAtMs: number };
 
 function useEscrowRequest(id: string): Live {
   const [state, setState] = useState<{ id: string; value: Live } | null>(null);
@@ -240,7 +240,7 @@ function useEscrowRequest(id: string): Live {
     if (ESCROW_PROFILE === null) return;
     let live = true;
     createMainnetEscrowReader(ESCROW_PROFILE).readRequest(id)
-      .then((r) => { if (live) setState({ id, value: r.data === null ? { kind: 'missing' } : { kind: 'ok', request: r.data, config: r.config, blockHash: r.blockHash, timestampNs: r.timestampNs } }); })
+      .then((r) => { if (live) setState({ id, value: r.data === null ? { kind: 'missing' } : { kind: 'ok', request: r.data, config: r.config, blockHash: r.blockHash, timestampNs: r.timestampNs, readAtMs: Date.now() } }); })
       .catch(() => { if (live) setState({ id, value: { kind: 'error' } }); });
     return () => { live = false; };
   }, [id]);
@@ -275,8 +275,15 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
   const expired = BigInt(read.timestampNs) >= BigInt(r.terms.fundingExpiresAtNs);
   const permitted = r.terms.permittedPayerAccountId === null || r.terms.permittedPayerAccountId === me;
   const fund = r.status === 'OPEN' && me !== null && consent ? fundingCall(config, r, me, read.timestampNs, cancelNs) : null;
-  const actions = r.status === 'OPEN' ? [] : availableActions(p, config, config.contractId, r, read.timestampNs);
+  // Cancel is the payer's right; a retry belongs to the recorded destination; release is open to anyone.
+  const op = r.latestOperation;
+  const actions = (r.status === 'OPEN' ? [] : availableActions(p, config, config.contractId, r, read.timestampNs)).filter((x) =>
+    x.label === p.cancel ? me !== null && me === r.payerAccountId
+      : x.label === p.retryRefund || x.label === p.retryRelease ? me !== null && op !== null && me === op.destinationAccountId
+      : true);
   const cutoffMs = r.cancelUntilNs === null ? null : nsToDate(r.cancelUntilNs).getTime();
+  // Chain time, not the device clock: the final block's time plus what has elapsed since that read.
+  const chainNowMs = nsToDate(read.timestampNs).getTime() + Math.max(0, now - read.readAtMs);
   const inFlight = r.status.endsWith('_IN_FLIGHT');
   return (
     <div className="flex flex-col gap-3" data-testid="protected-request">
@@ -285,7 +292,7 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
         {r.status === 'LOCKED' && <p className="mt-1 text-[13px] text-[var(--tone-caution-fg)]">{p.lockedNote}</p>}
         {inFlight && <p data-testid="pr-r2" role="alert" className="mt-1 text-[13px] font-semibold text-[var(--tone-caution-fg)]">{p.inFlightNote}</p>}
         {r.status === 'LOCKED' && cutoffMs !== null && (
-          <p data-testid="pr-countdown" className="mt-1 text-[13px]">{cutoffMs > now ? `${c.countdown} ${Math.ceil((cutoffMs - now) / 60000)} ${c.minutes}` : c.windowOver}</p>
+          <p data-testid="pr-countdown" className="mt-1 text-[13px]">{cutoffMs > chainNowMs ? `${c.countdown} ${Math.ceil((cutoffMs - chainNowMs) / 60000)} ${c.minutes}` : c.windowOver}</p>
         )}
         <dl className="mt-2">
           <Row label={p.amount}><span data-testid="pr-amount">{formatMainnetAmount(r.terms.amountBaseUnits, a, locale)}</span></Row>
@@ -309,9 +316,9 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
               : !permitted ? <Notice tone="danger" testId="pr-not-permitted">{c.notPermitted}</Notice>
               : (
                 <>
-                  <p className="text-[13px] text-[var(--text-secondary)]">{c.payAs}: <span className="font-mono">{me}</span></p>
-                  <label className="flex items-start gap-2 text-[14px]">
-                    <input type="checkbox" data-testid="pr-consent" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                  <p className="text-[13px] text-[var(--text-secondary)]">{c.payAs}: <span className="break-all font-mono">{me}</span></p>
+                  <label className="flex min-h-[var(--tap-target)] cursor-pointer items-start gap-3 text-[14px]">
+                    <input type="checkbox" data-testid="pr-consent" className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--taply-lime)]" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
                     <span>{c.payerConsent(minutesOf(cancelNs))}</span>
                   </label>
                   {fund !== null && <div data-testid="pr-fund-ready" data-method={fund.methodName}><CallPreview call={fund} title={c.call} /></div>}
