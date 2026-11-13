@@ -19,6 +19,7 @@ import { CANCEL_MINUTES, ESCROW_PROFILE, FUNDING_MINUTES, minutesToNs, randomCre
 import { availableActions, PROTECTED_COPY } from './Protected';
 import { Notice, Row } from './bits';
 import { OperationError, OperationReview, OPERATION_COPY, useOperation } from './Operation';
+import { SettlementCheck } from './Settlement';
 
 /**
  * Protected Pay on a configured Mainnet escrow: request creation from the
@@ -349,6 +350,7 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
           <p className="mt-2 text-[13px] text-[var(--tone-caution-fg)]">{c.disabled}</p>
         </Card>
       )}
+      {(r.status === 'FINAL_PAID' || r.status === 'CANCELLED_REFUNDED') && <SettlementCheck kind="escrow" id={r.terms.id} />}
     </div>
   );
 }

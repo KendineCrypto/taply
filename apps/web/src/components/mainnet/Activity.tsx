@@ -18,6 +18,7 @@ import { useLocalProduct } from '@/lib/mainnet/use-product';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { useMainnetVault } from './Wallet';
 import { Notice, Row, short } from './bits';
+import { SettlementCheck } from './Settlement';
 
 /**
  * Mainnet payment history and contract-state receipts.
@@ -294,6 +295,7 @@ export function ContractReceipt({ id }: { readonly id: string }) {
           <Link className="underline" href={`/m/pay/${id}` as Route}>{c.open}</Link>
         </div>
       </Card>
+      <SettlementCheck kind="instant" id={id} fixture={read.fixture} />
     </div>
   );
 }

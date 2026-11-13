@@ -22,6 +22,7 @@ import { stableBusinessId } from '@/lib/mainnet/wallet-ops';
 import { Notice, Row } from './bits';
 import { newLinkKey } from './GiftMainnet';
 import { OperationError, OperationReview, useOperation } from './Operation';
+import { SettlementCheck } from './Settlement';
 import { readProfile } from './Wallet';
 
 /**
@@ -291,6 +292,7 @@ export function OpenGiftReceipt({ id }: { readonly id: string }) {
         </dl>
         <p className="text-[12px] text-[var(--text-muted)]">{c.recorded}</p>
       </div>
+      {(g.status === 'CLAIMED' || g.status === 'REFUNDED') && <div className="mt-3"><SettlementCheck kind="gift" id={g.id} /></div>}
     </Card>
   );
 }

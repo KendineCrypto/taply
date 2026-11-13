@@ -21,6 +21,7 @@ import { useLocalProduct } from '@/lib/mainnet/use-product';
 import { ActivityList } from './Activity';
 import { TaplyWalletHome, WalletCreate, WalletRestore, WalletSend } from './Wallet';
 import { ProtectedFixtures } from './Protected';
+import { LedgerPanel } from './Operation';
 import { MerchantCheckout, MerchantRegister } from './Merchant';
 import { ProtectedCreate, ProtectedRequestPage } from './ProtectedLive';
 import { GiftMainnet } from './GiftMainnet';
@@ -76,6 +77,7 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'recurring' && <DraftComposer kind="recurring" />}
     {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <><PersonalGiftCompose /><OpenGiftCreate /><GiftMainnet /><DraftComposer kind="gift" /></> : path === 'gift/p' ? <PersonalGiftOpen /> : <Notice tone="caution">{c.blocked}</Notice>}</>}
     {(path === 'merchant/register' || path === 'merchant/setup') && <MerchantRegister />}
+    {section === 'activity' && <LedgerPanel />}
     {(section === 'activity' || section === 'merchant') && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><ActivityList removeLabel={c.remove} /><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
     {section === 'checkout' && <MerchantCheckout account={path.slice(9)} />}
     {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice>{/^protected\/[0-9a-f]{64}(\/receipt)?$/.test(path) ? <ProtectedRequestPage id={path.slice(10, 74)} /> : <><ProtectedCreate /><ProtectedFixtures /></>}</>}

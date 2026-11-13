@@ -15,6 +15,7 @@ import {
 import type { AuthorityState, PreparedOperation, WalletSigner } from '@/lib/mainnet/wallet-ops';
 import { useMainnetVault, vault } from './Wallet';
 import { Notice, Row } from './bits';
+import { DirectTransferCheck } from './Settlement';
 
 /**
  * Shared UI for Codex's unified wallet protocol: one exact review card for
@@ -343,8 +344,9 @@ export function LedgerPanel() {
             <h3 className="text-[13px] font-semibold">{c.history}</h3>
             <ul className="mt-1 flex flex-col gap-1" data-testid="ledger-history">
               {[...l.completed].reverse().slice(0, 10).map((x) => (
-                <li key={x.attempt.attemptId} data-execution={x.proof.execution} className="break-all font-mono text-[11px] text-[var(--text-secondary)]">
-                  {x.proof.execution} · nonce {x.proof.nonce} · {x.proof.transactionHash}
+                <li key={x.attempt.attemptId} data-execution={x.proof.execution} className="flex flex-col gap-1 break-all font-mono text-[11px] text-[var(--text-secondary)]">
+                  <span>{x.proof.execution} · nonce {x.proof.nonce} · {x.proof.transactionHash}</span>
+                  {x.proof.execution === 'SUCCESS' && <DirectTransferCheck from={x.attempt.expectation.accountId} transactionHash={x.proof.transactionHash} receiverId={x.attempt.expectation.receiverId} action={x.attempt.expectation.action} />}
                 </li>
               ))}
             </ul>
