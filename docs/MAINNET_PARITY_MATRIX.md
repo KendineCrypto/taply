@@ -110,7 +110,7 @@ UNAVAILABLE authority for the reviewed adapter when delivered.
 
 ## Verification
 
-Local run on the final phase 5 tree (Linux, Node 24). Evidence class in brackets.
+Local run on the final phase 5 tree (Linux, Node 24), repeated after the bundle-guard fix. Evidence class in brackets.
 
 - `pnpm check` exit 0: shared 93/93, near-client 323/323, web 1549 passed / 1 skipped.
 - API strict types, lint and tests: 75/75.
