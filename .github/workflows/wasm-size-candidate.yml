@@ -9,6 +9,11 @@ name: wasm-size-candidate
 
 on:
   workflow_dispatch:
+  # New workflow files cannot be API-dispatched until they exist on the default branch;
+  # run when this file changes on the integration branch only.
+  push:
+    branches: [claude/festive-brahmagupta-qkqex1]
+    paths: [.github/workflows/wasm-size-candidate.yml]
 
 permissions:
   contents: read
