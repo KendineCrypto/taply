@@ -34,7 +34,7 @@ function parseXTipHandoff(search: string): { to: string; amount: string } | null
   const to = params.get('to');
   const amount = params.get('amount');
   if (to === null || (!isNamedTestnetAccount(to) && !/^[0-9a-f]{64}$/.test(to))) return null;
-  if (amount === null || !/^(?:0|[1-9]\\d{0,5})(?:\\.\\d{1,24})?$/.test(amount)) return null;
+  if (amount === null || !/^(?:0|[1-9]\d{0,5})(?:\.\d{1,24})?$/.test(amount)) return null;
   const [whole = '0', fractional = ''] = amount.split('.');
   const yocto = BigInt(whole) * 10n ** 24n + BigInt((fractional + '0'.repeat(24)).slice(0, 24));
   return yocto > 0n ? { to, amount } : null;
