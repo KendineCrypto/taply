@@ -36,12 +36,26 @@ fn fail(r: &ExecutionFinalResult) -> String {
 }
 async fn token(w: &Worker<Sandbox>, owner: &Account, real_identity: bool) -> Result<Contract> {
     // Local-only patch keeps the production allowlist intact; this is a synthetic token.
-    let name = if real_identity { "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1" } else { "fake-token.near" };
+    let name = if real_identity {
+        "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"
+    } else {
+        "fake-token.near"
+    };
     let id = name.parse()?;
     let sk = SecretKey::from_seed(KeyType::ED25519, name);
-    w.patch(&id).account(AccountDetailsPatch::default().balance(NearToken::from_near(100)).storage_usage(512))
-        .access_key(sk.public_key(), AccessKey::full_access()).transact().await?;
-    let t = Account::from_secret_key(id, sk, w).deploy(&std::fs::read("../artifacts/taply_test_token.wasm")?).await?.into_result()?;
+    w.patch(&id)
+        .account(
+            AccountDetailsPatch::default()
+                .balance(NearToken::from_near(100))
+                .storage_usage(512),
+        )
+        .access_key(sk.public_key(), AccessKey::full_access())
+        .transact()
+        .await?;
+    let t = Account::from_secret_key(id, sk, w)
+        .deploy(&std::fs::read("../artifacts/taply_test_token.wasm")?)
+        .await?
+        .into_result()?;
     t.call("new")
         .args_json(json!({"owner_id": owner.id(), "total_supply": "1000000000"}))
         .max_gas()

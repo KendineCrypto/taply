@@ -61,3 +61,11 @@ export type { MainnetWalletSnapshot } from './mainnet-wallet-transfer.js';
 export type { MainnetReadProfile } from './mainnet-network.js';
 export { createMainnetAttemptJournal, openMainnetAttemptStore } from './mainnet-attempts.js';
 export type { MainnetAttempt, MainnetAttemptStore } from './mainnet-attempts.js';
+export { MainnetGiftConfigSchema, MainnetGiftProfileSchema, MAINNET_GIFT_CLAIM_DOMAIN, mainnetGiftClaimMessage,
+  signMainnetGiftClaim, prepareMainnetCreateGift, prepareMainnetGiftSettlement, createMainnetGiftReader } from './mainnet-gift.js';
+export type { MainnetGiftConfig, MainnetGiftProfile } from './mainnet-gift.js';
+export { verifyMainnetDirectTransfer } from './mainnet-direct-receipt.js';
+export type { MainnetDirectReceipt } from './mainnet-direct-receipt.js';
+export * from './mainnet-escrow-client.js';
+export { verifyMainnetNativePayment, verifyMainnetGiftReceipt } from './mainnet-payout-receipt.js';
+export type { MainnetPayoutVerification } from './mainnet-payout-receipt.js';

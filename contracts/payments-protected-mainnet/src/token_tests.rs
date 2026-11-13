@@ -41,11 +41,15 @@ fn rejects_with(code: &str, f: impl FnOnce()) {
 }
 fn contract() -> Payments {
     ctx(CONTRACT, CONTRACT, 0, NOW, vec![]);
-    Payments::new("near-mainnet".into(), env::current_account_id(), vec![TokenSpec {
-        account_id: TOKEN.parse().unwrap(),
-        decimals: 6,
-        symbol: "USDC".into(),
-    }])
+    Payments::new(
+        "near-mainnet".into(),
+        env::current_account_id(),
+        vec![TokenSpec {
+            account_id: TOKEN.parse().unwrap(),
+            decimals: 6,
+            symbol: "USDC".into(),
+        }],
+    )
 }
 fn terms(n: u64, mode: &str, asset: &str) -> IntentTerms {
     let mut t: IntentTerms = near_sdk::serde_json::from_str(include_str!(
@@ -166,7 +170,11 @@ fn allowlist_is_fixed_at_init_and_enforced_on_terms() {
         c.quote_create_request(terms(2, "instant", "nep141:evil.near"));
     });
     rejects_with("TOKEN_DISABLED", || {
-        c.quote_create_request(terms(3, "instant", "ft:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1"));
+        c.quote_create_request(terms(
+            3,
+            "instant",
+            "ft:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+        ));
     });
     let cfg = c.get_config();
     assert_eq!(cfg["capabilities"]["nep141"], true);
@@ -181,25 +189,33 @@ fn allowlist_is_fixed_at_init_and_enforced_on_terms() {
     .unwrap();
     ctx(CONTRACT, CONTRACT, 0, NOW, vec![]);
     rejects_with("INVALID_TOKEN_ALLOWLIST", || {
-        Payments::new("near-mainnet".into(), env::current_account_id(), vec![
-            TokenSpec {
-                account_id: TOKEN.parse().unwrap(),
-                decimals: 6,
-                symbol: "A".into(),
-            },
-            TokenSpec {
-                account_id: TOKEN.parse().unwrap(),
-                decimals: 6,
-                symbol: "B".into(),
-            },
-        ]);
+        Payments::new(
+            "near-mainnet".into(),
+            env::current_account_id(),
+            vec![
+                TokenSpec {
+                    account_id: TOKEN.parse().unwrap(),
+                    decimals: 6,
+                    symbol: "A".into(),
+                },
+                TokenSpec {
+                    account_id: TOKEN.parse().unwrap(),
+                    decimals: 6,
+                    symbol: "B".into(),
+                },
+            ],
+        );
     });
     rejects_with("INVALID_TOKEN_METADATA", || {
-        Payments::new("near-mainnet".into(), env::current_account_id(), vec![TokenSpec {
-            account_id: TOKEN.parse().unwrap(),
-            decimals: 25,
-            symbol: "A".into(),
-        }]);
+        Payments::new(
+            "near-mainnet".into(),
+            env::current_account_id(),
+            vec![TokenSpec {
+                account_id: TOKEN.parse().unwrap(),
+                decimals: 25,
+                symbol: "A".into(),
+            }],
+        );
     });
 }
 

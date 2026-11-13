@@ -1,0 +1,39 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "c692667f7861d7c583aa1fe95123e0ee6008f7bbe19cc8deb5b1945a939e154f",
+    "network": "near-mainnet",
+    "contractId": "payments.fixture.near",
+    "creationNonce": "000000000000000000000000000000000000000000000000000000000000001e",
+    "creatorAccountId": "alice.near",
+    "assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "amountBaseUnits": "2500000",
+    "mode": "protected",
+    "cancelDurationNs": "60000000000",
+    "fundingExpiresAtNs": "1793520900000000000",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "a15b4da4a85f2c1fdd5cd135160dab0734c853b08f7bfff79b602c87c5873ed5",
+  "sessionCommitment": null,
+  "recipientAccountId": "alice.near",
+  "status": "REFUND_FAILED_RECOVERABLE",
+  "revision": "4",
+  "createdAtNs": "1793520000000000000",
+  "payerAccountId": "bob.near",
+  "fundedAtNs": "1793520000000000001",
+  "cancelUntilNs": "1793520060000000001",
+  "settlementBranch": "PAYER",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "PROTECTED_REFUND",
+    "destinationAccountId": "bob.near",
+    "amountBaseUnits": "2500000",
+    "status": "FAILED",
+    "startedAtNs": "1793520000000000002",
+    "resolvedAtNs": "1793520100000000000",
+    "failureCode": "FT_TRANSFER_FAILED"
+  }
+}

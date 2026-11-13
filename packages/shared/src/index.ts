@@ -6,3 +6,5 @@ export * from "./receipts.js";
 export * from "./transport.js";
 export * from "./methods.js";
 export * from "./mainnet.js";
+export * from './mainnet-escrow.js';
+export * from './mainnet-escrow-state.js';

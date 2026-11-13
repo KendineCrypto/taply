@@ -7,7 +7,10 @@ pub const MAINNET_USDC: &str = "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31b
 pub const NATIVE_CAP: u128 = 1_000_000_000_000_000_000_000_000;
 pub const USDC_CAP: u128 = 25_000_000;
 pub fn mainnet_account(id: &AccountId) {
-    require!(!id.as_str().ends_with(".testnet") && !id.as_str().ends_with(".test"), "WRONG_NETWORK");
+    require!(
+        !id.as_str().ends_with(".testnet") && !id.as_str().ends_with(".test"),
+        "WRONG_NETWORK"
+    );
 }
 
 // deserialize_with makes these nullable fields REQUIRED, unlike plain Option<T>.
@@ -152,7 +155,9 @@ impl IntentTerms {
         );
         require!(self.network == "near-mainnet", "WRONG_NETWORK");
         mainnet_account(&self.creator_account_id);
-        if let Some(payer) = &self.permitted_payer_account_id { mainnet_account(payer); }
+        if let Some(payer) = &self.permitted_payer_account_id {
+            mainnet_account(payer);
+        }
         require!(
             self.contract_id == env::current_account_id(),
             "WRONG_CONTRACT"
@@ -189,7 +194,15 @@ impl IntentTerms {
         hash_bytes(&self.id);
         require!(self.id == self.request_id(), "REQUEST_ID_MISMATCH");
         require!(decimal128(&self.amount_base_units) > 0, "ZERO_AMOUNT");
-        require!(decimal128(&self.amount_base_units) <= if self.asset_id == "near:native" { NATIVE_CAP } else { USDC_CAP }, "CAP_EXCEEDED");
+        require!(
+            decimal128(&self.amount_base_units)
+                <= if self.asset_id == "near:native" {
+                    NATIVE_CAP
+                } else {
+                    USDC_CAP
+                },
+            "CAP_EXCEEDED"
+        );
         let expiry = decimal64(&self.funding_expires_at_ns);
         let now = env::block_timestamp();
         require!(

@@ -122,6 +122,7 @@ jobs:
           done
           node scripts/mainnet-1click-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence" http://127.0.0.1:3113
           node scripts/mainnet-product-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/product" http://127.0.0.1:3113
+          node ../../packages/near-client/test/mainnet-indexeddb-browser.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/indexeddb"
 
       - name: Preserve Mainnet browser evidence
         if: always()

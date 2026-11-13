@@ -38,9 +38,12 @@ fn terms_hash(t: &Value) -> String {
 }
 
 async fn setup() -> Result<(Worker<Sandbox>, Contract, Account, Account, Account)> {
+    setup_file("../artifacts/payments-protected.wasm").await
+}
+async fn setup_file(file: &str) -> Result<(Worker<Sandbox>, Contract, Account, Account, Account)> {
     let w = near_workspaces::sandbox().await?;
     let c = w
-        .dev_deploy(&std::fs::read("../artifacts/payments-protected.wasm")?)
+        .dev_deploy(&std::fs::read(file)?)
         .await?;
     c.call("new")
         .args_json(json!({"network":"near-mainnet","contractId":c.id(),"tokens": []}))
@@ -52,6 +55,38 @@ async fn setup() -> Result<(Worker<Sandbox>, Contract, Account, Account, Account
     let payer = w.dev_create_account().await?;
     let stranger = w.dev_create_account().await?;
     Ok((w, c, recipient, payer, stranger))
+}
+
+#[tokio::test]
+async fn unknown_refund_and_release_callbacks_never_allow_a_second_transfer() -> Result<()> {
+    for refund in [true, false] {
+        let (w, c, recipient, payer, stranger) = setup_file("../artifacts/payments-protected-FAULT-TEST-ONLY.wasm").await?;
+        let t = protected_terms(&w, &c, &recipient, 987).await?;
+        create(&c, &recipient, &t).await?;
+        lock(&c, &payer, &t).await?.into_result()?;
+        let locked = request(&c, &t).await?;
+        if !refund { wait_until(&w, locked["cancelUntilNs"].as_str().unwrap().parse()?).await?; }
+        let beneficiary = if refund { &payer } else { &recipient };
+        let before = beneficiary.view_account().await?.balance.as_yoctonear();
+        let caller = if refund { &payer } else { &stranger };
+        let method = if refund { "cancel_protected" } else { "release_protected" };
+        let args = if refund { json!({"id":t["id"],"expectedTermsHash":terms_hash(&t)}) } else { json!({"id":t["id"]}) };
+        let settled = caller.call(c.id(), method).args_json(args).deposit(NearToken::from_yoctonear(1))
+            .gas(Gas::from_tgas(50)).transact().await?;
+        assert!(failure_text(&settled).contains("SANDBOX"));
+        let state = request(&c, &t).await?;
+        assert_eq!(state["status"], if refund { "REFUND_IN_FLIGHT" } else { "RELEASE_IN_FLIGHT" });
+        w.fast_forward(5).await?;
+        let after = beneficiary.view_account().await?.balance.as_yoctonear();
+        let burnt: u128 = settled.outcomes().iter().map(|o| o.tokens_burnt.as_yoctonear()).sum();
+        if refund { assert_eq!(after as i128 - before as i128, PRINCIPAL as i128 - 1 - burnt as i128); } else { assert_eq!(after - before, PRINCIPAL); }
+        let retry = beneficiary.call(c.id(), "retry_native_transfer").args_json(json!({"id":t["id"],"expectedOperationNonce":"1"}))
+            .deposit(NearToken::from_yoctonear(1)).gas(Gas::from_tgas(50)).transact().await?;
+        assert!(retry.is_failure());
+        assert_eq!(request(&c, &t).await?["status"], state["status"]);
+        snapshot(if refund {"unknown-refund"} else {"unknown-release"}, &state)?;
+    }
+    Ok(())
 }
 
 async fn protected_terms(

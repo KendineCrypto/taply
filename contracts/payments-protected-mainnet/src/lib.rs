@@ -82,7 +82,16 @@ impl Payments {
         require!(network == "near-mainnet", "WRONG_NETWORK");
         require!(contractId == env::current_account_id(), "WRONG_CONTRACT");
         mainnet_account(&contractId);
-        require!(!matches!(contractId.as_str(), "taply-pay.kendinecrypto.near" | "devkendinecrypto.near" | "kendinecrypto.near" | "intents.near"), "SEPARATE_ESCROW_ACCOUNT_REQUIRED");
+        require!(
+            !matches!(
+                contractId.as_str(),
+                "taply-pay.kendinecrypto.near"
+                    | "devkendinecrypto.near"
+                    | "kendinecrypto.near"
+                    | "intents.near"
+            ),
+            "SEPARATE_ESCROW_ACCOUNT_REQUIRED"
+        );
         let mut entries: Vec<TokenEntry> = Vec::new();
         for t in tokens {
             require!(
@@ -99,7 +108,10 @@ impl Payments {
                         .all(|b| b.is_ascii_alphanumeric() || b == b'-'),
                 "INVALID_TOKEN_METADATA"
             );
-            require!(t.account_id.as_str() == MAINNET_USDC && t.decimals == 6 && t.symbol == "USDC", "INVALID_TOKEN_ALLOWLIST");
+            require!(
+                t.account_id.as_str() == MAINNET_USDC && t.decimals == 6 && t.symbol == "USDC",
+                "INVALID_TOKEN_ALLOWLIST"
+            );
             entries.push(TokenEntry {
                 account_id: t.account_id,
                 decimals: t.decimals,

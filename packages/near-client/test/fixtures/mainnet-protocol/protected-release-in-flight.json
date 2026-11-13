@@ -1,0 +1,39 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "d044a60d3435eaa06477ec29dc7e7e71e3cb228da4a8dcb369156891e50aefca",
+    "network": "near-mainnet",
+    "contractId": "payments.fixture.near",
+    "creationNonce": "0000000000000000000000000000000000000000000000000000000000000001",
+    "creatorAccountId": "alice.near",
+    "assetId": "near:native",
+    "amountBaseUnits": "1000000000000000000000000",
+    "mode": "protected",
+    "cancelDurationNs": "60000000000",
+    "fundingExpiresAtNs": "1793520900000000000",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "f0c8219e15b421097104f3dc76d6ec25e86fb926ebe70fd0f35f0b59b12676ad",
+  "sessionCommitment": null,
+  "recipientAccountId": "alice.near",
+  "status": "RELEASE_IN_FLIGHT",
+  "revision": "3",
+  "createdAtNs": "1793520000000000000",
+  "payerAccountId": "bob.near",
+  "fundedAtNs": "1793520001000000000",
+  "cancelUntilNs": "1793520061000000000",
+  "settlementBranch": "RECIPIENT",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "PROTECTED_RELEASE",
+    "destinationAccountId": "alice.near",
+    "amountBaseUnits": "1000000000000000000000000",
+    "status": "IN_FLIGHT",
+    "startedAtNs": "1793520061000000000",
+    "resolvedAtNs": null,
+    "failureCode": null
+  }
+}

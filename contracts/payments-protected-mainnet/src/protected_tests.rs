@@ -483,9 +483,7 @@ fn failed_release_retries_only_by_recipient_to_recipient() {
     assert_eq!(status(&t), Status::ReleaseFailed);
     snapshot("protected-release-failed", &view(&t));
     // Payer cannot use a release failure to claw funds back.
-    rejects_with("NOT_LOCKED", || {
-        cancel(&mut c, &t, "bob.near", cutoff + 2)
-    });
+    rejects_with("NOT_LOCKED", || cancel(&mut c, &t, "bob.near", cutoff + 2));
     for who in ["bob.near", "carol.near"] {
         context(who, 1, cutoff + 2, vec![]);
         rejects_with("RECIPIENT_ONLY", || {
