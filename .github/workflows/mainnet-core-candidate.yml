@@ -1,5 +1,7 @@
 name: mainnet-core-candidate
 on:
+  push:
+    branches: [codex/mainnet-core]
   workflow_dispatch:
   pull_request:
     paths:
