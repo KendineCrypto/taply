@@ -1,0 +1,84 @@
+# Size-optimization CANDIDATE check for the three Mainnet production WASMs.
+# Builds each contract with its own pinned scripts, records the raw artifact, applies ONE
+# post-link step (Binaryen wasm-opt 132.0.0: -Oz --strip-debug --strip-producers, same
+# instruction feature set as the input), swaps the optimized production artifact in, and
+# runs each contract's EXISTING real-sandbox suite unchanged. Test-only fault builds are
+# not optimized. Manual dispatch only: no deployment, no keys, no secrets, no gate changes.
+# A passing run is evidence for review, NOT approval to deploy.
+name: wasm-size-candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-size-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  optimize-and-sandbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+      - name: Pinned Rust toolchain and Binaryen
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+          npm install --prefix "$RUNNER_TEMP/binaryen" --no-audit --no-fund binaryen@132.0.0
+      - name: Shared packages for the sandbox receipt checks
+        run: |
+          npm install -g pnpm@11.5.0
+          pnpm install --frozen-lockfile
+          pnpm --filter @taply/shared run build
+          pnpm --filter @taply/near-client run build
+      - name: Build, optimize copies, swap production artifacts
+        run: |
+          set -euo pipefail
+          OPT="node $RUNNER_TEMP/binaryen/node_modules/.bin/wasm-opt"
+          mkdir -p "$RUNNER_TEMP/wasm-size"
+          optimize() { # dir, artifact
+            local raw="contracts/$1/artifacts/$2" out="$RUNNER_TEMP/wasm-size/$2"
+            cp "$raw" "$out.raw"
+            $OPT "$raw" -Oz --strip-debug --strip-producers --mvp-features -o "$out.oz"
+            cp "$out.oz" "$raw"
+            printf '%s raw=%s oz=%s\n' "$2" "$(stat -c %s "$out.raw")" "$(stat -c %s "$out.oz")" | tee -a "$RUNNER_TEMP/wasm-size/sizes.txt"
+          }
+          (cd contracts/payments-mainnet && bash scripts/build.sh)
+          optimize payments-mainnet payments-mainnet.wasm
+          (cd contracts/gift-mainnet && FAULT=1 bash scripts/build.sh)
+          optimize gift-mainnet taply-gift.wasm
+          (cd contracts/payments-protected-mainnet && bash scripts/build.sh)
+          optimize payments-protected-mainnet payments-protected.wasm
+          sha256sum "$RUNNER_TEMP"/wasm-size/*.raw "$RUNNER_TEMP"/wasm-size/*.oz | tee "$RUNNER_TEMP/wasm-size/sha256.txt"
+      - name: payments-mainnet sandbox on the OPTIMIZED artifact
+        working-directory: contracts/payments-mainnet
+        run: |
+          bash scripts/sandbox.sh
+          grep -q "test result: ok. 7 passed; 0 failed" artifacts/sandbox-tests.log
+      - name: gift-mainnet sandbox on the OPTIMIZED artifact
+        working-directory: contracts/gift-mainnet
+        run: |
+          bash scripts/sandbox.sh
+          grep -q "test result: ok. 5 passed; 0 failed" artifacts/sandbox-tests.log
+      - name: payments-protected-mainnet sandbox on the OPTIMIZED artifact
+        working-directory: contracts/payments-protected-mainnet
+        run: |
+          bash scripts/sandbox.sh
+          grep -q "test result: ok. 4 passed; 0 failed" artifacts/sandbox-tests.log
+      - name: Preserve optimized candidates and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: wasm-size-candidate-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/wasm-size
+            contracts/*-mainnet/artifacts/sandbox-tests.log
