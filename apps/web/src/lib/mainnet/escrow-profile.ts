@@ -10,13 +10,14 @@ import { MAINNET_CONFIG } from './config';
  * (scripts/check-mainnet-env.mjs refuses them). Distinct from the Testnet
  * NEXT_PUBLIC_TAPLY_PROTECTED_* variables on purpose.
  */
-export function resolveEscrowProfile(env: Readonly<Record<string, string | undefined>>): MainnetEscrowProfile | null {
-  if (!MAINNET_CONFIG.ok) return null;
+export function resolveEscrowProfile(env: Readonly<Record<string, string | undefined>>, net: { readonly rpcUrl: string; readonly rpcProviderId: string } | null = MAINNET_CONFIG.ok ? MAINNET_CONFIG : null): MainnetEscrowProfile | null {
+  if (net === null) return null;
   const candidate = {
-    network: 'near-mainnet' as const, rpcUrl: MAINNET_CONFIG.rpcUrl, rpcProviderId: MAINNET_CONFIG.rpcProviderId,
+    network: 'near-mainnet' as const, rpcUrl: net.rpcUrl, rpcProviderId: net.rpcProviderId,
     contract: { accountId: env['contractId'] ?? '', expectedCodeHash: env['codeHash'] ?? '' },
   };
-  return MainnetEscrowProfileSchema.safeParse(candidate).success ? candidate : null;
+  const parsed = MainnetEscrowProfileSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
 }
 
 export const ESCROW_PROFILE: MainnetEscrowProfile | null = resolveEscrowProfile({

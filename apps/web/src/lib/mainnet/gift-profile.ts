@@ -9,16 +9,17 @@ import { MAINNET_CONFIG } from './config';
  * No Mainnet Gift account/fee/limits are owner-approved, so Production never
  * sets these (scripts/check-mainnet-env.mjs refuses them on Production).
  */
-export function resolveGiftProfile(env: Readonly<Record<string, string | undefined>>): MainnetGiftProfile | null {
-  if (!MAINNET_CONFIG.ok) return null;
+export function resolveGiftProfile(env: Readonly<Record<string, string | undefined>>, net: { readonly rpcUrl: string; readonly rpcProviderId: string } | null = MAINNET_CONFIG.ok ? MAINNET_CONFIG : null): MainnetGiftProfile | null {
+  if (net === null) return null;
   const candidate = {
-    network: 'near-mainnet' as const, rpcUrl: MAINNET_CONFIG.rpcUrl, rpcProviderId: MAINNET_CONFIG.rpcProviderId,
+    network: 'near-mainnet' as const, rpcUrl: net.rpcUrl, rpcProviderId: net.rpcProviderId,
     contract: {
       accountId: env['contractId'] ?? '', expectedCodeHash: env['codeHash'] ?? '',
       minAmountYocto: env['min'] ?? '', maxAmountYocto: env['max'] ?? '', giftFeeYocto: env['fee'] ?? '',
     },
   };
-  return MainnetGiftProfileSchema.safeParse(candidate).success ? candidate : null;
+  const parsed = MainnetGiftProfileSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
 }
 
 export const GIFT_PROFILE: MainnetGiftProfile | null = resolveGiftProfile({

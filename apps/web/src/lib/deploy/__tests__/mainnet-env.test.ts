@@ -178,6 +178,13 @@ describe('host and store isolation', () => {
 });
 
 describe('mainnet integration switches', () => {
+  it('unapproved Mainnet Gift and escrow contracts are refused on Production, allowed on a staging Preview', () => {
+    expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID: 'gift-candidate.near' }).failed).toEqual(['Gift contract not configured on Production (not approved)']);
+    expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID: 'escrow-candidate.near' }).failed).toEqual(['Mainnet escrow not configured on Production (not deployed/approved)']);
+    const preview = { ...PRODUCTION, VERCEL_ENV: 'preview', NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: undefined, NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID: 'gift-candidate.near', NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID: 'escrow-candidate.near' };
+    expect(run(preview).failed).toEqual([]);
+  });
+
   it('fixtures and fixture 1Click mode are refused on Production, allowed on a staging Preview', () => {
     expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES: 'on' }).failed).toEqual(['fixtures off on Production']);
     expect(run({ ...PRODUCTION, TAPLY_ONECLICK_MODE: 'fixture' }).failed).toEqual(['1Click fixture mode off on Production']);
