@@ -40,12 +40,17 @@ test('crash and lost commit acknowledgement never reopen an account or permit st
   assert.equal((await coordinator(s,rpc(transaction(),{unavailable:true})).reconcile('alice.near')).kind,'OUTCOME_UNRESOLVED');
   assert.ok((await coordinator(s).read('alice.near')).pending);
 });
-test('unknown hash cannot time out into failure; hinted external hash requires exact action/key and newer nonce',async()=>{
+test('lost external hash cannot be replaced by an unrelated identical payment; retained wallet hash still requires FINAL evidence',async()=>{
   const s=store(),c=coordinator(s),a=await c.reserve('a'.repeat(64),{...expectation,nonce:null});await c.handoff(a,null);
   assert.equal((await c.reconcile('alice.near')).kind,'OUTCOME_UNRESOLVED');
   const t=transaction();t.transaction.nonce=7;
   assert.equal((await coordinator(s,rpc(t)).reconcile('alice.near',hash)).kind,'OUTCOME_UNRESOLVED');
-  assert.equal((await c.reconcile('alice.near',hash)).kind,'FINAL_EXECUTION');
+  assert.equal((await c.reconcile('alice.near',hash)).kind,'OUTCOME_UNRESOLVED');
+  assert.ok((await c.read('alice.near')).pending);
+  await assert.rejects(c.reserve('b'.repeat(64),expectation),/UNRESOLVED/);
+  const known=coordinator(store()),reserved=await known.reserve('a'.repeat(64),{...expectation,nonce:null});
+  const handed=await known.handoff(reserved,null);await known.uncertain(handed,hash);
+  assert.equal((await known.reconcile('alice.near')).kind,'FINAL_EXECUTION');
 });
 test('final execution failure is not non-payment or permission to replay a business operation',async()=>{
   const t=transaction();t.status={Failure:{ActionError:{index:0}}};t.receipts_outcome[0].outcome.status=t.status;

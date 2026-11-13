@@ -166,3 +166,21 @@ execution reconciliation cannot repair the unresolved contract obligation.
 
 **NO-GO for real funds and a claim of complete functional parity.** No contract
 code, Testnet behavior, production route, workflow gate or hosting setting changes.
+
+### External lost-response ambiguity
+
+Phase 5 additionally refuses terminal reconciliation when an external attempt has
+neither an exact reserved nonce nor a retained transaction hash. A later manual
+hash could identify another transfer with identical terms, while the original
+attempt remains live. The account stays blocked; timeout/nonce advancement cannot
+clear it. Internal exact-nonce attempts and already-retained external hashes still
+require complete independent FINAL evidence. Do not use `uncertain` to inject a
+manually guessed hash as a workaround. A reviewed wallet-specific recovery protocol
+is required for external responses lost before hash persistence.
+
+CI on `b6e1881cfcabfc4e0d814cbb5e8b41d12faaf3a2` passed Workspace (93 shared,
+338 client, 85 API including real Redis) and browser gates. Its first Mainnet
+protocol run failed before sandbox execution because near-workspaces 0.24.0 could
+not download the binary (`DownloadError("timeout: connect")`); the failed job was
+rerun unchanged. This infrastructure failure was not bypassed or labelled success.
+The later reconciliation hardening requires a new final exact-commit CI run.
