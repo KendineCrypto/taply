@@ -30,6 +30,7 @@ export type IconName =
   | 'arrow-left'
   | 'arrow-right'
   | 'link'
+  | 'gift'
   | 'x';
 
 const PATHS: Readonly<Record<IconName, ReactNode>> = {
@@ -105,6 +106,13 @@ const PATHS: Readonly<Record<IconName, ReactNode>> = {
   'arrow-right': <path d="M5 12h14m-6-6 6 6-6 6" />,
   link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
+  gift: (
+    <>
+      <rect x="4" y="9" width="16" height="11" rx="1.5" />
+      <path d="M3.5 9h17M12 9v11" />
+      <path d="M12 9c-1.6-2.9-5.5-3.6-5.5-1.4C6.5 9 9.5 9 12 9zM12 9c1.6-2.9 5.5-3.6 5.5-1.4C17.5 9 14.5 9 12 9z" />
+    </>
+  ),
 };
 
 export function Icon({

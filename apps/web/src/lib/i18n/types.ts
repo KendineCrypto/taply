@@ -1,6 +1,7 @@
 import type { CommerceCopy } from './commerce-types';
 import type { ToolsCopy } from './tools-types';
 import type { ProtectedFlowCopy } from './protected-types';
+import type { GiftCopy } from './gift-types';
 import type { JournalMethod } from '@/lib/payments/journal';
 import type { Assurance, ChainState, ErrorCode, LocalPhase, SessionState } from '@/lib/protocol';
 
@@ -55,6 +56,8 @@ export interface Dictionary {
   /** Monday sprint: Contacts, recurring templates, Split Pay. */
   readonly tools: ToolsCopy;
   readonly protectedFlow: ProtectedFlowCopy;
+  /** Taply Gift screens. */
+  readonly gift: GiftCopy;
   readonly verifiedRequest: {
     readonly verified: string;
     readonly unverified: string;

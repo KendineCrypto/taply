@@ -22,6 +22,8 @@ export const FEATURE_FLAGS = [
   'socialLogin',
   'milestonePay',
   'sponsoredGas',
+  'gift',
+  'giftClaimable',
 ] as const;
 
 export type FeatureFlag = (typeof FEATURE_FLAGS)[number];
@@ -78,6 +80,13 @@ const DEFAULTS: Readonly<Record<FeatureFlag, FlagState>> = {
   socialLogin: OFF('security_gate', true),
   milestonePay: OFF('security_gate', true),
   sponsoredGas: OFF('security_gate', true),
+  // Taply Gift, Personal: a normal Taply Wallet transfer plus a gift page that
+  // re-checks that exact transfer on chain. No new contract. Kill switch:
+  // NEXT_PUBLIC_TAPLY_FLAG_GIFT=off.
+  gift: ON,
+  // Taply Gift, Open (claimable): needs the separate, UNREVIEWED gift contract
+  // (contracts/gift) deployed, pinned by code hash, AND an explicit 'on'.
+  giftClaimable: OFF('security_gate'),
 };
 
 /**
@@ -95,6 +104,8 @@ const ENV_KEYS: Partial<Record<FeatureFlag, string>> = {
   contacts: 'NEXT_PUBLIC_TAPLY_FLAG_CONTACTS',
   recurring: 'NEXT_PUBLIC_TAPLY_FLAG_RECURRING',
   splitPay: 'NEXT_PUBLIC_TAPLY_FLAG_SPLIT',
+  gift: 'NEXT_PUBLIC_TAPLY_FLAG_GIFT',
+  giftClaimable: 'NEXT_PUBLIC_TAPLY_FLAG_GIFT_CLAIMABLE',
 };
 
 export function resolveFlags(env: Record<string, string | undefined>): Readonly<Record<FeatureFlag, FlagState>> {
@@ -126,6 +137,8 @@ export const FLAGS = resolveFlags({
   NEXT_PUBLIC_TAPLY_FLAG_CONTACTS: process.env.NEXT_PUBLIC_TAPLY_FLAG_CONTACTS,
   NEXT_PUBLIC_TAPLY_FLAG_RECURRING: process.env.NEXT_PUBLIC_TAPLY_FLAG_RECURRING,
   NEXT_PUBLIC_TAPLY_FLAG_SPLIT: process.env.NEXT_PUBLIC_TAPLY_FLAG_SPLIT,
+  NEXT_PUBLIC_TAPLY_FLAG_GIFT: process.env.NEXT_PUBLIC_TAPLY_FLAG_GIFT,
+  NEXT_PUBLIC_TAPLY_FLAG_GIFT_CLAIMABLE: process.env.NEXT_PUBLIC_TAPLY_FLAG_GIFT_CLAIMABLE,
 });
 
 export function isEnabled(flag: FeatureFlag): boolean {
