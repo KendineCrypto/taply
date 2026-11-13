@@ -122,6 +122,12 @@ describe('PaymentStatusPanel', () => {
   });
 });
 
+/** Answers the origins list (empty -> Base fallback) and delegates the quote call. */
+function routed(quote: () => Response) {
+  return vi.fn(async (url: string) => (String(url).endsWith('/origins') ? new Response(JSON.stringify({ origins: [] }), { status: 200 }) : quote()));
+}
+const quoteCalls = (f: ReturnType<typeof routed>) => f.mock.calls.filter((c) => !String(c[0]).endsWith('/origins'));
+
 describe('IntentsCheckout (Base USDC)', () => {
   const request = byName('usdc-awaiting');
   const goodQuote = {
@@ -132,25 +138,25 @@ describe('IntentsCheckout (Base USDC)', () => {
   };
 
   it('validates the refund address before asking the server', () => {
-    const fetcher = vi.fn();
+    const fetcher = routed(() => new Response('{}', { status: 500 }));
     vi.stubGlobal('fetch', fetcher);
     wrap(<IntentsCheckout request={request} onPrepared={() => {}} />);
     fireEvent.change(screen.getByLabelText(mainnetEn.intents.refundLabel), { target: { value: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAeD' } });
     fireEvent.blur(screen.getByLabelText(mainnetEn.intents.refundLabel));
     expect(screen.getByText(mainnetEn.intents.refundErrors.checksum)).toBeTruthy();
     expect((screen.getByTestId('get-quote') as HTMLButtonElement).disabled).toBe(true);
-    expect(fetcher).not.toHaveBeenCalled();
+    expect(quoteCalls(fetcher)).toHaveLength(0);
   });
 
   it('shows verified instructions with the exact principal and withholds the deposit address', async () => {
-    const fetcher = vi.fn(async () => new Response(JSON.stringify(goodQuote), { status: 200 }));
+    const fetcher = routed(() => new Response(JSON.stringify(goodQuote), { status: 200 }));
     vi.stubGlobal('fetch', fetcher);
     const prepared = vi.fn();
     wrap(<IntentsCheckout request={request} onPrepared={prepared} />);
     fireEvent.change(screen.getByLabelText(mainnetEn.intents.refundLabel), { target: { value: goodQuote.refundTo } });
     fireEvent.click(screen.getByTestId('get-quote'));
     await waitFor(() => expect(screen.getByTestId('quote-review')).toBeTruthy());
-    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = quoteCalls(fetcher)[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/mainnet/oneclick/quote');
     expect(JSON.parse(String(init.body))).toEqual({ requestId: request.terms.id, originAsset: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', refundTo: goodQuote.refundTo });
     expect(screen.getByText('12.5 USDC')).toBeTruthy();
@@ -161,7 +167,7 @@ describe('IntentsCheckout (Base USDC)', () => {
   });
 
   it('refuses a server answer that is not the exact principal to the pinned contract', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ...goodQuote, amountOut: '1' }), { status: 200 })));
+    vi.stubGlobal('fetch', routed(() => new Response(JSON.stringify({ ...goodQuote, amountOut: '1' }), { status: 200 })));
     wrap(<IntentsCheckout request={request} onPrepared={() => {}} />);
     fireEvent.change(screen.getByLabelText(mainnetEn.intents.refundLabel), { target: { value: goodQuote.refundTo } });
     fireEvent.click(screen.getByTestId('get-quote'));
@@ -171,7 +177,7 @@ describe('IntentsCheckout (Base USDC)', () => {
   it.each(['REQUEST_EXPIRES_TOO_SOON', 'ACTIVE_QUOTE_EXISTS', 'PREVIOUS_QUOTE_IN_PROGRESS', 'UPSTREAM_MIN_AMOUNT', 'FUNDED_QUOTES_NOT_APPROVED'])(
     'server error %s is shown in plain language',
     async (code) => {
-      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: code }), { status: 409 })));
+      vi.stubGlobal('fetch', routed(() => new Response(JSON.stringify({ error: code }), { status: 409 })));
       wrap(<IntentsCheckout request={request} onPrepared={() => {}} />);
       fireEvent.change(screen.getByLabelText(mainnetEn.intents.refundLabel), { target: { value: goodQuote.refundTo } });
       fireEvent.click(screen.getByTestId('get-quote'));

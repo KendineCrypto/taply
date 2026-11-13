@@ -123,6 +123,30 @@ jobs:
           node scripts/mainnet-1click-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence" http://127.0.0.1:3113
           node scripts/mainnet-product-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/product" http://127.0.0.1:3113
 
+      # Phase 2 parity (docs/MAINNET_PARITY_MATRIX.md): Mainnet Live Handshake on a
+      # REAL redis-server (via the repo's Upstash REST shim) across two browser
+      # contexts, Solana/Tron origins, receipt, split prefill, Turkish, leak scan.
+      - name: Mainnet phase 2 browser checks (Handshake on real Redis, fixtures only)
+        working-directory: apps/web
+        timeout-minutes: 10
+        run: |
+          set -a; . ./env/mainnet.env.example; set +a
+          export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_SHARE_ORIGIN= NEXT_PUBLIC_TAPLY_CONTRACT_ID= NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES=on NEXT_PUBLIC_TAPLY_FLAG_HANDSHAKE=on
+          KV_REST_API_URL=https://build-placeholder.invalid KV_REST_API_TOKEN=placeholder pnpm run build:mainnet
+          redis-server --port 6390 --save '' --appendonly no --daemonize yes
+          node scripts/redis-rest-shim.mjs 6390 8079 ci-local-token > "$RUNNER_TEMP/taply-redis-shim.log" 2>&1 &
+          shim_pid=$!
+          TAPLY_ONECLICK_MODE=fixture KV_REST_API_URL=http://127.0.0.1:8079 KV_REST_API_TOKEN=ci-local-token \
+            pnpm exec next start -p 3120 --hostname 127.0.0.1 > "$RUNNER_TEMP/taply-browser-server-phase2.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" "$shim_pid"; redis-cli -p 6390 shutdown nosave || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3120/m > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/mainnet-parity-phase2-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase2" http://127.0.0.1:3120
+          test "$(redis-cli -p 6390 --scan | grep -vc '^taply:mainnet:')" = "0"
+
       - name: Preserve Mainnet browser evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -133,3 +157,4 @@ jobs:
           path: |
             ${{ runner.temp }}/taply-browser-evidence
             ${{ runner.temp }}/taply-browser-server.log
+            ${{ runner.temp }}/taply-browser-server-phase2.log

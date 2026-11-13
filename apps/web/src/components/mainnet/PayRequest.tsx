@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { prepareMainnetPayment } from '@taply/near-client';
 import type { MainnetCall, MainnetProfile } from '@taply/near-client';
 import { Button } from '@/components/primitives/Button';
@@ -15,6 +16,8 @@ import type { MainnetRequest } from '@/lib/mainnet/fixtures';
 import { useMainnetRequest, useOneClickHint } from '@/lib/mainnet/hooks';
 import type { HintState } from '@/lib/mainnet/hooks';
 import { BASE_USDC } from '@/lib/mainnet/oneclick/allowlist';
+import type { OriginChain, RefundFormat } from '@/lib/mainnet/oneclick/allowlist';
+import { ORIGIN_COPY } from '@/lib/mainnet/origin-copy';
 import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
 import { derivePaymentView } from '@/lib/mainnet/status';
 import type { PaymentState } from '@/lib/mainnet/status';
@@ -38,7 +41,7 @@ function formatTime(ms: number, locale: string): string {
   return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms));
 }
 
-export function PayRequest({ id }: { readonly id: string }) {
+export function PayRequest({ id, after }: { readonly id: string; readonly after?: (request: MainnetRequest, open: boolean) => ReactNode }) {
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const { read, refresh } = useMainnetRequest(id, true);
@@ -76,6 +79,7 @@ export function PayRequest({ id }: { readonly id: string }) {
       </Card>
 
       <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} />
+      {after?.(r, open)}
 
       {open ? (
         <Card>
@@ -171,6 +175,31 @@ interface PreparedQuote {
   readonly reused: boolean;
 }
 
+interface PublicOrigin {
+  readonly assetId: string;
+  readonly chain: OriginChain;
+  readonly symbol: 'USDC' | 'USDT';
+  readonly contractAddress: string;
+  readonly refundAddressFormat: RefundFormat;
+  readonly source: 'recorded-live-quote' | 'live-token-list' | 'fixture';
+}
+
+/** Server-resolved origins (Base, plus Solana/Tron only when 1Click lists them identically). */
+function useOrigins(): ReadonlyArray<PublicOrigin> | null {
+  const [origins, setOrigins] = useState<ReadonlyArray<PublicOrigin> | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch('/api/mainnet/oneclick/origins', { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<{ origins: PublicOrigin[] }>) : { origins: [] }))
+      .then((b) => live && setOrigins(Array.isArray(b.origins) ? b.origins : []))
+      .catch(() => live && setOrigins([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return origins;
+}
+
 /** Customer selects Base USDC, enters a refund address, gets a verified quote and reviews instructions. */
 export function IntentsCheckout({ request, onPrepared }: { request: MainnetRequest; onPrepared: () => void }) {
   const c = useMainnetCopy();
@@ -181,7 +210,11 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<PreparedQuote | null>(null);
   const now = useNow(1000);
-  const check = validateRefundAddress(BASE_USDC, refund);
+  const oc = ORIGIN_COPY[locale];
+  const origins = useOrigins();
+  const [picked, setPicked] = useState<string>(BASE_USDC.assetId);
+  const origin: PublicOrigin = origins?.find((o) => o.assetId === picked) ?? { assetId: BASE_USDC.assetId, chain: 'base', symbol: 'USDC', refundAddressFormat: 'evm', contractAddress: BASE_USDC.contractAddress, source: 'recorded-live-quote' };
+  const check = validateRefundAddress(origin, refund);
 
   async function prepare() {
     setPending(true);
@@ -190,7 +223,7 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
       const res = await fetch('/api/mainnet/oneclick/quote', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ requestId: request.terms.id, originAsset: BASE_USDC.assetId, refundTo: refund.trim() }),
+        body: JSON.stringify({ requestId: request.terms.id, originAsset: origin.assetId, refundTo: refund.trim() }),
         cache: 'no-store',
       });
       const body = (await res.json().catch(() => ({}))) as Partial<PreparedQuote> & { error?: string };
@@ -230,27 +263,36 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
         >
           <fieldset>
             <legend className="mb-1.5 text-[13px] text-[var(--text-secondary)]">{c.intents.sourceLabel}</legend>
-            <label className="flex min-h-[var(--tap-target)] items-center gap-2 rounded-[var(--radius-control)] border border-[var(--taply-lime)] bg-[var(--tone-success-bg)] px-3 text-[15px] font-semibold">
-              <input type="radio" name="source" checked readOnly className="accent-[var(--taply-lime)]" />
-              {c.intents.sourceBaseUsdc}
-            </label>
+            {origins === null ? (
+              <p className="text-[13px] text-[var(--text-secondary)]">{oc.loading}</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" data-testid="origin-picker">
+                {(origins.length > 0 ? origins : [origin]).map((o) => (
+                  <label key={o.assetId} className={`pressable flex min-h-[var(--tap-target)] cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border px-3 text-[15px] font-semibold ${o.assetId === origin.assetId ? 'border-[var(--taply-lime)] bg-[var(--tone-success-bg)]' : 'border-[var(--border-subtle)]'}`}>
+                    <input type="radio" name="source" value={o.assetId} data-chain={o.chain} checked={o.assetId === origin.assetId} onChange={() => { setPicked(o.assetId); setRefund(''); setTouched(false); setError(null); }} className="accent-[var(--taply-lime)]" />
+                    {o.symbol} · {oc.chain[o.chain]}
+                  </label>
+                ))}
+              </div>
+            )}
+            {origins?.some((o) => o.source === 'fixture') && <p className="mt-1 text-[11px] text-[var(--text-muted)]">{oc.fixture}</p>}
           </fieldset>
           <div>
-            <label htmlFor="refund" className="text-[13px] text-[var(--text-secondary)]">{c.intents.refundLabel}</label>
+            <label htmlFor="refund" className="text-[13px] text-[var(--text-secondary)]">{oc.refundLabel[origin.refundAddressFormat]}</label>
             <input
               id="refund"
               value={refund}
               onChange={(e) => setRefund(e.target.value)}
               onBlur={() => setTouched(true)}
-              placeholder="0x…"
+              placeholder={oc.refundPlaceholder[origin.refundAddressFormat]}
               autoComplete="off"
               spellCheck={false}
               aria-invalid={touched && !check.ok}
               aria-describedby="refund-help"
               className="mt-1 min-h-[var(--tap-target)] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 font-mono text-[13px]"
             />
-            <p id="refund-help" className="mt-1 text-[12px] text-[var(--text-muted)]">{c.intents.refundHint}</p>
-            {touched && refund !== '' && !check.ok && <p role="alert" className="mt-1 text-[13px] text-[var(--tone-danger-fg)]">{c.intents.refundErrors[check.reason]}</p>}
+            <p id="refund-help" className="mt-1 text-[12px] text-[var(--text-muted)]">{c.intents.refundHint.replace('Base', oc.chain[origin.chain])} {origin.refundAddressFormat === 'solana' ? oc.solanaNote : origin.refundAddressFormat === 'tron' ? oc.tronNote : ''}</p>
+            {touched && refund !== '' && !check.ok && <p role="alert" className="mt-1 text-[13px] text-[var(--tone-danger-fg)]">{check.reason === 'format' ? oc.refundFormat[origin.refundAddressFormat] : c.intents.refundErrors[check.reason]}</p>}
           </div>
           <Button type="submit" variant="primary" size="lg" block disabled={pending || !check.ok} data-testid="get-quote">
             {pending ? c.intents.preparing : c.intents.prepare}
@@ -268,7 +310,7 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
           {quote.mode === 'dry' && <Notice tone="muted">{c.intents.dryQuote}</Notice>}
           {quote.reused && <Notice tone="muted">{c.intents.reused}</Notice>}
           <dl>
-            <Row label={c.intents.youSend}>{quote.amountInFormatted} USDC · Base</Row>
+            <Row label={fill(oc.send, { chain: oc.chain[origin.chain] })}>{quote.amountInFormatted} {origin.symbol} · {oc.chain[origin.chain]}</Row>
             <Row label={c.intents.merchantGets}>{formatMainnetAmount(quote.amountOut, MAINNET_ASSETS.USDC, locale)}</Row>
             <Row label={c.intents.toContract} mono>{quote.recipient}</Row>
             <Row label={c.intents.deadline}>

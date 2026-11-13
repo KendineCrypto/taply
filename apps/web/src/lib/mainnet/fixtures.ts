@@ -148,3 +148,15 @@ export const FIXTURE_STORAGE_BOND_YOCTO = '5850000000000000000000';
  * It is not the CI candidate hash and not any deployment; never pin it.
  */
 export const FIXTURE_CODE_HASH = 'GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf';
+
+/**
+ * FIXTURE 1Click token list (fixture Preview only), shaped like `/v0/tokens`.
+ * Base and Solana asset IDs are the ones recorded in docs/MAINNET_BRIEF.md §3;
+ * the Tron entry's asset ID is deliberately marked `fixture` because no live
+ * value has been recorded. In dry mode the live list replaces all of this.
+ */
+export const FIXTURE_TOKENS = Object.freeze([
+  { assetId: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', blockchain: 'base', symbol: 'USDC', decimals: 6, contractAddress: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' },
+  { assetId: 'nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near', blockchain: 'sol', symbol: 'USDC', decimals: 6, contractAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
+  { assetId: 'nep141:tron-fixture-usdt.omft.near', blockchain: 'tron', symbol: 'USDT', decimals: 6, contractAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' },
+]);

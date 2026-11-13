@@ -1,6 +1,6 @@
 import { IS_MAINNET_BUILD } from '@/lib/mainnet/build';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
-import { fixtureById } from '@/lib/mainnet/fixtures';
+import { FIXTURE_TOKENS, fixtureById } from '@/lib/mainnet/fixtures';
 import { redisFromEnv } from '@/server/handshake/redis';
 import { fixtureChain, readerChain } from '../chain';
 import { createOneClickClient } from './client';
@@ -46,6 +46,7 @@ export function serviceFromEnv(env: Readonly<Record<string, string | undefined>>
       now: Date.now,
       rateLimit: id => limiterFromEnv(env)([{ key: `request:${id}`, limit: 30 }]),
       fixtureHint: (id) => fixtureById(id, Date.now())?.scenario.oneClick ?? null,
+      fixtureTokens: () => FIXTURE_TOKENS,
     });
   }
   const redis = redisFromEnv(env);

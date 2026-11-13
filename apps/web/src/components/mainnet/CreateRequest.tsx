@@ -14,6 +14,7 @@ import { FIXTURE_CODE_HASH, FIXTURE_CONTRACT, FIXTURE_MERCHANT, FIXTURE_STORAGE_
 import { readerOrNull, useUsdcRegistration } from '@/lib/mainnet/hooks';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { CallPreview, Notice, Row } from './bits';
+import { readPrefill } from '@/lib/mainnet/prefill';
 import { WalletPanel } from './WalletPanel';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
@@ -64,6 +65,16 @@ export function CreateRequest() {
   const [assetKey, setAssetKey] = useState<'USDC' | 'NEAR'>('USDC');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
+  // Prefill from Split / Recurring links, re-validated (lib/mainnet/prefill.ts).
+  useEffect(() => {
+    const p = readPrefill(window.location.search);
+    if (p === null) return;
+    queueMicrotask(() => {
+      setAssetKey(p.asset);
+      setAmount(p.amount);
+      setMemo(p.memo);
+    });
+  }, []);
   // Time the merchant pressed Review (event handler), so the 1-hour expiry is fresh.
   const [reviewAtMs, setReviewAtMs] = useState<number | null>(null);
   const reviewing = reviewAtMs !== null;

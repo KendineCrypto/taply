@@ -1,4 +1,5 @@
 import { keccak_256 } from '@noble/hashes/sha3';
+import { sha256 } from '@noble/hashes/sha2';
 import type { OriginAsset } from './allowlist';
 
 /**
@@ -35,8 +36,64 @@ export function validateEvmAddress(input: unknown): RefundCheck {
   return { ok: true, address: `0x${lower}` };
 }
 
-export function validateRefundAddress(asset: OriginAsset, input: unknown): RefundCheck {
-  const result = validateEvmAddress(input);
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+/** Strict base58 decode (Bitcoin alphabet); null on any invalid character. */
+export function base58Decode(text: string): Uint8Array | null {
+  if (text.length === 0 || text.length > 64) return null;
+  let n = 0n;
+  for (const ch of text) {
+    const v = B58.indexOf(ch);
+    if (v < 0) return null;
+    n = n * 58n + BigInt(v);
+  }
+  const bytes: number[] = [];
+  while (n > 0n) {
+    bytes.unshift(Number.parseInt((n & 0xffn).toString(), 10));
+    n >>= 8n;
+  }
+  for (const ch of text) {
+    if (ch !== '1') break;
+    bytes.unshift(0);
+  }
+  return new Uint8Array(bytes);
+}
+
+/**
+ * Solana: base58 of a 32-byte public key. The all-zero system program and the
+ * token mint itself are refused. Whether the key is on the ed25519 curve (a
+ * program-derived address cannot sign) is NOT checked here; the UI tells the
+ * customer to use a wallet address they control.
+ */
+export function validateSolanaAddress(input: unknown): RefundCheck {
+  if (typeof input !== 'string') return { ok: false, reason: 'format' };
+  const value = input.trim();
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return { ok: false, reason: 'format' };
+  const bytes = base58Decode(value);
+  if (bytes === null || bytes.length !== 32) return { ok: false, reason: 'format' };
+  if (bytes.every((b) => b === 0)) return { ok: false, reason: 'forbidden' };
+  return { ok: true, address: value };
+}
+
+/** Tron: base58check of 0x41 + 20 bytes, checksum = first 4 bytes of sha256(sha256(payload)). */
+export function validateTronAddress(input: unknown): RefundCheck {
+  if (typeof input !== 'string') return { ok: false, reason: 'format' };
+  const value = input.trim();
+  if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(value)) return { ok: false, reason: 'format' };
+  const bytes = base58Decode(value);
+  if (bytes === null || bytes.length !== 25 || bytes[0] !== 0x41) return { ok: false, reason: 'format' };
+  const payload = bytes.slice(0, 21);
+  const check = sha256(sha256(payload)).slice(0, 4);
+  if (!check.every((b, i) => b === bytes[21 + i])) return { ok: false, reason: 'checksum' };
+  if (payload.slice(1).every((b) => b === 0)) return { ok: false, reason: 'forbidden' };
+  return { ok: true, address: value };
+}
+
+export function validateRefundAddress(asset: Pick<OriginAsset, 'refundAddressFormat' | 'contractAddress'>, input: unknown): RefundCheck {
+  const result =
+    asset.refundAddressFormat === 'solana' ? validateSolanaAddress(input)
+      : asset.refundAddressFormat === 'tron' ? validateTronAddress(input)
+        : validateEvmAddress(input);
   if (!result.ok) return result;
   if (result.address === ZERO || result.address === asset.contractAddress) return { ok: false, reason: 'forbidden' };
   return result;

@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   description: MAINNET
     ? 'Taply on NEAR Mainnet: exact USDC and NEAR requests. Real funds, unaudited candidate contract, capped at 1 NEAR / 25 USDC per request.'
     : 'Mobile-first NEAR Testnet wallet and merchant payment app with explicit settlement states. Test funds only.',
-  manifest: '/manifest.webmanifest',
+  // Mainnet installs as its own app (name, start URL); Testnet keeps its manifest.
+  manifest: MAINNET ? '/m/manifest.webmanifest' : '/manifest.webmanifest',
   applicationName: 'Taply',
   icons: {
     icon: [
