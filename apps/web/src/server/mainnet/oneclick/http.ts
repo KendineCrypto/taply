@@ -4,7 +4,7 @@ import type { Result } from './service';
 import { boundedText } from './bounded-body';
 import { ingress } from './rate-limit';
 
-type Service = { prepareQuote(raw: unknown): Promise<Result<unknown>>; status(raw: unknown): Promise<Result<unknown>> };
+type Service = { prepareQuote(raw: unknown): Promise<Result<unknown>>; status(raw: unknown): Promise<Result<unknown>>; origins?: () => Promise<Result<unknown>> };
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -64,4 +64,15 @@ export async function handleStatus(request: Request, service: () => Service, mai
   catch { return json(503, { error: 'STORE_UNAVAILABLE' }); }
   const requestId = new URL(request.url).searchParams.get('requestId');
   return toResponse(await service().status(requestId));
+}
+
+/** Origins this deployment can quote now (Base, plus Solana/Tron when 1Click lists them identically). */
+export async function handleOrigins(request: Request, service: () => Service, mainnet = IS_MAINNET_BUILD, admit = ingress): Promise<Response> {
+  if (!mainnet) return json(404, { error: 'NOT_FOUND' });
+  try { if (!await admit(request)) return json(429, { error: 'RATE_LIMITED' }); }
+  catch { return json(503, { error: 'STORE_UNAVAILABLE' }); }
+  const svc = service();
+  if (svc.origins === undefined) return json(503, { error: 'ONECLICK_DISABLED' });
+  const result = await svc.origins();
+  return result.ok ? json(200, { origins: result.value }) : toResponse(result);
 }

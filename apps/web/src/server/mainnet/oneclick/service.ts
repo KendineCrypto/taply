@@ -1,6 +1,7 @@
 import { HashHexSchema, MAINNET_USDC_ASSET } from '@taply/shared';
 import { z } from 'zod';
-import { BASE_USDC, isStillListed, originAssetById } from '@/lib/mainnet/oneclick/allowlist';
+import { BASE_USDC, isStillListed, originAssetById, originFromTokens, resolveDynamicOrigins } from '@/lib/mainnet/oneclick/allowlist';
+import type { OriginAsset } from '@/lib/mainnet/oneclick/allowlist';
 import type { ListedToken } from '@/lib/mainnet/oneclick/allowlist';
 import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
 import { ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED } from '@/lib/mainnet/release-gates';
@@ -181,6 +182,8 @@ export interface ServiceDeps {
   readonly now: () => number;
   /** Fixture mode only: the scripted cross-chain hint per request. */
   readonly fixtureHint?: (requestId: string) => OneClickStatus | null;
+  /** Fixture mode only: the labelled fixture token list used to resolve Solana/Tron. */
+  readonly fixtureTokens?: () => ReadonlyArray<ListedToken>;
   readonly rateLimit?: (requestId: string) => Promise<boolean>;
 }
 
@@ -207,6 +210,20 @@ function publicQuote(record: QuoteRecord, contractId: string, reused: boolean): 
   };
 }
 
+export interface PublicOrigin {
+  readonly assetId: string;
+  readonly chain: OriginAsset['chain'];
+  readonly symbol: OriginAsset['symbol'];
+  readonly decimals: number;
+  readonly contractAddress: string;
+  readonly refundAddressFormat: OriginAsset['refundAddressFormat'];
+  /** How this route is known: a recorded live signed quote (Base), the live 1Click token list, or FIXTURE data. */
+  readonly source: 'recorded-live-quote' | 'live-token-list' | 'fixture';
+}
+function publicOrigin(o: OriginAsset, source: PublicOrigin['source']): PublicOrigin {
+  return { assetId: o.assetId, chain: o.chain, symbol: o.symbol, decimals: o.decimals, contractAddress: o.contractAddress, refundAddressFormat: o.refundAddressFormat, source };
+}
+
 const fail = (code: ServiceError, reason?: QuoteRejection): Result<never> =>
   reason === undefined ? { ok: false, code } : { ok: false, code, reason };
 
@@ -219,6 +236,28 @@ export function createOneClickService(deps: ServiceDeps) {
     return null;
   }
 
+  async function listedTokens(): Promise<ReadonlyArray<ListedToken>> {
+    if (deps.mode === 'fixture') return deps.fixtureTokens?.() ?? [];
+    return TokenListSchema.parse(await deps.client.tokens()) as ReadonlyArray<ListedToken>;
+  }
+
+  /** Origins this deployment can quote right now. Never lists a route 1Click does not list identically. */
+  async function origins(): Promise<Result<ReadonlyArray<PublicOrigin>>> {
+    if (deps.mode === 'off') return fail('ONECLICK_DISABLED');
+    if (deps.mode === 'funded' && !ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED) return fail('FUNDED_QUOTES_NOT_APPROVED');
+    let tokens: ReadonlyArray<ListedToken>;
+    try {
+      tokens = await listedTokens();
+    } catch (error) {
+      return error instanceof OneClickHttpError ? fail(`UPSTREAM_${error.code}`) : fail('ORIGIN_NOT_LISTED');
+    }
+    const source: PublicOrigin['source'] = deps.mode === 'fixture' ? 'fixture' : 'live-token-list';
+    const out: PublicOrigin[] = [];
+    if (deps.mode === 'fixture' || isStillListed(BASE_USDC, tokens)) out.push(publicOrigin(BASE_USDC, deps.mode === 'fixture' ? 'fixture' : 'recorded-live-quote'));
+    for (const o of resolveDynamicOrigins(tokens)) out.push(publicOrigin(o, source));
+    return { ok: true, value: out };
+  }
+
   async function prepareQuote(raw: unknown): Promise<Result<PublicQuote>> {
     const closed = gate();
     if (closed) return closed;
@@ -227,7 +266,13 @@ export function createOneClickService(deps: ServiceDeps) {
 
     const input = QuoteInputSchema.safeParse(raw);
     if (!input.success) return fail('INVALID_INPUT');
-    const origin = originAssetById(input.data.originAsset);
+    // Base: static allowlist. Solana/Tron: asset ID resolved from 1Click's token
+    // list (fixture list in a fixture Preview), exact unique match only.
+    let origin: OriginAsset | null = originAssetById(input.data.originAsset);
+    if (origin === null) {
+      const tokens = await listedTokens().catch(() => null);
+      origin = tokens === null ? null : originFromTokens(input.data.originAsset, tokens);
+    }
     if (origin === null) return fail('ORIGIN_NOT_ALLOWED');
     const refund = validateRefundAddress(origin, input.data.refundTo);
     if (!refund.ok) return fail('REFUND_ADDRESS_INVALID');
@@ -413,7 +458,7 @@ export function createOneClickService(deps: ServiceDeps) {
     }
   }
 
-  return { prepareQuote, status };
+  return { prepareQuote, status, origins };
 }
 
 export { BASE_USDC };

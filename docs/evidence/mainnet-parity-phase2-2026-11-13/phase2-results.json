@@ -1,0 +1,137 @@
+{
+  "base": "http://127.0.0.1:3120",
+  "results": [
+    {
+      "name": "merchant gets a /m/s/<room>#j= session link",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "merchant shows \"waiting for customer\"",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "join secret removed from the customer address bar",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "both screens show the same comparison code",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "customer sees the same request (exact amount from the contract read)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "merchant sees the customer join",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "customer sees the merchant screen live",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "merchant sees \"reviewing payment instructions\" when the customer starts paying",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "session is coordination only: payment state still from the contract (Awaiting)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a second customer device is refused (ALREADY_JOINED)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "customer reload rejoins the same session",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "merchant ends the session; customer is told, request unchanged",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no Live Handshake panel for a non-open request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "server refuses a room for a paid request (409)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "malformed session path is 404",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "origin picker offers Base, Solana and Tron",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an EVM address is refused as a Solana refund address",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Solana quote review: send on Solana, merchant receives exact USDC, deposit withheld",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the USDT contract is refused as a Tron refund address",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "receipt: Payment recorded (contract state) for FINAL_PAID",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "receipt never says Verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "split share opens the request composer prefilled with the exact share",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "prefilled memo carries the split label",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Turkish: Live Handshake panel in Turkish",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "leak scan over 19 loaded scripts (incl. Testnet Handshake API path)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no unexpected console errors",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "scripts": 19,
+  "consoleErrors": []
+}

@@ -39,7 +39,7 @@ export function routeDecision(pathname: string, mainnet: boolean): RouteDecision
   if (!mainnet) return mainnetPath ? { kind: 'rewrite_not_found' } : { kind: 'pass' };
   if (isUnder(pathname, MAINNET_PAGE_PREFIX) && pathname !== MAINNET_PAGE_PREFIX) {
     const path = pathname.slice(MAINNET_PAGE_PREFIX.length + 1);
-    if (!isProductRoute(path) && path !== 'request/new' && !/^pay\/[0-9a-f]{64}$/.test(path)) return { kind: 'not_found' };
+    if (!isProductRoute(path) && path !== 'request/new' && path !== 'manifest.webmanifest' && !/^pay\/[0-9a-f]{64}$/.test(path)) return { kind: 'not_found' };
   }
   if (mainnetPath) return { kind: 'pass' };
   if (pathname.startsWith('/api/')) return { kind: 'not_found' };

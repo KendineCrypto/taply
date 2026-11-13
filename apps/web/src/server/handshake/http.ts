@@ -24,6 +24,8 @@ export interface HandshakeDeps {
   /** OPEN request's funding deadline in ms, or null when it is not payable. */
   readonly openRequestDeadlineMs: (requestId: string) => Promise<number | null>;
   readonly now?: () => number;
+  /** Redis key namespace; omitted = the Testnet namespace. Mainnet uses its own. */
+  readonly namespace?: string;
 }
 
 async function readOpenDeadline(requestId: string): Promise<number | null> {
@@ -54,7 +56,7 @@ const Action = z.discriminatedUnion('action', [
 ]);
 
 function roomsOf(deps: HandshakeDeps): Rooms | null {
-  return deps.redis === null ? null : createRooms({ redis: deps.redis, ...(deps.now ? { now: deps.now } : {}) });
+  return deps.redis === null ? null : createRooms({ redis: deps.redis, ...(deps.now ? { now: deps.now } : {}), ...(deps.namespace ? { namespace: deps.namespace } : {}) });
 }
 
 export async function handleHealth(deps: HandshakeDeps): Promise<Response> {

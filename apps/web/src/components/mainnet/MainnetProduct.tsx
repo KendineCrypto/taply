@@ -16,7 +16,10 @@ import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { MAINNET_ASSETS, parseMainnetAmount, formatMainnetAmount } from '@/lib/mainnet/assets';
 import { productEn, productTr } from '@/lib/mainnet/product-copy';
-import { emptyProductData, loadProductData, saveProductData, splitMainnetAmount, parseMainnetScan, type ProductData } from '@/lib/mainnet/product';
+import { splitMainnetAmount, parseMainnetScan } from '@/lib/mainnet/product';
+import { useLocalProduct } from '@/lib/mainnet/use-product';
+import { ActivityList } from './Activity';
+import { requestPrefill } from '@/lib/mainnet/prefill';
 import { openCamera, stopStream } from '@/lib/qr/camera';
 import { createFrameDecoder, type FrameDecoder } from '@/lib/qr/decoder';
 import { WalletPanel } from './WalletPanel';
@@ -45,34 +48,6 @@ export function ProductNav() {
   </nav>;
 }
 
-/** Only explicit user actions write local drafts. Account changes cannot display
- * or overwrite another account's data; invalid storage fails closed. */
-function useLocalProduct() {
-  const { accountId } = useMainnetWallet(); const c = useProductCopy();
-  const [state, setState] = useState<{ owner: string; data: ProductData } | null>(null);
-  const [message, setMessage] = useState('');
-  useEffect(() => {
-    if (!accountId) return;
-    let live = true;
-    const read = () => {
-      if (!live) return;
-      try { setState({ owner: accountId, data: loadProductData(localStorage, accountId) }); setMessage(''); }
-      catch { setState(null); setMessage(c.storageError); }
-    };
-    queueMicrotask(read);
-    window.addEventListener('storage', read);
-    return () => { live = false; window.removeEventListener('storage', read); };
-  }, [accountId, c.storageError]);
-  const data = state?.owner === accountId ? state.data : emptyProductData();
-  const ready = accountId !== null && state?.owner === accountId;
-  function save(next: ProductData) {
-    if (!accountId || !ready) return;
-    try { saveProductData(localStorage, accountId, next); setState({ owner: accountId, data: next }); setMessage(c.saved); }
-    catch { setMessage(c.storageError); }
-  }
-  return { data, save, ready, message };
-}
-
 export function MainnetProduct({ path }: { path: string }) {
   const c = useProductCopy();
   const section = path.split('/')[0];
@@ -91,7 +66,7 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'split' && <Split />}
     {section === 'recurring' && <DraftComposer kind="recurring" />}
     {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <DraftComposer kind="gift" /> : <Notice tone="caution">{c.blocked}</Notice>}</>}
-    {(section === 'activity' || section === 'merchant') && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
+    {(section === 'activity' || section === 'merchant') && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><ActivityList removeLabel={c.remove} /><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
     {section === 'checkout' && <Card><p className="break-all font-mono">{path.slice(9)}</p><p className="mt-2">{c.checkoutHelp}</p><Link href="/m/pay">{c.pay}</Link></Card>}
     {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice><Notice tone="caution">{c.blocked}</Notice></>}
     {(section === 's' || section === 'handshake') && <Notice tone="caution">{c.handshakeHelp}</Notice>}
@@ -141,7 +116,7 @@ function Split() {
   const c = useProductCopy(); const [amount, setAmount] = useState(''); const [count, setCount] = useState(2); const [asset, setAsset] = useState<'NEAR' | 'USDC'>('USDC'); const [shares, setShares] = useState<string[]>([]); const [error, setError] = useState('');
   return <><Card><form className="flex flex-col gap-3" onSubmit={e => { e.preventDefault(); setShares([]); setError(''); const parsed = parseMainnetAmount(amount, MAINNET_ASSETS[asset]);
     try { if (!parsed.ok) throw new Error(); setShares(splitMainnetAmount(parsed.baseUnits, count)); } catch { setError(c.invalid); }
-  }}><AssetAmount asset={asset} amount={amount} onAsset={v => { setAsset(v); setShares([]); }} onAmount={v => { setAmount(v); setShares([]); }} /><Field label={c.count}><input className={inputClass} type="number" min={2} max={50} value={count} onChange={e => { setCount(e.target.valueAsNumber); setShares([]); }} /></Field><Button type="submit">{c.calculate}</Button></form></Card><p role="status">{error}</p><ol>{shares.map((share, i) => <li key={i}>{i + 1}. {formatMainnetAmount(share, MAINNET_ASSETS[asset])}</li>)}</ol><p>{c.splitHelp}</p><Link href="/m/request/new">{c.request}</Link></>;
+  }}><AssetAmount asset={asset} amount={amount} onAsset={v => { setAsset(v); setShares([]); }} onAmount={v => { setAmount(v); setShares([]); }} /><Field label={c.count}><input className={inputClass} type="number" min={2} max={50} value={count} onChange={e => { setCount(e.target.valueAsNumber); setShares([]); }} /></Field><Button type="submit">{c.calculate}</Button></form></Card><p role="status">{error}</p><ol data-testid="split-shares">{shares.map((share, i) => <li key={i} className="flex items-center justify-between gap-3"><span>{i + 1}. {formatMainnetAmount(share, MAINNET_ASSETS[asset])}</span><Link className="tap-target inline-flex items-center underline" href={requestPrefill(asset, share, `Split ${i + 1}/${shares.length}`)}>{c.request}</Link></li>)}</ol><p>{c.splitHelp}</p><Link href="/m/request/new">{c.request}</Link></>;
 }
 function AssetAmount({ asset, amount, onAsset, onAmount }: { asset: 'NEAR' | 'USDC'; amount: string; onAsset: (v: 'NEAR' | 'USDC') => void; onAmount: (v: string) => void }) {
   const c = useProductCopy(); return <><Field label={c.asset}><select className={inputClass} value={asset} onChange={e => onAsset(e.target.value as 'NEAR' | 'USDC')}><option>NEAR</option><option>USDC</option></select></Field><Field label={c.amount}><input className={inputClass} inputMode="decimal" value={amount} onChange={e => onAmount(e.target.value)} /></Field></>;
@@ -164,12 +139,12 @@ function DraftComposer({ kind }: { kind: 'send' | 'recurring' | 'gift' }) {
     {kind === 'recurring' && <Field label={c.cadence}><select className={inputClass} value={cadence} onChange={e => setCadence(e.target.value as 'weekly' | 'monthly')}><option value="weekly">{c.weekly}</option><option value="monthly">{c.monthly}</option></select></Field>}
     {kind === 'gift' && <><Field label={c.design}><select className={inputClass} value={design} onChange={e => setDesign(['0', '1', '2', '3'].indexOf(e.target.value))}>{['Forest', 'Lime', 'Linen', 'Midnight'].map((v, i) => <option key={v} value={i}>{v}</option>)}</select></Field><Envelope design={design} open={open} label={c.draft}><div className="p-6 text-center text-[#0B120E]"><p className="font-semibold">{c.draft}</p><p className="mt-3 whitespace-pre-wrap break-words">{note}</p></div></Envelope><Button type="button" variant="secondary" onClick={() => setOpen(!open)}>{open ? c.close : c.preview}</Button></>}
     <Button type="submit" disabled={kind === 'send' || !local.ready}>{kind === 'send' ? c.send : c.save}</Button></form></Card>
-    {kind !== 'send' && <><p>{c.local}</p>{!local.ready && <WalletRequired />}<p role="status">{message || local.message}</p><ul className="flex flex-col gap-2">{drafts.map(d => <li key={d.id}><Card><p>{c.draft} · {formatMainnetAmount(d.amount, MAINNET_ASSETS[d.asset])}</p><p className="break-all text-sm">{d.recipient}</p><p className="whitespace-pre-wrap break-words">{d.note}</p><Button variant="ghost" onClick={() => local.save({ ...local.data, drafts: local.data.drafts.filter(a => a.id !== d.id) })}>{c.remove}</Button></Card></li>)}</ul></>}
+    {kind !== 'send' && <><p>{c.local}</p>{!local.ready && <WalletRequired />}<p role="status">{message || local.message}</p><ul className="flex flex-col gap-2">{drafts.map(d => <li key={d.id}><Card><p>{c.draft} · {formatMainnetAmount(d.amount, MAINNET_ASSETS[d.asset])}</p><p className="break-all text-sm">{d.recipient}</p><p className="whitespace-pre-wrap break-words">{d.note}</p>{d.kind === 'recurring' && <Link className="tap-target inline-flex items-center underline" href={requestPrefill(d.asset, d.amount, d.note)}>{c.request}</Link>}<Button variant="ghost" onClick={() => local.save({ ...local.data, drafts: local.data.drafts.filter(a => a.id !== d.id) })}>{c.remove}</Button></Card></li>)}</ul></>}
   </>;
 }
 function TrackedRequests() {
   const c = useProductCopy(); const local = useLocalProduct(); const [id, setId] = useState(''); const [error, setError] = useState('');
-  return <><Card><p className="mb-3">{c.tracked}</p><form className="flex flex-col gap-3" onSubmit={e => { e.preventDefault(); if (!/^[0-9a-f]{64}$/.test(id)) { setError(c.invalid); return; } setError(''); local.save({ ...local.data, requests: [...new Set([...local.data.requests, id])] }); }}><Field label={c.requestId}><input className={inputClass} value={id} onChange={e => setId(e.target.value)} /></Field><Button type="submit" disabled={!local.ready}>{c.track}</Button></form></Card>{!local.ready && <WalletRequired />}<p role="status">{error || local.message}</p><ul>{local.data.requests.map(v => <li key={v} className="mb-3 break-all"><Link href={`/m/pay/${v}` as Route}>{v}</Link><Button variant="ghost" onClick={() => local.save({ ...local.data, requests: local.data.requests.filter(a => a !== v) })}>{c.remove}</Button></li>)}</ul></>;
+  return <><Card><p className="mb-3">{c.tracked}</p><form className="flex flex-col gap-3" onSubmit={e => { e.preventDefault(); if (!/^[0-9a-f]{64}$/.test(id)) { setError(c.invalid); return; } setError(''); local.save({ ...local.data, requests: [...new Set([...local.data.requests, id])] }); }}><Field label={c.requestId}><input className={inputClass} value={id} onChange={e => setId(e.target.value)} /></Field><Button type="submit" disabled={!local.ready}>{c.track}</Button></form></Card>{!local.ready && <WalletRequired />}<p role="status">{error || local.message}</p></>;
 }
 function Scan({ withCamera }: { withCamera: boolean }) {
   const c = useProductCopy(); const router = useRouter(); const [text, setText] = useState(''); const [error, setError] = useState(''); const [running, setRunning] = useState(false);

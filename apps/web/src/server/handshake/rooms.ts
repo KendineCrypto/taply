@@ -67,8 +67,10 @@ function sameHash(a: string, b: string): boolean {
   const x = Buffer.from(a, 'hex'), y = Buffer.from(b, 'hex');
   return x.length === y.length && x.length > 0 && timingSafeEqual(x, y);
 }
-const keys = (roomId: string) => {
-  const k = (s: string) => `taply:hs:{${roomId}}:${s}`;
+/** Default namespace = the Testnet keys as they always were. Mainnet passes its own. */
+export const DEFAULT_ROOM_NAMESPACE = 'taply:hs';
+const keys = (roomId: string, ns: string = DEFAULT_ROOM_NAMESPACE) => {
+  const k = (s: string) => `${ns}:{${roomId}}:${s}`;
   return { room: k('room'), tm: k('tm'), tc: k('tc'), pm: k('pm'), pc: k('pc'), ev: k('ev'), seq: k('seq'), closed: k('closed') };
 };
 interface StoredRoom { requestId: string; createdAtMs: number; expiresAtMs: number; joinHash: string }
@@ -115,13 +117,15 @@ end
 redis.call('SET', pkey, ARGV[3] .. '|' .. ARGV[4], 'PX', ARGV[5])
 return {'OK', room, redis.call('GET', KEYS[4]) or '', redis.call('GET', KEYS[5]) or '', prev, redis.call('LRANGE', KEYS[6], 0, -1), '0', redis.call('EXISTS', KEYS[3])}`;
 
-export function createRooms(input: { redis: RedisCommand; now?: () => number; random?: (n: number) => Uint8Array }) {
+export function createRooms(input: { redis: RedisCommand; now?: () => number; random?: (n: number) => Uint8Array; namespace?: string }) {
   const cmd = input.redis;
+  const ns = input.namespace ?? DEFAULT_ROOM_NAMESPACE;
+  if (!/^[a-z0-9:]{1,40}$/.test(ns)) throw new Error('INVALID_ROOM_NAMESPACE');
   const now = input.now ?? Date.now;
   const random = input.random ?? ((n: number) => new Uint8Array(randomBytes(n)));
   const ttlFor = (expiresAtMs: number) => Math.max(1_000, Math.min(expiresAtMs + GRACE_MS, now() + MAX_ROOM_MS + GRACE_MS) - now());
   const event = async (roomId: string, type: RoomEvent['type'], ttlMs: number) => {
-    const k = keys(roomId);
+    const k = keys(roomId, ns);
     const seq = Number.parseInt(String(await cmd(['INCR', k.seq])), 10);
     await cmd(['RPUSH', k.ev, JSON.stringify({ seq, type, atMs: now() })]);
     await cmd(['LTRIM', k.ev, -EVENTS_KEPT, -1]);
@@ -138,7 +142,7 @@ export function createRooms(input: { redis: RedisCommand; now?: () => number; ra
       const joinToken = b64url(random(24));
       const expiresAtMs = Math.min(requestExpiresAtMs, now() + MAX_ROOM_MS);
       const ttl = ttlFor(expiresAtMs);
-      const k = keys(roomId);
+      const k = keys(roomId, ns);
       const stored: StoredRoom = { requestId, createdAtMs: now(), expiresAtMs, joinHash: hash(joinToken) };
       if ((await cmd(['SET', k.room, JSON.stringify(stored), 'NX', 'PX', ttl])) !== 'OK') throw new RoomError('UNAVAILABLE');
       await cmd(['SET', k.tm, hash(merchantToken), 'PX', ttl]);
@@ -148,7 +152,7 @@ export function createRooms(input: { redis: RedisCommand; now?: () => number; ra
 
     /** The first device presenting the QR's join token becomes THE customer; the same device may rejoin. */
     async join(roomId: string, joinToken: string, participantToken: string) {
-      const k = keys(roomId);
+      const k = keys(roomId, ns);
       const room = parseRoom(await cmd(['GET', k.room]));
       if (!sameHash(hash(joinToken), room.joinHash)) throw new RoomError('FORBIDDEN');
       if ((await cmd(['GET', k.closed])) !== null) throw new RoomError('CLOSED', room.requestId);
@@ -166,7 +170,7 @@ export function createRooms(input: { redis: RedisCommand; now?: () => number; ra
 
     /** "I am here" + current room, every ~2 s from each phone. */
     async sync(roomId: string, role: Role, token: string, state: PresenceState = 'viewing'): Promise<RoomSnapshot> {
-      const k = keys(roomId);
+      const k = keys(roomId, ns);
       const t = now();
       const result = await cmd(['EVAL', SYNC, 7, k.room, k.tm, k.tc, k.pm, k.pc, k.ev, k.closed,
         role === 'merchant' ? 'm' : 'c', hash(token), t, role === 'merchant' ? 'viewing' : state, 15 * 60_000]);
@@ -202,7 +206,7 @@ export function createRooms(input: { redis: RedisCommand; now?: () => number; ra
     },
 
     async close(roomId: string, merchantToken: string) {
-      const k = keys(roomId);
+      const k = keys(roomId, ns);
       const room = parseRoom(await cmd(['GET', k.room]));
       const holder = await cmd(['GET', k.tm]);
       if (typeof holder !== 'string' || !sameHash(holder, hash(merchantToken))) throw new RoomError('FORBIDDEN');
@@ -212,7 +216,7 @@ export function createRooms(input: { redis: RedisCommand; now?: () => number; ra
 
     /** Fixed-window limiter; true = allowed. */
     async allow(bucket: string, who: string, max: number, windowMs = 60_000) {
-      const key = `taply:hs:rl:${bucket}:${createHash('sha256').update(who).digest('hex').slice(0, 24)}:${Math.floor(now() / windowMs)}`;
+      const key = `${ns}:rl:${bucket}:${createHash('sha256').update(who).digest('hex').slice(0, 24)}:${Math.floor(now() / windowMs)}`;
       const count = Number.parseInt(String(await cmd(['INCR', key])), 10);
       if (count === 1) await cmd(['PEXPIRE', key, windowMs + 5_000]);
       return count <= max;
