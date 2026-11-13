@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {baseEncode} from 'near-api-js';
 import {MAINNET_USDC,MAINNET_USDC_ASSET,calculateMainnetRequestId,calculateMainnetTermsHash,calculateMainnetEscrowRequestId,calculateMainnetEscrowTermsHash} from '@taply/shared';
-import {verifyMainnetSettlement,MAINNET_GENESIS_HASH} from '../dist/index.js';
+import {verifyMainnetSettlement,verifyMainnetUsdcTransfer,MAINNET_GENESIS_HASH} from '../dist/index.js';
 const H=n=>baseEncode(new Uint8Array(32).fill(n)),code=H(9),tokenCode=H(10),block=H(2),key='ed25519:fixture';
 const b64=x=>Buffer.from(JSON.stringify(x)).toString('base64');
 const fc=(method_name,args,deposit='0')=>({FunctionCall:{method_name,args:b64(args),gas:50000000000000,deposit}});
@@ -100,5 +100,17 @@ test('USDC resolver refunds, router underpayment and false failed-predecessor hi
     const p=g.receipts.find(p=>p.receipt.Action.actions[0].FunctionCall?.method_name==='on_native_transfer_complete');
     g.receipts_outcome.find(o=>o.id===p.receipt_id).outcome.status=failure?{Failure:{ActionError:{index:0}}}:{SuccessValue:b64(true)};
     assert.equal((await verifyMainnetSettlement(f.input,f.ref,rpc(f))).kind,'NOT_VERIFIED');
+  }
+});
+
+test('direct wallet USDC receipt verifies exact transfer, token code and complete FINAL execution',async()=>{
+  const f=scenario({token:true}),hash=H(95),root=H(96),action=fc('ft_transfer',{receiver_id:'alice.near',amount:'123'},'1');
+  f.graphs=new Map([[hash,{final_execution_status:'FINAL',status:{SuccessValue:''},transaction:{hash,signer_id:'bob.near',receiver_id:MAINNET_USDC,actions:[action]},
+    transaction_outcome:out(hash,'bob.near',{SuccessReceiptId:root},[root]),receipts_outcome:[out(root,MAINNET_USDC,{SuccessValue:''})],receipts:[payload(root,'bob.near',MAINNET_USDC,'bob.near',action)]}]]);
+  const ref={transactionHash:hash,from:'bob.near',to:'alice.near',amountBaseUnits:'123',usdcCodeHash:tokenCode},profile={...f.input.profile};delete profile.contract;
+  assert.equal((await verifyMainnetUsdcTransfer(profile,ref,rpc(f))).kind,'VERIFIED_USDC_TRANSFER');
+  for(const patch of [{to:'mallory.near'},{amountBaseUnits:'124'},{usdcCodeHash:H(8)},{from:'mallory.near'}])assert.equal((await verifyMainnetUsdcTransfer(profile,{...ref,...patch},rpc(f))).kind,'NOT_VERIFIED');
+  for(const mutate of [g=>g.final_execution_status='EXECUTED',g=>g.receipts_outcome[0].outcome.status={Failure:{ActionError:{index:0}}},g=>g.receipts=[],g=>g.transaction.actions.push(action)]){
+    const bad=structuredClone(f);mutate(bad.graphs.get(hash));assert.equal((await verifyMainnetUsdcTransfer(profile,ref,rpc(bad))).kind,'NOT_VERIFIED');
   }
 });

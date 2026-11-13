@@ -58,6 +58,7 @@ are authoritative. No HTTP route or release gate is enabled.
 | `createMainnetTransactionCoordinator` | Permanent account ledger v2, unique attempt IDs, CAS revisions, owner-device restriction, permanent operation tombstones. `reconcile(accountId, hashHint?)` verifies the chain itself. |
 | `verifyMainnetTransactionExecution` | Exact signer/key/nonce/receiver/action and complete FINAL graph. Returns `FINAL_EXECUTION` with `settlement: NOT_ESTABLISHED`, or null. |
 | `verifyMainnetSettlement({kind, profile}, reference)` | Native/USDC instant or Protected Pay settlement, including failed predecessor operations and NEAR-side router deliveries. Token code pin required. |
+| `verifyMainnetUsdcTransfer(profile, {transactionHash, from, to, amountBaseUnits, usdcCodeHash})` | Direct wallet Send: complete FINAL graph, exact one-yocto `ft_transfer`, beneficiary/amount, token code and authority pin. No Taply request is inferred. |
 | `verifyMainnetGiftSettlement(profile, {giftId, operations})` | Claim/refund payout history, link-key authorization, every failed transfer and false callback before the successful retry. |
 | `bindMainnetCommerceTerms` / `verifyMainnetCommerceBinding` | Merchant/session commitment in existing immutable memo and deterministic creation nonce; unchanged ABI. |
 

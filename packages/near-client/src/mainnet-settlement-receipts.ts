@@ -87,7 +87,27 @@ function verifier(network:MainnetReadProfile,fetcher:Fetch){
     async function keys(hash:string){const r=z.object({block_hash:HashSchema,keys:z.array(z.object({public_key:z.string(),access_key:z.object({nonce:RpcU64Schema,permission:z.unknown()})})).max(256)}).parse(await rpc('query',{request_type:'view_access_key_list',account_id:accountId,block_id:hash}));check(r.block_hash===hash);return losslessStringify(r.keys.sort((a,b)=>a.public_key.localeCompare(b.public_key)));}
     check(await keys(header.header.prev_hash)===await keys(stateBlock));
   }
-  return {graph,exactCall,payout,pin,checkNetwork};
+  return {graph,exactCall,payout,pin,checkNetwork,systemRefund};
+}
+
+/** Wallet Send receipt, independent of Taply request state. */
+export async function verifyMainnetUsdcTransfer(profile:MainnetReadProfile,
+  ref:{transactionHash:string;from:string;to:string;amountBaseUnits:string;usdcCodeHash:string},fetcher:Fetch=(u,i)=>globalThis.fetch(u,i)){
+  try{
+    MainnetAccountSchema.parse(ref.from);MainnetAccountSchema.parse(ref.to);U128Schema.parse(ref.amountBaseUnits);
+    check(ref.from!==ref.to&&BigInt(ref.amountBaseUnits)>0n);
+    const v=verifier(profile,fetcher);await v.checkNetwork();
+    const g=await v.graph({transactionHash:ref.transactionHash,signerAccountId:ref.from});
+    const args=z.strictObject({receiver_id:MainnetAccountSchema,amount:U128Schema,memo:z.string().max(256).nullable().optional()}).parse(decode(call(g.root).args));
+    check(args.receiver_id===ref.to&&args.amount===ref.amountBaseUnits);
+    v.exactCall(g.root,ref.from,MAINNET_USDC,'ft_transfer',args,'1');check(value(g.outcome(g.root),''));
+    check(g.root.receipt.Action.output_data_receivers.length===0);
+    for(const p of g.payloads.values())if(p!==g.root)v.systemRefund(p);
+    await v.pin(MAINNET_USDC,ref.usdcCodeHash,[g],g.observed.block.hash,g.observed.block.timestampNs);
+    return {kind:'VERIFIED_USDC_TRANSFER' as const,network:'near-mainnet' as const,transactionHash:ref.transactionHash,
+      from:ref.from,to:ref.to,amountBaseUnits:ref.amountBaseUnits,assetId:MAINNET_USDC_ASSET,transferReceiptId:g.root.receipt_id,
+      blockHash:g.outcome(g.root).blockHash,trustModel:'configured-rpc' as const};
+  }catch{return {kind:'NOT_VERIFIED' as const,reason:'EVIDENCE_UNAVAILABLE_OR_MISMATCH' as const};}
 }
 
 /** Gift payout evidence includes every failed predecessor and its recorded
