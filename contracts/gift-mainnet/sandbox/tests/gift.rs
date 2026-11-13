@@ -176,7 +176,7 @@ async fn real_claim_pays_exactly_the_signed_claimant() -> Result<()> {
     let bob_before = balance(&bob).await?;
     let r = claim(&c, &bob, id, &k).await?;
     let gas_paid = burnt(&r);
-    r.into_result()?;
+    let claim_result = r.into_result()?;
     w.fast_forward(5).await?;
     let bob_after = balance(&bob).await?;
     let g = gift(&c, id).await?;
@@ -194,6 +194,19 @@ async fn real_claim_pays_exactly_the_signed_claimant() -> Result<()> {
     assert_eq!(n(&a, "claimedPaidYocto"), ONE_NEAR);
     assert_eq!(n(&a, "inFlightYocto"), 0);
     assert_solvent(&w, &c).await?;
+
+    std::fs::create_dir_all("../artifacts/receipt-proofs")?;
+    let status = std::process::Command::new("node")
+        .arg("../../../packages/near-client/test/mainnet-sandbox-receipts.mjs")
+        .arg(w.rpc_addr())
+        .arg(c.id().as_str())
+        .arg(id)
+        .arg(claim_result.outcome().transaction_hash.to_string())
+        .arg(bob.id().as_str())
+        .arg("../artifacts/receipt-proofs/gift-claim.json")
+        .arg(json!({"kind":"gift"}).to_string())
+        .status()?;
+    anyhow::ensure!(status.success(), "independent gift proof failed");
 
     // Bob again, then Carol: both refused on chain, balances unchanged except gas.
     for who in [&bob, &carol] {

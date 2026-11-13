@@ -8,17 +8,17 @@ const require=createRequire(realpathSync(resolve(root,'apps/web/node_modules/vit
 const {createServer}=await import(pathToFileURL(require.resolve('vite')).href);
 const {chromium}=await import(pathToFileURL(resolve(process.argv[2])).href);
 const output=resolve(process.argv[3]);mkdirSync(output,{recursive:true});
-const server=await createServer({root,configFile:false,server:{host:'127.0.0.1',port:0,fs:{allow:[root]},watch:{ignored:['**/artifacts/**','**/.git/**']}},logLevel:'error'});
+const server=await createServer({root,configFile:false,plugins:[{name:'test-only-authority',configureServer(s){s.middlewares.use('/test-global-cas',globalCas);}}],server:{host:'127.0.0.1',port:0,fs:{allow:[root]},watch:{ignored:['**/artifacts/**','**/.git/**','**/.phase4-evidence/**']}},logLevel:'error'});
 server.middlewares.use('/attempt-test',(_req,res)=>{res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>Mainnet IndexedDB test</title>');});
 // Test-only shared authority. Production must never expose a raw CAS endpoint.
 // Redis durability is tested separately; this harness proves browser behavior.
 let globalLedger=null;
-server.middlewares.use('/test-global-cas',async(req,res)=>{
+async function globalCas(req,res){
   let text='';for await(const bytes of req){text+=bytes;if(text.length>65536){res.statusCode=413;res.end();return;}}
   const command=JSON.parse(text),old=globalLedger;
   if(command.kind==='cas'&&command.expected===old)globalLedger=command.next;
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify(command.kind==='read'?old:command.expected===old));
-});
+}
 await server.listen();const url=`http://127.0.0.1:${server.httpServer.address().port}/attempt-test`;
 const userData=resolve(output,`profile-${Date.now()}`);
 let context;const checks=[];
@@ -54,8 +54,8 @@ try{
     },deviceId);return p;
   }
   const owner=crypto.randomUUID(),v2a=await v2page(owner),v2b=await v2page(owner);
-  const reservations=await Promise.all(Array.from({length:20},(_,i)=>(i%2?v2a:v2b).evaluate(async()=>{try{return await window.coordinator.reserve('a'.repeat(64),window.expectation);}catch{return null;}})));
-  assert.equal(reservations.filter(Boolean).length,1);checks.push('v2 account-global CAS: 20 reservations across real tabs admit one');
+  const reservations=await Promise.all(Array.from({length:20},(_,i)=>(i%2?v2a:v2b).evaluate(async()=>{try{return await window.coordinator.reserve('a'.repeat(64),window.expectation);}catch(e){return {error:e.message};}})));
+  assert.equal(reservations.filter(r=>r.attemptId).length,1,JSON.stringify(reservations));checks.push('v2 account-global CAS: 20 reservations across real tabs admit one');
   await v2a.evaluate(async()=>{const {pending}=await window.coordinator.read('alice.near');await window.coordinator.handoff(pending,null);});
   const v2cdp=await context.newCDPSession(v2a),v2crash=v2a.waitForEvent('crash',{timeout:10000});void v2cdp.send('Page.crash').catch(()=>{});await v2crash;
   assert.equal((await v2b.evaluate(()=>window.coordinator.read('alice.near'))).pending.state,'HANDOFF');

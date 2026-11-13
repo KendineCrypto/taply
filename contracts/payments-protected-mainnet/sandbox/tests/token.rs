@@ -309,7 +309,7 @@ async fn protected_token_refund_returns_tokens_to_payer() -> Result<()> {
     let (w, c, t, payer, recipient) = setup().await?;
     let (v, h) = terms(&w, &c, &recipient, &t, 4, "protected").await?;
     let before = balance(&t, payer.id().as_str()).await?;
-    ft_pay(
+    let funding = ft_pay(
         &payer,
         t.id().as_str(),
         c.id().as_str(),
@@ -329,7 +329,7 @@ async fn protected_token_refund_returns_tokens_to_payer() -> Result<()> {
         .transact()
         .await?;
     assert!(fail(&early).contains("CANCELLATION_WINDOW_OPEN"));
-    payer
+    let settlement = payer
         .call(c.id(), "cancel_protected")
         .args_json(json!({"id": v["id"], "expectedTermsHash": h}))
         .deposit(NearToken::from_yoctonear(1))
@@ -347,5 +347,18 @@ async fn protected_token_refund_returns_tokens_to_payer() -> Result<()> {
     assert_eq!(refunded["status"], "CANCELLED_REFUNDED");
     assert_eq!(balance(&t, payer.id().as_str()).await?, before);
     assert_eq!(balance(&t, c.id().as_str()).await?, 0);
+    w.fast_forward(5).await?;
+    let options = json!({"kind":"escrow","operations":[{"transactionHash":settlement.outcome().transaction_hash.to_string(),"signerAccountId":payer.id()}]});
+    let status = std::process::Command::new("node")
+        .arg("../../../packages/near-client/test/mainnet-sandbox-receipts.mjs")
+        .arg(w.rpc_addr())
+        .arg(c.id().as_str())
+        .arg(v["id"].as_str().unwrap())
+        .arg(funding.outcome().transaction_hash.to_string())
+        .arg(payer.id().as_str())
+        .arg("../artifacts/sandbox-token/protected-refund-proof.json")
+        .arg(options.to_string())
+        .status()?;
+    anyhow::ensure!(status.success(), "independent escrow proof failed");
     Ok(())
 }

@@ -49,6 +49,12 @@ jobs:
       - run: cargo test --locked --lib -- --test-threads=1
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: FAULT=1 bash scripts/build.sh
+      - name: Build independent receipt verifier for actual local sandbox
+        run: |
+          npm install -g pnpm@11.5.0
+          pnpm --dir ../.. install --frozen-lockfile
+          pnpm --dir ../.. --filter @taply/shared run build
+          pnpm --dir ../.. --filter @taply/near-client run build
       - run: bash scripts/sandbox.sh
       - name: Require committed Rust formatting
         run: git diff --exit-code -- src sandbox
