@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-11-13T15:59:17.897Z",
+  "kind": "READ_ONLY_CONFIGURED_RPC_EVIDENCE",
+  "profile": {
+    "network": "near-mainnet",
+    "rpcUrl": "https://rpc.mainnet.fastnear.com",
+    "rpcProviderId": "fastnear-readonly"
+  },
+  "genesisValidated": true,
+  "accountId": "devkendinecrypto.near",
+  "block": {
+    "hash": "ozarNbkV1wuFBCu8UzHZQsXE1n9NBGL1a3aMKUKwJbG",
+    "height": "224385432",
+    "timestampNs": "1794585547487609257"
+  },
+  "amountYocto": "0",
+  "codeHash": "11111111111111111111111111111111",
+  "fullAccessKeyPresent": true,
+  "snapshot": {
+    "network": "near-mainnet",
+    "accountId": "devkendinecrypto.near",
+    "publicKey": "ed25519:BTmZqkL8EMdMjTPzABu94NEPAAE2Dm8W7qWzBZL9E9WC",
+    "nonce": "224330344000000",
+    "blockHash": "Es55GQmZZwJ3hCbqSJij1D4LZUHBdWsiUvcsHn3u1X85",
+    "blockHeight": "224385433",
+    "blockTimestampNs": "1794585548100755711",
+    "amountYocto": "0",
+    "storageUsageBytes": "182",
+    "storageByteCostYocto": "10000000000000000000",
+    "gasPriceYocto": "100000000"
+  },
+  "limitations": "No account creation, signing, transfer or candidate deployment. Public account/key reads do not prove wallet ownership."
+}

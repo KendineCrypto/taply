@@ -172,3 +172,19 @@ Gift escrow and Mainnet internal-wallet signing add their own separate review
 requirements. All real-money gates remain closed. **NO-GO for funds and NO-GO
 for claiming complete functional parity. GO for reviewing this full-product
 development integration and continuing the explicitly listed gaps.**
+
+## Phase 2 protocol implementation update
+
+Branch `codex/mainnet-parity-protocol` adds independent Mainnet Gift and Protected
+Pay crates, separated encrypted wallet storage, exact unsigned transfer builders,
+final account/key activation reads, durable browser attempt reservations, a gated
+native confirmation engine and initial native/Gift receipt verifiers. Existing
+Testnet contracts and the Mainnet instant contract are unchanged.
+
+See [exact interfaces, evidence limits and unresolved work](MAINNET_PROTOCOL_PHASE2.md).
+These additions do not make fixture UI routes functional Mainnet product flows.
+Wallet terminal reconciliation, actual external-wallet integration, contract/token
+signing, Gift envelope wiring, merchant/Handshake bindings and token/escrow/retry
+independent receipts remain incomplete. Separate Gift/escrow identities and Gift
+monetary policy still require owner approval. Every real-money gate remains false.
+The full product remains the objective; complete functional parity is not claimed.

@@ -71,4 +71,144 @@ Keep `MAINNET_SIGNING_RELEASE_APPROVED`,
 `ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED`,
 `MAINNET_INDEPENDENT_VERIFIER_AVAILABLE` and `intentsRouter` false.
 No deployment, funding, production merge or account-key action is authorized.
-Per-subsystem exports, evidence and remaining gaps will be appended after testing.
+## Implemented interfaces and remaining gaps
+
+This is a protocol implementation candidate, not release acceptance. In addition
+to the application gates, `MAINNET_PROTOCOL_SIGNING_RELEASED` is immutable false.
+
+### Wallet
+
+`EncryptedMainnetVault` uses `taply.mainnet-vault.v1`, authenticated Mainnet
+metadata, twelve BIP39 words, the existing NEAR derivation path, password unlock,
+PBKDF2/AES-GCM and session expiration. It never activates an account. Explicit
+phrase import is deliberate; relabeling a Testnet encrypted backup is rejected.
+The existing Testnet vault and its storage are untouched.
+
+`createMainnetWalletChain(profile).snapshot(accountId, publicKey)` verifies genesis,
+final account/key/nonce and storage/gas budgets. `prepareMainnetNativeTransfer`
+and `prepareMainnetUsdcTransfer` build exact unsigned calls; USDC evidence binds
+both registrations, balance, accounts and the final block.
+
+`createMainnetNativeWalletBackend({profile,store,signer})` exposes
+`prepare(receiverId,amountNear)`, `submit(reviewId,confirm)` and `readAttempt()`.
+Immutable 60-second reviews bind recipient, exact amount, signer/key, nonce,
+block and reserves. Submission rejects before confirmation, reservation or signing
+while the gate is false. External signing is an adapter interface, not tested
+physical-wallet integration. Contract/token signing is not accepted by this engine.
+
+`openMainnetAttemptStore()` uses strict-durability IndexedDB transactions.
+`createMainnetAttemptJournal()` reserves unique attempts with atomic CAS before
+handoff. RESERVED, HANDOFF and UNCERTAIN block replacement, including after lost
+write acknowledgements. No TTL, eviction, clear or override exists. **Terminal
+reconciliation is not implemented**, so subsequent transactions remain blocked.
+Browser deletion/rollback and multiple-device policy also remain release gaps.
+
+### Gift
+
+Crate `contracts/gift-mainnet`, version `0.2.0-mainnet`. Private constructor JSON:
+`{network:"near-mainnet",contract_id,min_amount,max_amount,fee}`. U128 amounts are
+decimal strings. Account, minimum, maximum and fee require separate owner approval;
+sandbox values are not production defaults.
+
+Methods: `create_gift`, `claim_gift`, `refund_gift`, `retry_payout`, `get_gift`,
+`get_config`, `get_accounting`; `on_payout(gift_id,nonce)` is private. Creation
+attaches principal plus configured fee. Claim/refund/retry attach zero deposit.
+Missing callbacks remain PENDING with no retry. Exact ABI lives in
+`contracts/gift-mainnet/src/lib.rs`; frontend code should use typed builders.
+
+Client exports: `MainnetGiftConfigSchema`, `MainnetGiftProfileSchema`,
+`createMainnetGiftReader`, `prepareMainnetCreateGift`,
+`prepareMainnetGiftSettlement`, `signMainnetGiftClaim`. The last signs with the
+one-use link key, not a wallet key. Domain `taply-gift-claim:near-mainnet:v1`
+also binds contract, Gift ID and claimant; Rust/TypeScript share a frozen vector.
+The existing envelope UI still needs explicit integration with this new backend.
+
+### Protected Pay
+
+Crate `contracts/payments-protected-mainnet`, version `0.7.0-mainnet`. Private
+constructor JSON: `{network:"near-mainnet",contractId,tokens}`. Tokens may be
+empty or the exact approved Mainnet USDC identity/metadata. Caps: 1 NEAR/25 USDC.
+The separate escrow account is not configured or approved for deployment.
+
+Methods: `quote_create_request`, `create_request`, `get_request`, `get_receipt`,
+`cancel_unfunded`, `pay_instant_native`, `fund_protected_native`, `cancel_protected`,
+`release_protected`, `retry_native_transfer`, `ft_on_transfer`, `get_config`,
+`get_accounting`. Transfer callbacks are private. Contract `get_receipt` is state,
+not independent proof.
+
+Shared exports: `MainnetEscrowRequestSchema`, `calculateMainnetEscrowTermsHash`.
+Near-client exports: `MainnetEscrowConfigSchema`, `MainnetEscrowProfileSchema`,
+`createMainnetEscrowReader`, `prepareMainnetCreateProtectedRequest`,
+`prepareMainnetFundProtectedNative`, `prepareMainnetCancelProtected`,
+`prepareMainnetReleaseProtected`, `prepareMainnetRetryProtectedTransfer`,
+`prepareMainnetProtectedTokenFunding`. These check consent, exact principal,
+cutoff, immutable terms, configuration, gas and recorded failure. TypeScript
+tests parse Rust-emitted states and independently recalculate their hashes.
+
+Never direct 1Click to escrow: NEP-141 rejection can refund the router rather
+than the customer. `intentsRouter:false` remains unchanged. The separate instant
+crate retains existing unclaimed accounting; these additions prove no upstream
+router gas guarantee or recovery attribution.
+
+### Verification evidence
+
+`verifyMainnetDirectTransfer` checks a plain native transfer for Personal Gift.
+`verifyMainnetNativePayment` and `verifyMainnetGiftReceipt` inspect final receipt
+ancestry, exact payout, callback dependencies, pinned code and authority continuity.
+Gift also verifies the claim signature/refund identity. This trusts configured
+RPC, not a light client. Contract verifiers currently support first-attempt native
+settlement only. USDC/router, retries and independent Protected Pay receipts are
+not implemented. Adversarial RPC fixtures are synthetic; they do not prove live
+Mainnet settlement or every sandbox receipt graph. Keep the public verifier gate
+false and do not promote these results to public Verified Paid yet.
+
+Run `pnpm check`. Workspace CI retains 88 checkout and 98 product browser checks;
+the additional IndexedDB browser test checks cross-tab CAS, stale fencing, renderer
+crash and browser restart. Fixture screens prove UI behavior only.
+`mainnet-protocol-parity.yml` runs Rust 1.95 locked unit tests, clippy, WASM builds
+and real local NEAR sandbox tests for both new crates. Fault-only WASMs lose
+callbacks deliberately and must never be deployed. Development CI caught a Gift
+worst-case storage fixture mismatch and delayed gas refunds in a balance test;
+failed runs are not certification. Consult the exact final commit's CI result.
+
+Still required: terminal attempt reconciliation; cross-device/rollback policy;
+physical-wallet acceptance and contract/token signing policies; Gift envelope/UI
+wiring; owner-approved account/cap configuration; actual authorized activation and
+signed end-to-end evidence; token/router/retry/escrow receipts; immutable merchant
+and Handshake contract bindings; upstream router gas and production ledger review.
+R-2 is contained by refusing uncertain retries, not eliminated.
+
+**NO-GO for funds and for claiming complete functional parity.** This branch is
+a substantial protocol review candidate, not a working Mainnet release. No
+deployment, Mainnet signing, funding or key deletion occurred.
+
+## Observed development evidence
+
+Implementation commit `c6c0846023c535eceaedb399117dd373b96d38b7`:
+
+- [Protocol CI passed](https://github.com/KendineCrypto/taply/actions/runs/43457230378):
+  Gift 25 unit / 5 sandbox tests; escrow 30 unit / 8 sandbox tests, including
+  unknown native refund/release callbacks with exact beneficiary balance checks.
+- [Workspace CI passed](https://github.com/KendineCrypto/taply/actions/runs/43457360386):
+  complete workspace/API checks, real Redis tests, production and Mainnet preview
+  builds, 88 checkout + 98 product + 4 IndexedDB browser checks.
+- Local `pnpm check` exited 0: shared 93, near-client 290, web 1,457 passed / 14
+  skipped. Local Rust is unavailable; the contract evidence is Linux CI evidence.
+- [Public read-only evidence](evidence/mainnet-protocol-live-read-2026-11-13.json)
+  observes verified Mainnet genesis, staging account balance zero, empty code hash,
+  and a final FullAccess key/nonce/storage/gas snapshot. Reproduce with
+  `node packages/near-client/test/mainnet-protocol-readonly.mjs` after building.
+  No secret keys are read. This proves neither ownership nor a candidate deployment.
+
+Observed non-fault WASM builds (the contract source is unchanged by the later
+test-only callback-measurement fix):
+
+| Candidate | Bytes | SHA-256 as NEAR base58 | Code-only storage floor |
+|---|---:|---|---:|
+| Gift | 271017 | `grGcaxEy9XSaSXx4ZQQLBiBXvjD1ZwWJSCdB6z698Lk` | 2.71017 NEAR |
+| Protected Pay | 434829 | `6BP6KnkHBTCZQDc7eUhLpf8WTGxgFNVZLFJbZFUCuwLC` | 4.34829 NEAR |
+
+The floor uses the observed protocol price of 10^19 yoctoNEAR per byte. It excludes
+account/key bytes, constructor state, request storage and transaction gas. It is
+not a funding instruction or a complete deployment budget. Fault-only artifacts
+are excluded. Pin the final reviewed artifact again before any authorized release.
