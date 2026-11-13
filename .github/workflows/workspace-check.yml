@@ -104,6 +104,9 @@ jobs:
           if grep -rl -e 'taply-e2e-ce38a238' -e 'taply.testnet-vault.v1' .next/static; then
             echo "Testnet contract or vault key found in the mainnet bundle"; exit 1
           fi
+          if grep -rl 'taply.mainnet.sim-authority' .next/static; then
+            echo "Simulated wallet authority (test harness) found in a non-simulation mainnet bundle"; exit 1
+          fi
 
       - name: Mainnet 88 browser checks (local fixtures only)
         working-directory: apps/web
