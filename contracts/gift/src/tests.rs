@@ -872,3 +872,24 @@ fn init_only_once() {
         let _ = Gifts::new();
     });
 }
+
+/// Cross-implementation vector: produced by the web client's Web Crypto signer
+/// (packages/near-client/src/gift.ts, seed = [7; 32]); must verify on chain.
+#[test]
+fn web_crypto_signature_vector_verifies() {
+    let (mut e, mut c) = setup();
+    assert_eq!(
+        pk_hex(&link_key()),
+        "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
+    );
+    let web = "94844b9df33401de393c9c888c7237c984e397c48300c62c53687ab82850f1cce298f9ad5e3d25692e570779e9b92ec808703bc0b06450d4d252ee87a2166500";
+    assert_eq!(
+        sig(ID, BOB),
+        web,
+        "ed25519 is deterministic: dalek == Web Crypto"
+    );
+    create(&mut e, &mut c, ID);
+    e.ctx(BOB, 0, NOW, vec![]);
+    c.claim_gift(ID.into(), web.into());
+    assert_eq!(status(&c).1.as_deref(), Some(BOB));
+}

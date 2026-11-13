@@ -9,6 +9,8 @@ import {
   prepareReleaseProtected, prepareRetryProtectedTransfer, protectedConfigProblems,
 } from "./protected.js";
 import type { PreparedProtectedCall, ProtectedReader } from "./protected.js";
+import { createGiftReader, giftConfigProblems, prepareClaimGift, prepareCreateGift, prepareRefundGift, prepareRetryGiftPayout, verifyGiftClaim } from "./gift.js";
+import type { GiftReader, PreparedGiftCall } from "./gift.js";
 import type { NearTestnetConfig, NearTestnetClient, ReadResult } from "./types.js";
 import type { Fetch } from "./rpc.js";
 import { parseConfig } from "./rpc.js";
@@ -104,7 +106,7 @@ export interface WalletBackendPolicy {
   /** Mandatory browser Web Lock. Tests supply an isolated deterministic lock. */
   withExclusiveLock<T>(task: () => Promise<T>): Promise<T>;
 }
-type WalletContractCall = PreparedContractCall | PreparedProtectedCall;
+type WalletContractCall = PreparedContractCall | PreparedProtectedCall | PreparedGiftCall;
 type Plan = { review: WalletTransactionReview; bytes: Uint8Array<ArrayBuffer>; snapshot: WalletBalanceSnapshot; call: WalletContractCall | null; swap: PreparedWalletSwap | null };
 /**
  * Protected Pay escrow candidate the wallet may sign for (owner decision
@@ -113,6 +115,12 @@ type Plan = { review: WalletTransactionReview; bytes: Uint8Array<ArrayBuffer>; s
  * (createProtectedReader refuses it).
  */
 export interface WalletProtectedContract { readonly accountId: string; readonly expectedCodeHash: string }
+/**
+ * Taply Gift contract (contracts/gift) the wallet may sign for: Testnet only,
+ * UNREVIEWED, pinned by code hash. Never the pilot or the escrow.
+ */
+export interface WalletGiftContract { readonly accountId: string; readonly expectedCodeHash: string }
+const GIFT_METHODS = ["create_gift", "claim_gift", "refund_gift", "retry_payout"] as const;
 const PROTECTED_METHODS = ["create_request", "fund_protected_native", "cancel_protected", "release_protected", "retry_native_transfer"] as const;
 type Reads = Pick<NearTestnetClient, "readContractConfig" | "quoteCreateRequest" | "readPaymentRequest" | "observeTransaction">;
 function fresh<T>(result: ReadResult<T>): { data: T; timestampNs: string } {
@@ -137,6 +145,7 @@ export function createReviewedWalletBackend(input: {
   config: NearTestnetConfig; vault: EncryptedTestnetVault; storage: VaultStorage; policy: WalletBackendPolicy;
   crypto?: Crypto; now?: () => number; fetcher?: Fetch; chain?: WalletChain; reader?: Reads;
   protectedContract?: WalletProtectedContract | null; protectedReader?: ProtectedReader;
+  giftContract?: WalletGiftContract | null; giftReader?: GiftReader;
 }) {
   const config = parseConfig(input.config);
   const crypto = input.crypto ?? globalThis.crypto;
@@ -147,6 +156,10 @@ export function createReviewedWalletBackend(input: {
   const protectedContract = input.protectedContract ?? null;
   const protectedReader = protectedContract === null ? null
     : input.protectedReader ?? createProtectedReader({ ...config, contract: protectedContract }, fetcher);
+  const giftContract = input.giftContract ?? null;
+  if (giftContract !== null && (giftContract.accountId === config.contract?.accountId || giftContract.accountId === protectedContract?.accountId))
+    throw new WalletEngineError("CALL_NOT_ALLOWED");
+  const giftReader = giftContract === null ? null : input.giftReader ?? createGiftReader({ ...config, contract: giftContract }, fetcher);
   const journal = new WalletAttemptJournal(input.storage);
   const plans = new Map<string, Plan>();
   let busy = false;
@@ -259,8 +272,53 @@ export function createReviewedWalletBackend(input: {
       throw new WalletEngineError("CALL_NOT_ALLOWED");
     return JSON.parse(canonicalJson(prepared)) as PreparedProtectedCall;
   };
+  /**
+   * Taply Gift calls: REBUILT from final, code-hash-anchored reads of the
+   * configured gift contract with the gift.ts builders and signed only if the
+   * candidate is exactly that call. A claim's link-key signature is verified
+   * here for THIS signer first, so the wallet never sends a claim the contract
+   * would refuse (and never one that pays anybody but the signer).
+   */
+  const checkedGift = async (candidate: PreparedGiftCall): Promise<PreparedGiftCall> => {
+    if (giftContract === null || giftReader === null || candidate.receiverId !== giftContract.accountId ||
+      !(GIFT_METHODS as readonly string[]).includes(candidate.methodName)) throw new WalletEngineError("CALL_NOT_ALLOWED");
+    const { data: deployed } = fresh(await giftReader.readConfig());
+    if (giftConfigProblems(deployed, giftContract.accountId, candidate.receiverId).some((p) => p !== "UNREVIEWED_CANDIDATE"))
+      throw new WalletEngineError("CALL_NOT_ALLOWED");
+    const signerAccountId = identity().accountId;
+    const contractId = giftContract.accountId;
+    const args = candidate.args as Record<string, unknown>;
+    let prepared: PreparedGiftCall;
+    try {
+      if (candidate.methodName === "create_gift") {
+        if (Object.keys(args).sort().join() !== "amount,design,gift_id,lifetime_s,message,public_key") throw new WalletEngineError("CALL_NOT_ALLOWED");
+        const existing = fresh(await giftReader.readGift(String(args.gift_id))).data;
+        if (existing.gift !== null) throw new WalletEngineError("CALL_NOT_ALLOWED");
+        prepared = prepareCreateGift({ contractId, config: deployed, signerAccountId, giftId: String(args.gift_id), publicKeyHex: String(args.public_key),
+          amountYocto: String(args.amount), lifetimeS: Number(args.lifetime_s), message: String(args.message), design: Number(args.design) });
+      } else {
+        const keys = Object.keys(args).sort().join();
+        if (keys !== (candidate.methodName === "claim_gift" ? "gift_id,signature" : "gift_id")) throw new WalletEngineError("CALL_NOT_ALLOWED");
+        const read = fresh(await giftReader.readGift(String(args.gift_id))).data;
+        if (read.gift === null) throw new WalletEngineError("CALL_NOT_ALLOWED");
+        if (candidate.methodName === "claim_gift") {
+          const signatureHex = String(args.signature);
+          if (!await verifyGiftClaim(crypto, read.gift.publicKey, contractId, read.gift.id, signerAccountId, signatureHex)) throw new WalletEngineError("CALL_NOT_ALLOWED");
+          prepared = prepareClaimGift({ contractId, gift: read.gift, signerAccountId, signatureHex, observedAtNs: read.observedAtNs });
+        } else if (candidate.methodName === "refund_gift") prepared = prepareRefundGift({ contractId, gift: read.gift, signerAccountId, observedAtNs: read.observedAtNs });
+        else prepared = prepareRetryGiftPayout({ contractId, gift: read.gift, signerAccountId });
+      }
+    } catch (error) {
+      if (error instanceof WalletEngineError) throw error;
+      throw new WalletEngineError("CALL_NOT_ALLOWED");
+    }
+    if (canonicalJson(candidate) !== canonicalJson(prepared) || BigInt(prepared.gas) > WALLET_MAX_CALL_GAS)
+      throw new WalletEngineError("CALL_NOT_ALLOWED");
+    return JSON.parse(canonicalJson(prepared)) as PreparedGiftCall;
+  };
   const checkedCall = (candidate: WalletContractCall): Promise<WalletContractCall> =>
-    protectedContract !== null && candidate.receiverId === protectedContract.accountId
+    giftContract !== null && candidate.receiverId === giftContract.accountId ? checkedGift(candidate as PreparedGiftCall)
+    : protectedContract !== null && candidate.receiverId === protectedContract.accountId
       ? checkedProtected(candidate as PreparedProtectedCall) : checkedPayment(candidate as PreparedContractCall);
   const prepare = async (receiverId: string, amountNear: string | null, candidate: WalletContractCall | null, swapCandidate: PreparedWalletSwap | null = null) => {
     try { journal.assertClear(); } catch (blocked) {
@@ -357,6 +415,8 @@ export function createReviewedWalletBackend(input: {
     prepareContractCall: (call: PreparedContractCall) => prepare(call.receiverId, null, JSON.parse(canonicalJson(call)) as PreparedContractCall),
     /** Protected Pay call on the configured escrow candidate; refused when none is configured. */
     prepareProtectedCall: (call: PreparedProtectedCall) => prepare(call.receiverId, null, JSON.parse(canonicalJson(call)) as PreparedProtectedCall),
+    /** Taply Gift call on the configured gift contract; refused when none is configured. */
+    prepareGiftCall: (call: PreparedGiftCall) => prepare(call.receiverId, null, JSON.parse(canonicalJson(call)) as PreparedGiftCall),
     /** Curated Ref/Rhea Testnet swap (register / buy / sell); exact shapes only. */
     prepareSwapTransaction: (swap: PreparedWalletSwap) => prepare(swap.receiverId, null, null, swap),
     reconcile,

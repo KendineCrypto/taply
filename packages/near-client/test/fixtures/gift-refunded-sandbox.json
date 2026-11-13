@@ -1,0 +1,17 @@
+{
+  "amountYocto": "1000000000000000000000000",
+  "beneficiary": "dev-20261113061706-27780889719402.test.near",
+  "createdAtNs": "1794550627517041440",
+  "createdHeight": "19",
+  "creator": "dev-20261113061706-27780889719402.test.near",
+  "design": 1,
+  "expiresAtNs": "1794551227517041440",
+  "id": "22222222222222222222222222222222",
+  "message": "Happy hacking \ud83c\udf81",
+  "payout": "CONFIRMED",
+  "payoutNonce": 1,
+  "publicKey": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+  "settledAtNs": "1794551230478595122",
+  "settledHeight": "2080",
+  "status": "REFUNDED"
+}
