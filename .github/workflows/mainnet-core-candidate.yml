@@ -51,7 +51,7 @@ jobs:
         working-directory: contracts/payments-mainnet
         run: |
           cargo test --locked --lib -- --test-threads=1
-          cargo clippy --locked --lib -- -D warnings
+          cargo clippy --locked --all-targets -- -D warnings
       - name: Build candidate WASM
         working-directory: contracts/payments-mainnet
         run: bash scripts/build.sh

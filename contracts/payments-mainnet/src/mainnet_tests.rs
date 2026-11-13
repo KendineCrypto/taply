@@ -117,9 +117,9 @@ fn recovery_failure_restores_only_unclaimed_and_unknown_never_retries() {
 fn wrong_token_and_direct_expired_payment_are_rejected() {
     let mut c = setup(); let t = terms(8, false); create(&mut c, &t);
     ctx("fake.near", 0, 300, NOW, vec![]);
-    rejects(|| { c.ft_on_transfer("intents.near".parse().unwrap(), U128(1_000_000), msg(&t)); });
+    rejects(|| { let _ = c.ft_on_transfer("intents.near".parse().unwrap(), U128(1_000_000), msg(&t)); });
     ctx(USDC, 0, 300, NOW + 2_000_000_000, vec![]);
-    rejects(|| { c.ft_on_transfer("payer.near".parse().unwrap(), U128(1_000_000), msg(&t)); });
+    rejects(|| { let _ = c.ft_on_transfer("payer.near".parse().unwrap(), U128(1_000_000), msg(&t)); });
 }
 
 #[test]
@@ -127,12 +127,12 @@ fn direct_usdc_exact_only_callback_private_and_duplicate_is_not_a_second_payout(
     let mut c = setup(); let t = terms(9, false); create(&mut c, &t);
     for amount in [999_999, 1_000_001] {
         ctx(USDC, 0, 300, NOW + 1, vec![]);
-        rejects(|| { c.ft_on_transfer("payer.near".parse().unwrap(), U128(amount), msg(&t)); });
+        rejects(|| { let _ = c.ft_on_transfer("payer.near".parse().unwrap(), U128(amount), msg(&t)); });
     }
     ctx(USDC, 0, 300, NOW + 1, vec![]);
     assert!(matches!(c.ft_on_transfer("payer.near".parse().unwrap(), U128(1_000_000), msg(&t)), PromiseOrValue::Value(U128(0))));
     ctx(USDC, 0, 300, NOW + 2, vec![]);
-    rejects(|| { c.ft_on_transfer("other.near".parse().unwrap(), U128(1_000_000), msg(&t)); });
+    rejects(|| { let _ = c.ft_on_transfer("other.near".parse().unwrap(), U128(1_000_000), msg(&t)); });
     ctx("attacker.near", 0, 300, NOW + 3, vec![PromiseResult::Successful(vec![])]);
     rejects(|| { c.on_native_transfer_complete(t.id.clone(), "1".into(), "INSTANT_PAYOUT".into()); });
     ctx(CONTRACT, 0, 300, NOW + 3, vec![PromiseResult::Successful(vec![])]);
