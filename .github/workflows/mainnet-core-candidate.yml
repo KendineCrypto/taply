@@ -31,6 +31,7 @@ jobs:
       - name: Pinned Rust toolchain
         run: rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
       - name: Cargo cache
+        id: cargo-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
@@ -62,6 +63,12 @@ jobs:
         run: bash scripts/sandbox.sh
       - name: Frozen existing source
         run: node contracts/payments/scripts/check-isolation.mjs
+      - name: Mainnet shared wire integration
+        run: |
+          npm install -g pnpm@11.5.0
+          pnpm install --frozen-lockfile
+          pnpm --filter @taply/shared run build
+          node contracts/payments-mainnet/scripts/check-mainnet-wire.mjs
       - name: Deployment planner tests
         run: node --test contracts/payments-mainnet/scripts/deploy-dry-run.test.mjs
       - name: Explicit release gate
@@ -82,3 +89,16 @@ jobs:
             contracts/payments-mainnet/artifacts/wasm.sha256
             contracts/payments-mainnet/artifacts/*.log
             contracts/payments-mainnet/artifacts/mainnet-sandbox/*.json
+            contracts/payments-mainnet/artifacts/mainnet-wire/*.json
+      - name: Preserve compiled dependencies after test failure
+        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            contracts/payments-mainnet/target
+            contracts/payments-mainnet/sandbox/target
+            contracts/test-token/target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}

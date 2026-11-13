@@ -157,7 +157,10 @@ impl IntentTerms {
             "TOKEN_DISABLED"
         );
         require!(self.mode == "instant", "PROTECTED_DISABLED");
-        require!(!self.creator_account_id.as_str().ends_with(".testnet"), "WRONG_NETWORK");
+        require!(
+            !self.creator_account_id.as_str().ends_with(".testnet"),
+            "WRONG_NETWORK"
+        );
         match self.mode.as_str() {
             "instant" => require!(self.cancel_duration_ns.is_none(), "INVALID_CANCEL_DURATION"),
             "protected" => {

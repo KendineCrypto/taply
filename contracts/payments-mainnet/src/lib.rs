@@ -85,20 +85,41 @@ enum F {
 impl Payments {
     #[init]
     #[private]
-    pub fn new(tokens: Vec<TokenSpec>, routerAccountId: AccountId, recoveryAccountId: AccountId,
-        nativeCapYocto: U128, usdcCapBaseUnits: U128) -> Self {
+    pub fn new(
+        tokens: Vec<TokenSpec>,
+        routerAccountId: AccountId,
+        recoveryAccountId: AccountId,
+        nativeCapYocto: U128,
+        usdcCapBaseUnits: U128,
+    ) -> Self {
         strict_input::<NewArgs>();
         require!(
             env::predecessor_account_id() == env::current_account_id(),
             "PRIVATE_INIT"
         );
         require!(tokens.len() == MAX_TOKENS, "INVALID_TOKEN_ALLOWLIST");
-        require!(matches!(env::current_account_id().as_str(), "taply-pay.kendinecrypto.near" | "devkendinecrypto.near"), "WRONG_CONTRACT");
-        require!(routerAccountId.as_str() == "intents.near" && recoveryAccountId.as_str() == "kendinecrypto.near", "INVALID_MAINNET_CONFIG");
-        require!(nativeCapYocto.0 == NATIVE_CAP && usdcCapBaseUnits.0 == USDC_CAP, "INVALID_CAPS");
+        require!(
+            matches!(
+                env::current_account_id().as_str(),
+                "taply-pay.kendinecrypto.near" | "devkendinecrypto.near"
+            ),
+            "WRONG_CONTRACT"
+        );
+        require!(
+            routerAccountId.as_str() == "intents.near"
+                && recoveryAccountId.as_str() == "kendinecrypto.near",
+            "INVALID_MAINNET_CONFIG"
+        );
+        require!(
+            nativeCapYocto.0 == NATIVE_CAP && usdcCapBaseUnits.0 == USDC_CAP,
+            "INVALID_CAPS"
+        );
         let mut entries: Vec<TokenEntry> = Vec::new();
         for t in tokens {
-            require!(t.account_id.as_str() == USDC && t.decimals == 6 && t.symbol == "USDC", "INVALID_TOKEN_ALLOWLIST");
+            require!(
+                t.account_id.as_str() == USDC && t.decimals == 6 && t.symbol == "USDC",
+                "INVALID_TOKEN_ALLOWLIST"
+            );
             require!(
                 t.account_id != env::current_account_id()
                     && entries.iter().all(|e| e.account_id != t.account_id),
@@ -123,13 +144,20 @@ impl Payments {
                 failed_held: 0,
                 locked: 0,
                 refunded: 0,
-                unclaimed_held: 0, unclaimed_in_flight: 0, unclaimed_withdrawn: 0, router_received: 0,
+                unclaimed_held: 0,
+                unclaimed_in_flight: 0,
+                unclaimed_withdrawn: 0,
+                router_received: 0,
             });
         }
         Self {
             tokens: entries,
-            router: routerAccountId, recovery: recoveryAccountId,
-            recovery_nonce: 0, recovery_amount: 0, recovery_receiver: [0; 64], recovery_receiver_len: 0,
+            router: routerAccountId,
+            recovery: recoveryAccountId,
+            recovery_nonce: 0,
+            recovery_amount: 0,
+            recovery_receiver: [0; 64],
+            recovery_receiver_len: 0,
             received: 0,
             confirmed_paid: 0,
             in_flight: 0,
@@ -177,8 +205,19 @@ impl Payments {
         strict_input::<QuoteArgs>();
         terms.validate();
         self.require_asset(&terms.asset_id);
-        require!(decimal128(&terms.amount_base_units) <= if terms.asset_id == NATIVE { NATIVE_CAP } else { USDC_CAP },
-            if terms.asset_id == NATIVE { "NATIVE_CAP_EXCEEDED" } else { "USDC_CAP_EXCEEDED" });
+        require!(
+            decimal128(&terms.amount_base_units)
+                <= if terms.asset_id == NATIVE {
+                    NATIVE_CAP
+                } else {
+                    USDC_CAP
+                },
+            if terms.asset_id == NATIVE {
+                "NATIVE_CAP_EXCEEDED"
+            } else {
+                "USDC_CAP_EXCEEDED"
+            }
+        );
         require!(!env::storage_has_key(&key(&terms.id)), "NONCE_CONSUMED");
         let r = Record::new(terms);
         let bytes = storage_bytes(&r);
@@ -195,8 +234,19 @@ impl Payments {
         require!(quoteVersion == QUOTE_VERSION, "STALE_QUOTE");
         terms.validate();
         self.require_asset(&terms.asset_id);
-        require!(decimal128(&terms.amount_base_units) <= if terms.asset_id == NATIVE { NATIVE_CAP } else { USDC_CAP },
-            if terms.asset_id == NATIVE { "NATIVE_CAP_EXCEEDED" } else { "USDC_CAP_EXCEEDED" });
+        require!(
+            decimal128(&terms.amount_base_units)
+                <= if terms.asset_id == NATIVE {
+                    NATIVE_CAP
+                } else {
+                    USDC_CAP
+                },
+            if terms.asset_id == NATIVE {
+                "NATIVE_CAP_EXCEEDED"
+            } else {
+                "USDC_CAP_EXCEEDED"
+            }
+        );
         require!(
             terms.creator_account_id == env::predecessor_account_id(),
             "RECIPIENT_ONLY"
@@ -581,15 +631,29 @@ impl Payments {
     }
 
     #[payable]
-    pub fn withdraw_unclaimed(&mut self, token: AccountId, amount: U128, receiver: AccountId) -> Promise {
+    pub fn withdraw_unclaimed(
+        &mut self,
+        token: AccountId,
+        amount: U128,
+        receiver: AccountId,
+    ) -> Promise {
         direct();
         one_yocto();
         gas_at_least(SETTLE_GAS);
-        require!(env::predecessor_account_id() == self.recovery, "RECOVERY_ONLY");
+        require!(
+            env::predecessor_account_id() == self.recovery,
+            "RECOVERY_ONLY"
+        );
         require!(token.as_str() == USDC, "TOKEN_DISABLED");
-        require!(receiver != env::current_account_id() && receiver != self.router, "INVALID_RECOVERY_RECEIVER");
+        require!(
+            receiver != env::current_account_id() && receiver != self.router,
+            "INVALID_RECOVERY_RECEIVER"
+        );
         require!(self.recovery_amount == 0, "RECOVERY_IN_FLIGHT");
-        require!(amount.0 > 0 && amount.0 <= self.tokens[0].unclaimed_held, "INSUFFICIENT_UNCLAIMED");
+        require!(
+            amount.0 > 0 && amount.0 <= self.tokens[0].unclaimed_held,
+            "INSUFFICIENT_UNCLAIMED"
+        );
         self.check_liquidity(1);
         self.auth_deposits = add(self.auth_deposits, 1);
         self.recovery_nonce = inc(self.recovery_nonce);
@@ -612,8 +676,14 @@ impl Payments {
 
     #[private]
     pub fn on_unclaimed_transfer_complete(&mut self, operationNonce: String) -> bool {
-        require!(env::predecessor_account_id() == env::current_account_id(), "PRIVATE_CALLBACK");
-        require!(self.recovery_amount > 0 && decimal64(&operationNonce) == self.recovery_nonce, "STALE_CALLBACK");
+        require!(
+            env::predecessor_account_id() == env::current_account_id(),
+            "PRIVATE_CALLBACK"
+        );
+        require!(
+            self.recovery_amount > 0 && decimal64(&operationNonce) == self.recovery_nonce,
+            "STALE_CALLBACK"
+        );
         require!(env::promise_results_count() == 1, "UNKNOWN_PROMISE_RESULT");
         let success = match env::promise_result_checked(0, 256) {
             Ok(_) => true,
@@ -625,10 +695,17 @@ impl Payments {
         }
         let t = &mut self.tokens[0];
         t.unclaimed_in_flight = sub(t.unclaimed_in_flight, self.recovery_amount);
-        if success { t.unclaimed_withdrawn = add(t.unclaimed_withdrawn, self.recovery_amount); }
-        else { t.unclaimed_held = add(t.unclaimed_held, self.recovery_amount); }
+        if success {
+            t.unclaimed_withdrawn = add(t.unclaimed_withdrawn, self.recovery_amount);
+        } else {
+            t.unclaimed_held = add(t.unclaimed_held, self.recovery_amount);
+        }
         self.conservation();
-        self.recovery_event(if success { "unclaimed_withdrawal_succeeded" } else { "unclaimed_withdrawal_failed" });
+        self.recovery_event(if success {
+            "unclaimed_withdrawal_succeeded"
+        } else {
+            "unclaimed_withdrawal_failed"
+        });
         self.recovery_amount = 0;
         success
     }
@@ -658,35 +735,76 @@ impl Payments {
 
 impl Payments {
     fn recovery_event(&self, name: &str) {
-        env::log_str(&format!("EVENT_JSON:{}", json!({"standard":"taply","version":"0.4.0","event":name,
+        env::log_str(&format!(
+            "EVENT_JSON:{}",
+            json!({"standard":"taply","version":"0.4.0","event":name,
             "data":[{"operationNonce":self.recovery_nonce.to_string(),"amount":self.recovery_amount.to_string(),
-            "receiver":String::from_utf8_lossy(&self.recovery_receiver[..self.recovery_receiver_len as usize]),"token":USDC}]})));
+            "receiver":String::from_utf8_lossy(&self.recovery_receiver[..self.recovery_receiver_len as usize]),"token":USDC}]})
+        ));
     }
 
     // Fixed-size accounting only on rejection: no attacker-controlled storage allocation.
     // Runtime gas/deserialization failure remains a release blocker; see docs/MAINNET.md.
     fn router_delivery(&mut self, amount: u128, msg: &str) -> PromiseOrValue<U128> {
-        let parsed = if msg.len() <= 1024 { near_sdk::serde_json::from_str::<FtMessage>(msg).ok() } else { None };
+        let parsed = if msg.len() <= 1024 {
+            near_sdk::serde_json::from_str::<FtMessage>(msg).ok()
+        } else {
+            None
+        };
         let mut id: Option<String> = None;
         let mut candidate = None;
         let mut reason = "INVALID_MESSAGE";
         if let Some(m) = parsed {
-            let valid_hash = |s: &str| s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+            let valid_hash = |s: &str| {
+                s.len() == 64
+                    && s.bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            };
             if valid_hash(&m.id) && valid_hash(&m.expected_terms_hash) {
                 id = Some(m.id.clone());
                 if let Some(r) = read(&m.id) {
-                    reason = if m.action != "pay_instant" || r.protected() { "WRONG_MODE" }
-                    else if m.accepted_cancel_duration_ns.is_some() || m.consent_version.is_some() { "INVALID_MESSAGE" }
-                    else if hex(&r.terms_hash) != m.expected_terms_hash { "WRONG_HASH" }
-                    else if r.terms.asset_id != format!("nep141:{USDC}") { "WRONG_ASSET" }
-                    else if r.status != Status::Open { "NOT_OPEN" }
-                    else if r.terms.permitted_payer_account_id.as_ref().is_some_and(|p| p != &self.router) { "WRONG_PAYER" }
-                    else if amount < r.amount() { "UNDERPAYMENT" }
-                    else if env::prepaid_gas().as_gas().saturating_sub(env::used_gas().as_gas()) < FT_ON_TRANSFER_GAS.as_gas() { "LOW_GAS" }
-                    else if env::account_balance().as_yoctonear() < storage_cost(env::storage_usage()).saturating_add(self.failed_held).saturating_add(self.locked).saturating_add(1) { "LOW_LIQUIDITY" }
-                    else { "SURPLUS" };
-                    if reason == "SURPLUS" { candidate = Some(r); }
-                } else { reason = "UNKNOWN_REQUEST"; }
+                    reason = if m.action != "pay_instant" || r.protected() {
+                        "WRONG_MODE"
+                    } else if m.accepted_cancel_duration_ns.is_some() || m.consent_version.is_some()
+                    {
+                        "INVALID_MESSAGE"
+                    } else if hex(&r.terms_hash) != m.expected_terms_hash {
+                        "WRONG_HASH"
+                    } else if r.terms.asset_id != format!("nep141:{USDC}") {
+                        "WRONG_ASSET"
+                    } else if r.status != Status::Open {
+                        "NOT_OPEN"
+                    } else if r
+                        .terms
+                        .permitted_payer_account_id
+                        .as_ref()
+                        .is_some_and(|p| p != &self.router)
+                    {
+                        "WRONG_PAYER"
+                    } else if amount < r.amount() {
+                        "UNDERPAYMENT"
+                    } else if env::prepaid_gas()
+                        .as_gas()
+                        .saturating_sub(env::used_gas().as_gas())
+                        < FT_ON_TRANSFER_GAS.as_gas()
+                    {
+                        "LOW_GAS"
+                    } else if env::account_balance().as_yoctonear()
+                        < storage_cost(env::storage_usage())
+                            .saturating_add(self.failed_held)
+                            .saturating_add(self.locked)
+                            .saturating_add(1)
+                    {
+                        "LOW_LIQUIDITY"
+                    } else {
+                        "SURPLUS"
+                    };
+                    if reason == "SURPLUS" {
+                        candidate = Some(r);
+                    }
+                } else {
+                    reason = "UNKNOWN_REQUEST";
+                }
             }
         }
         let principal = candidate.as_ref().map_or(0, Record::amount);
@@ -697,8 +815,11 @@ impl Payments {
         t.unclaimed_held = add(t.unclaimed_held, unclaimed);
         t.in_flight = add(t.in_flight, principal);
         if unclaimed > 0 {
-            env::log_str(&format!("EVENT_JSON:{}", json!({"standard":"taply","version":"0.4.0","event":"router_unclaimed",
-                "data":[{"id":id,"token":USDC,"reason":reason,"amount":unclaimed.to_string()}]})));
+            env::log_str(&format!(
+                "EVENT_JSON:{}",
+                json!({"standard":"taply","version":"0.4.0","event":"router_unclaimed",
+                "data":[{"id":id,"token":USDC,"reason":reason,"amount":unclaimed.to_string()}]})
+            ));
         }
         if let Some(mut r) = candidate {
             record_payer(&mut r, &self.router);
@@ -803,7 +924,13 @@ impl Payments {
                 t.received
                     == add(
                         add(t.confirmed_paid, t.refunded),
-                        add(add(add(t.failed_held, t.in_flight), t.locked), add(add(t.unclaimed_held, t.unclaimed_in_flight), t.unclaimed_withdrawn))
+                        add(
+                            add(add(t.failed_held, t.in_flight), t.locked),
+                            add(
+                                add(t.unclaimed_held, t.unclaimed_in_flight),
+                                t.unclaimed_withdrawn
+                            )
+                        )
                     ),
                 "CONSERVATION_FAILURE"
             );
