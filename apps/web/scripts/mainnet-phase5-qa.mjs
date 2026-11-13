@@ -70,7 +70,7 @@ const waitFor = (page, id, timeout = 30000) => page.waitForSelector(`[data-testi
 const code = async (page) => (await page.locator('[data-testid=op-error] [data-code]').getAttribute('data-code', { timeout: 20000 }).catch(() => null));
 
 // ---------- Taply Wallet ----------
-const { context: wc, page: w } = await ctx('wallet');
+const { page: w } = await ctx('wallet');
 await w.goto(`${BASE}/m/wallet/create`);
 await w.locator('#mw-pass').fill('correct horse 42');
 await w.locator('#mw-pass2').fill('correct horse 42');

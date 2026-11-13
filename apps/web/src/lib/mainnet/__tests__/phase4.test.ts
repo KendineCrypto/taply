@@ -8,7 +8,6 @@ import { saleRequestId } from '@/components/mainnet/Merchant';
 import { isProductRoute } from '../product';
 
 const HASH = 'GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf';
-const OTHER = '9MzUv5RVWHpJdWcrnW9dXk8z4bRDNGKSyGbt4GaVnsS8';
 const NET = { rpcUrl: 'https://rpc.mainnet.fastnear.com', rpcProviderId: 'fastnear' };
 
 describe('Personal Gift fragment payload (no secrets, strict)', () => {
