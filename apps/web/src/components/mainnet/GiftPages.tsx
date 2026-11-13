@@ -3,33 +3,34 @@
 import { useEffect, useState } from 'react';
 import {
   createMainnetGiftReader,
-  createMainnetNativeWalletBackend,
-  openMainnetAttemptStore,
   prepareMainnetGiftSettlement,
   signMainnetGiftClaim,
   verifyMainnetDirectTransfer,
 } from '@taply/near-client';
-import type { MainnetDirectReceipt, MainnetNativeReview } from '@taply/near-client';
+import type { MainnetDirectReceipt } from '@taply/near-client';
 import { MainnetAccountSchema } from '@taply/shared';
 import { Envelope } from '@/components/gift/Envelope';
 import { Button } from '@/components/primitives/Button';
 import { Card } from '@/components/primitives/Surface';
-import { formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/assets';
+import { formatMainnetAmount, MAINNET_ASSETS, parseMainnetAmount } from '@/lib/mainnet/assets';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { GIFT_PROFILE } from '@/lib/mainnet/gift-profile';
 import { decodePersonalGift } from '@/lib/mainnet/personal-gift';
 import type { PersonalGiftPayload } from '@/lib/mainnet/personal-gift';
 import { MAINNET_INDEPENDENT_VERIFIER_AVAILABLE } from '@/lib/mainnet/release-gates';
-import { useMainnetWallet } from '@/lib/mainnet/wallet';
-import { CallPreview, Notice, Row } from './bits';
-import { readProfile, useMainnetVault, vault } from './Wallet';
+import { stableBusinessId } from '@/lib/mainnet/wallet-ops';
+import { Notice, Row } from './bits';
+import { newLinkKey } from './GiftMainnet';
+import { OperationError, OperationReview, useOperation } from './Operation';
+import { readProfile } from './Wallet';
 
 /**
  * Gift pages on NEAR Mainnet (Codex interfaces, docs/MAINNET_PROTOCOL_PHASE2.md):
- *  - Personal Gift = a plain NEAR transfer (reviewed native backend) plus a
+ *  - Personal Gift = a plain NEAR transfer (`nativeSend`, Codex planner) plus a
  *    secret-free `#p=` payload the recipient checks with verifyMainnetDirectTransfer.
- *  - Open Gift = gift-mainnet contract via createMainnetGiftReader and the typed
- *    builders. Unwrapping (reading the letter) and claiming (a transaction) are
+ *  - Open Gift = gift-mainnet contract via createMainnetGiftReader; create, claim,
+ *    refund and retry transactions come from Codex's planner (giftCreate/Claim/
+ *    Refund/Retry), which re-reads the pinned contract and checks the claim signature. Unwrapping (reading the letter) and claiming (a transaction) are
  *    separate actions. The one-use link key from `#k=` signs the claim under the
  *    Mainnet domain; it never leaves the browser and is removed from the address bar.
  * Every transaction stays unsigned while the release gates are closed.
@@ -53,6 +54,10 @@ const en = {
   claimSigned: 'Claim signed with the one-use gift key (bound to this contract, gift and account).', noKey: 'This link has no claim key. Only the person who received the full link can claim.',
   refund: 'Take back (sender, after expiry)', retry: 'Retry payout (recipient)', receipt: 'Receipt',
   recorded: 'Recorded by the Gift contract (contract state). Independent receipt verification is pre-release.', call: 'Transaction the wallet would sign',
+  createTitle: 'Open Gift', createLead: 'Anyone with the link can claim it until it expires; after that you can take it back. The fee is paid to the Gift contract.',
+  lifetimeHours: 'Claimable for (hours, 1–720)', prepareGift: 'Review gift', fee: 'Gift fee', total: 'You pay (amount + fee)',
+  linkTitle: 'Claim link — contains the one-use key. Share it only with the recipient, and only after the gift is funded.',
+  createInvalid: 'Check the amount (within the Gift contract limits), the note and the hours.',
   submitOff: 'Gift transactions are disabled until the Gift contract, fee and limits are approved and released. Nothing was signed.',
 };
 type C = typeof en;
@@ -75,58 +80,55 @@ const tr: C = {
   claimSigned: 'Talep tek kullanımlık hediye anahtarıyla imzalandı (bu sözleşme, hediye ve hesaba bağlı).', noKey: 'Bu bağlantıda talep anahtarı yok. Yalnızca tam bağlantıyı alan kişi talep edebilir.',
   refund: 'Geri al (gönderen, süre dolunca)', retry: 'Ödemeyi tekrar dene (alıcı)', receipt: 'Makbuz',
   recorded: 'Hediye sözleşmesi tarafından kaydedildi (sözleşme durumu). Bağımsız makbuz doğrulaması yayın öncesidir.', call: 'Cüzdanın imzalayacağı işlem',
+  createTitle: 'Açık Hediye', createLead: 'Bağlantıya sahip herkes süre bitene kadar talep edebilir; sonra geri alabilirsiniz. Ücret Hediye sözleşmesine ödenir.',
+  lifetimeHours: 'Talep süresi (saat, 1–720)', prepareGift: 'Hediyeyi incele', fee: 'Hediye ücreti', total: 'Ödeyeceğiniz (tutar + ücret)',
+  linkTitle: 'Talep bağlantısı — tek kullanımlık anahtarı içerir. Yalnızca alıcıyla ve yalnızca hediye fonlandıktan sonra paylaşın.',
+  createInvalid: 'Tutarı (Hediye sözleşmesi sınırları içinde), notu ve saati kontrol edin.',
   submitOff: 'Hediye sözleşmesi, ücret ve limitler onaylanıp yayınlanana kadar hediye işlemleri kapalı. Hiçbir şey imzalanmadı.',
 };
 export const GIFT_PAGES_COPY = { en, tr };
 const useC = (): C => (useMainnetLocale().locale === 'tr' ? tr : en);
 const field = 'min-h-[var(--tap-target)] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3';
 
-/** Personal Gift composer: exact NEAR transfer review from the reviewed backend. */
+/** Personal Gift composer: a plain `nativeSend` through Codex's planner, with the envelope. */
 export function PersonalGiftCompose() {
   const c = useC();
-  const { locale } = useMainnetLocale();
-  const { identity } = useMainnetVault();
+  const op = useOperation();
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
   const [design, setDesign] = useState(0);
   const [open, setOpen] = useState(false);
-  const [review, setReview] = useState<MainnetNativeReview | null>(null);
   const [error, setError] = useState('');
+  const edit = (f: () => void) => { f(); op.reset(); setError(''); };
   async function prepare() {
-    setError(''); setReview(null);
-    const profile = readProfile();
-    if (identity === null || profile === null) { setError(c.needWallet); return; }
-    if (!MainnetAccountSchema.safeParse(to.trim()).success || new TextEncoder().encode(message).length > 280) { setError(c.invalid); return; }
-    let store: Awaited<ReturnType<typeof openMainnetAttemptStore>> | null = null;
-    try {
-      store = await openMainnetAttemptStore();
-      setReview(await createMainnetNativeWalletBackend({ profile, store, signer: { kind: 'internal', vault: vault() } }).prepare(to.trim(), amount.trim()));
-    } catch { setError(c.invalid); } finally { store?.close(); }
+    setError('');
+    if (op.signer.kind !== 'ok') { setError(c.needWallet); return; }
+    if (!MainnetAccountSchema.safeParse(to.trim()).success || new TextEncoder().encode(message).length > 280 || !/^\d+([.,]\d+)?$/.test(amount.trim())) { setError(c.invalid); return; }
+    let businessId: string;
+    try { businessId = stableBusinessId(window.localStorage, op.signer.accountId, 'personal-gift'); } catch { setError(c.invalid); return; }
+    await op.run({ kind: 'nativeSend', receiverId: to.trim(), amountNear: amount.trim().replace(',', '.'), businessId });
   }
   return (
     <Card>
       <form className="flex flex-col gap-2" data-testid="personal-gift" onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
         <h2 className="font-semibold">{c.personalTitle}</h2>
         <p className="text-[13px] text-[var(--text-secondary)]">{c.personalLead}</p>
-        <label className="text-[13px]" htmlFor="pg-to">{c.to}</label><input id="pg-to" className={field} autoCapitalize="none" value={to} onChange={(e) => setTo(e.target.value)} />
-        <label className="text-[13px]" htmlFor="pg-amount">{c.amount}</label><input id="pg-amount" inputMode="decimal" className={field} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <label className="text-[13px]" htmlFor="pg-to">{c.to}</label><input id="pg-to" className={field} autoCapitalize="none" value={to} onChange={(e) => edit(() => setTo(e.target.value))} />
+        <label className="text-[13px]" htmlFor="pg-amount">{c.amount}</label><input id="pg-amount" inputMode="decimal" className={field} value={amount} onChange={(e) => edit(() => setAmount(e.target.value))} />
         <label className="text-[13px]" htmlFor="pg-msg">{c.message}</label><textarea id="pg-msg" maxLength={280} className={`${field} py-2`} value={message} onChange={(e) => setMessage(e.target.value)} />
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={c.design}>
           {['Forest', 'Lime', 'Linen', 'Midnight'].map((n, i) => <button key={n} type="button" aria-pressed={design === i} onClick={() => setDesign(i)} className={`pressable rounded-full border px-3 py-1.5 text-[13px] ${design === i ? 'border-[var(--taply-lime)]' : 'border-[var(--border-subtle)]'}`}>{n}</button>)}
         </div>
         <Envelope design={design} open={open} label={c.personalTitle}><div className="p-6 text-center text-[#0B120E]"><p className="whitespace-pre-wrap break-words">{message}</p></div></Envelope>
         <Button type="button" variant="secondary" onClick={() => setOpen(!open)}>{open ? c.rewrap : c.unwrap}</Button>
-        <Button type="submit" data-testid="pg-review">{c.review}</Button>
+        <Button type="submit" data-testid="pg-review" disabled={op.busy}>{c.review}</Button>
         {error && <Notice tone="danger" live testId="pg-error">{error}</Notice>}
+        <OperationError code={op.error} />
       </form>
-      {review && (
-        <div className="mt-3 flex flex-col gap-2" data-testid="pg-review-card">
-          <h3 className="font-semibold">{c.reviewTitle}</h3>
-          <dl><Row label={c.to} mono>{review.receiverId}</Row><Row label={c.amount}>{formatMainnetAmount(review.depositYocto, MAINNET_ASSETS.NEAR, locale)}</Row><Row label={c.from} mono>{review.signerAccountId}</Row><Row label="Nonce" mono>{review.nonce}</Row></dl>
-          <p className="text-[12px] text-[var(--text-muted)]">{c.shareAfter}</p>
-          <Button variant="primary" size="lg" disabled>{c.send}</Button>
-          <p className="text-[13px] text-[var(--tone-caution-fg)]">{c.gate}</p>
+      {op.prepared !== null && (
+        <div className="mt-3" data-testid="pg-review-card">
+          <OperationReview prepared={op.prepared} title={c.reviewTitle}><p className="text-[12px] text-[var(--text-muted)]">{c.shareAfter}</p></OperationReview>
         </div>
       )}
     </Card>
@@ -188,13 +190,11 @@ function useGift(id: string): GiftRead {
 export function OpenGiftPage({ id }: { readonly id: string }) {
   const c = useC();
   const { locale } = useMainnetLocale();
-  const { identity } = useMainnetVault();
-  const external = useMainnetWallet();
   const read = useGift(id);
   const [seed, setSeed] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [claimant, setClaimant] = useState('');
-  const [claim, setClaim] = useState<ReturnType<typeof prepareMainnetGiftSettlement> | null>(null);
+  const [pending, setPending] = useState<'claim' | 'refund' | 'retry' | null>(null);
+  const op = useOperation();
   const [error, setError] = useState('');
   useEffect(() => {
     const m = /^#k=([0-9a-f]{64})$/.exec(window.location.hash);
@@ -202,26 +202,32 @@ export function OpenGiftPage({ id }: { readonly id: string }) {
     if (m) { sessionStorage.setItem(key, m[1]!); history.replaceState(null, '', window.location.pathname); }
     queueMicrotask(() => setSeed(sessionStorage.getItem(key)));
   }, [id]);
-  const me = identity?.accountId ?? external.accountId ?? null;
-  useEffect(() => { if (me) queueMicrotask(() => setClaimant((v) => v || me)); }, [me]);
+  const me = op.signer.kind === 'ok' ? op.signer.accountId : null;
   if (GIFT_PROFILE === null) return <Notice tone="caution" testId="gift-not-configured">{c.notConfigured}</Notice>;
   if (read.kind === 'loading') return <Notice live>{c.loading}</Notice>;
   if (read.kind !== 'ok') return <Notice tone="danger" testId="gift-read-error">{read.kind === 'missing' ? c.missing : c.unreadable}</Notice>;
   const g = read.data;
-  const settle = (action: 'refund' | 'retry', signer: string | null) => { if (!signer) return null; try { return prepareMainnetGiftSettlement({ config: read.config, gift: g, signerAccountId: signer, observedAtNs: read.nowNs, action }); } catch { return null; } };
-  const refund = settle('refund', me);
-  const retry = settle('retry', me);
+  const cfg = read.config;
+  // Which actions the reviewed builder allows for this account now; the transaction itself comes from the planner.
+  const allowed = (action: 'refund' | 'retry') => { if (!me) return false; try { prepareMainnetGiftSettlement({ config: cfg, gift: g, signerAccountId: me, observedAtNs: read.nowNs, action }); return true; } catch { return false; } };
+  const canRefund = allowed('refund');
+  const canRetry = allowed('retry');
   const claimable = (g.status === 'AVAILABLE') && BigInt(read.nowNs) < BigInt(g.expiresAtNs);
   async function signClaim() {
-    setError(''); setClaim(null);
+    setError(''); setPending(null);
     try {
       if (seed === null) throw new Error('NO_KEY');
-      if (!MainnetAccountSchema.safeParse(claimant.trim()).success) throw new Error('BAD');
+      if (me === null) throw new Error('NO_WALLET');
       const bytes = Uint8Array.from(seed.match(/../g)!.map((h) => Number.parseInt(h, 16)));
-      const sig = await signMainnetGiftClaim(crypto, bytes, read.kind === 'ok' ? read.config.contractId : '', g.id, claimant.trim());
+      const sig = await signMainnetGiftClaim(crypto, bytes, cfg.contractId, g.id, me);
       bytes.fill(0);
-      setClaim(prepareMainnetGiftSettlement({ config: read.kind === 'ok' ? read.config : (null as never), gift: g, signerAccountId: claimant.trim(), observedAtNs: read.kind === 'ok' ? read.nowNs : '0', action: 'claim', signatureHex: sig }));
-    } catch (e) { setError(e instanceof Error && e.message === 'NO_KEY' ? c.noKey : c.unreadable); }
+      setPending('claim');
+      await op.run({ kind: 'giftClaim', giftId: g.id, signatureHex: sig });
+    } catch (e) { setError(e instanceof Error && e.message === 'NO_KEY' ? c.noKey : e instanceof Error && e.message === 'NO_WALLET' ? c.needWallet : c.unreadable); }
+  }
+  async function settle(kind: 'refund' | 'retry') {
+    setError(''); setPending(kind);
+    await op.run({ kind: kind === 'refund' ? 'giftRefund' : 'giftRetry', giftId: g.id });
   }
   return (
     <Card>
@@ -238,18 +244,23 @@ export function OpenGiftPage({ id }: { readonly id: string }) {
         </dl>
         {claimable && (
           <div className="flex flex-col gap-2" data-testid="og-claim">
-            {seed === null ? <Notice tone="muted" testId="og-no-key">{c.noKey}</Notice> : (
+            {seed === null ? <Notice tone="muted" testId="og-no-key">{c.noKey}</Notice> : me === null ? <Notice tone="muted" testId="og-no-wallet">{c.needWallet}</Notice> : (
               <>
-                <label className="text-[13px]" htmlFor="og-claimant">{c.claimant}</label>
-                <input id="og-claimant" className={`${field} font-mono text-[13px]`} autoCapitalize="none" value={claimant} onChange={(e) => setClaimant(e.target.value)} />
-                <Button data-testid="og-sign" onClick={() => void signClaim()}>{c.claimSign}</Button>
+                <p className="text-[13px] text-[var(--text-secondary)]">{c.claimant}: <span className="break-all font-mono" data-testid="og-claimant">{me}</span></p>
+                <Button data-testid="og-sign" disabled={op.busy} onClick={() => void signClaim()}>{c.claimSign}</Button>
               </>
             )}
           </div>
         )}
-        {claim && <div data-testid="og-claim-ready" className="flex flex-col gap-2"><Notice tone="muted">{c.claimSigned}</Notice><CallPreview call={claim} title={c.call} /><Button disabled>{c.claim}</Button></div>}
-        {refund && <div data-testid="og-refund" className="flex flex-col gap-2"><Button disabled>{c.refund}</Button><CallPreview call={refund} title={c.call} /></div>}
-        {retry && <div data-testid="og-retry" className="flex flex-col gap-2"><Button disabled>{c.retry}</Button><CallPreview call={retry} title={c.call} /></div>}
+        {canRefund && <div data-testid="og-refund" className="flex flex-col gap-2"><Button variant="secondary" data-testid="og-refund-review" disabled={op.busy} onClick={() => void settle('refund')}>{c.refund}</Button></div>}
+        {canRetry && <div data-testid="og-retry" className="flex flex-col gap-2"><Button variant="secondary" data-testid="og-retry-review" disabled={op.busy} onClick={() => void settle('retry')}>{c.retry}</Button></div>}
+        <OperationError code={op.error} />
+        {op.prepared !== null && pending !== null && (
+          <div data-testid={pending === 'claim' ? 'og-claim-ready' : `og-${pending}-ready`}>
+            {pending === 'claim' && <Notice tone="muted">{c.claimSigned}</Notice>}
+            <OperationReview prepared={op.prepared} title={pending === 'claim' ? c.claim : pending === 'refund' ? c.refund : c.retry} />
+          </div>
+        )}
         {(g.status === 'CLAIMED' || g.status === 'REFUNDED') && <a className="underline" href={`/m/gift/${g.id}/receipt`}>{c.receipt}</a>}
         {error && <Notice tone="danger" live>{error}</Notice>}
         <p className="text-[13px] text-[var(--tone-caution-fg)]">{c.submitOff}</p>
@@ -280,6 +291,71 @@ export function OpenGiftReceipt({ id }: { readonly id: string }) {
         </dl>
         <p className="text-[12px] text-[var(--text-muted)]">{c.recorded}</p>
       </div>
+    </Card>
+  );
+}
+
+const hexOf = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+
+/** Open Gift creation on the configured Gift contract: `giftCreate` through Codex's planner. */
+export function OpenGiftCreate() {
+  const c = useC();
+  const { locale } = useMainnetLocale();
+  const op = useOperation();
+  const [amount, setAmount] = useState('');
+  const [message, setMessage] = useState('');
+  const [design, setDesign] = useState(0);
+  const [hours, setHours] = useState('24');
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState('');
+  const [link, setLink] = useState<{ id: string; seedHex: string } | null>(null);
+  if (GIFT_PROFILE === null) return null;
+  const profile = GIFT_PROFILE;
+  const fee = BigInt(profile.contract.giftFeeYocto);
+  async function prepare() {
+    setError(''); setLink(null); op.reset();
+    const parsed = parseMainnetAmount(amount, MAINNET_ASSETS.NEAR);
+    const h = /^[0-9]{1,3}$/.test(hours.trim()) ? BigInt(hours.trim()) : 0n;
+    if (!parsed.ok || BigInt(parsed.baseUnits) < BigInt(profile.contract.minAmountYocto) || BigInt(parsed.baseUnits) > BigInt(profile.contract.maxAmountYocto)
+      || h < 1n || h > 720n || new TextEncoder().encode(message).length > 280) { setError(c.createInvalid); return; }
+    const key = await newLinkKey();
+    const idBytes = new Uint8Array(16);
+    crypto.getRandomValues(idBytes);
+    const giftId = hexOf(idBytes);
+    const seedHex = hexOf(key.seed);
+    key.seed.fill(0);
+    const prepared = await op.run({ kind: 'giftCreate', giftId, publicKeyHex: key.publicKeyHex, amountYocto: parsed.baseUnits, lifetimeS: Number.parseInt((h * 3600n).toString(), 10), message, design });
+    if (prepared !== null) setLink({ id: giftId, seedHex });
+  }
+  const parsed = parseMainnetAmount(amount, MAINNET_ASSETS.NEAR);
+  return (
+    <Card>
+      <form className="flex flex-col gap-2" data-testid="open-gift-create" onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
+        <h2 className="font-semibold">{c.createTitle}</h2>
+        <p className="text-[13px] text-[var(--text-secondary)]">{c.createLead}</p>
+        <label className="text-[13px]" htmlFor="ogc-amount">{c.amount}</label><input id="ogc-amount" inputMode="decimal" className={field} value={amount} onChange={(e) => { setAmount(e.target.value); op.reset(); setLink(null); }} />
+        <label className="text-[13px]" htmlFor="ogc-msg">{c.message}</label><textarea id="ogc-msg" maxLength={280} className={`${field} py-2`} value={message} onChange={(e) => { setMessage(e.target.value); op.reset(); setLink(null); }} />
+        <label className="text-[13px]" htmlFor="ogc-hours">{c.lifetimeHours}</label><input id="ogc-hours" inputMode="numeric" className={field} value={hours} onChange={(e) => { setHours(e.target.value); op.reset(); setLink(null); }} />
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={c.design}>
+          {['Forest', 'Lime', 'Linen', 'Midnight'].map((n, i) => <button key={n} type="button" aria-pressed={design === i} onClick={() => { setDesign(i); op.reset(); setLink(null); }} className={`pressable rounded-full border px-3 py-1.5 text-[13px] ${design === i ? 'border-[var(--taply-lime)]' : 'border-[var(--border-subtle)]'}`}>{n}</button>)}
+        </div>
+        <Envelope design={design} open={open} label={c.createTitle}><div className="p-6 text-center text-[#0B120E]"><p className="whitespace-pre-wrap break-words">{message}</p></div></Envelope>
+        <Button type="button" variant="secondary" onClick={() => setOpen(!open)}>{open ? c.rewrap : c.unwrap}</Button>
+        <dl>
+          <Row label={c.fee}>{formatMainnetAmount(fee.toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
+          {parsed.ok && <Row label={c.total}><span data-testid="ogc-total">{formatMainnetAmount((BigInt(parsed.baseUnits) + fee).toString(), MAINNET_ASSETS.NEAR, locale)}</span></Row>}
+        </dl>
+        <Button type="submit" data-testid="ogc-review" disabled={op.busy}>{c.prepareGift}</Button>
+        {error && <Notice tone="danger" live testId="ogc-error">{error}</Notice>}
+        <OperationError code={op.error} />
+      </form>
+      {op.prepared !== null && link !== null && (
+        <div className="mt-3 flex flex-col gap-2" data-testid="ogc-ready">
+          <OperationReview prepared={op.prepared} title={c.createTitle} />
+          <p className="text-[13px] text-[var(--tone-caution-fg)]">{c.linkTitle}</p>
+          <p data-testid="ogc-link" className="break-all font-mono text-[12px]">/m/gift/{link.id}#k={link.seedHex}</p>
+        </div>
+      )}
     </Card>
   );
 }
