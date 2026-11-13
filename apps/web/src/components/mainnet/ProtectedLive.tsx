@@ -4,12 +4,11 @@ import { useEffect, useState } from 'react';
 import {
   createMainnetEscrowReader,
   mainnetEscrowConfigProblems,
-  prepareMainnetCreateProtectedRequest,
   prepareMainnetFundProtectedNative,
   prepareMainnetProtectedTokenFunding,
 } from '@taply/near-client';
 import type { MainnetEscrowConfig } from '@taply/near-client';
-import { calculateMainnetEscrowRequestId, MainnetAccountSchema, MainnetEscrowTermsSchema, MAINNET_USDC_ASSET } from '@taply/shared';
+import { calculateMainnetEscrowRequestId, calculateMainnetEscrowTermsHash, MainnetAccountSchema, MainnetEscrowTermsSchema, MAINNET_USDC_ASSET } from '@taply/shared';
 import type { MainnetEscrowRequest, MainnetEscrowTerms } from '@taply/shared';
 import { Button } from '@/components/primitives/Button';
 import { Card } from '@/components/primitives/Surface';
@@ -17,10 +16,9 @@ import { nsToDate } from '@/lib/format/time';
 import { assetById, formatMainnetAmount, MAINNET_ASSETS, parseMainnetAmount } from '@/lib/mainnet/assets';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { CANCEL_MINUTES, ESCROW_PROFILE, FUNDING_MINUTES, minutesToNs, randomCreationNonce } from '@/lib/mainnet/escrow-profile';
-import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { availableActions, PROTECTED_COPY } from './Protected';
-import { useMainnetVault } from './Wallet';
-import { CallPreview, Notice, Row } from './bits';
+import { Notice, Row } from './bits';
+import { OperationError, OperationReview, OPERATION_COPY, useOperation } from './Operation';
 
 /**
  * Protected Pay on a configured Mainnet escrow: request creation from the
@@ -100,19 +98,14 @@ const input = 'min-h-[var(--tap-target)] w-full rounded-[var(--radius-control)] 
 const minutesOf = (ns: string) => (BigInt(ns) / 60_000_000_000n).toString();
 const utc = (ns: string) => nsToDate(ns).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
 
-/** The account this device acts as: the unlocked Taply Wallet first, else a connected external wallet. */
-function useActingAccount(): string | null {
-  const { identity } = useMainnetVault();
-  const { accountId } = useMainnetWallet();
-  return identity?.accountId ?? accountId ?? null;
-}
 
-type Prepared = { config: MainnetEscrowConfig; terms: MainnetEscrowTerms; quote: { depositYocto: string; gas: string; termsHash: string; storageBytes: string }; call: ReturnType<typeof prepareMainnetCreateProtectedRequest> };
+type Prepared = { config: MainnetEscrowConfig; terms: MainnetEscrowTerms; termsHash: string };
 
 export function ProtectedCreate() {
   const { locale } = useMainnetLocale();
   const c = COPY[locale];
-  const creator = useActingAccount();
+  const op = useOperation();
+  const creator = op.signer.kind === 'ok' ? op.signer.accountId : null;
   const [asset, setAsset] = useState<'NEAR' | 'USDC'>('NEAR');
   const [amount, setAmount] = useState('');
   const [cancel, setCancel] = useState('10');
@@ -124,12 +117,13 @@ export function ProtectedCreate() {
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [consent, setConsent] = useState(false);
   if (ESCROW_PROFILE === null) return <Notice tone="caution" testId="pc-not-configured">{c.notConfigured}</Notice>;
+  if (op.signer.kind === 'external-no-key') return <Notice tone="caution" testId="pc-no-account">{OPERATION_COPY[locale].externalNoKey}</Notice>;
   if (creator === null) return <Notice tone="muted" testId="pc-no-account">{c.noAccount}</Notice>;
   const profile = ESCROW_PROFILE;
   const me = creator;
 
   async function quote() {
-    setError(''); setPrepared(null); setConsent(false);
+    setError(''); setPrepared(null); setConsent(false); op.reset();
     const a = asset === 'USDC' ? MAINNET_ASSETS.USDC : MAINNET_ASSETS.NEAR;
     const amt = parseMainnetAmount(amount, a);
     if (!amt.ok) { setError(c.errors.BAD_AMOUNT); return; }
@@ -157,12 +151,9 @@ export function ProtectedCreate() {
         permittedPayerAccountId: p === '' ? null : p, merchantAccountId: null, sessionBinding: null, memo,
       });
       if (!parsed.success) { setError(c.errors.BUILDER); return; }
-      let q;
-      try { q = await reader.quoteCreateRequest(parsed.data); } catch { setError(c.errors.READ); return; }
-      try {
-        const call = prepareMainnetCreateProtectedRequest({ contractId: config.contractId, config, terms: parsed.data, quote: q.data, signerAccountId: me });
-        setPrepared({ config, terms: parsed.data, quote: q.data, call });
-      } catch { setError(c.errors.BUILDER); }
+      // The planner re-reads the pinned escrow at a fresh snapshot, asks it for the quote and builds create_request.
+      const ready = await op.run({ kind: 'escrowCreate', terms: parsed.data });
+      if (ready !== null) setPrepared({ config, terms: parsed.data, termsHash: calculateMainnetEscrowTermsHash(parsed.data) });
     } finally { setBusy(false); }
   }
 
@@ -172,7 +163,7 @@ export function ProtectedCreate() {
       <Card>
         <h2 className="font-semibold">{c.createTitle}</h2>
         <p className="mt-1 text-[14px] text-[var(--text-secondary)]">{c.createLead}</p>
-        <form className="mt-3 flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void quote(); }} onChange={() => { setPrepared(null); setConsent(false); }}>
+        <form className="mt-3 flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void quote(); }} onChange={() => { setPrepared(null); setConsent(false); op.reset(); }}>
           <p className="text-[13px] text-[var(--text-secondary)]">{c.creator}: <span className="break-all font-mono" data-testid="pc-creator">{me}</span></p>
           <fieldset className="flex gap-2">
             <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.asset}</legend>
@@ -192,11 +183,12 @@ export function ProtectedCreate() {
           <input id="pc-payer" className={input} autoCapitalize="none" spellCheck={false} value={payer} onChange={(e) => setPayer(e.target.value)} />
           <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="pc-memo">{c.memo}</label>
           <input id="pc-memo" className={input} value={memo} onChange={(e) => setMemo(e.target.value)} />
-          <Button type="submit" data-testid="pc-quote" disabled={busy}>{busy ? c.working : c.quote}</Button>
+          <Button type="submit" data-testid="pc-quote" disabled={busy || op.busy}>{busy || op.busy ? c.working : c.quote}</Button>
           {error && <Notice tone="danger" live testId="pc-error">{error}</Notice>}
+          {op.error && <div data-testid="pc-error"><OperationError code={op.error} /></div>}
         </form>
       </Card>
-      {prepared !== null && a !== null && (
+      {prepared !== null && a !== null && op.prepared !== null && (
         <Card>
           <div data-testid="pc-review" className="flex flex-col gap-2">
             <h2 className="font-semibold">{c.reviewTitle}</h2>
@@ -207,9 +199,8 @@ export function ProtectedCreate() {
               <Row label={c.fundBy}>{utc(prepared.terms.fundingExpiresAtNs)}</Row>
               <Row label={c.payer} mono>{prepared.terms.permittedPayerAccountId ?? c.anyone}</Row>
               <Row label={c.requestId} mono><span data-testid="pc-review-id">{prepared.terms.id}</span></Row>
-              <Row label={c.termsHash} mono>{prepared.quote.termsHash}</Row>
-              <Row label={c.storage}><span data-testid="pc-review-deposit">{formatMainnetAmount(prepared.call.depositYocto, MAINNET_ASSETS.NEAR, locale)}</span></Row>
-              <Row label={c.gas}>{(BigInt(prepared.call.gas) / 1_000_000_000_000n).toString()} Tgas</Row>
+              <Row label={c.termsHash} mono>{prepared.termsHash}</Row>
+              <Row label={c.storage}><span data-testid="pc-review-deposit">{formatMainnetAmount(op.prepared.review.action.depositYocto, MAINNET_ASSETS.NEAR, locale)}</span></Row>
               <Row label={c.contract} mono>{prepared.config.contractId} · {prepared.config.contractVersion}</Row>
               <Row label={c.review}>{mainnetEscrowConfigProblems(prepared.config, prepared.config.contractId).includes('UNREVIEWED_CANDIDATE') ? <span data-testid="pc-unreviewed" className="text-[var(--tone-caution-fg)]">{c.unreviewed}</span> : '—'}</Row>
             </dl>
@@ -219,11 +210,11 @@ export function ProtectedCreate() {
             </label>
             {consent && (
               <div data-testid="pc-ready" className="flex flex-col gap-2">
-                <CallPreview call={prepared.call} title={c.call} />
+                <OperationReview prepared={op.prepared} title={c.call} />
                 <p className="text-[13px] text-[var(--text-secondary)]">{c.link}: <span className="break-all font-mono">/m/protected/{prepared.terms.id}</span></p>
               </div>
             )}
-            <Button variant="primary" size="lg" disabled data-testid="pc-create">{c.create}</Button>
+            {!consent && <Button variant="primary" size="lg" disabled data-testid="pc-create">{c.create}</Button>}
             <p className="text-[13px] text-[var(--tone-caution-fg)]">{c.disabled}</p>
           </div>
         </Card>
@@ -260,9 +251,11 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
   const { locale } = useMainnetLocale();
   const c = COPY[locale];
   const p = PROTECTED_COPY[locale];
-  const me = useActingAccount();
+  const opx = useOperation();
+  const me = opx.signer.kind === 'ok' ? opx.signer.accountId : null;
   const read = useEscrowRequest(id);
   const [consent, setConsent] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   if (ESCROW_PROFILE === null) return <Notice tone="caution" testId="pc-not-configured">{c.notConfigured}</Notice>;
@@ -274,7 +267,12 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
   const cancelNs = r.terms.cancelDurationNs!;
   const expired = BigInt(read.timestampNs) >= BigInt(r.terms.fundingExpiresAtNs);
   const permitted = r.terms.permittedPayerAccountId === null || r.terms.permittedPayerAccountId === me;
-  const fund = r.status === 'OPEN' && me !== null && consent ? fundingCall(config, r, me, read.timestampNs, cancelNs) : null;
+  // The builder pre-check decides what is offered; the transaction itself comes from Codex's planner.
+  const fundable = r.status === 'OPEN' && me !== null && fundingCall(config, r, me, read.timestampNs, cancelNs) !== null;
+  async function review(kind: 'escrowFund' | 'escrowCancel' | 'escrowRelease' | 'escrowRetry', label: string) {
+    setPending(label);
+    await opx.run(kind === 'escrowFund' ? { kind, id: r.terms.id, acceptedCancelDurationNs: cancelNs } : { kind, id: r.terms.id });
+  }
   // Cancel is the payer's right; a retry belongs to the recorded destination; release is open to anyone.
   const op = r.latestOperation;
   const actions = (r.status === 'OPEN' ? [] : availableActions(p, config, config.contractId, r, read.timestampNs)).filter((x) =>
@@ -318,11 +316,17 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
                 <>
                   <p className="text-[13px] text-[var(--text-secondary)]">{c.payAs}: <span className="break-all font-mono">{me}</span></p>
                   <label className="flex min-h-[var(--tap-target)] cursor-pointer items-start gap-3 text-[14px]">
-                    <input type="checkbox" data-testid="pr-consent" className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--taply-lime)]" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                    <input type="checkbox" data-testid="pr-consent" className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--taply-lime)]" checked={consent}
+                      onChange={(e) => { setConsent(e.target.checked); if (e.target.checked && fundable) void review('escrowFund', c.fund); else opx.reset(); }} />
                     <span>{c.payerConsent(minutesOf(cancelNs))}</span>
                   </label>
-                  {fund !== null && <div data-testid="pr-fund-ready" data-method={fund.methodName}><CallPreview call={fund} title={c.call} /></div>}
-                  <Button variant="primary" size="lg" disabled data-testid="pr-fund-button">{c.fund}</Button>
+                  <OperationError code={opx.error} />
+                  {consent && opx.prepared !== null && pending === c.fund && (
+                    <div data-testid="pr-fund-ready" data-method={opx.prepared.review.action.kind === 'call' ? opx.prepared.review.action.methodName : 'transfer'}>
+                      <OperationReview prepared={opx.prepared} title={c.fund} />
+                    </div>
+                  )}
+                  {!(consent && opx.prepared !== null) && <Button variant="primary" size="lg" disabled data-testid="pr-fund-button">{c.fund}</Button>}
                 </>
               )}
             <p className="text-[13px] text-[var(--tone-caution-fg)]">{c.disabled}</p>
@@ -335,11 +339,13 @@ export function ProtectedRequestPage({ id }: { readonly id: string }) {
             {actions.length === 0 && <li className="text-[13px] text-[var(--text-secondary)]" data-testid="pr-no-action">{p.noAction}</li>}
             {actions.map((x) => (
               <li key={x.label} data-method={x.call.methodName} className="flex flex-col gap-2">
-                <Button variant="primary" disabled>{x.label}</Button>
-                <CallPreview call={x.call} title={c.call} />
+                <Button variant="secondary" data-testid={`pr-review-${x.call.methodName}`} disabled={opx.busy}
+                  onClick={() => void review(x.call.methodName === 'cancel_protected' ? 'escrowCancel' : x.call.methodName === 'release_protected' ? 'escrowRelease' : 'escrowRetry', x.label)}>{x.label}</Button>
               </li>
             ))}
           </ul>
+          <OperationError code={opx.error} />
+          {opx.prepared !== null && pending !== null && pending !== c.fund && <div className="mt-3" data-testid="pr-action-ready"><OperationReview prepared={opx.prepared} title={pending} /></div>}
           <p className="mt-2 text-[13px] text-[var(--tone-caution-fg)]">{c.disabled}</p>
         </Card>
       )}
