@@ -5,7 +5,7 @@ import {mainnetTransport,type MainnetReadProfile} from './mainnet-network.js';
 import {AccountSchema,CallResultSchema,HashSchema} from './validation.js';
 import {MainnetProfileSchema,MainnetContractConfigSchema,prepareMainnetPayment,prepareMainnetCreateRequest,
   prepareMainnetCancelUnfunded,prepareMainnetRetryPayout,prepareMainnetTokenStorageDeposit,type MainnetProfile,type MainnetCall} from './mainnet.js';
-import {MainnetGiftProfileSchema,MainnetGiftConfigSchema,prepareMainnetCreateGift,prepareMainnetGiftSettlement,type MainnetGiftProfile} from './mainnet-gift.js';
+import {MainnetGiftProfileSchema,MainnetGiftConfigSchema,prepareMainnetCreateGift,prepareMainnetGiftSettlement,mainnetGiftClaimMessage,type MainnetGiftProfile} from './mainnet-gift.js';
 import {GiftViewSchema} from './gift.js';
 import {MainnetEscrowProfileSchema,MainnetEscrowConfigSchema,prepareMainnetCreateProtectedRequest,prepareMainnetFundProtectedNative,
   prepareMainnetProtectedTokenFunding,prepareMainnetCancelProtected,prepareMainnetReleaseProtected,prepareMainnetRetryProtectedTransfer,type MainnetEscrowProfile} from './mainnet-escrow-client.js';
@@ -33,7 +33,7 @@ export function createMainnetOperationPlanner(profiles:MainnetSigningProfiles,fe
   const {rpc}=mainnetTransport(profiles.network,fetcher);
   return Object.freeze({async prepare(operation:MainnetOperation,snapshot:MainnetWalletSnapshot){
     const s=MainnetWalletSnapshotSchema.parse(snapshot),op=structuredClone(operation);
-    let call:MainnetCall|undefined,receiverId:string,action:z.infer<typeof MainnetReviewedActionSchema>;
+    let call:MainnetCall|undefined,receiverId:string,action:z.infer<typeof MainnetReviewedActionSchema>,recoveryNonce:number|null=null;
     async function account(id:string,codeHash?:string){MainnetAccountSchema.parse(id);
       const a=AccountSchema.parse(await rpc('query',{request_type:'view_account',account_id:id,block_id:s.blockHash}));
       if(a.block_hash!==s.blockHash||a.block_height!==s.blockHeight||(codeHash!==undefined&&a.code_hash!==HashSchema.parse(codeHash)))throw Error('EVIDENCE_MISMATCH');return a;}
@@ -92,8 +92,14 @@ export function createMainnetOperationPlanner(profiles:MainnetSigningProfiles,fe
           call=prepareMainnetCreateGift({...op,config,signerAccountId:s.accountId});
         }else if(op.kind==='giftClaim'||op.kind==='giftRefund'||op.kind==='giftRetry'){
           const gift=GiftViewSchema.parse(await view(p.contract.accountId,'get_gift',{gift_id:op.giftId}));if(gift.id!==op.giftId)throw Error('GIFT_MISMATCH');
+          if(op.kind==='giftRetry')recoveryNonce=gift.payoutNonce;
           call=prepareMainnetGiftSettlement({config,gift,signerAccountId:s.accountId,observedAtNs:s.blockTimestampNs,
             action:op.kind==='giftClaim'?'claim':op.kind==='giftRefund'?'refund':'retry',...(op.kind==='giftClaim'?{signatureHex:op.signatureHex}:{})});
+          if(op.kind==='giftClaim'){
+            const bytes=(v:string)=>Uint8Array.from(v.match(/../g)??[],b=>parseInt(b,16));
+            const key=await crypto.subtle.importKey('raw',bytes(gift.publicKey),'Ed25519',false,['verify']);
+            if(!await crypto.subtle.verify('Ed25519',key,bytes(op.signatureHex),new TextEncoder().encode(mainnetGiftClaimMessage(p.contract.accountId,gift.id,s.accountId))))throw Error('BAD_LINK_SIGNATURE');
+          }
         }else throw Error('UNSUPPORTED_OPERATION');
       }
       if(!call)throw Error('UNSUPPORTED_OPERATION');
@@ -103,7 +109,7 @@ export function createMainnetOperationPlanner(profiles:MainnetSigningProfiles,fe
     const budget=mainnetSpendingBudget(s,action.depositYocto);
     // Excludes chain nonce/reference block: a changed nonce cannot rename the same business operation.
     const operationHash=domainHash('taply.mainnet.operation.v2',canonicalJson({accountId:s.accountId,receiverId,action,
-      businessId:op.kind==='nativeSend'||op.kind==='usdcSend'?op.businessId:null}));
+      businessId:op.kind==='nativeSend'||op.kind==='usdcSend'?op.businessId:null,recoveryNonce}));
     return Object.freeze({operationHash,receiverId,action:Object.freeze(action),...budget});
   }});
 }

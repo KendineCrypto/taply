@@ -64,3 +64,27 @@ test('legacy, corrupt or local-only authorities are never silently initialized',
   assert.throws(()=>coordinator({...store(),scope:'browser'}),/GLOBAL/);
   await assert.rejects(coordinator({...store(),read:async()=>'{"version":1}'}).reserve('a'.repeat(64),expectation));
 });
+
+test('contract execution reconciliation binds exact canonical args, gas, deposit and nonce',async()=>{
+  const e={...expectation,receiverId:'token.near',action:{kind:'call',methodName:'ft_transfer',argsJson:'{"amount":"123","receiver_id":"bob.near"}',gas:'30000000000000',depositYocto:'1'}};
+  const t=transaction();t.transaction.receiver_id=e.receiverId;t.receipts_outcome[0].outcome.executor_id=e.receiverId;
+  t.transaction.actions=[{FunctionCall:{method_name:'ft_transfer',args:Buffer.from(e.action.argsJson).toString('base64'),gas:30000000000000,deposit:'1'}}];
+  assert.equal((await verifyMainnetTransactionExecution(profile,e,hash,rpc(t))).kind,'FINAL_EXECUTION');
+  for(const mutation of [t=>t.transaction.actions[0].FunctionCall.gas=31000000000000,t=>t.transaction.actions[0].FunctionCall.deposit='2',t=>t.transaction.actions[0].FunctionCall.method_name='ft_transfer_call',
+    t=>t.transaction.actions[0].FunctionCall.args=Buffer.from('{"amount":"123","amount":"124","receiver_id":"bob.near"}').toString('base64')]){
+    const bad=structuredClone(t);mutation(bad);assert.equal(await verifyMainnetTransactionExecution(profile,e,hash,rpc(bad)),null);
+  }
+});
+
+test('concurrent reconcilers and lost terminal-write acknowledgement cannot erase replay tombstones',async()=>{
+  const s=store(),c=coordinator(s),a=await c.reserve('a'.repeat(64),expectation);await c.handoff(a,hash);
+  const results=await Promise.allSettled(Array.from({length:10},()=>coordinator(s).reconcile('alice.near')));
+  assert.equal(results.filter(r=>r.status==='fulfilled'&&r.value.kind==='FINAL_EXECUTION').length,1);
+  assert.equal((await c.read('alice.near')).completed.length,1);
+  await assert.rejects(c.reserve('a'.repeat(64),{...expectation,nonce:'9',minimumNonce:'8'}),/CONSUMED/);
+  const s2=store(),c2=coordinator(s2),a2=await c2.reserve('a'.repeat(64),expectation);await c2.handoff(a2,hash);
+  const cas=s2.compareAndSwap;s2.compareAndSwap=async(...args)=>{await cas(...args);throw Error('lost final acknowledgement');};
+  await assert.rejects(c2.reconcile('alice.near'));s2.compareAndSwap=cas;
+  assert.equal((await coordinator(s2).read('alice.near')).completed.length,1);
+  await assert.rejects(coordinator(s2).reserve('a'.repeat(64),{...expectation,nonce:'9',minimumNonce:'8'}),/CONSUMED/);
+});

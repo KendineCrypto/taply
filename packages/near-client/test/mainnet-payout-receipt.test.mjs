@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {calculateMainnetRequestId,calculateMainnetTermsHash,MAINNET_USDC,MAINNET_USDC_ASSET} from '@taply/shared';
-import {MAINNET_GENESIS_HASH,signMainnetGiftClaim} from '../dist/index.js';
+import {MAINNET_GENESIS_HASH,signMainnetGiftClaim,verifyMainnetGiftSettlement} from '../dist/index.js';
+import {baseEncode} from 'near-api-js';
 import {verifyMainnetNativePayment,verifyMainnetGiftReceipt} from '../dist/mainnet-payout-receipt.js';
 const H=n=>'1'.repeat(31)+String(n),code=H(9),bh=H(2),txHash=H(3),root=H(4),transfer=H(5),callback=H(6),dataId=H(7);
 const b64=x=>Buffer.from(JSON.stringify(x)).toString('base64');
@@ -44,7 +45,7 @@ async function fixture(gift=false){
 function fetcher(f,edit={}){return async(_,init)=>{const r=JSON.parse(init.body);let result;
   if(r.method==='status')result={chain_id:'mainnet',sync_info:{syncing:false}};
   else if(r.method==='block')result={header:{hash:r.params.block_id===9820210?MAINNET_GENESIS_HASH:r.params.block_id??bh,prev_hash:H(8),height:r.params.block_id===9820210?9820210:10000000,timestamp_nanosec:'100'}};
-  else if(r.method==='EXPERIMENTAL_tx_status')result=f.tx;
+  else if(r.method==='EXPERIMENTAL_tx_status')result=f.graphs?.get(r.params.tx_hash)??f.tx;
   else if(r.params.request_type==='view_account')result={amount:'10000000000000000000000000',locked:'0',storage_usage:1000,code_hash:edit.code??code,block_hash:r.params.block_id,block_height:10000000};
   else if(r.params.request_type==='view_access_key_list')result={block_hash:r.params.block_id,keys:[{public_key:'ed25519:fixture',access_key:{nonce:edit.keyActivity&&r.params.block_id===bh?1:0,permission:'FullAccess'}}]};
   else result={result:[...Buffer.from(JSON.stringify(r.params.method_name==='get_config'?f.config:f.state))],logs:[],block_hash:bh,block_height:10000000};
@@ -62,4 +63,32 @@ for(const gift of [false,true])test(`${gift?'Gift':'native instant'} payout requ
   for(const mutate of mutations){const x=structuredClone(f);mutate(x);assert.equal((await verify(x)(x.profile,x.ref,fetcher(x))).kind,'NOT_VERIFIED');}
   const unknown=structuredClone(f);if(gift)unknown.state.payout='PENDING';else {unknown.state.status='PAYOUT_IN_FLIGHT';unknown.state.latestOperation.status='IN_FLIGHT';unknown.state.latestOperation.resolvedAtNs=null;}
   assert.equal((await verify(unknown)(unknown.profile,unknown.ref,fetcher(unknown))).kind,'NOT_VERIFIED');
+});
+
+for(const refund of [false,true])for(const retry of [false,true])test(`Gift independent history refund=${refund} retry=${retry}`,async()=>{
+  const f=await fixture(true),first=f.tx;
+  if(refund){
+    f.state.creator=f.state.beneficiary;f.state.status='REFUNDED';f.state.expiresAtNs='99';
+    first.transaction.actions=[fc('refund_gift',{gift_id:f.state.id},'0')];
+    first.receipts[0].receipt.Action.actions=first.transaction.actions;
+  }
+  f.graphs=new Map([[txHash,first]]);
+  const ref={giftId:f.state.id,operations:[{transactionHash:txHash,signerAccountId:f.ref.signerAccountId}]};
+  if(retry){
+    f.state.payoutNonce=2;const next=structuredClone(first);
+    const mapped=new Map([txHash,root,transfer,callback,dataId].map((id,i)=>[id,baseEncode(new Uint8Array(32).fill(30+i))]));
+    const rewrite=v=>typeof v==='string'?(mapped.get(v)??v):Array.isArray(v)?v.map(rewrite):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,rewrite(x)])):v;
+    const second=rewrite(next);second.transaction.actions=[fc('retry_payout',{gift_id:f.state.id},'0')];second.receipts[0].receipt.Action.actions=second.transaction.actions;
+    second.receipts[2].receipt.Action.actions=[fc('on_payout',{gift_id:f.state.id,nonce:2},'0')];
+    first.receipts_outcome[1].outcome.status={Failure:{ActionError:{index:0}}};first.receipts_outcome[2].outcome.status={SuccessValue:b64(false)};
+    f.graphs.set(second.transaction.hash,second);ref.operations.push({transactionHash:second.transaction.hash,signerAccountId:f.ref.signerAccountId});
+  }
+  assert.equal((await verifyMainnetGiftSettlement(f.profile,ref,fetcher(f))).kind,'VERIFIED_GIFT_SETTLEMENT');
+  if(retry){
+    assert.equal((await verifyMainnetGiftSettlement(f.profile,{...ref,operations:ref.operations.slice(1)},fetcher(f))).kind,'NOT_VERIFIED');
+    const bad=structuredClone(f);bad.graphs.get(txHash).receipts_outcome[1].outcome.status={SuccessValue:''};
+    assert.equal((await verifyMainnetGiftSettlement(bad.profile,ref,fetcher(bad))).kind,'NOT_VERIFIED');
+  }
+  if(!refund){const bad=structuredClone(f),a={gift_id:f.state.id,signature:'0'.repeat(128)};bad.graphs.get(txHash).transaction.actions=[fc('claim_gift',a,'0')];bad.graphs.get(txHash).receipts[0].receipt.Action.actions=[fc('claim_gift',a,'0')];
+    assert.equal((await verifyMainnetGiftSettlement(bad.profile,ref,fetcher(bad))).kind,'NOT_VERIFIED');}
 });

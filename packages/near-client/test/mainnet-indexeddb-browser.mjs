@@ -10,6 +10,15 @@ const {chromium}=await import(pathToFileURL(resolve(process.argv[2])).href);
 const output=resolve(process.argv[3]);mkdirSync(output,{recursive:true});
 const server=await createServer({root,configFile:false,server:{host:'127.0.0.1',port:0,fs:{allow:[root]},watch:{ignored:['**/artifacts/**','**/.git/**']}},logLevel:'error'});
 server.middlewares.use('/attempt-test',(_req,res)=>{res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>Mainnet IndexedDB test</title>');});
+// Test-only shared authority. Production must never expose a raw CAS endpoint.
+// Redis durability is tested separately; this harness proves browser behavior.
+let globalLedger=null;
+server.middlewares.use('/test-global-cas',async(req,res)=>{
+  let text='';for await(const bytes of req){text+=bytes;if(text.length>65536){res.statusCode=413;res.end();return;}}
+  const command=JSON.parse(text),old=globalLedger;
+  if(command.kind==='cas'&&command.expected===old)globalLedger=command.next;
+  res.setHeader('Content-Type','application/json');res.end(JSON.stringify(command.kind==='read'?old:command.expected===old));
+});
 await server.listen();const url=`http://127.0.0.1:${server.httpServer.address().port}/attempt-test`;
 const userData=resolve(output,`profile-${Date.now()}`);
 let context;const checks=[];
@@ -35,6 +44,27 @@ try{
   const restarted=await page();assert.equal((await restarted.evaluate(()=>window.journal.read('alice.near'))).state,'HANDOFF');
   assert.equal(await restarted.evaluate(async()=>{try{await window.journal.reserve('alice.near','b'.repeat(64));return false;}catch{return true;}}),true);
   checks.push('browser restart preserves pending attempt and blocks replacement');
+  async function v2page(deviceId){
+    const p=await context.newPage();await p.goto(url);await p.evaluate(async deviceId=>{
+      const {createMainnetTransactionCoordinator}=await import('/packages/near-client/src/mainnet-reconciliation.ts');
+      const command=async value=>(await fetch('/test-global-cas',{method:'POST',body:JSON.stringify(value)})).json();
+      window.coordinator=createMainnetTransactionCoordinator({deviceId,profile:{network:'near-mainnet',rpcUrl:'https://rpc.mainnet.fastnear.com',rpcProviderId:'browser-test'},
+        store:{scope:'account-global',read:()=>command({kind:'read'}),compareAndSwap:(_,expected,next)=>command({kind:'cas',expected,next})}},async()=>{throw Error('offline');});
+      window.expectation={accountId:'alice.near',publicKey:'ed25519:11111111111111111111111111111111',receiverId:'bob.near',action:{kind:'transfer',depositYocto:'1'},nonce:'8',minimumNonce:'7',anchorHash:'1'.repeat(31)+'2',anchorHeight:'100'};
+    },deviceId);return p;
+  }
+  const owner=crypto.randomUUID(),v2a=await v2page(owner),v2b=await v2page(owner);
+  const reservations=await Promise.all(Array.from({length:20},(_,i)=>(i%2?v2a:v2b).evaluate(async()=>{try{return await window.coordinator.reserve('a'.repeat(64),window.expectation);}catch{return null;}})));
+  assert.equal(reservations.filter(Boolean).length,1);checks.push('v2 account-global CAS: 20 reservations across real tabs admit one');
+  await v2a.evaluate(async()=>{const {pending}=await window.coordinator.read('alice.near');await window.coordinator.handoff(pending,null);});
+  const v2cdp=await context.newCDPSession(v2a),v2crash=v2a.waitForEvent('crash',{timeout:10000});void v2cdp.send('Page.crash').catch(()=>{});await v2crash;
+  assert.equal((await v2b.evaluate(()=>window.coordinator.read('alice.near'))).pending.state,'HANDOFF');
+  await context.close();context=await chromium.launchPersistentContext(userData,{headless:true});
+  const v2restart=await v2page(owner);assert.equal((await v2restart.evaluate(()=>window.coordinator.read('alice.near'))).pending.state,'HANDOFF');
+  assert.equal((await v2restart.evaluate(()=>window.coordinator.reconcile('alice.near'))).kind,'OUTCOME_UNRESOLVED');
+  checks.push('v2 renderer crash and browser restart preserve unknown handoff; offline is not failure');
+  const other=await v2page(crypto.randomUUID());assert.equal(await other.evaluate(async()=>{try{await window.coordinator.reserve('b'.repeat(64),window.expectation);return false;}catch(e){return e.message==='OTHER_DEVICE_READ_ONLY';}}),true);
+  checks.push('v2 second device cannot take over or pay while first device outcome is unknown');
   writeFileSync(resolve(output,'indexeddb-results.json'),JSON.stringify({passed:checks.length,checks,evidence:'real Chromium IndexedDB, synthetic identities; no signing or broadcast'},null,2));
   console.log(JSON.stringify({passed:checks.length,checks}));
 }finally{await context?.close();await server.close();}

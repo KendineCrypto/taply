@@ -7,6 +7,7 @@ import {readTransaction} from './transactions.js';
 import {AccountSchema,HashSchema,RpcU64Schema,losslessStringify} from './validation.js';
 import type {ExecutionOutcome} from './types.js';
 import type {Fetch} from './rpc.js';
+import {MainnetGiftProfileSchema,createMainnetGiftReader,mainnetGiftClaimMessage,type MainnetGiftProfile} from './mainnet-gift.js';
 
 const Call=z.strictObject({FunctionCall:z.object({method_name:z.string(),args:z.string().max(32768),deposit:U128Schema,gas:RpcU64Schema})});
 const Transfer=z.strictObject({Transfer:z.strictObject({deposit:U128Schema})});
@@ -60,11 +61,12 @@ function verifier(network:MainnetReadProfile,fetcher:Fetch){
     const c=call(p);check(p.predecessor_id===predecessor&&p.receiver_id===receiver&&c.method_name===method&&c.deposit===deposit&&same(decode(c.args),args));
   }
   function systemRefund(p:Payload){check(p.predecessor_id==='system'&&Transfer.safeParse(p.receipt.Action.actions[0]).success&&p.receipt.Action.input_data_ids.length===0&&p.receipt.Action.output_data_receivers.length===0);}
-  function payout(g:Graph,source:Payload,s:{contract:string;beneficiary:string;amount:string;token:boolean;id:string;nonce:string;kind:string;success:boolean}){
+  function payout(g:Graph,source:Payload,s:{contract:string;beneficiary:string;amount:string;token:boolean;id:string;nonce:string;kind:string;success:boolean;gift?:boolean}){
     const own=g.children(source).filter(p=>p.predecessor_id===s.contract);check(own.length===2);
-    const cb=own.find(p=>p.receiver_id===s.contract&&'FunctionCall' in p.receipt.Action.actions[0]!&&call(p).method_name==='on_native_transfer_complete');
+    const method=s.gift?'on_payout':'on_native_transfer_complete';
+    const cb=own.find(p=>p.receiver_id===s.contract&&'FunctionCall' in p.receipt.Action.actions[0]!&&call(p).method_name===method);
     check(cb);const paid=own.find(p=>p!==cb);check(paid);
-    exactCall(cb,s.contract,s.contract,'on_native_transfer_complete',{id:s.id,operationNonce:s.nonce,kind:s.kind},'0');
+    exactCall(cb,s.contract,s.contract,method,s.gift?{gift_id:s.id,nonce:Number(s.nonce)}:{id:s.id,operationNonce:s.nonce,kind:s.kind},'0');
     if(s.token)exactCall(paid,s.contract,MAINNET_USDC,'ft_transfer',{receiver_id:s.beneficiary,amount:s.amount,memo:'Taply settlement'},'1');
     else check(paid.predecessor_id===s.contract&&paid.receiver_id===s.beneficiary&&Transfer.parse(paid.receipt.Action.actions[0]).Transfer.deposit===s.amount);
     check(paid.receipt.Action.input_data_ids.length===0);g.dependency(paid,cb);
@@ -86,6 +88,43 @@ function verifier(network:MainnetReadProfile,fetcher:Fetch){
     check(await keys(header.header.prev_hash)===await keys(stateBlock));
   }
   return {graph,exactCall,payout,pin,checkNetwork};
+}
+
+/** Gift payout evidence includes every failed predecessor and its recorded
+ * callback. Link-key authorization is checked independently of contract state. */
+export async function verifyMainnetGiftSettlement(profile:MainnetGiftProfile,
+  ref:{giftId:string;operations:MainnetSettlementTransaction[]},fetcher:Fetch=(u,i)=>globalThis.fetch(u,i)){
+  try{
+    const p=MainnetGiftProfileSchema.parse(profile),state=await createMainnetGiftReader(profile,fetcher).readGift(ref.giftId),gift=state.data;
+    if(!gift||gift.payout!=='CONFIRMED'||!gift.beneficiary||!gift.settledAtNs)return {kind:'NOT_VERIFIED' as const,reason:'UNRESOLVED' as const};
+    check(ref.operations.length>0&&ref.operations.length<=32&&ref.operations.length===gift.payoutNonce);
+    const refund=gift.status==='REFUNDED';check(refund||gift.status==='CLAIMED');
+    check(refund?gift.beneficiary===gift.creator:gift.beneficiary!==gift.creator);
+    const {contract,...network}=p,v=verifier(network,fetcher);await v.checkNetwork();
+    const graphs=[],seen=new Set<string>();let previous=gift.createdAtNs,last;
+    for(let i=0;i<ref.operations.length;i++){
+      const reference=ref.operations[i]!;check(reference.signerAccountId===gift.beneficiary&&!seen.has(reference.transactionHash));seen.add(reference.transactionHash);
+      const g=await v.graph(reference);graphs.push(g);const source=g.root,when=g.time(source);
+      check(BigInt(when)>=BigInt(previous));
+      const args=i===0&&!refund?z.strictObject({gift_id:z.literal(gift.id),signature:z.string().regex(/^[a-f0-9]{128}$/)}).parse(decode(call(source).args)):{gift_id:gift.id};
+      v.exactCall(source,gift.beneficiary,contract.accountId,i>0?'retry_payout':refund?'refund_gift':'claim_gift',args,'0');
+      check(value(g.outcome(source),''));
+      if(i===0){
+        check(when===gift.settledAtNs&&(refund?BigInt(when)>=BigInt(gift.expiresAtNs):BigInt(when)<BigInt(gift.expiresAtNs)));
+        if('signature'in args){
+          const bytes=(s:string)=>Uint8Array.from(s.match(/../g)??[],b=>parseInt(b,16));
+          const key=await crypto.subtle.importKey('raw',bytes(gift.publicKey),'Ed25519',false,['verify']);
+          check(await crypto.subtle.verify('Ed25519',key,bytes(args.signature),new TextEncoder().encode(mainnetGiftClaimMessage(contract.accountId,gift.id,gift.beneficiary))));
+        }
+      }
+      last=v.payout(g,source,{contract:contract.accountId,beneficiary:gift.beneficiary,amount:gift.amountYocto,token:false,id:gift.id,nonce:String(i+1),kind:'GIFT',success:i===ref.operations.length-1,gift:true});
+      previous=g.time(last.callback);
+    }
+    check(last);await v.pin(contract.accountId,contract.expectedCodeHash,graphs,state.blockHash,state.timestampNs);
+    return {kind:'VERIFIED_GIFT_SETTLEMENT' as const,status:refund?'REFUNDED' as const:'CLAIMED' as const,giftId:gift.id,
+      amountYocto:gift.amountYocto,beneficiary:gift.beneficiary,operationNonce:gift.payoutNonce,settlementTransactionHash:ref.operations.at(-1)!.transactionHash,
+      transferReceiptId:last.paid.receipt_id,callbackReceiptId:last.callback.receipt_id,stateBlockHash:state.blockHash,trustModel:'configured-rpc' as const};
+  }catch{return {kind:'NOT_VERIFIED' as const,reason:'EVIDENCE_UNAVAILABLE_OR_MISMATCH' as const};}
 }
 
 /** Complete NEAR-side direct/router USDC and native escrow settlement history.

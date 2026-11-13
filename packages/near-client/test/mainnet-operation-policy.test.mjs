@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {canonicalJson,MAINNET_USDC,calculateMainnetRequestId,calculateMainnetTermsHash} from '@taply/shared';
-import {createMainnetOperationPlanner,mainnetNearConnectParameters,createMainnetWalletBackend,MAINNET_GENESIS_HASH} from '../dist/index.js';
+import {createMainnetOperationPlanner,mainnetNearConnectParameters,createMainnetWalletBackend,MAINNET_GENESIS_HASH,signMainnetGiftClaim} from '../dist/index.js';
 const fixture=n=>JSON.parse(readFileSync(new URL(`./fixtures/mainnet-protocol/${n}.json`,import.meta.url),'utf8'));
 const H=n=>'1'.repeat(31)+n,code=H(9),block=H(2),key='ed25519:11111111111111111111111111111111';
 const network={network:'near-mainnet',rpcUrl:'https://rpc.mainnet.fastnear.com',rpcProviderId:'synthetic'};
@@ -59,9 +59,15 @@ test('Gift policies require exact owner-approved config and refuse unknown retry
   const create=await createMainnetOperationPlanner(profiles,fetcher({noGift:true})).prepare({kind:'giftCreate',giftId:gift.id,publicKeyHex:gift.publicKey,amountYocto:'1',lifetimeS:600,message:'Gift',design:0},snapshot);
   assert.equal(create.action.depositYocto,'10000000000000000000001');
   const planner=createMainnetOperationPlanner(profiles,fetcher());
-  assert.equal((await planner.prepare({kind:'giftClaim',giftId:gift.id,signatureHex:'b'.repeat(128)},{...snapshot,accountId:'bob.near'})).action.methodName,'claim_gift');
+  const validGift={...gift,publicKey:'ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c'};
+  const signatureHex=await signMainnetGiftClaim(crypto,new Uint8Array(32).fill(7),giftConfig.contractId,gift.id,'bob.near');
+  assert.equal((await createMainnetOperationPlanner(profiles,fetcher({gift:validGift})).prepare({kind:'giftClaim',giftId:gift.id,signatureHex},{...snapshot,accountId:'bob.near'})).action.methodName,'claim_gift');
+  await assert.rejects(planner.prepare({kind:'giftClaim',giftId:gift.id,signatureHex:'b'.repeat(128)},{...snapshot,accountId:'bob.near'}));
   assert.equal((await planner.prepare({kind:'giftRefund',giftId:gift.id},{...snapshot,blockTimestampNs:gift.expiresAtNs})).action.methodName,'refund_gift');
   await assert.rejects(planner.prepare({kind:'giftRetry',giftId:gift.id},snapshot));
+  const failed={...gift,status:'CLAIMED',beneficiary:'bob.near',payout:'FAILED',payoutNonce:1,settledAtNs:'100',settledHeight:'10'};
+  const retry=nonce=>createMainnetOperationPlanner(profiles,fetcher({gift:{...failed,payoutNonce:nonce}})).prepare({kind:'giftRetry',giftId:gift.id},{...snapshot,accountId:'bob.near'});
+  const first=await retry(1),second=await retry(2);assert.deepEqual(first.action,second.action);assert.notEqual(first.operationHash,second.operationHash);
 });
 test('unanchored data, token code mismatch, missing storage and insufficient token funds cannot become signing reviews',async()=>{
   const op={kind:'usdcSend',receiverId:'bob.near',amountBaseUnits:'123',businessId:'a'.repeat(64)};
