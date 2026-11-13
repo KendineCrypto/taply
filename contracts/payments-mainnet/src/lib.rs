@@ -602,10 +602,10 @@ impl Payments {
         t.unclaimed_in_flight = add(t.unclaimed_in_flight, amount.0);
         self.conservation();
         self.recovery_event("unclaimed_withdrawal_started");
-        Promise::new(token).function_call("ft_transfer".into(),
+        Promise::new(token).function_call("ft_transfer".to_owned(),
             near_sdk::serde_json::to_vec(&json!({"receiver_id":receiver,"amount":amount,"memo":"Taply unclaimed recovery"})).unwrap(),
             NearToken::from_yoctonear(1), FT_TRANSFER_GAS)
-            .then(Promise::new(env::current_account_id()).function_call("on_unclaimed_transfer_complete".into(),
+            .then(Promise::new(env::current_account_id()).function_call("on_unclaimed_transfer_complete".to_owned(),
                 near_sdk::serde_json::to_vec(&json!({"operationNonce":self.recovery_nonce.to_string()})).unwrap(),
                 NearToken::from_yoctonear(0), CALLBACK_GAS))
     }
@@ -620,6 +620,9 @@ impl Payments {
             Err(PromiseError::Failed) => false,
             Err(_) => env::panic_str("UNKNOWN_PROMISE_RESULT"),
         };
+        if cfg!(feature = "sandbox-fail-callback") {
+            env::panic_str("SANDBOX_CALLBACK_FAULT");
+        }
         let t = &mut self.tokens[0];
         t.unclaimed_in_flight = sub(t.unclaimed_in_flight, self.recovery_amount);
         if success { t.unclaimed_withdrawn = add(t.unclaimed_withdrawn, self.recovery_amount); }
