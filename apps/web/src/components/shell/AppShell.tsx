@@ -35,6 +35,17 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
   const t = useT();
   const pathname = usePathname();
 
+  // /proof/:id is a READ-ONLY embeddable blockchain verification surface.
+  // No wallet navigation, bottom action bar or signing controls in an iframe.
+  // Every other route keeps the regular application shell.
+  if (/^\/proof\/[0-9a-f]{64}$/.test(pathname)) {
+    return (
+      <main id="main" className="mx-auto min-h-dvh w-full max-w-[520px] p-3 sm:p-5">
+        {children}
+      </main>
+    );
+  }
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col lg:max-w-[560px]">
       <a href="#main" className="sr-only-focusable m-2 rounded bg-[var(--surface-2)] p-2 text-sm">
