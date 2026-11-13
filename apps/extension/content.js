@@ -95,8 +95,10 @@
         return;
       }
       // Local note only, NEVER a verified social identity binding.
-      await chrome.storage.local.set({ [PREFIX + handle.toLowerCase()]: account });
-      // Only user action opens a new tab. The extension NEVER signs or transfers.
+      // Do NOT await storage: opening after an async boundary can lose the
+      // browser's user-gesture permission and be blocked as a popup.
+      void chrome.storage.local.set({ [PREFIX + handle.toLowerCase()]: account }).catch(() => {});
+      // Only a direct user submit opens a new tab. No signing here.
       window.open(url, '_blank', 'noopener,noreferrer');
       closeDialog();
     });
