@@ -249,7 +249,12 @@ fn evidence(name: &str, r: &ExecutionFinalResult, state: Value) -> Result<()> {
     println!("MEASURE {name} gas_burnt={}", r.total_gas_burnt.as_gas());
     Ok(())
 }
-async fn independent_receipt(s: &Setup, t: &Value, r: &ExecutionFinalResult, name: &str) -> Result<()> {
+async fn independent_receipt(
+    s: &Setup,
+    t: &Value,
+    r: &ExecutionFinalResult,
+    name: &str,
+) -> Result<()> {
     s.w.fast_forward(5).await?;
     let hash = r
         .clone()
