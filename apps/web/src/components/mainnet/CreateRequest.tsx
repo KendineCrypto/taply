@@ -266,7 +266,7 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
               <p data-testid="sale-link" className="break-all font-mono text-[11px]">{saleLink}</p>
             </div>
           )}
-          {fixtures && createCall !== null && <div className="mt-3"><CallPreview call={createCall} title={c.create.callTitle} /></div>}
+          {createCall !== null && <div className="mt-3"><CallPreview call={createCall} title={c.create.callTitle} /></div>}
           {!fixtures && terms !== null && (
             <div className="mt-3 flex flex-col gap-2">
               <Button variant="secondary" data-testid="create-op-review" disabled={op.busy} onClick={() => void op.run({ kind: 'instantCreate', terms })}>{c.create.callTitle}</Button>

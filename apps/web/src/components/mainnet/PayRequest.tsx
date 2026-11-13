@@ -175,10 +175,10 @@ function WalletPayReview({ request, asset }: { request: MainnetRequest; asset: M
   const op = useOperation();
   const now = useNow(5000);
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
-  // FIXTURE preview only: the labelled fixture request through the typed builder. Real builds use the planner below.
+  // Typed-builder preview (as before); real builds additionally prepare the wallet review through the planner below.
   let call: MainnetCall | null = null;
   const profile = profileFor(request);
-  if (fixtures && profile !== null && wallet.accountId !== null) {
+  if (profile !== null && wallet.accountId !== null) {
     try {
       call = prepareMainnetPayment({ profile, terms: request.terms, status: request.status, termsHash: request.termsHash,
         signerAccountId: wallet.accountId, observedAtNs: (BigInt(now) * 1_000_000n).toString() });
