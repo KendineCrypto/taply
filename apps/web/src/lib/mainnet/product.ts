@@ -7,6 +7,7 @@ export const PRODUCT_ROUTES = ['wallet', 'wallet/create', 'wallet/restore', 'sen
 export function isProductRoute(path: string): boolean {
   return (PRODUCT_ROUTES as readonly string[]).includes(path) ||
     /^(receipt|protected|gift)\/[0-9a-f]{64}(\/receipt)?$/.test(path) ||
+    /^gift\/[0-9a-f]{32}(\/receipt)?$/.test(path) ||
     /^s\/[A-Za-z0-9_-]{16,128}$/.test(path) ||
     (path.startsWith('checkout/') && MainnetAccountSchema.safeParse(path.slice(9)).success);
 }

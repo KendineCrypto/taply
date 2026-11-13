@@ -22,6 +22,7 @@ import { ActivityList } from './Activity';
 import { TaplyWalletHome, WalletCreate, WalletRestore, WalletSend } from './Wallet';
 import { ProtectedFixtures } from './Protected';
 import { GiftMainnet } from './GiftMainnet';
+import { PersonalGiftCompose, PersonalGiftOpen } from './GiftPages';
 import { requestPrefill } from '@/lib/mainnet/prefill';
 import { openCamera, stopStream } from '@/lib/qr/camera';
 import { createFrameDecoder, type FrameDecoder } from '@/lib/qr/decoder';
@@ -71,7 +72,7 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'contacts' && <Contacts />}
     {section === 'split' && <Split />}
     {section === 'recurring' && <DraftComposer kind="recurring" />}
-    {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <><GiftMainnet /><DraftComposer kind="gift" /></> : <Notice tone="caution">{c.blocked}</Notice>}</>}
+    {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <><PersonalGiftCompose /><GiftMainnet /><DraftComposer kind="gift" /></> : path === 'gift/p' ? <PersonalGiftOpen /> : <Notice tone="caution">{c.blocked}</Notice>}</>}
     {(section === 'activity' || section === 'merchant') && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><ActivityList removeLabel={c.remove} /><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
     {section === 'checkout' && <Card><p className="break-all font-mono">{path.slice(9)}</p><p className="mt-2">{c.checkoutHelp}</p><Link href="/m/pay">{c.pay}</Link></Card>}
     {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice><ProtectedFixtures /></>}

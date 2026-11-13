@@ -43,7 +43,7 @@ export function useWalletCopy(): WalletCopy {
 }
 
 let vaultSingleton: EncryptedMainnetVault | null = null;
-function vault(): EncryptedMainnetVault {
+export function vault(): EncryptedMainnetVault {
   vaultSingleton ??= new EncryptedMainnetVault(window.localStorage);
   return vaultSingleton;
 }

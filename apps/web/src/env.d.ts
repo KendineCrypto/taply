@@ -73,6 +73,12 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_MAINNET_SIGNING?: string;
     /** SERVER ONLY. 1Click mode: off (default) | fixture | dry. Funded quotes are refused in code. */
     readonly TAPLY_ONECLICK_MODE?: string;
+    /** Mainnet Gift contract profile (all five or none). Not approved: refused on Production. */
+    readonly NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID?: string;
+    readonly NEXT_PUBLIC_TAPLY_GIFT_CODE_HASH?: string;
+    readonly NEXT_PUBLIC_TAPLY_GIFT_MIN_YOCTO?: string;
+    readonly NEXT_PUBLIC_TAPLY_GIFT_MAX_YOCTO?: string;
+    readonly NEXT_PUBLIC_TAPLY_GIFT_FEE_YOCTO?: string;
     /** SERVER ONLY. Optional 1Click API key; sent as a Bearer token, never to the browser. */
     readonly TAPLY_ONECLICK_API_KEY?: string;
   }
