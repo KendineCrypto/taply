@@ -1,0 +1,242 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { calculateMainnetRequestId, calculateMainnetTermsHash, MainnetIntentTermsSchema } from '@taply/shared';
+import type { MainnetIntentTerms } from '@taply/shared';
+import { prepareMainnetCreateRequest, prepareMainnetTokenStorageDeposit } from '@taply/near-client';
+import type { MainnetCall } from '@taply/near-client';
+import { Button } from '@/components/primitives/Button';
+import { Card, ScreenHeader } from '@/components/primitives/Surface';
+import { MAINNET_ASSETS, formatMainnetAmount, parseMainnetAmount } from '@/lib/mainnet/assets';
+import type { MainnetAsset } from '@/lib/mainnet/assets';
+import { MAINNET_CONFIG } from '@/lib/mainnet/config';
+import { FIXTURE_CODE_HASH, FIXTURE_CONTRACT, FIXTURE_MERCHANT, FIXTURE_STORAGE_BOND_YOCTO } from '@/lib/mainnet/fixtures';
+import { readerOrNull, useUsdcRegistration } from '@/lib/mainnet/hooks';
+import { useMainnetWallet } from '@/lib/mainnet/wallet';
+import { CallPreview, Notice, Row } from './bits';
+import { WalletPanel } from './WalletPanel';
+import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
+
+const HOUR_NS = 3_600_000_000_000n;
+/** USDC registration bound used only to show the storage_deposit candidate; the real value is read fresh (storage_balance_bounds). */
+const FIXTURE_USDC_REGISTRATION_YOCTO = '1250000000000000000000';
+
+function randomNonce(): string {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+export function buildTerms(input: {
+  contractId: 'taply-pay.kendinecrypto.near' | 'devkendinecrypto.near';
+  creator: string;
+  asset: MainnetAsset;
+  amountBaseUnits: string;
+  memo: string;
+  nowMs: number;
+  nonce: string;
+}): MainnetIntentTerms {
+  const id = calculateMainnetRequestId({ contractId: input.contractId, creationNonce: input.nonce, creatorAccountId: input.creator, network: 'near-mainnet' });
+  return MainnetIntentTermsSchema.parse({
+    schemaVersion: 'taply.intent.v1',
+    id,
+    network: 'near-mainnet',
+    contractId: input.contractId,
+    creationNonce: input.nonce,
+    creatorAccountId: input.creator,
+    assetId: input.asset.id,
+    amountBaseUnits: input.amountBaseUnits,
+    mode: 'instant',
+    cancelDurationNs: null,
+    fundingExpiresAtNs: (BigInt(input.nowMs) * 1_000_000n + HOUR_NS).toString(),
+    permittedPayerAccountId: null,
+    merchantAccountId: null,
+    memo: input.memo,
+    sessionBinding: null,
+  });
+}
+
+type Bond = { kind: 'fixture' | 'quoted'; depositYocto: string; gas: string } | { kind: 'unknown' };
+
+export function CreateRequest() {
+  const c = useMainnetCopy();
+  const { locale } = useLocale();
+  const wallet = useMainnetWallet();
+  const [assetKey, setAssetKey] = useState<'USDC' | 'NEAR'>('USDC');
+  const [amount, setAmount] = useState('');
+  const [memo, setMemo] = useState('');
+  // Time the merchant pressed Review (event handler), so the 1-hour expiry is fresh.
+  const [reviewAtMs, setReviewAtMs] = useState<number | null>(null);
+  const reviewing = reviewAtMs !== null;
+  const [nonce] = useState(randomNonce);
+  const [quotedBond, setQuotedBond] = useState<{ termsId: string; bond: Bond } | null>(null);
+
+  const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
+  const asset = MAINNET_ASSETS[assetKey];
+  const creator = wallet.accountId ?? (fixtures ? FIXTURE_MERCHANT : null);
+  const contractId = MAINNET_CONFIG.ok && MAINNET_CONFIG.contract.status === 'configured'
+    ? (MAINNET_CONFIG.contract.accountId as 'taply-pay.kendinecrypto.near' | 'devkendinecrypto.near')
+    : fixtures ? FIXTURE_CONTRACT : null;
+  const registration = useUsdcRegistration(assetKey === 'USDC' ? creator : null);
+  const parsed = amount.trim() === '' ? null : parseMainnetAmount(amount, asset);
+  const memoOk = new TextEncoder().encode(memo).length <= 256;
+
+  const terms = useMemo(() => {
+    if (reviewAtMs === null || parsed === null || !parsed.ok || creator === null || contractId === null || !memoOk) return null;
+    try {
+      return buildTerms({ contractId, creator, asset, amountBaseUnits: parsed.baseUnits, memo, nowMs: reviewAtMs, nonce });
+    } catch {
+      return null;
+    }
+  }, [reviewAtMs, parsed, creator, contractId, asset, memo, nonce, memoOk]);
+
+  // Storage bond: the contract's quote_create_request (real) or the labelled sandbox value (fixture).
+  useEffect(() => {
+    if (terms === null || fixtures) return;
+    const reader = readerOrNull();
+    if (reader === null) return;
+    let live = true;
+    reader
+      .quoteCreateRequest(terms)
+      .then((r) => {
+        const q = r.data as { depositYocto?: unknown; gas?: unknown } | null;
+        if (live && q && typeof q.depositYocto === 'string' && typeof q.gas === 'string') setQuotedBond({ termsId: terms.id, bond: { kind: 'quoted', depositYocto: q.depositYocto, gas: q.gas } });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [terms, fixtures]);
+
+  const bond: Bond = terms === null
+    ? { kind: 'unknown' }
+    : fixtures
+      ? { kind: 'fixture', depositYocto: FIXTURE_STORAGE_BOND_YOCTO, gas: '30000000000000' }
+      : quotedBond !== null && quotedBond.termsId === terms.id ? quotedBond.bond : { kind: 'unknown' };
+  const profile = MAINNET_CONFIG.ok ? MAINNET_CONFIG.profile : null;
+  const profileForBuild = profile ?? (fixtures && contractId !== null && MAINNET_CONFIG.ok
+    ? { network: 'near-mainnet' as const, rpcUrl: MAINNET_CONFIG.rpcUrl, rpcProviderId: MAINNET_CONFIG.rpcProviderId, contract: { accountId: contractId, expectedCodeHash: FIXTURE_CODE_HASH } }
+    : null);
+
+  let createCall: MainnetCall | null = null;
+  if (terms !== null && bond.kind !== 'unknown' && profileForBuild !== null && creator !== null) {
+    try {
+      createCall = prepareMainnetCreateRequest({
+        profile: profileForBuild,
+        terms,
+        signerAccountId: creator,
+        quote: { requestId: terms.id, termsHash: calculateMainnetTermsHash(terms), quoteVersion: '1', depositYocto: bond.depositYocto, gas: bond.gas },
+      });
+    } catch {
+      createCall = null;
+    }
+  }
+  let registerCall: MainnetCall | null = null;
+  if (assetKey === 'USDC' && registration === 'not_registered' && profileForBuild !== null && creator !== null) {
+    registerCall = prepareMainnetTokenStorageDeposit(profileForBuild, creator, FIXTURE_USDC_REGISTRATION_YOCTO);
+  }
+
+  if (!MAINNET_CONFIG.ok) return <Notice tone="danger">{c.home.configBroken}</Notice>;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <ScreenHeader title={c.create.title} description={c.create.lead} />
+
+      <Card>
+        <h2 className="mb-2 text-[14px] font-semibold">{c.create.receiveTo}</h2>
+        {wallet.accountId === null && fixtures && <Notice tone="muted">{fill(c.create.fixtureMerchant, { account: FIXTURE_MERCHANT })}</Notice>}
+        {wallet.accountId === null && !fixtures && <p className="mb-2 text-[14px] text-[var(--text-secondary)]">{c.create.connectFirst}</p>}
+        <div className="mt-2"><WalletPanel /></div>
+        <p className="mt-2 text-[12px] text-[var(--text-muted)]">{c.create.receiveToFixed}</p>
+      </Card>
+
+      {!reviewing ? (
+        <Card>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (parsed?.ok && creator !== null && memoOk) setReviewAtMs(Date.now());
+            }}
+          >
+            <fieldset>
+              <legend className="mb-1.5 text-[13px] text-[var(--text-secondary)]">{c.create.assetLabel}</legend>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup">
+                {(['USDC', 'NEAR'] as const).map((key) => (
+                  <label key={key} className={`pressable flex min-h-[var(--tap-target)] cursor-pointer items-center justify-center rounded-[var(--radius-control)] border text-[15px] font-semibold ${assetKey === key ? 'border-[var(--taply-lime)] bg-[var(--tone-success-bg)]' : 'border-[var(--border-subtle)]'}`}>
+                    <input type="radio" name="asset" value={key} checked={assetKey === key} onChange={() => setAssetKey(key)} className="sr-only" />
+                    {key}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div>
+              <label htmlFor="amount" className="text-[13px] text-[var(--text-secondary)]">{c.create.amountLabel} ({asset.symbol})</label>
+              <input
+                id="amount"
+                inputMode="decimal"
+                autoComplete="off"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                aria-invalid={parsed !== null && !parsed.ok}
+                aria-describedby="amount-help"
+                className="mt-1 min-h-[52px] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 text-[20px] font-semibold tabular-nums"
+              />
+              <p id="amount-help" className="mt-1 text-[12px] text-[var(--text-muted)]">{fill(c.create.capNote, { cap: formatMainnetAmount(asset.capBaseUnits, asset, locale) })}</p>
+              {parsed !== null && !parsed.ok && <p role="alert" className="mt-1 text-[13px] text-[var(--tone-danger-fg)]">{c.create.errors[parsed.reason]}</p>}
+            </div>
+            <div>
+              <label htmlFor="memo" className="text-[13px] text-[var(--text-secondary)]">{c.create.memoLabel}</label>
+              <input id="memo" value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={256} className="mt-1 min-h-[var(--tap-target)] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 text-[15px]" />
+              <p className="mt-1 text-[12px] text-[var(--text-muted)]">{c.create.memoHint}</p>
+            </div>
+            <Button type="submit" variant="primary" size="lg" block disabled={!(parsed?.ok && creator !== null && memoOk)}>{c.create.review}</Button>
+          </form>
+        </Card>
+      ) : (
+        <Card>
+          <h2 className="mb-2 text-[15px] font-semibold">{c.create.reviewTitle}</h2>
+          <dl>
+            <Row label={c.create.receiveTo} mono>{creator}</Row>
+            <Row label={c.create.amountLabel}>{parsed?.ok ? formatMainnetAmount(parsed.baseUnits, asset, locale) : '—'}</Row>
+            {memo !== '' && <Row label={c.create.memoLabel}>{memo}</Row>}
+            <Row label={c.pay.contract} mono>{contractId ?? '—'}</Row>
+            <Row label={c.create.storageTitle}>
+              {bond.kind === 'fixture'
+                ? fill(c.create.storageFixture, { amount: formatMainnetAmount(bond.depositYocto, MAINNET_ASSETS.NEAR, locale).replace(' NEAR', '') })
+                : bond.kind === 'quoted'
+                  ? fill(c.create.storageQuote, { amount: formatMainnetAmount(bond.depositYocto, MAINNET_ASSETS.NEAR, locale).replace(' NEAR', '') })
+                  : c.create.storageUnknown}
+            </Row>
+            <Row label={c.pay.expires}>{c.create.expiry}</Row>
+          </dl>
+          {createCall !== null && <div className="mt-3"><CallPreview call={createCall} title={c.create.callTitle} /></div>}
+          <div className="mt-3 flex flex-col gap-2">
+            <Button variant="primary" size="lg" block disabled aria-describedby="signing-off">{c.create.sign}</Button>
+            <p id="signing-off" className="text-[13px] text-[var(--tone-caution-fg)]">{c.wallet.signingDisabled}</p>
+            <Button variant="ghost" onClick={() => setReviewAtMs(null)}>{c.create.back}</Button>
+          </div>
+        </Card>
+      )}
+
+      {assetKey === 'USDC' && creator !== null && (
+        <Card>
+          <h2 className="text-[14px] font-semibold">{c.create.usdcRegTitle}</h2>
+          <p data-testid="usdc-registration" className="mt-1 text-[14px] text-[var(--text-secondary)]">
+            {registration === 'registered' || registration === 'fixture_registered'
+              ? c.create.usdcRegistered
+              : registration === 'not_registered'
+                ? c.create.usdcNotRegistered
+                : c.create.usdcRegUnknown}
+          </p>
+          {registration === 'not_registered' && (
+            <div className="mt-2 flex flex-col gap-2">
+              {registerCall !== null && <CallPreview call={registerCall} title={c.create.callTitle} />}
+              <Button variant="secondary" disabled>{c.create.usdcRegCta}</Button>
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+}

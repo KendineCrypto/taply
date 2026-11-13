@@ -2,21 +2,24 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { cookies } from 'next/headers';
 import './globals.css';
-import { AppShell } from '@/components/shell/AppShell';
-import { I18nProvider } from '@/lib/i18n/provider';
-import { WalletProvider } from '@/lib/wallet/provider';
-import { PaymentsProvider } from '@/lib/payments/context';
-import { TaplyWalletProvider } from '@/components/wallet/taply/TaplyWalletProvider';
-import { LOCALE_COOKIE, getDictionary, resolveLocale } from '@/lib/i18n';
+import { LOCALE_COOKIE, resolveLocale } from '@/lib/i18n';
+// Build-selected by next.config.ts (`@taply-root/*` alias): src/app/_roots/testnet
+// or src/app/_roots/mainnet. Only one of them is ever in the module graph, so a
+// mainnet bundle carries no Testnet provider and a Testnet bundle no mainnet shell.
+import { Root } from '@taply-root/root';
 
 // Self-hosted at build time by next/font (no runtime request to Google).
 // latin-ext covers Turkish (ğ, ş, ı, İ).
 const inter = Inter({ subsets: ['latin', 'latin-ext'], display: 'swap', variable: '--font-inter' });
 
+// Build-time constant (lib/mainnet/build.ts); only the metadata text depends on it here.
+const MAINNET = process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet';
+
 export const metadata: Metadata = {
-  title: 'Taply — NEAR Testnet payments',
-  description:
-    'Mobile-first NEAR Testnet wallet and merchant payment app with explicit settlement states. Test funds only.',
+  title: MAINNET ? 'Taply — NEAR Mainnet (real funds, unaudited candidate)' : 'Taply — NEAR Testnet payments',
+  description: MAINNET
+    ? 'Taply on NEAR Mainnet: exact USDC and NEAR requests. Real funds, unaudited candidate contract, capped at 1 NEAR / 25 USDC per request.'
+    : 'Mobile-first NEAR Testnet wallet and merchant payment app with explicit settlement states. Test funds only.',
   manifest: '/manifest.webmanifest',
   applicationName: 'Taply',
   icons: {
@@ -49,22 +52,11 @@ export default async function RootLayout({ children }: { readonly children: Reac
   // Only the saved choice counts; a first visit is English whatever the browser language.
   const cookieStore = await cookies();
   const locale = resolveLocale(cookieStore.get(LOCALE_COOKIE)?.value);
-  const dictionary = getDictionary(locale);
 
   return (
     <html lang={locale} className={inter.variable}>
       <body>
-        <I18nProvider locale={locale}>
-          <WalletProvider>
-            <PaymentsProvider>
-              <TaplyWalletProvider>
-                <AppShell>{children}</AppShell>
-              </TaplyWalletProvider>
-            </PaymentsProvider>
-          </WalletProvider>
-        </I18nProvider>
-        {/* Static, honest statement of what this build is. */}
-        <span className="sr-only">{dictionary.app.demoFundsNote}</span>
+        <Root locale={locale}>{children}</Root>
       </body>
     </html>
   );

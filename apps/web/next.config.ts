@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import path from 'node:path';
 import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { evaluateMainnetEnv } from './scripts/check-mainnet-env.mjs';
 
@@ -10,7 +11,30 @@ import { evaluateMainnetEnv } from './scripts/check-mainnet-env.mjs';
  * assets ONLY. No service worker is registered in Phase 0 — see
  * `src/lib/protocol/README.md` ("Deferred with reasons").
  */
+/**
+ * Build-time root selection (docs/MAINNET_1CLICK_INTEGRATION.md §1). The
+ * `@taply-root/*` alias points at exactly one of src/app/_roots/{testnet,mainnet},
+ * for Turbopack and Webpack alike, so the other network's providers, vault and
+ * dictionaries are never part of the bundle. Same env value Next inlines.
+ */
+const ROOT_DIR =
+  process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet' ? './src/app/_roots/mainnet' : './src/app/_roots/testnet';
+const ROOT_FILES = ['root', 'loading', 'error', 'not-found'] as const;
+
 const nextConfig: NextConfig = {
+  turbopack: {
+    resolveAlias: Object.fromEntries(ROOT_FILES.map((f) => [`@taply-root/${f}`, `${ROOT_DIR}/${f}.tsx`])),
+  },
+  webpack(config: { resolve: { alias: Record<string, string> } }) {
+    // Fail closed: mainnet bundles are verified with Turbopack only (browser QA,
+    // leak scan). Under Webpack the mainnet root's client context was observed to
+    // split at runtime, so a Webpack mainnet build is refused rather than shipped.
+    if (process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet') {
+      throw new Error('NEAR mainnet builds must use Turbopack (pnpm build:mainnet); Webpack is not verified for the mainnet root.');
+    }
+    for (const f of ROOT_FILES) config.resolve.alias[`@taply-root/${f}`] = path.resolve(process.cwd(), ROOT_DIR, `${f}.tsx`);
+    return config;
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,

@@ -205,6 +205,17 @@ export function evaluateMainnetEnv({ env, source = {}, vercelEnv, requireMainnet
     add('Protected QA mode off on Production', !on(env.NEXT_PUBLIC_TAPLY_PROTECTED_QA), 'NEXT_PUBLIC_TAPLY_PROTECTED_QA must not be on in Production (it is on in .env.production)');
   }
 
+  // 5b. Mainnet integration switches (docs/MAINNET_1CLICK_INTEGRATION.md).
+  //     Fixtures and fixture-signed 1Click quotes never reach Production; funded
+  //     quotes and signing are NO-GO (also hard-gated in lib/mainnet/release-gates.ts).
+  const oneClickMode = env.TAPLY_ONECLICK_MODE ?? 'off';
+  add('TAPLY_ONECLICK_MODE is off, fixture or dry', ['off', 'fixture', 'dry'].includes(oneClickMode), `TAPLY_ONECLICK_MODE=${JSON.stringify(oneClickMode)}; funded quotes are not approved`);
+  add('signing flag off (NO-GO for mainnet funds)', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_SIGNING), 'NEXT_PUBLIC_TAPLY_MAINNET_SIGNING must stay off until the owner-approved release review');
+  if (production) {
+    add('fixtures off on Production', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES), 'NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES must not be on in Production');
+    add('1Click fixture mode off on Production', oneClickMode !== 'fixture', 'TAPLY_ONECLICK_MODE=fixture is refused in Production');
+  }
+
   // 6. Share origin: never the Testnet host; exactly the mainnet host on Production.
   const share = (env.NEXT_PUBLIC_TAPLY_SHARE_ORIGIN ?? '').replace(/\/+$/, '');
   add('share origin is not the Testnet host', !TESTNET_ORIGINS.includes(share), `NEXT_PUBLIC_TAPLY_SHARE_ORIGIN=${share} serves the Testnet build`);

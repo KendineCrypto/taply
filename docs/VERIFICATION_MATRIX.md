@@ -9,8 +9,12 @@
 | Router hold/recovery | Sandbox rejection, gas sweep, recovery, conservation and R-2 fault tests pass; 16 shared wire records validate | None | Quote/signing integration disabled; upstream gas envelope and R-2 unresolved |
 | Deployment planner | 5 offline tests pass | None | Read-only; no signer or key deletion |
 | Base-origin payment / Verified Paid | None | None | Not proven / verifier not implemented on mainnet |
+| Mainnet web build profile + route isolation (Claude) | Unit tests; Testnet runtime parity vs `bf5d712` on 21 paths; mainnet preview build, browser QA 390/1280/360 TR | None (no contract, no host) | Fixture screens only; Webpack mainnet builds refused |
+| Merchant NEAR/USDC request UI, caps, storage bond, USDC registration check | Unit + browser QA on fixtures; unsigned `create_request` / `storage_deposit` candidates from Codex builders | None | Signing gated off in code |
+| 1Click quote/status server routes (Base USDC only) | 56 server tests incl. SDK signature path, tampered fields, echo, expiry, duplicate/concurrent/replay, refusals | None; no live 1Click response recorded | Fixture/dry modes only; funded quotes refused in code |
+| Payment states (Awaiting … Unknown), Payment recorded vs Verified | State-model tests over every contract × hint combination; browser QA | None | "Verified Paid" unreachable on mainnet |
 
-See [CI evidence and Claude handoff](MAINNET_CI_HANDOFF.md). Historical
+See [CI evidence and Claude handoff](MAINNET_CI_HANDOFF.md) and the [frontend + 1Click integration report](MAINNET_1CLICK_INTEGRATION.md). Historical
 Testnet evidence below is not proof for this new candidate.
 
 Updated **2026-11-11** (final hackathon release). Production evidence below was

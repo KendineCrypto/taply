@@ -234,7 +234,7 @@ environment variables, production branch `release/taplyapp`, domain
 | Root Directory | `apps/web`, "Include files outside the root directory" **on** |
 | Node.js | 24.x |
 | Install Command | `pnpm install --frozen-lockfile` |
-| Build Command | `cd ../.. && pnpm --filter "@taply/web^..." run build && pnpm --filter @taply/web run build:mainnet` |
+| Build Command | `cd ../.. && pnpm --filter "@taply/web^..." run build && pnpm --filter @taply/web run build:mainnet` (Turbopack; Webpack mainnet builds are refused) |
 | Ignored Build Step | `bash scripts/vercel-ignore-mainnet.sh` |
 | Output | Next.js default |
 | Deployment Protection | Vercel Authentication on **Preview** (staging uses real mainnet funds; keep it private). Production public. |
@@ -375,6 +375,9 @@ runtime default.
 | `ENABLE_EXPERIMENTAL_COREPACK` | `1` | pnpm 11.5.0 from `packageManager` |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` (server only) | from a **new** Upstash database created inside `taply-mainnet` → Storage | must not be the Testnet project's database |
 | `TAPLY_ONECLICK_API_KEY` (server only, optional) | only if you issue one | never `NEXT_PUBLIC_` |
+| `NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES` | `off` (a staging Preview may use `on`) | fixture screens; refused on Production |
+| `NEXT_PUBLIC_TAPLY_MAINNET_SIGNING` | `off` | refused on every mainnet build while NO-GO; also hard-gated in code |
+| `TAPLY_ONECLICK_MODE` (server only) | `off` (Preview: `fixture` or `dry`) | `funded` refused; `fixture` refused on Production |
 
 Flag rule (brief §1): each signing flag turns on only after its flow has
 mainnet evidence under `docs/evidence/`. Today the mainnet code paths do not

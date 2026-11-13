@@ -177,6 +177,27 @@ describe('host and store isolation', () => {
   });
 });
 
+describe('mainnet integration switches', () => {
+  it('fixtures and fixture 1Click mode are refused on Production, allowed on a staging Preview', () => {
+    expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES: 'on' }).failed).toEqual(['fixtures off on Production']);
+    expect(run({ ...PRODUCTION, TAPLY_ONECLICK_MODE: 'fixture' }).failed).toEqual(['1Click fixture mode off on Production']);
+    const preview = { ...PRODUCTION, VERCEL_ENV: 'preview', NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: undefined, NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES: 'on', TAPLY_ONECLICK_MODE: 'fixture' };
+    expect(run(preview).failed).toEqual([]);
+  });
+
+  it('funded 1Click quotes and the signing flag are refused on every scope', () => {
+    for (const scope of ['production', 'preview']) {
+      const base = { ...PRODUCTION, VERCEL_ENV: scope, NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: scope === 'production' ? PRODUCTION['NEXT_PUBLIC_TAPLY_SHARE_ORIGIN'] : undefined };
+      expect(run({ ...base, TAPLY_ONECLICK_MODE: 'funded' }).failed).toEqual(['TAPLY_ONECLICK_MODE is off, fixture or dry']);
+      expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on' }).failed).toEqual(['signing flag off (NO-GO for mainnet funds)']);
+    }
+  });
+
+  it('dry 1Click mode is allowed (non-funding)', () => {
+    expect(run({ ...PRODUCTION, TAPLY_ONECLICK_MODE: 'dry' }).failed).toEqual([]);
+  });
+});
+
 describe('env file resolution follows Next.js precedence', () => {
   it('process env beats .env.local beats .env.production beats .env', () => {
     const { env, source } = resolveBuildEnv(

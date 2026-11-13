@@ -83,3 +83,24 @@ jobs:
 
       - name: Production Webpack build
         run: pnpm --filter @taply/web exec next build --webpack
+
+      # NEAR mainnet candidate (docs/MAINNET_1CLICK_INTEGRATION.md §8). Preview
+      # shape: no contract pinned, fixture screens, no signing, no funded quotes.
+      # The guard must pass here and must refuse a build that inherits Testnet
+      # values from the committed .env.production.
+      - name: Mainnet build guard refuses inherited Testnet values
+        working-directory: apps/web
+        run: |
+          if NEXT_PUBLIC_TAPLY_NETWORK=near-mainnet VERCEL_ENV=production node scripts/check-mainnet-env.mjs --require-mainnet; then
+            echo "check-mainnet-env did not refuse a Testnet-valued mainnet build"; exit 1
+          fi
+
+      - name: Mainnet preview build (guarded) and static leak check
+        working-directory: apps/web
+        run: |
+          set -a; . ./env/mainnet.env.example; set +a
+          export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_SHARE_ORIGIN= NEXT_PUBLIC_TAPLY_CONTRACT_ID= NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES=on
+          pnpm run build:mainnet
+          if grep -rl -e 'taply-e2e-ce38a238' -e 'taply.testnet-vault.v1' .next/static; then
+            echo "Testnet contract or vault key found in the mainnet bundle"; exit 1
+          fi

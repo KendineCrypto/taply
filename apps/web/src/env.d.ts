@@ -60,5 +60,14 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_PROTECTED_CODE_HASH?: string;
     /** 'on' only on a protected QA build: allows signing against the UNREVIEWED candidate. */
     readonly NEXT_PUBLIC_TAPLY_PROTECTED_QA?: string;
+
+    /** Mainnet build only: 'on' serves clearly labelled fixture data instead of chain reads. Never on Production. */
+    readonly NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES?: string;
+    /** Mainnet build only: signing flag. Also needs the compile-time gate in lib/mainnet/release-gates.ts (false). */
+    readonly NEXT_PUBLIC_TAPLY_MAINNET_SIGNING?: string;
+    /** SERVER ONLY. 1Click mode: off (default) | fixture | dry. Funded quotes are refused in code. */
+    readonly TAPLY_ONECLICK_MODE?: string;
+    /** SERVER ONLY. Optional 1Click API key; sent as a Bearer token, never to the browser. */
+    readonly TAPLY_ONECLICK_API_KEY?: string;
   }
 }
