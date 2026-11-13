@@ -89,7 +89,13 @@ fn rejects_with(code: &str, f: impl FnOnce()) {
 fn setup() -> (Env, Gifts) {
     let mut e = Env::new();
     e.ctx(CONTRACT, 0, NOW, vec![]);
-    let c = Gifts::new("near-mainnet".into(), CONTRACT.parse().unwrap(), U128(MIN_AMOUNT), U128(MAX_AMOUNT), U128(GIFT_FEE));
+    let c = Gifts::new(
+        "near-mainnet".into(),
+        CONTRACT.parse().unwrap(),
+        U128(MIN_AMOUNT),
+        U128(MAX_AMOUNT),
+        U128(GIFT_FEE),
+    );
     // The account pays for its own (mock) storage and keeps BASE_BALANCE spare.
     e.balance =
         env::storage_usage() as u128 * env::storage_byte_cost().as_yoctonear() + BASE_BALANCE;
@@ -750,8 +756,8 @@ fn t13_deposit_must_be_exactly_amount_plus_fee() {
 #[test]
 fn t14_fee_covers_worst_case_storage_and_callbacks_never_grow() {
     let (mut e, mut c) = setup();
-    let long_creator = format!("{}.near", "c".repeat(56));
-    let long_claimant = format!("{}.near", "d".repeat(56));
+    let long_creator = format!("{}.near", "c".repeat(59));
+    let long_claimant = format!("{}.near", "d".repeat(59));
     assert_eq!(long_claimant.len(), 64);
     let before = env::storage_usage();
     e.ctx(&long_creator, ONE_NEAR + GIFT_FEE, NOW, vec![]);
@@ -870,9 +876,21 @@ fn t14_no_admin_surface() {
 fn init_only_once() {
     let (e, _c) = setup();
     e.ctx(CONTRACT, 0, NOW, vec![]);
-    near_sdk::env::state_write(&Gifts::new("near-mainnet".into(), CONTRACT.parse().unwrap(), U128(MIN_AMOUNT), U128(MAX_AMOUNT), U128(GIFT_FEE)));
+    near_sdk::env::state_write(&Gifts::new(
+        "near-mainnet".into(),
+        CONTRACT.parse().unwrap(),
+        U128(MIN_AMOUNT),
+        U128(MAX_AMOUNT),
+        U128(GIFT_FEE),
+    ));
     rejects_with("ALREADY_INITIALIZED", || {
-        let _ = Gifts::new("near-mainnet".into(), CONTRACT.parse().unwrap(), U128(MIN_AMOUNT), U128(MAX_AMOUNT), U128(GIFT_FEE));
+        let _ = Gifts::new(
+            "near-mainnet".into(),
+            CONTRACT.parse().unwrap(),
+            U128(MIN_AMOUNT),
+            U128(MAX_AMOUNT),
+            U128(GIFT_FEE),
+        );
     });
 }
 
@@ -902,19 +920,43 @@ fn explicit_mainnet_configuration_and_limits_are_required() {
     let e = Env::new();
     e.ctx(CONTRACT, 0, NOW, vec![]);
     rejects_with("WRONG_NETWORK", || {
-        Gifts::new("near-testnet".into(), CONTRACT.parse().unwrap(), U128(1), U128(2), U128(1));
+        Gifts::new(
+            "near-testnet".into(),
+            CONTRACT.parse().unwrap(),
+            U128(1),
+            U128(2),
+            U128(1),
+        );
     });
     rejects_with("WRONG_CONTRACT", || {
-        Gifts::new("near-mainnet".into(), "other.near".parse().unwrap(), U128(1), U128(2), U128(1));
+        Gifts::new(
+            "near-mainnet".into(),
+            "other.near".parse().unwrap(),
+            U128(1),
+            U128(2),
+            U128(1),
+        );
     });
     for (min, max, fee) in [(0, 1, 1), (2, 1, 1), (1, 2, 0), (1, u128::MAX, 1)] {
         rejects_with("INVALID_LIMITS", || {
-            Gifts::new("near-mainnet".into(), CONTRACT.parse().unwrap(), U128(min), U128(max), U128(fee));
+            Gifts::new(
+                "near-mainnet".into(),
+                CONTRACT.parse().unwrap(),
+                U128(min),
+                U128(max),
+                U128(fee),
+            );
         });
     }
     e.ctx(BOB, 0, NOW, vec![]);
     rejects_with("PRIVATE_INIT", || {
-        Gifts::new("near-mainnet".into(), CONTRACT.parse().unwrap(), U128(1), U128(2), U128(1));
+        Gifts::new(
+            "near-mainnet".into(),
+            CONTRACT.parse().unwrap(),
+            U128(1),
+            U128(2),
+            U128(1),
+        );
     });
 }
 
@@ -922,7 +964,9 @@ fn explicit_mainnet_configuration_and_limits_are_required() {
 fn testnet_claim_domain_cannot_claim_mainnet_gift() {
     let (mut e, mut c) = setup();
     create(&mut e, &mut c, ID);
-    let foreign = hex(&link_key().sign(format!("taply-gift-claim:v1:{CONTRACT}:{ID}:{BOB}").as_bytes()).to_bytes());
+    let foreign = hex(&link_key()
+        .sign(format!("taply-gift-claim:v1:{CONTRACT}:{ID}:{BOB}").as_bytes())
+        .to_bytes());
     e.ctx(BOB, 0, NOW, vec![]);
     rejects_with("BAD_CLAIM_SIGNATURE", || c.claim_gift(ID.into(), foreign));
 }

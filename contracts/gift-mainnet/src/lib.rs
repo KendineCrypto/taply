@@ -150,14 +150,35 @@ pub struct Gifts {
 impl Gifts {
     #[init]
     #[private]
-    pub fn new(network: String, contract_id: AccountId, min_amount: U128, max_amount: U128, fee: U128) -> Self {
+    pub fn new(
+        network: String,
+        contract_id: AccountId,
+        min_amount: U128,
+        max_amount: U128,
+        fee: U128,
+    ) -> Self {
         require!(!env::state_exists(), "ALREADY_INITIALIZED");
-        require!(env::predecessor_account_id() == env::current_account_id(), "PRIVATE_INIT");
+        require!(
+            env::predecessor_account_id() == env::current_account_id(),
+            "PRIVATE_INIT"
+        );
         require!(network == "near-mainnet", "WRONG_NETWORK");
         require!(contract_id == env::current_account_id(), "WRONG_CONTRACT");
         mainnet_account(&contract_id);
-        require!(!matches!(contract_id.as_str(), "taply-pay.kendinecrypto.near" | "devkendinecrypto.near" | "kendinecrypto.near" | "intents.near"), "SEPARATE_GIFT_ACCOUNT_REQUIRED");
-        require!(min_amount.0 > 0 && max_amount.0 >= min_amount.0 && fee.0 > 0, "INVALID_LIMITS");
+        require!(
+            !matches!(
+                contract_id.as_str(),
+                "taply-pay.kendinecrypto.near"
+                    | "devkendinecrypto.near"
+                    | "kendinecrypto.near"
+                    | "intents.near"
+            ),
+            "SEPARATE_GIFT_ACCOUNT_REQUIRED"
+        );
+        require!(
+            min_amount.0 > 0 && max_amount.0 >= min_amount.0 && fee.0 > 0,
+            "INVALID_LIMITS"
+        );
         require!(max_amount.0.checked_add(fee.0).is_some(), "INVALID_LIMITS");
         Self {
             min_amount: min_amount.0,
@@ -186,7 +207,10 @@ impl Gifts {
         design: u8,
     ) -> GiftView {
         mainnet_account(&env::predecessor_account_id());
-        require!(env::predecessor_account_id() != env::current_account_id(), "SELF_GIFT");
+        require!(
+            env::predecessor_account_id() != env::current_account_id(),
+            "SELF_GIFT"
+        );
         valid_id(&gift_id);
         let key = hex32(&public_key);
         let amount = amount.0;
@@ -530,7 +554,10 @@ fn no_deposit() {
     require!(env::attached_deposit().is_zero(), "NO_DEPOSIT_ALLOWED");
 }
 fn mainnet_account(account: &AccountId) {
-    require!(!account.as_str().ends_with(".testnet") && !account.as_str().ends_with(".test"), "WRONG_NETWORK");
+    require!(
+        !account.as_str().ends_with(".testnet") && !account.as_str().ends_with(".test"),
+        "WRONG_NETWORK"
+    );
 }
 fn enough_gas() {
     require!(env::prepaid_gas() >= MIN_SETTLE_GAS, "NOT_ENOUGH_GAS");
