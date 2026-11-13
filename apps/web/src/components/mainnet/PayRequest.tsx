@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { prepareMainnetPayment } from '@taply/near-client';
+import { MainnetAccountSchema } from '@taply/shared';
 import type { MainnetCall, MainnetProfile } from '@taply/near-client';
 import { Button } from '@/components/primitives/Button';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
@@ -41,6 +42,15 @@ function formatTime(ms: number, locale: string): string {
   return new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms));
 }
 
+const BIND_EN = {
+  mismatch: 'Incorrect merchant account. You opened this from the checkout of {store}, but this request pays {recipient}. Do not pay it; ask the cashier for this store\'s sale request.',
+  match: 'Pays the store you opened: {store}.',
+};
+const BIND_TR: typeof BIND_EN = {
+  mismatch: 'Yanlış işletme hesabı. Bunu {store} ödeme sayfasından açtınız, ancak bu talep {recipient} hesabına ödüyor. Ödemeyin; kasiyerden bu mağazanın satış talebini isteyin.',
+  match: 'Açtığınız mağazaya öder: {store}.',
+};
+
 export function PayRequest({ id, after }: { readonly id: string; readonly after?: (request: MainnetRequest, open: boolean) => ReactNode }) {
   const c = useMainnetCopy();
   const { locale } = useLocale();
@@ -51,6 +61,12 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
   const isUsdc = read.kind === 'ok' && read.request.terms.assetId === MAINNET_ASSETS.USDC.id;
   const hint = useOneClickHint(id, isUsdc && (fixtures || quotePrepared));
+  // Store binding from a checkout (`?m=<store>`): a sale request for another account is refused.
+  const [expectedMerchant, setExpectedMerchant] = useState<string | null>(null);
+  useEffect(() => {
+    const m = new URLSearchParams(window.location.search).get('m');
+    if (m !== null && MainnetAccountSchema.safeParse(m).success) queueMicrotask(() => setExpectedMerchant(m));
+  }, []);
 
   if (!MAINNET_CONFIG.ok) return <Notice tone="danger">{c.home.configBroken}</Notice>;
   if (read.kind === 'disabled') return <Notice tone="caution">{c.home.contractNotConfigured}</Notice>;
@@ -60,7 +76,9 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
 
   const r = read.request;
   const asset = assetById(r.terms.assetId)!;
-  const open = r.status === 'OPEN' && nsToMs(r.terms.fundingExpiresAtNs) > now;
+  const wrongMerchant = expectedMerchant !== null && r.recipientAccountId !== expectedMerchant;
+  const open = r.status === 'OPEN' && nsToMs(r.terms.fundingExpiresAtNs) > now && !wrongMerchant;
+  const bind = locale === 'tr' ? BIND_TR : BIND_EN;
 
   return (
     <div className="flex flex-col gap-4">
@@ -78,6 +96,9 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
         <p className="mt-2 text-[12px] text-[var(--text-muted)]">{c.pay.fixedNote}</p>
       </Card>
 
+      {expectedMerchant !== null && (wrongMerchant
+        ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
+        : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
       <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} />
       {after?.(r, open)}
 
