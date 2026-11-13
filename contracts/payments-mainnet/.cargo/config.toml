@@ -1,0 +1,5 @@
+[target.wasm32-unknown-unknown]
+# `--cfg near` selects near-sdk host functions (env::panic_str -> panic_utf8, host sha256).
+# Without it near-sdk uses pure-Rust fallbacks "not for on-chain use": every require!/
+# panic_str message becomes a bare `unreachable` trap. Same flag cargo-near sets.
+rustflags = ["-C", "target-cpu=mvp", "--cfg", "near"]
