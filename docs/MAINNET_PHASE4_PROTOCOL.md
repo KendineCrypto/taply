@@ -178,7 +178,10 @@ existing inventory; this work provides no new verified live route evidence.
 - `pnpm check` runs all workspace builds/types/lint/tests. A local Windows run
   passed shared/near-client tests but hit two existing 5-second web test timeouts;
   the same two files passed all 74 tests with `vitest run ... --maxWorkers=1`
-  without changing timeouts. Final Linux CI remains required.
+  without changing timeouts. The complete rerun with `VITEST_MAX_WORKERS=2 pnpm
+  check` exited 0: shared 93, near-client 322, web 1,502 passed / 14 skipped.
+  This only bounds worker parallelism; no test, assertion or timeout was changed.
+  Final Linux CI remains required.
 - `node --test packages/near-client/test/mainnet-reconciliation.test.mjs`
   tests finalized execution, unknown outcomes, CAS races, lost acknowledgements,
   exact calls, stale nonces, cross-device restrictions and permanent tombstones.
@@ -186,7 +189,9 @@ existing inventory; this work provides no new verified live route evidence.
   `mainnet-payout-receipt.test.mjs`, `mainnet-commerce-binding.test.mjs` exercise
   adversarial synthetic RPC evidence. They are not live Mainnet evidence.
 - `node --test apps/api/test/mainnet-wallet-authority.test.mts` checks independent
-  server reconstruction; `redis-store.test.mts` uses real Redis when available.
+  server reconstruction; `redis-store.test.mts` uses real Redis when available,
+  including an AOF/always-fsync/no-eviction process-kill/restart test. This test
+  configuration is not evidence that production Redis meets those guarantees.
 - The existing Chromium IndexedDB harness additionally tests the v2 coordinator
   across tabs, renderer crash, restart and another device. Its v2 shared authority
   is a test-only HTTP CAS simulation; it does not certify production durability.

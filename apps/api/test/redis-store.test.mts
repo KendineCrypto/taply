@@ -3,6 +3,10 @@ import { test } from 'node:test';
 import { spawn, spawnSync } from 'node:child_process';
 import { connect } from 'node:net';
 import { randomBytes } from 'node:crypto';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {once} from 'node:events';
 import { RedisDurableStore, upstashCommand, sessionKeyFromEnv, type RedisCommand } from '../src/redis-store.mts';
 import {createMainnetGlobalRedisStore} from '../src/mainnet-wallet-store.mts';
 
@@ -101,6 +105,35 @@ test('real Redis Mainnet wallet authority: atomic reservation, no TTL, reconnect
       await assert.rejects(stores[0]!.compareAndSwap('alice.near',next,next),/DURABILITY/);
     }finally{clients.forEach(c=>c.close());}
   });
+});
+
+test('real Redis AOF: acknowledged wallet reservation survives process kill and restart', {skip:!hasRedis}, async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'taply-wallet-aof-'));
+  const port=20000+Math.floor(Math.random()*20000);
+  let server:ReturnType<typeof spawn>|undefined,client:ReturnType<typeof resp>|undefined;
+  async function start(){
+    server=spawn('redis-server',['--bind','127.0.0.1','--port',String(port),'--dir',directory,'--save','','--appendonly','yes','--appendfsync','always','--maxmemory-policy','noeviction'],{stdio:'ignore'});
+    for(let i=0;i<50;i++){
+      const candidate=resp(port);
+      try{await candidate.command(['PING']);client=candidate;return;}catch{candidate.close();await new Promise(r=>setTimeout(r,100));}
+    }
+    throw Error('Redis restart unavailable');
+  }
+  async function kill(){
+    client?.close();client=undefined;
+    if(server&&server.exitCode===null&&server.signalCode===null){const exit=once(server,'exit');server.kill('SIGKILL');await exit;}
+    server=undefined;
+  }
+  try{
+    await start();
+    const ledger=JSON.stringify({version:2,network:'near-mainnet',accountId:'alice.near',pending:{state:'HANDOFF',attemptId:crypto.randomUUID()}});
+    assert.equal(await createMainnetGlobalRedisStore(client!.command,'alice.near').compareAndSwap('alice.near',null,ledger),true);
+    await kill();await start();
+    const restored=createMainnetGlobalRedisStore(client!.command,'alice.near');
+    assert.equal(await restored.read('alice.near'),ledger);
+    assert.equal(await restored.compareAndSwap('alice.near',null,ledger),false);
+    assert.equal(await client!.command(['PTTL','taply:mainnet:wallet:v2:alice.near']),-1);
+  }finally{await kill();await rm(directory,{recursive:true,force:true});}
 });
 
 test('real redis: 50 concurrent increments from 5 independent clients lose nothing (atomic CAS)', { skip: !hasRedis }, async () => {
