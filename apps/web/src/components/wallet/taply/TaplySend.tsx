@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useId, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Amount } from '@/components/primitives/Amount';
@@ -25,6 +25,21 @@ import { useWalletMode } from './mode';
  */
 type Prepared = { readonly receiverId: string; readonly depositYocto: string; readonly availableYocto: string; readonly storageReserveYocto: string; readonly gasReserveYocto: string };
 
+const noSubscription = () => () => undefined;
+
+/** Untrusted URL input. Pre-fills UI only; no signing or network reads here. */
+function parseXTipHandoff(search: string): { to: string; amount: string } | null {
+  const params = new URLSearchParams(search);
+  if (params.get('source') !== 'x-tip') return null;
+  const to = params.get('to');
+  const amount = params.get('amount');
+  if (to === null || (!isNamedTestnetAccount(to) && !/^[0-9a-f]{64}$/.test(to))) return null;
+  if (amount === null || !/^(?:0|[1-9]\\d{0,5})(?:\\.\\d{1,24})?$/.test(amount)) return null;
+  const [whole = '0', fractional = ''] = amount.split('.');
+  const yocto = BigInt(whole) * 10n ** 24n + BigInt((fractional + '0'.repeat(24)).slice(0, 24));
+  return yocto > 0n ? { to, amount } : null;
+}
+
 export function TaplySend() {
   const t = useT();
   const { locale } = useLocale();
@@ -36,30 +51,20 @@ export function TaplySend() {
   const [outcome, setOutcome] = useState<SendOutcome | null>(null);
   const receiverId = useId();
   const amountId = useId();
-  const [receiver, setReceiver] = useState('');
-  const [amount, setAmount] = useState('');
+  const [receiverDraft, setReceiver] = useState<string | null>(null);
+  const [amountDraft, setAmount] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<TaplyErrorCode | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
-  const [fromXTip, setFromXTip] = useState(false);
-
-  // Optional handoff from Taply for X. Query strings are user-controlled and
-  // unverified: populate inputs only, NEVER prepare, sign or submit a transfer.
-  // The normal controller checks recipient, balances, gas, storage and wallet
-  // consent, and the user must still review and explicitly approve.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('source') !== 'x-tip') return;
-    const to = params.get('to');
-    const value = params.get('amount');
-    if (to === null || (!isNamedTestnetAccount(to) && !/^[0-9a-f]{64}$/.test(to))) return;
-    if (value === null || !/^(?:0|[1-9]\d{0,5})(?:\.\d{1,24})?$/.test(value)) return;
-    const [whole = '0', decimal = ''] = value.split('.');
-    if (BigInt(whole) * 10n ** 24n + BigInt((decimal + '0'.repeat(24)).slice(0, 24)) <= 0n) return;
-    setReceiver(to);
-    setAmount(value);
-    setFromXTip(true);
-  }, []);
+  // URL prefill is derived from a stable external-store snapshot, not written
+  // synchronously inside an effect (React 19 + react-hooks lint).
+  // Server snapshot is empty: hydration stays identical until the browser reads
+  // its actual query string. User edits always take precedence over URL hints.
+  const search = useSyncExternalStore(noSubscription, () => window.location.search, () => '');
+  const prefill = parseXTipHandoff(search);
+  const receiver = receiverDraft ?? prefill?.to ?? '';
+  const amount = amountDraft ?? prefill?.amount ?? '';
+  const fromXTip = prefill !== null;
 
   if (state.status === 'checking') {
     return (
