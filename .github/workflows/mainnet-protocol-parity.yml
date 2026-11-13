@@ -1,0 +1,53 @@
+name: mainnet-protocol-parity
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/mainnet-parity-protocol]
+permissions:
+  contents: read
+concurrency:
+  group: protocol-parity-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: '0'
+  RUST_BACKTRACE: '1'
+jobs:
+  gift:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: contracts/gift-mainnet
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+      - run: rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/gift-mainnet/target
+            contracts/gift-mainnet/sandbox/target
+          key: mainnet-gift-${{ runner.os }}-rust1.95-${{ hashFiles('contracts/gift-mainnet/**/Cargo.lock') }}
+      - name: Format candidate (export changes for local review)
+        run: |
+          cargo fmt --all
+          (cd sandbox && cargo fmt --all)
+          mkdir -p artifacts
+          git diff -- src sandbox > artifacts/format.patch
+      - run: cargo test --locked --lib -- --test-threads=1
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: FAULT=1 bash scripts/build.sh
+      - run: bash scripts/sandbox.sh
+      - name: Preserve test and build evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: mainnet-gift-${{ github.sha }}
+          path: contracts/gift-mainnet/artifacts

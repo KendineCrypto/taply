@@ -53,3 +53,11 @@ export {
   prepareCreateGift, prepareRefundGift, prepareRetryGiftPayout, signGiftClaim, verifyDirectTransfer, verifyGiftClaim,
 } from "./gift.js";
 export type { DirectTransferCheck, GiftConfig, GiftConfigProblem, GiftRead, GiftReader, GiftView, PreparedGiftCall } from "./gift.js";
+export { EncryptedMainnetVault, MainnetVaultError, MAINNET_WALLET_STORAGE_KEY, MAINNET_VAULT_UNLOCK_MS } from "./mainnet-vault.js";
+export type { MainnetWalletIdentity, MainnetVaultStorage, MainnetVaultSessionStore } from "./mainnet-vault.js";
+export { createMainnetWalletChain } from './mainnet-wallet-chain.js';
+export { mainnetSpendingBudget, prepareMainnetNativeTransfer, prepareMainnetUsdcTransfer } from './mainnet-wallet-transfer.js';
+export type { MainnetWalletSnapshot } from './mainnet-wallet-transfer.js';
+export type { MainnetReadProfile } from './mainnet-network.js';
+export { createMainnetAttemptJournal, openMainnetAttemptStore } from './mainnet-attempts.js';
+export type { MainnetAttempt, MainnetAttemptStore } from './mainnet-attempts.js';
