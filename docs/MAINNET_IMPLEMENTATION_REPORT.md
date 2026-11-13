@@ -1,5 +1,10 @@
 # Mainnet core implementation report — 2026-11-13
 
+**Historical snapshot before the CI verification follow-up.** The statements
+below about uncompiled source, unexecuted Rust/sandbox tests and an unpushed
+branch describe the original implementation turn. They are superseded by the
+[CI evidence and Claude handoff](MAINNET_CI_HANDOFF.md). Mainnet remains NO-GO.
+
 **NO-GO. This is an incomplete, unvalidated contract candidate, not a mainnet
 pilot.** No funds moved, accounts created, keys changed, deployments executed,
 hosting/DNS modified, branches merged or mainnet receipts claimed.

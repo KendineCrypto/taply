@@ -180,20 +180,28 @@ async fn pay(
         .await?)
 }
 async fn request(s: &Setup, t: &Value) -> Result<Value> {
-    let record: Value = s.c
-        .view("get_request")
-        .args_json(json!({"id":t["id"]}))
-        .await?
-        .json()?;
+    let record: Value =
+        s.c.view("get_request")
+            .args_json(json!({"id":t["id"]}))
+            .await?
+            .json()?;
     std::fs::create_dir_all("../artifacts/mainnet-wire")?;
     std::fs::write(
-        format!("../artifacts/mainnet-wire/{}-{}.json", t["id"].as_str().unwrap(), record["status"].as_str().unwrap()),
+        format!(
+            "../artifacts/mainnet-wire/{}-{}.json",
+            t["id"].as_str().unwrap(),
+            record["status"].as_str().unwrap()
+        ),
         serde_json::to_string_pretty(&record)?,
     )?;
     Ok(record)
 }
 async fn accounting(s: &Setup) -> Result<Value> {
-    Ok(s.c.view("get_accounting").args_json(json!({})).await?.json()?)
+    Ok(s.c
+        .view("get_accounting")
+        .args_json(json!({}))
+        .await?
+        .json()?)
 }
 fn number(v: &Value, key: &str) -> u128 {
     v[key].as_str().unwrap().parse().unwrap()

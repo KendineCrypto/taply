@@ -1,0 +1,11 @@
+{
+  "kind": "CI_BUILD_NOT_DEPLOYMENT",
+  "commit": "1df9405fde79ddc355b9ee37685ec44c88340655",
+  "contractVersion": "0.6.0-mainnet",
+  "wasmBytes": 457001,
+  "sha256Hex": "8d8edfff8cdc24f290e6ed9e97dc3d60ad52965b0cd118a0c2dd5a3461e6ea14",
+  "nearCodeHash": "AXaqzkMuA8fgX2ywEGUxr44ASnVe2otBiefutxVrJaE7",
+  "codeStorageOnlyYoctoAt1e19PerByte": "4570010000000000000000000",
+  "excludesAccountStateStorageRegistrationGasAndOperationalReserve": true,
+  "deploymentApproved": false
+}

@@ -1,0 +1,112 @@
+{
+  "kind": "LOCAL_SANDBOX_NOT_MAINNET",
+  "outcomes": [
+    {
+      "blockHash": "14PrE8vy6g2EvJMxRuAanS6g5rx9ikv6t9cdFPo9C7ea",
+      "executor": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "gasBurnt": "2653777457727",
+      "logs": [
+        "EVENT_JSON:{\"standard\":\"nep141\",\"version\":\"1.0.0\",\"event\":\"ft_transfer\",\"data\":[{\"old_owner_id\":\"intents.near\",\"new_owner_id\":\"devkendinecrypto.near\",\"amount\":\"1000000\"}]}"
+      ],
+      "success": true
+    },
+    {
+      "blockHash": "EFbaDZuQeC96XKmFyBWr2HQxg8yxcxoeDiR1pKUBqmDR",
+      "executor": "devkendinecrypto.near",
+      "gasBurnt": "3136243048672",
+      "logs": [
+        "EVENT_JSON:{\"standard\":\"taply\",\"version\":\"0.4.0\",\"event\":\"payout_started\",\"data\":[{\"id\":\"5f4a7b32ff39fae1a427d1721dd3248a8ff1dda9e0a70c3e521d1488e161a926\",\"termsHash\":\"baf807d8dd31662015ccc90fb555d9d4b0d8fc568a2ece275514c7805397c9dd\",\"status\":\"PAYOUT_IN_FLIGHT\",\"revision\":\"2\",\"operationNonce\":\"1\"}]}"
+      ],
+      "success": true
+    },
+    {
+      "blockHash": "F2LPQUt2rGnGpjeLEzwKvwQrXuv5spmNu6Ly6mMXDhfg",
+      "executor": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "gasBurnt": "1830281522118",
+      "logs": [
+        "EVENT_JSON:{\"standard\":\"nep141\",\"version\":\"1.0.0\",\"event\":\"ft_transfer\",\"data\":[{\"old_owner_id\":\"devkendinecrypto.near\",\"new_owner_id\":\"merchant.near\",\"amount\":\"1000000\",\"memo\":\"Taply settlement\"}]}"
+      ],
+      "success": true
+    },
+    {
+      "blockHash": "LXMxvH4qriEqteYStYzB7hHxFgNVfjRJtWj5jYQ2UTN",
+      "executor": "intents.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "LXMxvH4qriEqteYStYzB7hHxFgNVfjRJtWj5jYQ2UTN",
+      "executor": "devkendinecrypto.near",
+      "gasBurnt": "1689228154629",
+      "logs": [],
+      "success": false
+    },
+    {
+      "blockHash": "F2LPQUt2rGnGpjeLEzwKvwQrXuv5spmNu6Ly6mMXDhfg",
+      "executor": "intents.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "F2LPQUt2rGnGpjeLEzwKvwQrXuv5spmNu6Ly6mMXDhfg",
+      "executor": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "gasBurnt": "1388772269004",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "LXMxvH4qriEqteYStYzB7hHxFgNVfjRJtWj5jYQ2UTN",
+      "executor": "intents.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "EFbaDZuQeC96XKmFyBWr2HQxg8yxcxoeDiR1pKUBqmDR",
+      "executor": "intents.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    }
+  ],
+  "state": {
+    "authenticationDepositsYocto": "0",
+    "confirmedPaidYocto": "0",
+    "failedHeldPrincipalYocto": "0",
+    "inFlightMayAlreadyHaveTransferred": true,
+    "inFlightPrincipalYocto": "0",
+    "lockedPrincipalYocto": "0",
+    "permanentStorageBondsYocto": "5850000000000000000000",
+    "receivedPrincipalYocto": "0",
+    "recovery": {
+      "amount": "0",
+      "inFlight": false,
+      "operationNonce": "0",
+      "receiver": ""
+    },
+    "refundedPrincipalYocto": "0",
+    "requestCount": "1",
+    "runtimeAccountBalanceYocto": "100002341601118413799999999",
+    "runtimeStorageBytes": "457213",
+    "runtimeStorageCostYocto": "4572130000000000000000000",
+    "tokens": [
+      {
+        "assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+        "confirmedPaid": "0",
+        "failedHeld": "0",
+        "inFlight": "1000000",
+        "locked": "0",
+        "received": "1000000",
+        "refunded": "0",
+        "routerReceived": "1000000",
+        "unclaimedHeld": "0",
+        "unclaimedInFlight": "0",
+        "unclaimedWithdrawn": "0"
+      }
+    ]
+  },
+  "totalGasBurnt": "11912348274920",
+  "usesStandardTestTokenNotLiveUsdc": true
+}

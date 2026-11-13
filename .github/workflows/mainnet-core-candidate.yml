@@ -42,17 +42,17 @@ jobs:
             contracts/payments-mainnet/sandbox/target
             contracts/test-token/target
           key: mainnet-${{ runner.os }}-rust1.95.0-${{ hashFiles('contracts/payments-mainnet/Cargo.lock', 'contracts/payments-mainnet/sandbox/Cargo.lock') }}
-      - name: Produce formatting patch for Windows authoring host
+      - name: Check Rust formatting
         run: |
           mkdir -p contracts/payments-mainnet/artifacts
-          (cd contracts/payments-mainnet && cargo fmt --all)
-          (cd contracts/payments-mainnet/sandbox && cargo fmt --all)
-          git diff -- contracts/payments-mainnet > contracts/payments-mainnet/artifacts/rustfmt.patch
+          (cd contracts/payments-mainnet && cargo fmt --all --check)
+          (cd contracts/payments-mainnet/sandbox && cargo fmt --all --check)
       - name: Unit tests and Clippy (not sandbox or release approval)
         working-directory: contracts/payments-mainnet
         run: |
-          cargo test --locked --lib -- --test-threads=1
-          cargo clippy --locked --all-targets -- -D warnings
+          set -euo pipefail
+          cargo test --locked --lib -- --test-threads=1 2>&1 | tee artifacts/unit-tests.log
+          cargo clippy --locked --all-targets -- -D warnings 2>&1 | tee artifacts/clippy.log
       - name: Build candidate WASM
         working-directory: contracts/payments-mainnet
         run: bash scripts/build.sh
@@ -85,7 +85,6 @@ jobs:
           path: |
             contracts/payments-mainnet/artifacts/payments-mainnet.wasm
             contracts/payments-mainnet/artifacts/build-report.json
-            contracts/payments-mainnet/artifacts/rustfmt.patch
             contracts/payments-mainnet/artifacts/wasm.sha256
             contracts/payments-mainnet/artifacts/*.log
             contracts/payments-mainnet/artifacts/mainnet-sandbox/*.json

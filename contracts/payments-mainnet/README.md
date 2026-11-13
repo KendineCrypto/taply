@@ -3,9 +3,11 @@
 Independent source copied from payments-protected at 6776cdd. Existing contracts
 are unchanged. See ABI.md and ../../docs/MAINNET.md for the protocol.
 
-This is an uncompiled draft on this Windows host: cargo is not installed and the
-installed Docker backend failed to start. Rust unit tests, Clippy, WASM and sandbox
-results are NOT established. No contract size, code hash or live proof is claimed.
+Rust 1.95.0 compilation, unit tests, Clippy and WASM builds run in GitHub Actions.
+The Windows authoring host has no Cargo and its Docker backend failed to start.
+See ../../docs/MAINNET_CI_HANDOFF.md for the exact verified commit, CI outcomes,
+artifact size/hash and remaining blockers. A compiled artifact is not deployment
+approval or live settlement evidence.
 
 Mainnet-only constructor identities, fixed 1 NEAR/25 USDC caps, exact native/USDC
 instant funding, router hold accounting and nonce-bound manual recovery are
@@ -20,12 +22,19 @@ not proven and cannot hold for arbitrary gas inputs. Even honest bounded router
 inputs need sandbox measurement before approval. Lifetime u128 ledger overflow is
 also fail-closed, not a non-panicking guarantee. No audit has occurred.
 
-Local Rust tests: cargo test --locked --lib -- --test-threads=1
+Unit tests: cargo test --locked --lib -- --test-threads=1
 Build: bash scripts/build.sh
-The inherited src/tests.rs, src/token_tests.rs, src/protected_tests.rs, sandbox/
-and check-wire.mjs are reference material only: they use Testnet fixtures and are
-NOT wired into the new unit suite or validated for this mainnet interface. The
-active suite is src/mainnet_tests.rs. Real sandbox migration remains a blocker.
+Real local sandbox: bash scripts/sandbox.sh
+Shared wire check after building @taply/shared: node scripts/check-mainnet-wire.mjs
+The active suites are src/mainnet_tests.rs and sandbox/tests/mainnet.rs.
+Inherited src/tests.rs, src/token_tests.rs, src/protected_tests.rs,
+sandbox/tests/protected.rs, sandbox/tests/token.rs and check-wire.mjs remain
+unexecuted reference material. The new sandbox uses an explicitly local standard
+test token, not live USDC or the live Intents verifier. Fixed production account
+guards are unchanged; accounts are injected only into the local sandbox.
+The callback-fault WASM is separate from the production candidate and is never
+uploaded as a deployment candidate. Production and fault builds assert their
+testFaultBuild configuration in the sandbox.
 
 Read-only deployment planner (no signing/broadcast/key removal implementation):
 

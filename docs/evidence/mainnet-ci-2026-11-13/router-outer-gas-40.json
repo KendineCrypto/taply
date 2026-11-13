@@ -1,0 +1,114 @@
+{
+  "kind": "LOCAL_SANDBOX_NOT_MAINNET",
+  "outcomes": [
+    {
+      "blockHash": "GyvSUxKu1iKPHYoXYCM4haPNdrrMMzwWkoHUijUhRoui",
+      "executor": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "gasBurnt": "2653777457727",
+      "logs": [
+        "EVENT_JSON:{\"standard\":\"nep141\",\"version\":\"1.0.0\",\"event\":\"ft_transfer\",\"data\":[{\"old_owner_id\":\"intents.near\",\"new_owner_id\":\"devkendinecrypto.near\",\"amount\":\"1000000\"}]}"
+      ],
+      "success": true
+    },
+    {
+      "blockHash": "HwG8GBD4V3a9ukFdUWVTYVmCnG3fFJPd6SSj3xTZbyMg",
+      "executor": "devkendinecrypto.near",
+      "gasBurnt": "2024834935533",
+      "logs": [
+        "EVENT_JSON:{\"standard\":\"taply\",\"version\":\"0.4.0\",\"event\":\"router_unclaimed\",\"data\":[{\"id\":\"1c8393468b57f7ce1cadd37b56067dd7a52597e7e6b705593f22217a701167d3\",\"token\":\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\",\"reason\":\"LOW_GAS\",\"amount\":\"1000000\"}]}"
+      ],
+      "success": true
+    },
+    {
+      "blockHash": "BFb18dDraW7kouCeKPUy1FoxCMRdBNBhMjDHPkjjcoxQ",
+      "executor": "intents.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "BFb18dDraW7kouCeKPUy1FoxCMRdBNBhMjDHPkjjcoxQ",
+      "executor": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "gasBurnt": "1404732269004",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "HwG8GBD4V3a9ukFdUWVTYVmCnG3fFJPd6SSj3xTZbyMg",
+      "executor": "intents.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    }
+  ],
+  "state": {
+    "accounting": {
+      "authenticationDepositsYocto": "0",
+      "confirmedPaidYocto": "0",
+      "failedHeldPrincipalYocto": "0",
+      "inFlightMayAlreadyHaveTransferred": true,
+      "inFlightPrincipalYocto": "0",
+      "lockedPrincipalYocto": "0",
+      "permanentStorageBondsYocto": "5850000000000000000000",
+      "receivedPrincipalYocto": "0",
+      "recovery": {
+        "amount": "0",
+        "inFlight": false,
+        "operationNonce": "0",
+        "receiver": ""
+      },
+      "refundedPrincipalYocto": "0",
+      "requestCount": "1",
+      "runtimeAccountBalanceYocto": "100002331208169284600000000",
+      "runtimeStorageBytes": "458647",
+      "runtimeStorageCostYocto": "4586470000000000000000000",
+      "tokens": [
+        {
+          "assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+          "confirmedPaid": "0",
+          "failedHeld": "0",
+          "inFlight": "0",
+          "locked": "0",
+          "received": "1000000",
+          "refunded": "0",
+          "routerReceived": "1000000",
+          "unclaimedHeld": "1000000",
+          "unclaimedInFlight": "0",
+          "unclaimedWithdrawn": "0"
+        }
+      ]
+    },
+    "request": {
+      "cancelUntilNs": null,
+      "createdAtNs": "1794569762903592277",
+      "fundedAtNs": null,
+      "latestOperation": null,
+      "payerAccountId": null,
+      "recipientAccountId": "merchant.near",
+      "revision": "1",
+      "sessionCommitment": null,
+      "settlementBranch": null,
+      "status": "OPEN",
+      "terms": {
+        "amountBaseUnits": "1000000",
+        "assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+        "cancelDurationNs": null,
+        "contractId": "devkendinecrypto.near",
+        "creationNonce": "0000000000000000000000000000000000000000000000000000000000000064",
+        "creatorAccountId": "merchant.near",
+        "fundingExpiresAtNs": "1794573362534111338",
+        "id": "1c8393468b57f7ce1cadd37b56067dd7a52597e7e6b705593f22217a701167d3",
+        "memo": "",
+        "merchantAccountId": null,
+        "mode": "instant",
+        "network": "near-mainnet",
+        "permittedPayerAccountId": null,
+        "schemaVersion": "taply.intent.v1",
+        "sessionBinding": null
+      },
+      "termsHash": "7e05cc0a894fd95acbfec58e1d0888b52ac3b26a00b07a2b2b591280e9a08302"
+    }
+  },
+  "totalGasBurnt": "6851025360034",
+  "usesStandardTestTokenNotLiveUsdc": true
+}

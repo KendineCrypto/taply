@@ -4,13 +4,13 @@
 
 | Feature | Local proof | Mainnet proof | Status |
 | --- | --- | --- | --- |
-| Independent native/USDC contract | Candidate source, unexecuted Rust tests | None | NO-GO; Rust/sandbox validation blocked |
+| Independent native/USDC contract | CI: 10 unit tests, 7 real local sandbox tests, WASM build and Clippy pass | None | NO-GO for real funds; live integration missing |
 | Mainnet schemas/readers/builders | Compiles; client regression and new tests pass | None | Frontend/external-wallet integration pending |
-| Router hold/recovery | Candidate source only | None | Quote/signing integration disabled; gas envelope and R-2 unresolved |
+| Router hold/recovery | Sandbox rejection, gas sweep, recovery, conservation and R-2 fault tests pass; 16 shared wire records validate | None | Quote/signing integration disabled; upstream gas envelope and R-2 unresolved |
 | Deployment planner | 5 offline tests pass | None | Read-only; no signer or key deletion |
 | Base-origin payment / Verified Paid | None | None | Not proven / verifier not implemented on mainnet |
 
-See [implementation report](MAINNET_IMPLEMENTATION_REPORT.md). Historical
+See [CI evidence and Claude handoff](MAINNET_CI_HANDOFF.md). Historical
 Testnet evidence below is not proof for this new candidate.
 
 Updated **2026-11-11** (final hackathon release). Production evidence below was

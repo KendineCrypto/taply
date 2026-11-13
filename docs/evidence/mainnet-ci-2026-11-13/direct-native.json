@@ -1,0 +1,82 @@
+{
+  "kind": "LOCAL_SANDBOX_NOT_MAINNET",
+  "outcomes": [
+    {
+      "blockHash": "9MHhLhP7fhorTordMbUUv52YutMhit4EswxvmVrJK6Vs",
+      "executor": "devkendinecrypto.near",
+      "gasBurnt": "2971036084674",
+      "logs": [
+        "EVENT_JSON:{\"standard\":\"taply\",\"version\":\"0.4.0\",\"event\":\"payout_started\",\"data\":[{\"id\":\"267eb94251d54c21ac337e4cc3714efb59be49cd2d1bfe41ac15c834aaab7b10\",\"termsHash\":\"3f6867894f467eeba306d15252f38bb395012ee3a6fea4528b0b078896c19e7b\",\"status\":\"PAYOUT_IN_FLIGHT\",\"revision\":\"2\",\"operationNonce\":\"1\"}]}"
+      ],
+      "success": true
+    },
+    {
+      "blockHash": "ExU1gpMKZRyHSEUiPFGJQ23YrJkrAWffY6nfXrqnik6D",
+      "executor": "merchant.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "7zoo1VDqPCgeHd2ZJLw2Y9V9ap3wJCgaW4447uRgsizq",
+      "executor": "payer.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    },
+    {
+      "blockHash": "7zoo1VDqPCgeHd2ZJLw2Y9V9ap3wJCgaW4447uRgsizq",
+      "executor": "devkendinecrypto.near",
+      "gasBurnt": "2270079531848",
+      "logs": [
+        "EVENT_JSON:{\"standard\":\"taply\",\"version\":\"0.4.0\",\"event\":\"payout_succeeded\",\"data\":[{\"id\":\"267eb94251d54c21ac337e4cc3714efb59be49cd2d1bfe41ac15c834aaab7b10\",\"termsHash\":\"3f6867894f467eeba306d15252f38bb395012ee3a6fea4528b0b078896c19e7b\",\"status\":\"FINAL_PAID\",\"revision\":\"3\",\"operationNonce\":\"1\"}]}"
+      ],
+      "success": true
+    },
+    {
+      "blockHash": "ExU1gpMKZRyHSEUiPFGJQ23YrJkrAWffY6nfXrqnik6D",
+      "executor": "payer.near",
+      "gasBurnt": "223182562500",
+      "logs": [],
+      "success": true
+    }
+  ],
+  "state": {
+    "authenticationDepositsYocto": "0",
+    "confirmedPaidYocto": "100000000000000000000000",
+    "failedHeldPrincipalYocto": "0",
+    "inFlightMayAlreadyHaveTransferred": true,
+    "inFlightPrincipalYocto": "0",
+    "lockedPrincipalYocto": "0",
+    "permanentStorageBondsYocto": "11270000000000000000000",
+    "receivedPrincipalYocto": "100000000000000000000000",
+    "recovery": {
+      "amount": "0",
+      "inFlight": false,
+      "operationNonce": "0",
+      "receiver": ""
+    },
+    "refundedPrincipalYocto": "0",
+    "requestCount": "2",
+    "runtimeAccountBalanceYocto": "100007751208169284599999999",
+    "runtimeStorageBytes": "459189",
+    "runtimeStorageCostYocto": "4591890000000000000000000",
+    "tokens": [
+      {
+        "assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+        "confirmedPaid": "1000000",
+        "failedHeld": "0",
+        "inFlight": "0",
+        "locked": "0",
+        "received": "1000000",
+        "refunded": "0",
+        "routerReceived": "0",
+        "unclaimedHeld": "0",
+        "unclaimedInFlight": "0",
+        "unclaimedWithdrawn": "0"
+      }
+    ]
+  },
+  "totalGasBurnt": "6227210505292",
+  "usesStandardTestTokenNotLiveUsdc": true
+}

@@ -86,7 +86,9 @@ Malformed messages, unknown ID, wrong hash/asset/mode/payer, non-OPEN,
 underpayment and insufficient remaining payout gas retain the full router
 delivery in a fixed-size unclaimed ledger and return `"0"` unused. No success
 state. Payout requires >=40 TGas REMAINING after validation (15 transfer + 15
-callback + overhead). These are initial budgets pending measurement.
+callback + overhead). Local sandbox measurements are in
+[MAINNET_CI_HANDOFF.md](MAINNET_CI_HANDOFF.md); live USDC/router margins remain
+unproven.
 
 **Unresolved execution boundary:** no receiver can guarantee non-panicking
 execution under arbitrarily little gas, oversized outer JSON, storage insolvency
@@ -140,10 +142,11 @@ No mainnet verification path is proven.
 Build fixtures against this interface, keeping mainnet signing/quotes disabled.
 External wallets first; mainnet must never unlock a Testnet vault. Protected Pay,
 internal wallet creation, split, recurring, swaps and CSV are outside this pilot.
-No mainnet funds moved; size/funding estimates and tests remain to be measured.
+No mainnet funds moved; CI tests, size/hash and the code-storage estimate are
+recorded in [MAINNET_CI_HANDOFF.md](MAINNET_CI_HANDOFF.md).
 Current recommendation: **NO-GO for real funds**.
 
 Implementation status and exact observed checks:
-[MAINNET_IMPLEMENTATION_REPORT.md](MAINNET_IMPLEMENTATION_REPORT.md).
-Contract-source commit: `ed3be1efdff26f89f6188bd6210d12c187049411`
-(uncompiled candidate, not a release artifact).
+[MAINNET_CI_HANDOFF.md](MAINNET_CI_HANDOFF.md).
+Original contract-source commit: `ed3be1efdff26f89f6188bd6210d12c187049411`;
+the handoff identifies the later tested candidate. Neither is deployment approval.
