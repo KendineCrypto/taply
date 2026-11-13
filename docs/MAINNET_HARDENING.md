@@ -136,6 +136,13 @@ Windows has no redis-server; the installed Docker backend did not respond and
 was not modified. Real Redis execution must therefore be verified in CI, not
 inferred from the passing in-memory tests.
 
+Initial CI run [43437759694](https://github.com/KendineCrypto/taply/actions/runs/43437759694)
+passed 1,409 web tests, including real Redis atomic-store tests, but exposed a
+test-harness startup/reconnect defect in the new restart test (ECONNREFUSED and
+timeout). The harness now waits for the Redis port and recreates its development
+REST bridge after SIGKILL/restart. The forced crash, AOF persistence, no-TTL and
+no-second-attempt assertions are unchanged; no production guard was weakened.
+
 The existing `workspace-check` workflow installs Redis and now also runs the
 88-browser suite, uploading screenshots/results as `mainnet-browser-<SHA>`.
 `mainnet-core-candidate` remains the unchanged contract/sandbox gate. Both

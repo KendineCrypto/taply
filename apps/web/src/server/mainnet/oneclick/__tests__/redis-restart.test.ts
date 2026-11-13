@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, it } from 'vitest';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createServer } from 'node:net';
+import { createServer, connect } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,21 +16,37 @@ it.skipIf(!hasRedis)('real Redis AOF survives SIGKILL/restart with a dispatched 
   const port = await new Promise<number>(resolve => { const s = createServer(); s.listen(0, () => { const p = (s.address() as { port: number }).port; s.close(() => resolve(p)); }); });
   const launch = () => spawn('redis-server', ['--bind', '127.0.0.1', '--port', String(port), '--dir', dir, '--save', '', '--appendonly', 'yes', '--appendfsync', 'always'], { stdio: 'ignore' });
   let process: ChildProcess = launch();
-  const shim = await startRestShim({ redisPort: port, token: 'local-only' });
-  const cmd = restRedis({ url: shim.url, token: 'local-only' });
-  const ready = async () => {
-    for (let n = 0; n < 50; n++) { try { if (await cmd(['PING']) === 'PONG') return; } catch {} await new Promise(r => setTimeout(r, 50)); }
+  const readyPort = async () => {
+    for (let n = 0; n < 50; n++) {
+      const ready = await new Promise<boolean>(resolve => {
+        const socket = connect(port, '127.0.0.1');
+        socket.once('connect', () => { socket.destroy(); resolve(true); });
+        socket.once('error', () => { socket.destroy(); resolve(false); });
+      });
+      if (ready) return;
+      await new Promise(r => setTimeout(r, 50));
+    }
     throw new Error('Redis failed to start');
   };
-  const kill = () => new Promise<void>(resolve => { process.once('exit', () => resolve()); process.kill('SIGKILL'); });
+  await readyPort();
+  let shim = await startRestShim({ redisPort: port, token: 'local-only' });
+  let cmd = restRedis({ url: shim.url, token: 'local-only' });
+  const kill = () => new Promise<void>(resolve => {
+    if (process.exitCode !== null || process.signalCode !== null) { resolve(); return; }
+    process.once('exit', () => resolve()); process.kill('SIGKILL');
+  });
   try {
-    await ready();
+    expect(await cmd(['PING'])).toBe('PONG');
     const store = redisQuoteStore(cmd); const requestId = 'a'.repeat(64);
     const a = await store.reserve({ id: 'before-crash', requestId, mode: 'funded', payload: '{"dry":false}', createdAtMs: 1 }, null);
     if (typeof a === 'string') throw new Error(a);
     expect(await store.transition(a, 'DISPATCHING')).toBe(true);
     expect(await cmd(['PTTL', `${KEY_PREFIX}ledger:v1:${requestId}`])).toBe(-1);
-    await kill(); process = launch(); await ready();
+    // The development bridge deliberately has no reconnect implementation.
+    // Recreate it, like a restarted worker, after the database's forced crash.
+    await shim.stop(); await kill(); process = launch(); await readyPort();
+    shim = await startRestShim({ redisPort: port, token: 'local-only' });
+    cmd = restRedis({ url: shim.url, token: 'local-only' });
     const restarted = redisQuoteStore(cmd);
     expect((await restarted.current(requestId))?.state).toBe('DISPATCHING');
     expect(await restarted.reserve({ id: 'after-crash', requestId, mode: 'funded', payload: '{}', createdAtMs: 99999999 }, a.id)).toBe('BUSY');
