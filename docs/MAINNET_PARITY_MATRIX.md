@@ -110,7 +110,35 @@ UNAVAILABLE authority for the reviewed adapter when delivered.
 
 ## Verification
 
-VERIFICATION_PLACEHOLDER
+Local run on the final phase 5 tree (Linux, Node 24). Evidence class in brackets.
+
+- `pnpm check` exit 0: shared 93/93, near-client 323/323, web 1549 passed / 1 skipped.
+- API strict types, lint and tests: 75/75.
+- Browser, unauthority build [FIXTURE + SYNTHETIC RPC + real Redis]: phase 2
+  26/26 (0 foreign Redis keys), phase 3 39/39, phase 4 65/65.
+- Browser, simulated-authority build [SIMULATED AUTHORITY + SYNTHETIC RPC + real
+  Redis]: phase 5 31/31 ([results](evidence/mainnet-phase5-2026-11-13/phase5-results.json)).
+- Browser, plain preview [FIXTURE]: 1Click 88/88, product 98/98; Codex IndexedDB
+  harness 7/7 (4 v1 + 3 v2 coordinator checks).
+- Static bundle checks: no Testnet contract/vault key; the simulated authority is
+  absent from non-simulation bundles (now a CI guard).
+- Testnet runtime parity vs `3a9d842` (production-equivalent Testnet output):
+  38/38 paths identical, including every new Mainnet-only path (identical 404).
+  Webpack Testnet build OK.
+- [LIVE READ] Mainnet RPC, read-only: genesis validated; staging
+  `devkendinecrypto.near` snapshot (0 NEAR, FullAccess key); pilot contract
+  `taply-pay.kendinecrypto.near` **does not exist**; native USDC code hash and
+  `intents.near` code hash observed.
+- [SANDBOX] Rust contracts and Codex's real-sandbox receipt checks: the
+  `mainnet-core-candidate`, `gift-contract`, `protected-pay-candidate` and
+  `instant-pay-sandbox` workflows (links in the delivery report).
+- [SETTLEMENT] none. No transaction was signed or sent.
+
+CI on the merge commit `fdea61d` (Step 1): all seven workflows passed
+(workspace-check 43489459915, mainnet-protocol-parity 43489465618,
+mainnet-core-candidate 43489470351, gift-contract 43489474695,
+protected-pay-candidate 43489479964, instant-pay-sandbox 43489485327,
+wallet-browser-check 43489490018). Final-SHA CI: see the delivery report.
 
 ## Phase 4 protocol delta (isolated development branch)
 

@@ -1,0 +1,164 @@
+{
+  "base": "http://127.0.0.1:3120",
+  "authority": "SIMULATED single-browser store via Codex coordinator (test harness, not account-global)",
+  "rpc": "SYNTHETIC responder in the browser (no Mainnet access) — not live evidence, not settlement",
+  "results": [
+    {
+      "name": "wallet active on synthetic RPC",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "payment safety panel: SIMULATED authority labelled, no attempts yet",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "backend.prepare review: exact 1 NEAR transfer to bob.near, nonce 8, simulated authority",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "operation id is a 64-hex hash and the signing key is the wallet key",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "confirm stays disabled (protocol + release gates closed)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown outcome shown: state UNCERTAIN, its transaction hash, \"do not pay again\"",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a different new payment is refused while the outcome is unknown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FINAL reconciliation (Codex verifyMainnetTransactionExecution): executed, settlement NOT established",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "pending attempt retired; permanent record lists the execution",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "own executed send checked with verifyMainnetDirectTransfer → matches exactly (pre-release wording)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the same payment (same business id) is refused forever: OPERATION_ALREADY_CONSUMED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "only an explicit \"Start a new payment\" gives a new operation (different id, review allowed)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ledger owned by another device is shown as such",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "this device cannot prepare a payment: OTHER_DEVICE_READ_ONLY",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no hash recorded → still unknown (no timeout ever becomes \"not sent\")",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an unknown hash hint resolves nothing; attempt still pending",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "legacy unresolved record shown and sending disabled (no automatic migration)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FIXTURE commerce sale link carries the commitment in the fragment",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "bound sale verified (Codex verifyMainnetCommerceBinding) and payment methods offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "memo shows the customer note, not the commitment line",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a different reviewed hash is refused: no payment method",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a different sale session is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a malformed commitment is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "register: sale bound (link carries #c=, request id derived from the sale session)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "create_request terms carry the commitment in the immutable memo",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "next sale: new session → new request id for the same amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Live link: join token + sale commitment",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "customer device: join token removed from the URL, commitment kept and verified on the pay screen",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FIXTURE receipt: settlement check says there is nothing on chain to check",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "leak scan over 23 loaded scripts",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no uncaught page errors",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "scripts": 23,
+  "errors": []
+}

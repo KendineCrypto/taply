@@ -1,0 +1,341 @@
+{
+  "base": "http://127.0.0.1:3120",
+  "rpc": "SYNTHETIC responder in the browser (no Mainnet access) — not live evidence",
+  "synthetic": {
+    "giftContract": "gift.fixture.near",
+    "escrowContract": "payments.fixture.near",
+    "codeHash": "GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf",
+    "giftMin": "10000000000000000000000",
+    "giftMax": "2000000000000000000000000",
+    "giftFee": "10000000000000000000000"
+  },
+  "results": [
+    {
+      "name": "wallet ready and active on synthetic RPC (implicit 64-hex account)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC: 7th decimal refused (6-decimal precision)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC: above the 25 USDC pilot cap refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC: amount above the balance read at the snapshot block refused (Codex planner)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC: recipient without USDC storage refused before any review (Codex planner)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC: exact ft_transfer review (recipient, 12.5 USDC, token contract, 1 yocto, 30 Tgas, block, next nonce 8)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no payment authority on this build: review says nothing can be reserved or sent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC: review card is for asset USDC and confirm stays disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Personal Gift: exact native transfer review (bob.near, 0.5 NEAR, from this wallet, nonce 8)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Personal Gift link opens on /m/gift/p with the envelope and a separate Unwrap button",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "independent direct-transfer check: VERIFIED on a matching FINAL transfer (synthetic RPC)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "result label is not \"Verified Paid\"; pre-release note says so explicitly",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "tampered amount in the link → NOT_VERIFIED (MISMATCH)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown transaction → NOT_VERIFIED (not found), never paid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "malformed link refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Open Gift: link key moved out of the URL (fragment stripped)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Open Gift: AVAILABLE read from the Gift contract",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Open Gift: unwrap and claim are separate actions",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unwrapping does not claim",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "claimant is this Taply Wallet (the account that would sign)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "claim signed with the one-use link key → Codex planner verified it and prepared claim_gift (unsigned)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Open Gift without the link key: claim not possible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "expired gift (creator = this wallet): refund offered, no claim",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "refund prepared by the planner as refund_gift (unsigned)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "claimed, payout PENDING (R-2): no retry, no refund",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "claimed, payout FAILED: retry offered to the beneficiary",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "retry prepared by the planner as retry_payout (unsigned)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "gift receipt: contract-state REFUNDED · CONFIRMED, never \"Verified\"",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown gift id → not found on the contract",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Protected create: creator is this Taply Wallet",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "cancellation window above 60 minutes refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "payer = recipient refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a quote asking more than the 0.01 NEAR storage ceiling is refused by the reviewed builder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Protected create: exact create_request review from the contract quote (0.75 NEAR, 15 min, only bob.near, storage deposit)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unreviewed escrow candidate is labelled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "call hidden until the recipient consents",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "after consent: create_request call with the exact terms + payer link; create stays disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a second quote is a new request (fresh creation nonce → new id)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "payer page: OPEN read from the escrow, 1-minute window shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "funding call hidden until the payer accepts the shown window",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "payer consent recorded by tapping its text",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "payer consent → fund_protected_native with exact principal, terms hash and accepted window; Fund disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOCKED before cutoff: \"NOT PAID\", countdown, no release yet, no cancel for a non-payer",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOCKED after cutoff: still NOT PAID (a passed deadline never pays); release_protected offered, unsigned",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "RELEASE_IN_FLIGHT: R-2 warning, no action, not paid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "RELEASE_FAILED: retry belongs to the merchant (alice.near) — not offered to this wallet, R-2-safe",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FINAL_PAID: \"Payment recorded (contract state)\", no action",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC protected request reads with exact 2.5 USDC",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "next sale resets the register",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "each sale is a distinct request (same amount → different request id)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "checkout shows the bound store account",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "foreign-origin sale link refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "incorrect merchant account: request for another recipient refused, no payment method offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "matching store: binding confirmed and payment methods offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "activity lists both saved requests for this wallet account",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "filter Open → only the awaiting request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "filter Received → none (requests pay the fixture merchant, not this wallet) with the matched account shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown outcome: recorded state UNCERTAIN and transaction hash shown, \"do not pay again\"",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown outcome blocks a new review",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Turkish: Protected create in Turkish",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Turkish: unknown-outcome details in Turkish",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Turkish: store checkout in Turkish",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no horizontal overflow at 360–390 px on any new screen (long implicit accounts wrap)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "leak scan over 23 loaded scripts (Testnet ids, vault key, Testnet gift domain)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no uncaught page errors",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "scripts": 23,
+  "errors": []
+}
