@@ -6,7 +6,6 @@ import type { ReactNode } from 'react';
 import { prepareClaimGift, prepareRefundGift, prepareRetryGiftPayout, signGiftClaim } from '@taply/near-client';
 import type { GiftReader, GiftView, PreparedGiftCall } from '@taply/near-client';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
-import { NetworkPill } from '@/components/experience/Basics';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
@@ -162,10 +161,7 @@ function GiftLive({ id, setup, reader }: { readonly id: string; readonly setup: 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-[var(--text-muted)]">{g.claim.unreviewed}</p>
-        <NetworkPill />
-      </div>
+      <p className="text-xs text-[var(--text-muted)]">{g.claim.unreviewed}</p>
 
       <section className="surface-hero flex flex-col items-center gap-4 px-5 pb-5 pt-6">
         <Envelope design={gift?.design ?? 0} open={opened} label={opened ? g.envelope.openLabel : g.envelope.closedLabel}>
@@ -181,7 +177,8 @@ function GiftLive({ id, setup, reader }: { readonly id: string; readonly setup: 
             <p className="text-xs text-[var(--text-muted)]">{g.envelope.unwrapHint}</p>
           </div>
         ) : (
-          gift !== null && gift.message.length > 0 && (
+          // The letter shows three lines; longer messages are repeated in full here.
+          gift !== null && gift.message.length > 90 && (
             <p className="w-full whitespace-pre-line break-words rounded-[var(--radius-control)] bg-[rgb(244_243_232/0.05)] p-4 text-[0.9375rem] leading-relaxed">
               {gift.message}
             </p>

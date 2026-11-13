@@ -5,7 +5,6 @@ import type { ReactNode } from 'react';
 import { encodeGiftSecret, newGiftLink, prepareCreateGift } from '@taply/near-client';
 import type { GiftReader } from '@taply/near-client';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
-import { NetworkPill } from '@/components/experience/Basics';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { useWalletMode } from '@/components/wallet/taply/mode';
@@ -212,7 +211,6 @@ export function GiftCreate({ setup = GIFT_SETUP, reader }: { readonly setup?: Gi
         </div>
         <p className="flex items-center justify-between text-xs text-[var(--text-muted)]">
           <span>{fill(g.stepOf, { n: String(step), total: '5' })} · {steps[step - 1]}</span>
-          <NetworkPill />
         </p>
       </div>
 
@@ -362,7 +360,7 @@ export function GiftCreate({ setup = GIFT_SETUP, reader }: { readonly setup?: Gi
           </div>
           <dl className="text-sm">
             <Row label={g.review.txType} value={type === 'open' ? g.review.txOpen : g.review.txPersonal} />
-            <Row label={g.review.sender} value={<span className="chain-id break-all">{me}</span>} />
+            {me !== null && <Row label={g.review.sender} value={<span className="chain-id break-all">{me}</span>} />}
             {type === 'open' && setup.status === 'ready' && <Row label={g.review.contract} value={<span className="chain-id break-all">{setup.contractId}</span>} />}
             {type === 'personal' && personalReview && <Row label={g.review.recipient} value={<span className="chain-id break-all">{personalReview.receiverId}</span>} />}
             <Row label={g.review.giftAmount} value={<strong>{near(type === 'personal' && personalReview ? personalReview.depositYocto : parsedAmount.yocto)} NEAR</strong>} />

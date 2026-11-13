@@ -5,7 +5,6 @@ import type { ReactNode } from 'react';
 import { verifyDirectTransfer } from '@taply/near-client';
 import type { DirectTransferCheck } from '@taply/near-client';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
-import { NetworkPill } from '@/components/experience/Basics';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { formatBaseUnits } from '@/lib/format/amount';
@@ -63,7 +62,6 @@ export function PersonalGiftScreen({ verify = defaultVerifier }: { readonly veri
   const explorer = CHAIN_CONFIG.ok ? CHAIN_CONFIG.explorerBaseUrl : null;
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end"><NetworkPill /></div>
       <section className="surface-hero flex flex-col items-center gap-4 px-5 pb-5 pt-6">
         <Envelope design={gift.d} open={opened} label={opened ? t.gift.envelope.openLabel : t.gift.envelope.closedLabel}>
           <GiftLetter from={gift.from} amountYocto={gift.amt} message={gift.msg} status={verified ? p.verified : null} />
