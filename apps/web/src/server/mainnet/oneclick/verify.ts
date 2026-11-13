@@ -97,6 +97,11 @@ export function verifyQuoteResponse(
     if (!sameField(field, sent[field], echoed[field])) return { ok: false, code: 'ECHO_MISMATCH' };
   }
   const q = parsed.data.quote;
+  // SDK 0.1.26 excludes execution fields from a dry quote's signature.
+  // Never let an unsigned injected deadline replace the signed request expiry.
+  if (sent.dry && (q.deadline !== undefined || q.depositMemo !== undefined || q['timeWhenInactive'] !== undefined)) {
+    return { ok: false, code: 'DEADLINE_INVALID' };
+  }
   if (q.amountOut !== sent.amount) return { ok: false, code: 'AMOUNT_MISMATCH' };
   if (BigInt(q.minAmountOut) < BigInt(sent.amount)) return { ok: false, code: 'MIN_OUTPUT_BELOW_PRINCIPAL' };
 
@@ -124,7 +129,9 @@ export function verifyQuoteResponse(
       minAmountIn: q.minAmountIn,
       amountOut: q.amountOut,
       deadlineMs,
-      timeEstimateSec: q.timeEstimate ?? null,
+      // Dry estimates are not authenticated by the SDK; don't present them as
+      // part of the signature-verified review.
+      timeEstimateSec: sent.dry ? null : q.timeEstimate ?? null,
       depositAddress: deposit,
       depositMemo: q.depositMemo ?? null,
     },

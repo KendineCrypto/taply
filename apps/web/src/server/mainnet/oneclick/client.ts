@@ -9,6 +9,8 @@
  *  - Upstream error text is never forwarded: it is mapped to a small code set
  *    with plain-language copy in the UI.
  */
+import { boundedText } from './bounded-body';
+
 export const ONECLICK_BASE_URL = 'https://1click.chaindefuser.com';
 
 export type OneClickErrorCode = 'MIN_AMOUNT' | 'NO_LIQUIDITY' | 'UNAUTHORIZED' | 'RATE_LIMITED' | 'BAD_REQUEST' | 'UNAVAILABLE';
@@ -46,13 +48,15 @@ export function createOneClickClient(input: {
 
   async function call(path: string, init: { method: 'GET' | 'POST'; body?: unknown }): Promise<unknown> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => { controller.abort(); reject(new OneClickHttpError('UNAVAILABLE')); }, timeoutMs);
+    });
     const headers: Record<string, string> = { accept: 'application/json' };
     if (init.body !== undefined) headers['content-type'] = 'application/json';
     if (input.apiKey) headers['authorization'] = `Bearer ${input.apiKey}`;
-    let response: Response;
-    try {
-      response = await fetcher(`${ONECLICK_BASE_URL}${path}`, {
+    const work = async () => {
+      const response = await fetcher(`${ONECLICK_BASE_URL}${path}`, {
         method: init.method,
         headers,
         ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
@@ -60,13 +64,12 @@ export function createOneClickClient(input: {
         cache: 'no-store',
         signal: controller.signal,
       });
-    } catch {
+    const length = response.headers.get('content-length');
+    if (length !== null && /^\d+$/.test(length) && BigInt(length) > BigInt(maxBytes)) {
+      void response.body?.cancel().catch(() => undefined);
       throw new OneClickHttpError('UNAVAILABLE');
-    } finally {
-      clearTimeout(timer);
     }
-    const text = await response.text().catch(() => '');
-    if (text.length > maxBytes) throw new OneClickHttpError('UNAVAILABLE');
+    const text = await boundedText(response.body, maxBytes, controller.signal);
     let body: unknown = null;
     try {
       body = text === '' ? null : JSON.parse(text);
@@ -81,6 +84,10 @@ export function createOneClickClient(input: {
     }
     if (body === null) throw new OneClickHttpError('UNAVAILABLE');
     return body;
+    };
+    try { return await Promise.race([work(), timeout]); }
+    catch (error) { throw error instanceof OneClickHttpError ? error : new OneClickHttpError('UNAVAILABLE'); }
+    finally { clearTimeout(timer); }
   }
 
   return {

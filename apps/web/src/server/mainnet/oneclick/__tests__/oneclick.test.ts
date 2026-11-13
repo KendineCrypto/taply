@@ -292,10 +292,11 @@ describe('quote service', () => {
       depositAddress: '0x9999999999999999999999999999999999999999', depositMemo: null, deadlineMs: NOW - 1, createdAtMs: NOW - 1_000_000,
       amountIn: '1', amountInFormatted: '1', minAmountIn: '1', amountOut: AWAITING.terms.amountBaseUnits, timeEstimateSec: 35, signedResponse: '{}',
     }, 10_000_000);
-    const status = vi.fn(async () => ({ status: 'PROCESSING', correlationId: 'c1' }));
+    const quoteResponse = { quote: { depositAddress: '0x9999999999999999999999999999999999999999' } };
+    const status = vi.fn(async () => ({ status: 'PROCESSING', correlationId: 'c1', quoteResponse }));
     const service = createOneClickService(deps({ store, client: { ...createFixtureClient(signer, () => now), status } }));
     expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PREVIOUS_QUOTE_IN_PROGRESS' });
-    status.mockResolvedValueOnce({ status: 'REFUNDED', correlationId: 'c1' });
+    status.mockResolvedValueOnce({ status: 'REFUNDED', correlationId: 'c1', quoteResponse });
     expect((await service.prepareQuote(input())).ok).toBe(true);
   });
 
@@ -361,6 +362,7 @@ describe('status service', () => {
       swapDetails: { originChainTxHashes: [{ hash: originHash, explorerUrl: 'https://evil.example/x' }], destinationChainTxHashes: [{ hash: nearHash, explorerUrl: 'https://evil.example/y' }], nearTxHashes: [nearHash] } };
     const service = (body: unknown) => createOneClickService(deps({ mode: 'dry', store, client: { ...createFixtureClient(signer), status: async () => body } }));
     const r = await service(good).status(AWAITING.terms.id);
+    expect(await service({ status: 'SUCCESS' }).status(AWAITING.terms.id)).toEqual({ ok: false, code: 'STATUS_MISMATCH' });
     expect(r.ok && r.value).toMatchObject({
       hint: 'SUCCESS',
       originTxs: [{ hash: originHash, url: `https://basescan.org/tx/${originHash}` }],

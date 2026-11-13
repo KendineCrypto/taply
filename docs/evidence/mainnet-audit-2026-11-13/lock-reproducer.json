@@ -1,0 +1,7 @@
+{
+  "kind": "KNOWN_BLOCKER_REPRODUCTION_NOT_SECURITY_PASS",
+  "simultaneousOwners": 2,
+  "realRedisUsed": false,
+  "fundedQuotesEnabled": false,
+  "conclusion": "30s expiry admits a second owner while the first is still active"
+}

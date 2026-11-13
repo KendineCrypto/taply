@@ -50,10 +50,8 @@ export const config = {
   matcher: [
     {
       source: '/((?!_next/static|_next/image|favicon|icons/|brand/|evidence/|manifest.webmanifest|robots.txt).*)',
-      missing: [
-        { type: 'header', key: 'next-router-prefetch' },
-        { type: 'header', key: 'purpose', value: 'prefetch' },
-      ],
+      // Prefetch headers are caller-controlled. Network isolation must run for
+      // these requests too, including requests targeting the other build's API.
     },
   ],
 };

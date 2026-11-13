@@ -1,0 +1,66 @@
+{
+  "kind": "LIVE_DRY_API_PROBE_NOT_TAPLY_PAYMENT",
+  "observedAt": "2026-11-13T13:20:51.069Z",
+  "syntheticRequestIdAndRefundAddress": true,
+  "deployedTaplyContractVerified": false,
+  "request": {
+    "dry": true,
+    "swapType": "EXACT_OUTPUT",
+    "slippageTolerance": 100,
+    "originAsset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+    "depositType": "ORIGIN_CHAIN",
+    "destinationAsset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "amount": "1000000",
+    "refundTo": "0x1111111111111111111111111111111111111111",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "devkendinecrypto.near",
+    "recipientType": "DESTINATION_CHAIN",
+    "deadline": "2026-11-13T13:40:50.269Z",
+    "customRecipientMsg": "{\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"expectedTermsHash\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"action\":\"pay_instant\"}"
+  },
+  "status": 201,
+  "body": {
+    "quote": {
+      "amountIn": "1014651",
+      "amountInFormatted": "1.014651",
+      "amountInUsd": "1.014200494956",
+      "minAmountIn": "1004548",
+      "amountOut": "1000000",
+      "amountOutFormatted": "1.0",
+      "amountOutUsd": "0.999556000000",
+      "minAmountOut": "1000000",
+      "timeEstimate": 35,
+      "refundFee": "2400",
+      "withdrawFee": "4427"
+    },
+    "quoteRequest": {
+      "dry": true,
+      "depositMode": "SIMPLE",
+      "swapType": "EXACT_OUTPUT",
+      "slippageTolerance": 100,
+      "originAsset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+      "depositType": "ORIGIN_CHAIN",
+      "destinationAsset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "amount": "1000000",
+      "refundTo": "0x1111111111111111111111111111111111111111",
+      "refundType": "ORIGIN_CHAIN",
+      "recipient": "devkendinecrypto.near",
+      "customRecipientMsg": "{\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"expectedTermsHash\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"action\":\"pay_instant\"}",
+      "recipientType": "DESTINATION_CHAIN",
+      "deadline": "2026-11-13T13:40:50.269Z",
+      "confidentiality": "public",
+      "quoteWaitingTimeMs": 0,
+      "insured": false,
+      "appFees": [
+        {
+          "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+          "fee": 1
+        }
+      ]
+    },
+    "signature": "ed25519:3VMSRmKJeFtsHyuaVuJ1KQ4A1sQMnDDYWFuacLkptKhtu52MkWy9R8fwPaG1AUQpkiVXLqaQZqNjYGUPPntfGxG8",
+    "timestamp": "2026-11-13T13:20:43.170Z",
+    "correlationId": "44706f68-c0da-43eb-ab2a-aa18d88fdfd8"
+  },
+  "signatureVerifiedByPinnedSdk": true
+}

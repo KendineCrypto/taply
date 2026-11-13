@@ -27,13 +27,18 @@ export function readerOrNull() {
 }
 
 export function useMainnetRequest(id: string, poll: boolean): { read: RequestRead; refresh: () => void } {
-  const [read, setRead] = useState<RequestRead>({ kind: 'loading' });
+  const [snapshot, setSnapshot] = useState<{ id: string; read: RequestRead } | null>(null);
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     let live = true;
+    let sequence = 0;
     const run = async () => {
+      const current = ++sequence;
+      const setRead = (read: RequestRead) => {
+        if (live && current === sequence) setSnapshot({ id, read });
+      };
       if (MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures) {
         const entry = fixtureById(id, Date.now());
         if (live) setRead(entry === null ? { kind: 'not_found' } : { kind: 'ok', request: entry.request, readAtMs: Date.now(), fixture: true });
@@ -49,8 +54,9 @@ export function useMainnetRequest(id: string, poll: boolean): { read: RequestRea
         if (!live) return;
         setRead(r.data === null ? { kind: 'not_found' } : { kind: 'ok', request: r.data, readAtMs: Date.now(), fixture: false });
       } catch {
-        // Keep showing the last good read only if we had one; never invent a state.
-        if (live) setRead((prev) => (prev.kind === 'ok' ? prev : { kind: 'error' }));
+        // An unavailable read cannot silently remain a current payable/paid
+        // assertion, especially after navigation to another request.
+        setRead({ kind: 'error' });
       }
     };
     void run();
@@ -61,7 +67,7 @@ export function useMainnetRequest(id: string, poll: boolean): { read: RequestRea
     };
   }, [id, poll, tick]);
 
-  return { read, refresh };
+  return { read: snapshot?.id === id ? snapshot.read : { kind: 'loading' }, refresh };
 }
 
 export interface HintState {
@@ -75,8 +81,8 @@ export interface HintState {
 
 /** Polls the server status endpoint. A hint only: it never sets a paid state by itself. */
 export function useOneClickHint(requestId: string, enabled: boolean): HintState | null {
-  const [hint, setHint] = useState<HintState | null>(null);
-  const firstSeen = useRef<{ status: OneClickStatus | null; at: number } | null>(null);
+  const [snapshot, setSnapshot] = useState<{ id: string; hint: HintState } | null>(null);
+  const firstSeen = useRef<{ id: string; status: OneClickStatus | null; at: number } | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -93,15 +99,15 @@ export function useOneClickHint(requestId: string, enabled: boolean): HintState 
           refundedAmountFormatted: string | null;
         };
         if (!live) return;
-        if (firstSeen.current === null || firstSeen.current.status !== body.hint) firstSeen.current = { status: body.hint, at: Date.now() };
-        setHint({
+        if (firstSeen.current?.id !== requestId || firstSeen.current.status !== body.hint) firstSeen.current = { id: requestId, status: body.hint, at: Date.now() };
+        setSnapshot({ id: requestId, hint: {
           status: body.hint,
           sinceMs: firstSeen.current.at,
           refundTo: body.refundTo || null,
           originTxs: body.originTxs,
           nearTxs: body.nearTxs,
           refundedAmountFormatted: body.refundedAmountFormatted,
-        });
+        } });
       } catch {
         // offline or service down: keep the last hint; the contract read is what matters
       }
@@ -114,7 +120,7 @@ export function useOneClickHint(requestId: string, enabled: boolean): HintState 
     };
   }, [requestId, enabled]);
 
-  return hint;
+  return enabled && snapshot?.id === requestId ? snapshot.hint : null;
 }
 
 export type Registration = 'registered' | 'not_registered' | 'unknown' | 'fixture_registered';

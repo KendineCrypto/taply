@@ -348,7 +348,7 @@ export function createOneClickService(deps: ServiceDeps) {
     // The status must describe OUR quote, not another deposit address's.
     const echoedDeposit = parsed.quoteResponse?.quote.depositAddress;
     const echoedCorrelation = parsed.quoteResponse?.correlationId ?? parsed.correlationId;
-    if ((echoedDeposit !== undefined && echoedDeposit !== record.depositAddress) || (echoedCorrelation !== undefined && echoedCorrelation !== record.correlationId)) {
+    if (echoedDeposit !== record.depositAddress || echoedCorrelation !== record.correlationId) {
       throw new Error('STATUS_MISMATCH');
     }
     const s = parsed.swapDetails;
