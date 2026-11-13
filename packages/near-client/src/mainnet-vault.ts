@@ -2,6 +2,8 @@ import { z } from "zod";
 import { MainnetAccountSchema, isWellFormedUnicode, parseStrictJson } from "@taply/shared";
 import { PublicKey, Signer, encodeTransaction, decodeSignedTransaction } from "near-api-js";
 import type { Transaction, SignedTransaction } from "near-api-js";
+import {mainnetAuthorityMessageParameters,mainnetAuthorityPayload,type MainnetAuthorityCommand} from './mainnet-wallet-auth.js';
+import {ed25519PublicKeyFromHex} from './wallet-chain.js';
 import { RECOVERY_DERIVATION, ed25519SeedToPkcs8, entropyToPhrase, normalizePhrase, phraseToEd25519Seed, phraseToEntropy } from "./recovery-phrase.js";
 
 // Internal bridge, deliberately not re-exported from the package entrypoint.
@@ -153,6 +155,27 @@ export class EncryptedMainnetVault {
     } catch { throw new MainnetVaultError("STORAGE_UNAVAILABLE"); }
   }
   getIdentity(): MainnetWalletIdentity | null { const raw = this.raw(); return raw === null ? null : identity(parseRecord(raw)); }
+  /** Fixed authority authentication only; no arbitrary raw-message signing.
+   * Remains disabled with the Mainnet signing release gate. */
+  async authorizeAuthorityCommand(challenge:unknown,command:MainnetAuthorityCommand,policyHash:string,
+    confirm:(command:MainnetAuthorityCommand)=>Promise<boolean>) {
+    if(!MAINNET_PROTOCOL_SIGNING_RELEASED)throw new MainnetVaultError('SIGNING_DISABLED');
+    const id=this.getIdentity();
+    if(!id||!this.unlocked||!this.#key||this.#key.extractable)throw new MainnetVaultError('LOCKED');
+    const generation=this.#generation,op=structuredClone(command),publicKey=ed25519PublicKeyFromHex(id.publicKeyHex);
+    const expected={accountId:id.accountId,publicKey,command:op,policyHash};
+    const original=structuredClone(challenge);
+    await mainnetAuthorityMessageParameters(original,expected,this.now);
+    if(await confirm(structuredClone(op))!==true)throw new MainnetVaultError('CANCELLED');
+    const params=await mainnetAuthorityMessageParameters(original,expected,this.now);
+    if(!this.unlocked||!this.#key||generation!==this.#generation)throw new MainnetVaultError('CANCELLED');
+    const digest=await this.crypto.subtle.digest('SHA-256',mainnetAuthorityPayload(params));
+    if(!this.unlocked||!this.#key||generation!==this.#generation)throw new MainnetVaultError('CANCELLED');
+    const signature=new Uint8Array(await this.crypto.subtle.sign('Ed25519',this.#key,digest));
+    if(!this.unlocked||generation!==this.#generation)throw new MainnetVaultError('CANCELLED');
+    await mainnetAuthorityMessageParameters(original,expected,this.now);
+    return {accountId:id.accountId,publicKey,signature:btoa(String.fromCharCode(...signature))};
+  }
   get unlocked(): boolean {
     if (this.#key !== null) {
       try { if (this.now >= this.#expiresAt || this.raw() !== this.#unlockedRecord) this.lock(); }

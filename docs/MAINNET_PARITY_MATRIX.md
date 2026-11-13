@@ -6,6 +6,17 @@ Updated 2026-11-13, **phase 5**. Integration branch `claude/mainnet-phase5`
 (merge `fdea61d`), plus phase 5 integration on Codex's unified wallet protocol.
 Protocol decision record: [MAINNET_PHASE4_PROTOCOL.md](MAINNET_PHASE4_PROTOCOL.md).
 
+## Phase 5 protocol delta
+
+See [secure signing authority](MAINNET_SIGNING_AUTHORITY.md). Account/key ownership,
+single-use command challenges, server-issued device enrollment, witnessed Redis
+CAS, fixed-purpose wallet auth, immutable merchant bindings and receipt dispatch
+are implemented in the isolated protocol branch. Production routes remain
+unmounted and all release gates remain false. Independent production witness,
+device recovery, physical wallet acceptance, full application wiring, approved
+Gift/escrow configurations, R-2 and live router delivery evidence remain blockers.
+This delta does not mark Wallet, Gift, Protected Pay or merchant flows live.
+
 **NO-GO for Mainnet funds. Full functional parity NOT reached.** No transaction
 can execute: `MAINNET_SIGNING_RELEASE_APPROVED`, `MAINNET_PROTOCOL_SIGNING_RELEASED`,
 `ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED`, `MAINNET_INDEPENDENT_VERIFIER_AVAILABLE`

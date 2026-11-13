@@ -117,6 +117,12 @@ export function createMainnetTransactionCoordinator(input:{store:MainnetGlobalAt
     async reconcile(accountId:string,hashHint?:string){
       const {raw,value}=await load(accountId),a=value?.pending;
       if(!value||!a)return {kind:'NO_PENDING_ATTEMPT' as const};
+      // NEAR Connect does not bind an exact nonce before handoff. After a lost
+      // response, an arbitrary matching hash could be an unrelated identical
+      // transfer while this attempt is still live. Never retire that reservation
+      // using a manually supplied hint alone. Exact-nonce internal attempts and
+      // external hashes already retained from handoff remain independently checked.
+      if(a.expectation.nonce===null&&a.transactionHash===null)return {kind:'OUTCOME_UNRESOLVED' as const};
       const hash=a.transactionHash??hashHint;
       if(!hash||(a.transactionHash!==null&&hashHint!==undefined&&hashHint!==a.transactionHash))return {kind:'OUTCOME_UNRESOLVED' as const};
       const proof=await verifyMainnetTransactionExecution(input.profile,a.expectation,hash,fetcher);

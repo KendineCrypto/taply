@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {canonicalJson,MAINNET_USDC,calculateMainnetRequestId,calculateMainnetTermsHash} from '@taply/shared';
+import {canonicalJson,MAINNET_USDC,calculateMainnetRequestId,calculateMainnetTermsHash,calculateMainnetEscrowTermsHash} from '@taply/shared';
 import {createMainnetOperationPlanner,mainnetNearConnectParameters,createMainnetWalletBackend,MAINNET_GENESIS_HASH,signMainnetGiftClaim} from '../dist/index.js';
 const fixture=n=>JSON.parse(readFileSync(new URL(`./fixtures/mainnet-protocol/${n}.json`,import.meta.url),'utf8'));
 const H=n=>'1'.repeat(31)+n,code=H(9),block=H(2),key='ed25519:11111111111111111111111111111111';
@@ -25,7 +25,7 @@ function fetcher(options={}){return async(_,init)=>{const r=JSON.parse(init.body
   else{
     let value;const a=JSON.parse(Buffer.from(p.args_base64,'base64').toString());
     if(p.method_name==='get_config')value=p.account_id===giftConfig.contractId?giftConfig:p.account_id==='payments.fixture.near'?fixture('token-config'):instantConfig;
-    else if(p.method_name==='get_request')value=p.account_id==='payments.fixture.near'?(options.request??fixture('protected-open')):instantState;
+    else if(p.method_name==='get_request')value=p.account_id==='payments.fixture.near'?(options.request??fixture('protected-open')):(options.instantRequest??instantState);
     else if(p.method_name==='get_gift')value=options.noGift?null:options.gift??gift;
     else if(p.method_name==='quote_create_request')value={quoteVersion:'1',requestId:a.terms.id,termsHash:p.account_id==='payments.fixture.near'?fixture('protected-open').termsHash:instantState.termsHash,storageBytes:'900',depositYocto:'9000000000000000000000',gas:'30000000000000'};
     else if(p.method_name==='ft_balance_of')value=options.lowBalance?'0':'100000000';
@@ -90,4 +90,19 @@ test('caller profile mutation cannot change a policy instance code pin',async()=
   const config=structuredClone(profiles),planner=createMainnetOperationPlanner(config,fetcher({wrongCode:true}));
   config.usdcCodeHash=H(8);
   await assert.rejects(planner.prepare({kind:'usdcSend',receiverId:'bob.near',amountBaseUnits:'1',businessId:'a'.repeat(64)},snapshot),/EVIDENCE/);
+});
+test('instant and Protected USDC funding preserve exact recipient message, amount and one yocto across external-wallet parameters',async()=>{
+  const instant=structuredClone(instantState);instant.terms.assetId=`nep141:${MAINNET_USDC}`;instant.terms.amountBaseUnits='2500000';instant.termsHash=calculateMainnetTermsHash(instant.terms);
+  const escrow=fixture('protected-open');escrow.terms.assetId=`nep141:${MAINNET_USDC}`;escrow.terms.amountBaseUnits='2500000';escrow.termsHash=calculateMainnetEscrowTermsHash(escrow.terms);
+  for(const [request,op,options] of [[instant,{kind:'instantPay',id:instant.terms.id},{instantRequest:instant}],
+    [escrow,{kind:'escrowFund',id:escrow.terms.id,acceptedCancelDurationNs:escrow.terms.cancelDurationNs},{request:escrow}]]){
+    const plan=await createMainnetOperationPlanner(profiles,fetcher(options)).prepare(op,{...snapshot,accountId:'bob.near'});
+    assert.equal(plan.receiverId,MAINNET_USDC);assert.equal(plan.action.methodName,'ft_transfer_call');assert.equal(plan.action.depositYocto,'1');
+    const args=JSON.parse(plan.action.argsJson);assert.equal(args.amount,'2500000');assert.equal(args.receiver_id,request.terms.contractId);
+    assert.ok(args.msg.includes(request.termsHash));assert.ok(args.msg.includes(request.terms.id));
+    const external=mainnetNearConnectParameters('bob.near',plan.receiverId,plan.action);
+    assert.deepEqual(external.actions[0].params.args,args);assert.equal(external.actions[0].params.deposit,'1');
+    for(const bad of [{unregistered:true},{lowBalance:true},{wrongCode:true}])
+      await assert.rejects(createMainnetOperationPlanner(profiles,fetcher({...options,...bad})).prepare(op,{...snapshot,accountId:'bob.near'}));
+  }
 });
