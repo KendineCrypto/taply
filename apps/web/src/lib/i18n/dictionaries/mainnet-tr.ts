@@ -12,7 +12,7 @@ export const mainnetTr: MainnetCopy = {
   },
   home: {
     title: 'NEAR Mainnet üzerinde Taply',
-    lead: 'Tam tutarlı USDC veya NEAR talepleri; NEAR cüzdanından ya da NEAR Intents ile Base üzerinden ödenir. Ödemenin kaydedildiğini yalnızca sözleşme söyleyebilir.',
+    lead: 'Cüzdanın, ödemelerin, işyeri araçların ve hediyelerin Mainnet’te bir arada. Geliştirme adayını keşfet; gerçek para imzalama kapalı.',
     merchantCta: 'Talep oluştur',
     merchantHint: 'İşletmeler için: NEAR veya USDC, sabit tutar, parayı sizin hesabınız alır.',
     payCta: 'Bir talebi öde',

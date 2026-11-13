@@ -125,6 +125,7 @@ production browser) and what is *not* proven is in
 | **Independent receipt verifier** | Each phone checks the funding, transfer and callback receipts, the contract code hash and access keys. Falls back to a clearly labelled archived record if public RPCs are busy | [ledger](docs/EVIDENCE.md) |
 | **Live balance** | The Taply Wallet balance refreshes after every signature, every 20 s and when the app comes back to the foreground | [production run](docs/evidence/production-balance-2026-11-10/balance-refresh-result.json) |
 | **Merchant tools** | Register and store QR (`/merchant`, `/checkout/<account>`), QR scanner, contacts (on device), Split Pay and Recurring templates (they pre-fill normal requests; nothing runs automatically) | live site |
+| **Taply Gift** | Tap → **Send a Gift**. *Personal Gift*: a Taply Wallet transfer plus an animated envelope page that re-checks that exact transfer on chain. *Open Gift*: NEAR locked in a separate gift contract, shared as a link, and the first on-chain claim wins (link-key signature bound to the claimant). Open Gift stays **off** until its contract is deployed with owner approval | [design + tests](docs/GIFT.md) · [sandbox](docs/evidence/gift-sandbox-2026-11-13/) |
 | **English / Türkçe, PWA, accessible** | Mobile first (360–430 px), keyboard and screen-reader friendly, reduced motion | live site |
 
 **Off on purpose:** contract-bound merchant sessions, merchant sale signing,

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 export const GENESIS = 'EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H';
+export const GENESIS_HEIGHT = 9820210;
 export const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 export const CONSTRUCTOR = Object.freeze({ tokens: [{ accountId: USDC, decimals: 6, symbol: 'USDC' }],
   routerAccountId: 'intents.near', recoveryAccountId: 'kendinecrypto.near', nativeCapYocto: '1000000000000000000000000', usdcCapBaseUnits: '25000000' });
@@ -34,7 +35,7 @@ export async function plan({ rpcUrl, accountId, wasm, verify = false, previousCo
     const body = JSON.parse(text); if (body.error || body.result === undefined) throw new Error('RPC_UNAVAILABLE_OR_ACCOUNT_MISSING'); return body.result;
   });
   const status = await rpc('status', []);
-  const genesis = await rpc('block', { block_id: 0 });
+  const genesis = await rpc('block', { block_id: GENESIS_HEIGHT });
   if (status.chain_id !== 'mainnet' || status.sync_info?.syncing !== false || genesis.header?.hash !== GENESIS) throw new Error('WRONG_NETWORK');
   const block = await rpc('block', { finality: 'final' }); const blockId = block.header.hash;
   const account = await rpc('query', { request_type: 'view_account', account_id: accountId, block_id: blockId });

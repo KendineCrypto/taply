@@ -1,0 +1,69 @@
+# Taply Gift contract (contracts/gift): unit tests, clippy, WASM build and the
+# sandbox suite on a real local NEAR node. No network deployment, no wallet keys,
+# no repository secrets. This workflow does not approve or deploy the contract.
+name: gift-contract
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - contracts/gift/**
+      - .github/workflows/gift-contract.yml
+  pull_request:
+    paths:
+      - contracts/gift/**
+      - .github/workflows/gift-contract.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gift-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  validate:
+    name: fmt, unit tests, clippy, WASM, sandbox
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: contracts/gift
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node 24.22.2 (from .node-version)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Install pinned Rust 1.95.0
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal \
+            --component rustfmt,clippy --target wasm32-unknown-unknown
+          cargo -V
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Unit tests
+        run: cargo test --locked --lib -- --test-threads=1 --color never
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: WASM build (production + TEST-ONLY callback-fault artifact)
+        run: FAULT=1 bash scripts/build.sh
+      - name: Sandbox format and clippy
+        working-directory: contracts/gift/sandbox
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --all-targets -- -D warnings
+      - name: Sandbox suite (real local NEAR node, sequential)
+        run: |
+          bash scripts/sandbox.sh
+          grep -q "test result: ok. 5 passed; 0 failed" artifacts/sandbox-tests.log
+          grep -a -E "MEASURE|SOLVENCY" artifacts/sandbox-tests.log >> "$GITHUB_STEP_SUMMARY" || true

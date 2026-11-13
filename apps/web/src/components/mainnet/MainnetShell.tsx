@@ -6,6 +6,7 @@ import { TaplyWordmark } from '@/components/brand/TaplyIcon';
 import { useOnline } from '@/lib/hooks/browser';
 import { LOCALES } from '@/lib/i18n/types';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
+import { ProductNav } from './MainnetProduct';
 import { useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
 /**
@@ -49,6 +50,7 @@ export function MainnetShell({ children }: { readonly children: ReactNode }) {
       <main id="main" className="flex-1 px-4 pt-4 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:px-5">
         {children}
       </main>
+      <ProductNav />
     </div>
   );
 }

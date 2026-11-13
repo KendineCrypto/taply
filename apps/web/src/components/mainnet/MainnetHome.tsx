@@ -11,6 +11,7 @@ import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { fixtureRequests } from '@/lib/mainnet/fixtures';
 import { Notice, short } from './bits';
 import { WalletPanel } from './WalletPanel';
+import { ProductLinks } from './MainnetProduct';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
 /** Accepts a bare 64-hex id or a Taply mainnet pay link on the same origin path. */
@@ -35,6 +36,7 @@ export function MainnetHome() {
   return (
     <div className="flex flex-col gap-4">
       <ScreenHeader title={c.home.title} description={c.home.lead} />
+      <ProductLinks compact />
 
       <Card>
         <h2 className="text-[15px] font-semibold">{c.home.merchantCta}</h2>

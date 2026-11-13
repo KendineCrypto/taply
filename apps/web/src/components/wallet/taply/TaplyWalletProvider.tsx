@@ -13,6 +13,7 @@ import type { WalletValue } from '@/lib/wallet/provider';
 import { ConfirmTransactionDialog, UnlockDialog } from './TaplyDialogs';
 import { useWalletMode } from './mode';
 import { PROTECTED_SETUP } from '@/lib/protected/hooks';
+import { GIFT_SETUP } from '@/lib/gift/hooks';
 import { createTaplyWalletController, TaplyNameTakenError, TaplyPhraseMismatchError } from '@/lib/wallet/taply-wallet';
 
 /**
@@ -106,7 +107,9 @@ function defaultFactory(confirmTransaction: Confirm): TaplyWalletController | nu
     return createTaplyWalletController({ config: CHAIN_CONFIG.client, storage: window.localStorage, confirmTransaction,
       // The escrow candidate is unreviewed: the wallet signs for it only on a build that says so explicitly.
       protectedContract: PROTECTED_SETUP.status === 'ready' && PROTECTED_SETUP.qaBuild
-        ? { accountId: PROTECTED_SETUP.contractId, expectedCodeHash: PROTECTED_SETUP.expectedCodeHash } : null });
+        ? { accountId: PROTECTED_SETUP.contractId, expectedCodeHash: PROTECTED_SETUP.expectedCodeHash } : null,
+      // Open Gifts: only when this build pins an approved gift contract (flag + id + code hash).
+      giftContract: GIFT_SETUP.status === 'ready' ? { accountId: GIFT_SETUP.contractId, expectedCodeHash: GIFT_SETUP.expectedCodeHash } : null });
   } catch {
     return null;
   }

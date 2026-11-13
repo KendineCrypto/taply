@@ -155,7 +155,7 @@ export const mainnetEn: MainnetCopy = {
   },
   home: {
     title: 'Taply on NEAR Mainnet',
-    lead: 'Exact USDC or NEAR requests, paid from a NEAR wallet or from Base through NEAR Intents. Only the contract can say a payment was recorded.',
+    lead: 'Your wallet, payments, merchant tools and gifts — together on Mainnet. Explore the development candidate; real-money signing remains disabled.',
     merchantCta: 'Create a request',
     merchantHint: 'For merchants: NEAR or USDC, fixed amount, your account receives it.',
     payCta: 'Pay a request',

@@ -95,12 +95,20 @@ describe('Tap sheet', () => {
     const sheet = openTap();
     expect(tap.getAttribute('aria-expanded')).toBe('true');
     const actions = within(sheet).getAllByRole('button').filter((b) => b.getAttribute('aria-label') === null);
-    expect(actions.map((b) => within(b).getAllByText(/./)[0]?.textContent)).toEqual(['Request', 'Pay', 'Send NEAR']);
+    expect(actions.map((b) => within(b).getAllByText(/./)[0]?.textContent)).toEqual(['Request', 'Pay', 'Send NEAR', 'Send a Gift']);
     // Sending is honestly labelled as a preview.
     expect(within(sheet).getByText(/Not available yet: transfers cannot be confirmed/)).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
     fireEvent.click(within(sheet).getByText('Request'));
     expect(push).toHaveBeenCalledWith('/request/new');
+  });
+
+  it('offers Send a Gift in the Tap sheet and opens /gift/new', () => {
+    renderShell();
+    const sheet = openTap();
+    expect(within(sheet).getByText('Wrap NEAR in an envelope and share it')).toBeTruthy();
+    fireEvent.click(within(sheet).getByText('Send a Gift'));
+    expect(push).toHaveBeenCalledWith('/gift/new');
   });
 
   it('closes with the close button and with Escape, without navigating', async () => {

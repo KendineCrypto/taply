@@ -1,3 +1,4 @@
+import { giftEn } from './gift-en';
 import type { Dictionary } from '../types';
 import { commerceEn } from './commerce-en';
 import { toolsEn } from './tools-en';
@@ -18,6 +19,7 @@ export const en: Dictionary = {
   commerce: commerceEn,
   tools: toolsEn,
   protectedFlow: protectedEn,
+  gift: giftEn,
   verifiedRequest: {
     verified: 'Verified request',
     unverified: 'Not fully verified',

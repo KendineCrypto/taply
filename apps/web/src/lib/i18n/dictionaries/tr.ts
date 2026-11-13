@@ -1,3 +1,4 @@
+import { giftTr } from './gift-tr';
 import type { Dictionary } from '../types';
 import { commerceTr } from './commerce-tr';
 import { toolsTr } from './tools-tr';
@@ -16,6 +17,7 @@ export const tr: Dictionary = {
   commerce: commerceTr,
   tools: toolsTr,
   protectedFlow: protectedTr,
+  gift: giftTr,
   verifiedRequest: {
     verified: 'Doğrulanmış talep',
     unverified: 'Tam doğrulanmadı',

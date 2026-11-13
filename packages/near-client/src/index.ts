@@ -1,5 +1,6 @@
 import { buildClient } from "./client.js";
 export * from "./mainnet.js";
+export * from "./mainnet-account.js";
 import type { NearTestnetClient, NearTestnetConfig } from "./types.js";
 
 export function createNearTestnetClient(config: NearTestnetConfig): NearTestnetClient {
@@ -21,7 +22,7 @@ export type { WalletAttempt } from "./wallet-journal.js";
 export { WalletEngineError, nativeNearToYocto, prepareNativeNearTransfer, spendingBudget, walletAccountId } from "./wallet-transfer.js";
 export type { WalletBalanceSnapshot } from "./wallet-transfer.js";
 export { checkedSwapTransaction, createReviewedWalletBackend, WALLET_REVIEW_TTL_MS } from "./wallet-backend.js";
-export type { PreparedWalletSwap, ReviewedWalletBackend, WalletFunctionCall, WalletTransactionReview, WalletSubmission, WalletBackendPolicy, WalletProtectedContract } from "./wallet-backend.js";
+export type { PreparedWalletSwap, ReviewedWalletBackend, WalletFunctionCall, WalletTransactionReview, WalletSubmission, WalletBackendPolicy, WalletProtectedContract, WalletGiftContract } from "./wallet-backend.js";
 export type * from "./types.js";
 export {
   ABI_MINIMUM_GAS, CONTRACT_ERROR_CODES, ContractConfigSchema, CreateQuoteSchema, TerminalFactsSchema,
@@ -46,3 +47,9 @@ export {
   prepareRetryProtectedTransfer, protectedConfigProblems,
 } from "./protected.js";
 export type { PreparedProtectedCall, PreparedTokenCall, ProtectedConfigProblem, ProtectedContractConfig, ProtectedReader } from "./protected.js";
+export {
+  GIFT_CLAIM_DOMAIN, GIFT_CONTRACT_VERSION, GIFT_CREATE_GAS, GIFT_SETTLE_GAS, GiftConfigSchema, GiftViewSchema, claimMessage, createGiftReader,
+  decodeGiftSecret, encodeGiftSecret, giftConfigProblems, giftMessageProblem, giftPublicKeyHex, isGiftId, newGiftLink, prepareClaimGift,
+  prepareCreateGift, prepareRefundGift, prepareRetryGiftPayout, signGiftClaim, verifyDirectTransfer, verifyGiftClaim,
+} from "./gift.js";
+export type { DirectTransferCheck, GiftConfig, GiftConfigProblem, GiftRead, GiftReader, GiftView, PreparedGiftCall } from "./gift.js";

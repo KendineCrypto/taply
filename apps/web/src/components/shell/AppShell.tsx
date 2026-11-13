@@ -376,7 +376,7 @@ function TapSheet({
   const s = t.oneTap.sheet;
   const router = useRouter();
 
-  const go = (href: '/request/new' | '/send' | '/protected/new') => {
+  const go = (href: '/request/new' | '/send' | '/protected/new' | '/gift/new') => {
     onClose();
     router.push(href);
   };
@@ -392,6 +392,9 @@ function TapSheet({
           <SheetAction index={2} icon={<Icon name="send" size={22} />} label={s.send.label} body={s.send.body} onSelect={() => go('/send')} />
           {FLAGS.protectedPay.enabled && (
             <SheetAction index={3} icon={<Icon name="shield" size={22} />} label={t.protectedFlow.newTitle} body={t.protectedFlow.sheetBody} onSelect={() => go('/protected/new')} />
+          )}
+          {FLAGS.gift.enabled && (
+            <SheetAction index={4} icon={<Icon name="gift" size={22} />} label={t.gift.sheet.label} body={t.gift.sheet.body} onSelect={() => go('/gift/new')} />
           )}
         </div>
       )}

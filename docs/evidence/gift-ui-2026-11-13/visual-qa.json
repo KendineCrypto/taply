@@ -1,0 +1,51 @@
+{
+  "mock": "SYNTHETIC RPC — layout/state rendering only, no chain",
+  "shots": [
+    "open-gift-closed-360",
+    "open-gift-unwrapped-360",
+    "open-gift-closed-390",
+    "open-gift-unwrapped-390",
+    "open-gift-already-claimed-390",
+    "gift-receipt-390",
+    "open-gift-expired-390",
+    "open-gift-rpc-unavailable-390",
+    "create-1-type-390",
+    "create-2-amount-390",
+    "create-3-envelope-390",
+    "create-4-review-390",
+    "tap-sheet-send-a-gift-390",
+    "open-gift-closed-430",
+    "open-gift-unwrapped-430",
+    "open-gift-unwrapped-reduced-motion-390"
+  ],
+  "overflow": [
+    {
+      "name": "open-gift-closed-360",
+      "px": 0
+    },
+    {
+      "name": "open-gift-unwrapped-360",
+      "px": 0
+    },
+    {
+      "name": "open-gift-closed-390",
+      "px": 0
+    },
+    {
+      "name": "open-gift-unwrapped-390",
+      "px": 0
+    },
+    {
+      "name": "open-gift-closed-430",
+      "px": 0
+    },
+    {
+      "name": "open-gift-unwrapped-430",
+      "px": 0
+    }
+  ],
+  "consoleErrors": [
+    "390: Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "reducedMotionFlapTransform": "none"
+}

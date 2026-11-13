@@ -2,7 +2,7 @@ import {
   EncryptedTestnetVault, VaultError, WalletEngineError, createWalletChain, ed25519PublicKeyFromHex,
   isNamedTestnetAccount, recoveryPhrasePublicKeyHex, prepareNativeNearTransfer, VAULT_STORAGE_KEY, createReviewedWalletBackend,
 } from '@taply/near-client';
-import type { LocalWalletIdentity, NearTestnetConfig, VaultSessionStore, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall, PreparedProtectedCall, WalletProtectedContract } from '@taply/near-client';
+import type { LocalWalletIdentity, NearTestnetConfig, VaultSessionStore, VaultStorage, WalletBalanceSnapshot, WalletChain, WalletTransactionReview, PreparedContractCall, PreparedProtectedCall, PreparedGiftCall, WalletProtectedContract, WalletGiftContract } from '@taply/near-client';
 import { encodeQr } from '@/lib/qr/encode';
 import { FLAGS } from '@/lib/flags/features';
 import { WalletDeclinedError, WalletError, WalletNotSentError } from './adapter';
@@ -62,6 +62,8 @@ export function createTaplyWalletController(input: {
    * 2026-11-11, Testnet only, unreviewed contract). Absent = every Protected call is refused.
    */
   readonly protectedContract?: WalletProtectedContract | null;
+  /** Taply Gift contract (Testnet only, unreviewed, pinned by code hash). Absent = every gift call is refused. */
+  readonly giftContract?: WalletGiftContract | null;
   /** Test seam for the public Testnet faucet. */
   readonly requestAccount?: (accountId: string, publicKey: string) => Promise<FaucetResult>;
   /** Test seam for the provisioning poll interval. */
@@ -93,7 +95,8 @@ export function createTaplyWalletController(input: {
     return navigator.locks.request('taply.testnet-vault-write.v1', { mode: 'exclusive' }, task);
   };
   const protectedContract = FLAGS.protectedPay.enabled ? input.protectedContract ?? null : null;
-  const backend = createReviewedWalletBackend({ config: input.config, vault, storage: input.storage, chain, protectedContract,
+  const giftContract = FLAGS.giftClaimable.enabled ? input.giftContract ?? null : null;
+  const backend = createReviewedWalletBackend({ config: input.config, vault, storage: input.storage, chain, protectedContract, giftContract,
     ...(input.crypto ? { crypto: input.crypto } : {}),
     policy: { signingPermitted: () => TAPLY_WALLET_SIGNING_ENABLED, contractCallsPermitted: () => FLAGS.instantPay.enabled,
       withExclusiveLock: withVaultWriteLock } });
@@ -168,12 +171,16 @@ export function createTaplyWalletController(input: {
       if (!connected || !vault.unlocked || vault.getIdentity()?.accountId !== signerAccountId) throw new WalletError('no_account');
       // Protected Pay: only calls addressed to the configured escrow candidate.
       const escrow = protectedContract !== null && call.receiverId === protectedContract.accountId;
-      const payment = !escrow && ['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName);
-      if ((payment || escrow) && call.actions !== undefined) throw new WalletError('failed');
+      const gift = giftContract !== null && call.receiverId === giftContract.accountId;
+      const payment = !escrow && !gift && ['create_request', 'pay_instant_native', 'cancel_unfunded', 'retry_native_transfer'].includes(call.methodName);
+      if ((payment || escrow || gift) && call.actions !== undefined) throw new WalletError('failed');
       try {
         // Payments: rebuilt from the approved contract. Anything else must be an
         // exact curated swap shape (checkedSwapTransaction) or it is refused.
-        const review = escrow
+        const review = gift
+          ? await backend.prepareGiftCall({ receiverId: call.receiverId, methodName: call.methodName as PreparedGiftCall['methodName'],
+            args: { ...call.args }, gas: call.gas, depositYocto: call.depositYocto })
+          : escrow
           ? await backend.prepareProtectedCall({ receiverId: call.receiverId, methodName: call.methodName as PreparedProtectedCall['methodName'],
             args: { ...call.args }, gas: call.gas, depositYocto: call.depositYocto })
           : payment

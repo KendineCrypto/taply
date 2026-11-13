@@ -1047,3 +1047,103 @@ html:has(.taply-sheet[open]) {
     opacity: 0;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Taply Gift envelope (components/gift/Envelope.tsx). CSS/SVG only.
+ * Opening is a visual interaction; it never claims or sends anything.
+ * ------------------------------------------------------------------------- */
+.gift-env {
+  --env-paper: #203226;
+  --env-pocket: #1a2a20;
+  --env-fold: #172419;
+  --env-flap: #24382b;
+  --env-line: rgb(199 252 117 / 0.28);
+  --env-letter: var(--taply-cream);
+  --env-dur: 640ms;
+  width: 100%;
+  max-width: 340px;
+  margin-inline: auto;
+  padding-top: 0;
+  transition: padding-top var(--env-dur) var(--ease-out);
+}
+.gift-env--lg[data-open='true'] { padding-top: 46%; }
+.gift-env--sm { max-width: 76px; }
+.gift-env--lime { --env-paper: #c7fc75; --env-pocket: #b8f05c; --env-fold: #aee653; --env-flap: #d3fd90; --env-line: rgb(11 18 14 / 0.22); }
+.gift-env--linen { --env-paper: #f4f3e8; --env-pocket: #ebe9d9; --env-fold: #e2e0cd; --env-flap: #f8f7ef; --env-line: rgb(11 18 14 / 0.16); }
+.gift-env--midnight { --env-paper: #0b120e; --env-pocket: #111c15; --env-fold: #0e1712; --env-flap: #16241b; --env-line: rgb(244 243 232 / 0.2); }
+.gift-env__stage {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  perspective: 900px;
+  filter: drop-shadow(0 22px 26px rgb(0 0 0 / 0.45));
+}
+.gift-env--sm .gift-env__stage { filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.4)); }
+.gift-env__back {
+  position: absolute; inset: 0;
+  border-radius: 14px;
+  background: var(--env-paper);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+.gift-env--sm .gift-env__back { border-radius: 6px; }
+.gift-env__letter {
+  position: absolute; left: 6%; right: 6%; top: 5%; bottom: 6%;
+  z-index: 1;
+  border-radius: 10px;
+  background: var(--env-letter);
+  color: var(--ink);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 10px 24px -14px rgb(0 0 0 / 0.6);
+  padding: 7% 7% 0;
+  overflow: hidden;
+  transform: translateY(0);
+  /* Hidden while sealed so no paper shows along the flap edges. */
+  opacity: 0;
+  transition: transform calc(var(--env-dur) * 0.9) var(--ease-out) calc(var(--env-dur) * 0.45), opacity 120ms linear calc(var(--env-dur) * 0.3);
+}
+.gift-env--sm .gift-env__letter { display: none; }
+.gift-env[data-open='true'] .gift-env__letter { transform: translateY(-62%); opacity: 1; }
+.gift-env__pocket { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: visible; }
+.gift-env__pocket-side { fill: var(--env-pocket); }
+.gift-env__pocket-fold { fill: var(--env-fold); }
+.gift-env__pocket-line { stroke: var(--env-line); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.gift-env__flap {
+  position: absolute; left: 0; right: 0; top: 0; height: 60%;
+  z-index: 3;
+  transform-origin: 50% 0;
+  transform: rotateX(0deg);
+  transition: transform var(--env-dur) var(--ease-out), z-index 0s linear calc(var(--env-dur) * 0.5);
+  backface-visibility: visible;
+}
+.gift-env__flap svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.gift-env__flap-shape { fill: var(--env-flap); }
+.gift-env__flap-line { stroke: var(--env-line); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.gift-env[data-open='true'] .gift-env__flap { transform: rotateX(180deg); z-index: 0; }
+.gift-env__seal {
+  position: absolute; left: 50%; top: 53%;
+  z-index: 4;
+  display: grid; place-items: center;
+  width: 19%; aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--env-seal) 82%, white), var(--env-seal) 62%);
+  box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.6), inset 0 -2px 0 rgb(0 0 0 / 0.12);
+  transform: translate(-50%, -50%) scale(1);
+  transition: transform 260ms var(--ease-out), opacity 220ms linear;
+}
+.gift-env__seal svg { border-radius: 6px; }
+.gift-env[data-open='true'] .gift-env__seal { opacity: 0; transform: translate(-50%, -70%) scale(0.6); }
+.gift-env__letter .gift-letter-amount { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gift-env, .gift-env__letter, .gift-env__flap, .gift-env__seal { transition: opacity 180ms linear !important; }
+  .gift-env[data-open='true'] .gift-env__flap { transform: none; opacity: 0; }
+  .gift-env__letter { opacity: 0; }
+  .gift-env[data-open='true'] .gift-env__letter { opacity: 1; }
+}
+
+/* Design picker + step dots */
+.gift-swatch { border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: 10px 6px 8px; transition: border-color 160ms, background-color 160ms, transform 160ms var(--ease-out); }
+.gift-swatch[aria-checked='true'] { border-color: var(--taply-lime); background: var(--tone-success-bg); }
+.gift-swatch:active { transform: scale(0.97); }
+.gift-steps { display: flex; gap: 6px; }
+.gift-steps > span { height: 4px; flex: 1; border-radius: 99px; background: var(--border-subtle); transition: background-color 240ms; }
+.gift-steps > span[data-done='true'] { background: var(--taply-lime); }
+.gift-amount-input { font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }

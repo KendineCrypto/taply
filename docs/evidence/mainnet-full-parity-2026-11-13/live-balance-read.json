@@ -1,0 +1,17 @@
+{
+  "evidence": "read-only public account RPC; no transaction, signing or funding",
+  "observedAt": "2026-11-13T14:34:40.228Z",
+  "accountId": "devkendinecrypto.near",
+  "native": "0",
+  "locked": "0",
+  "usdc": "0",
+  "blockHash": "59yAofbLs5EHHayu4eK8AgbKZ9dKRW78TUzvadBFKVr5",
+  "timestampNs": "1794580470298501038",
+  "source": "rpc",
+  "finality": "final",
+  "network": "near-mainnet",
+  "providerId": "fastnear-mainnet",
+  "genesisHeight": 9820210,
+  "genesisHash": "EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H",
+  "limitations": "Public RPC observation, not an independent payment receipt, deployment proof, or funded checkout. Both RPCs rejected the former block_id:0 query; the checked hash at 9820210 matched on normal and archival FastNEAR."
+}

@@ -58,6 +58,12 @@ declare namespace NodeJS {
      */
     readonly NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID?: string;
     readonly NEXT_PUBLIC_TAPLY_PROTECTED_CODE_HASH?: string;
+    /** Taply Gift (Open / claimable): separate UNREVIEWED gift contract, pinned by code hash. Off unless all three are set. */
+    readonly NEXT_PUBLIC_TAPLY_FLAG_GIFT_CLAIMABLE?: string;
+    readonly NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID?: string;
+    readonly NEXT_PUBLIC_TAPLY_GIFT_CODE_HASH?: string;
+    /** Kill switch for Taply Gift (Personal gifts are on by default). */
+    readonly NEXT_PUBLIC_TAPLY_FLAG_GIFT?: string;
     /** 'on' only on a protected QA build: allows signing against the UNREVIEWED candidate. */
     readonly NEXT_PUBLIC_TAPLY_PROTECTED_QA?: string;
 

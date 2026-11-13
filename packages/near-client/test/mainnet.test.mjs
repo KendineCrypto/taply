@@ -73,7 +73,7 @@ test('reader refuses wrong genesis and code hash; no cross-network fallback', as
     const fetcher = async (url, init) => {
       assert.equal(url, profile.rpcUrl); const req = JSON.parse(init.body); calls.push(req);
       const result = req.method === 'status' ? { chain_id: 'mainnet', sync_info: { syncing: false } } :
-        req.method === 'block' ? { header: { hash: req.params.block_id === 0 && fault !== 'genesis' ? MAINNET_GENESIS_HASH : '11111111111111111111111111111113', timestamp_nanosec: '1' } } :
+        req.method === 'block' ? { header: { hash: req.params.block_id === 9820210 && fault !== 'genesis' ? MAINNET_GENESIS_HASH : '11111111111111111111111111111113', timestamp_nanosec: '1' } } :
           { code_hash: '11111111111111111111111111111114' };
       return new Response(JSON.stringify({ jsonrpc: '2.0', id: req.id, result }));
     };

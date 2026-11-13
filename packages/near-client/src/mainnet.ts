@@ -3,9 +3,10 @@ import { MainnetAccountSchema, MainnetContractIdSchema, MainnetIntentTermsSchema
   MAINNET_USDC_ASSET, MAINNET_NATIVE_CAP, MAINNET_USDC_CAP, U128Schema, U64Schema,
   calculateMainnetTermsHash, buildInstantRecipientMessage, parseStrictJson, HashHexSchema, MainnetRequestSchema, type MainnetIntentTerms } from "@taply/shared";
 import { createRpc, NearClientError, type Fetch } from "./rpc.js";
-import { HashSchema } from "./validation.js";
+import { HashSchema, CallResultSchema } from "./validation.js";
 
 export const MAINNET_GENESIS_HASH = "EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H";
+export const MAINNET_GENESIS_HEIGHT = 9820210;
 export const MAINNET_RPC_URLS = ["https://rpc.mainnet.fastnear.com", "https://archival-rpc.mainnet.fastnear.com", "https://rpc.mainnet.near.org"] as const;
 export const MAINNET_EXPLORER = "https://nearblocks.io";
 export const MAINNET_VAULT_STORAGE_KEY = "taply.wallet.near-mainnet.disabled.v1";
@@ -42,7 +43,6 @@ export function mainnetConfigProblems(input: unknown, contractId: string): strin
 }
 const blockSchema = z.object({ header: z.object({ hash: HashSchema, timestamp_nanosec: U64Schema }) });
 const accountSchema = z.object({ code_hash: HashSchema });
-const callSchema = z.object({ result: z.array(z.number().int().min(0).max(255)) });
 const storageSchema = z.strictObject({ total: U128Schema, available: U128Schema }).nullable();
 
 /** Mainnet-only reader. Each read verifies genesis and code at the same final block.
@@ -52,7 +52,7 @@ export function createMainnetReader(input: MainnetProfile, fetcher: Fetch = (url
   const rpc = createRpc(config, fetcher);
   async function anchor() {
     const status = z.object({ chain_id: z.literal("mainnet"), sync_info: z.object({ syncing: z.literal(false) }) }).safeParse(await rpc("status", []));
-    const genesis = blockSchema.parse(await rpc("block", { block_id: 0 }));
+    const genesis = blockSchema.parse(await rpc("block", { block_id: MAINNET_GENESIS_HEIGHT }));
     if (!status.success || genesis.header.hash !== MAINNET_GENESIS_HASH) throw new NearClientError("NETWORK_MISMATCH");
     const block = blockSchema.parse(await rpc("block", { finality: "final" }));
     const account = accountSchema.parse(await rpc("query", { request_type: "view_account", account_id: config.contract.accountId, block_id: block.header.hash }));
@@ -63,8 +63,9 @@ export function createMainnetReader(input: MainnetProfile, fetcher: Fetch = (url
     const block = await anchor();
     const bytes = new TextEncoder().encode(JSON.stringify(args));
     const argsBase64 = btoa(String.fromCharCode(...bytes));
-    const result = callSchema.parse(await rpc("query", { request_type: "call_function", account_id: accountId,
+    const result = CallResultSchema.parse(await rpc("query", { request_type: "call_function", account_id: accountId,
       method_name: methodName, args_base64: argsBase64, block_id: block.hash }));
+    if (result.block_hash !== block.hash) throw new NearClientError("EVIDENCE_MISMATCH");
     return { data: parseStrictJson(new Uint8Array(result.result)), blockHash: block.hash, timestampNs: block.timestamp_nanosec,
       source: "rpc" as const, finality: "final" as const, network: "near-mainnet" as const, providerId: config.rpcProviderId };
   }

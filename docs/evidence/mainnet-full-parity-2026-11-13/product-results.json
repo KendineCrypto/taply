@@ -1,0 +1,398 @@
+{
+  "evidence": "local preview UI; no live payment or camera proof",
+  "results": [
+    {
+      "name": "en wallet: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en wallet: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en wallet/create: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en wallet/create: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en wallet/restore: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en wallet/restore: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en send: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en send: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en receive: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en receive: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en pay: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en pay: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en scan: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en scan: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en activity: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en activity: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en contacts: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en contacts: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en split: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en split: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en recurring: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en recurring: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en merchant: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en merchant: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en merchant/setup: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en merchant/setup: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en merchant/register: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en merchant/register: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en settings: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en settings: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en protected/new: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en protected/new: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en gift/new: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en gift/new: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en gift/p: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en gift/p: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en handshake: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en handshake: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en tools: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "en tools: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "en restore: no phrase input",
+      "ok": true
+    },
+    {
+      "name": "en send: disabled",
+      "ok": true
+    },
+    {
+      "name": "en split: exact remainder",
+      "ok": true
+    },
+    {
+      "name": "en Gift: opened preview only",
+      "ok": true
+    },
+    {
+      "name": "en Gift: no funded link",
+      "ok": true
+    },
+    {
+      "name": "en: unknown route 404",
+      "ok": true
+    },
+    {
+      "name": "tr wallet: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr wallet: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr wallet/create: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr wallet/create: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr wallet/restore: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr wallet/restore: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr send: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr send: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr receive: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr receive: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr pay: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr pay: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr scan: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr scan: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr activity: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr activity: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr contacts: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr contacts: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr split: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr split: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr recurring: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr recurring: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr merchant: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr merchant: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr merchant/setup: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr merchant/setup: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr merchant/register: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr merchant/register: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr settings: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr settings: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr protected/new: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr protected/new: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr gift/new: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr gift/new: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr gift/p: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr gift/p: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr handshake: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr handshake: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr tools: isolated Mainnet destination",
+      "ok": true
+    },
+    {
+      "name": "tr tools: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "tr restore: no phrase input",
+      "ok": true
+    },
+    {
+      "name": "tr send: disabled",
+      "ok": true
+    },
+    {
+      "name": "tr split: exact remainder",
+      "ok": true
+    },
+    {
+      "name": "tr Gift: opened preview only",
+      "ok": true
+    },
+    {
+      "name": "tr Gift: no funded link",
+      "ok": true
+    },
+    {
+      "name": "tr: unknown route 404",
+      "ok": true
+    },
+    {
+      "name": "loaded product scripts omit taply.testnet-vault.v1",
+      "ok": true
+    },
+    {
+      "name": "loaded product scripts omit taply-pay-pilot-1.testnet",
+      "ok": true
+    },
+    {
+      "name": "loaded product scripts omit taply-e2e-ce38a238",
+      "ok": true
+    },
+    {
+      "name": "loaded product scripts omit rpc.testnet.near.org",
+      "ok": true
+    },
+    {
+      "name": "loaded product scripts omit testnet.nearblocks.io",
+      "ok": true
+    },
+    {
+      "name": "no browser runtime errors",
+      "ok": true
+    }
+  ],
+  "errors": []
+}

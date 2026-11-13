@@ -4,7 +4,10 @@ import { plan, GENESIS } from './deploy-dry-run.mjs';
 const options = { rpcUrl: 'https://rpc.mainnet.near.org', accountId: 'devkendinecrypto.near', wasm: Buffer.from('0061736d01000000', 'hex') };
 function rpc(fault) { return async (method, params) => {
   if (method === 'status') return { chain_id: fault === 'network' ? 'testnet' : 'mainnet', sync_info: { syncing: false } };
-  if (method === 'block') return { header: { hash: fault === 'genesis' ? 'bad' : GENESIS } };
+  if (method === 'block') {
+    if (params.block_id !== undefined) assert.equal(params.block_id, 9820210);
+    return { header: { hash: fault === 'genesis' ? 'bad' : GENESIS } };
+  }
   if (method === 'gas_price') return { gas_price: '100000000' };
   if (method === 'EXPERIMENTAL_protocol_config') return { runtime_config: { storage_amount_per_byte: '10000000000000000000' } };
   if (params.request_type === 'view_account') return { amount: '6000000000000000000000000', storage_usage: 100,
