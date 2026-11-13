@@ -19,6 +19,8 @@ import { productEn, productTr } from '@/lib/mainnet/product-copy';
 import { splitMainnetAmount, parseMainnetScan } from '@/lib/mainnet/product';
 import { useLocalProduct } from '@/lib/mainnet/use-product';
 import { ActivityList } from './Activity';
+import { TaplyWalletHome, WalletCreate, WalletRestore, WalletSend } from './Wallet';
+import { ProtectedFixtures } from './Protected';
 import { requestPrefill } from '@/lib/mainnet/prefill';
 import { openCamera, stopStream } from '@/lib/qr/camera';
 import { createFrameDecoder, type FrameDecoder } from '@/lib/qr/decoder';
@@ -56,10 +58,13 @@ export function MainnetProduct({ path }: { path: string }) {
     checkout: c.pay, protected: c.protected, receipt: c.receipt, handshake: c.handshake, s: c.handshake,
     tools: c.tools, settings: c.settings } as Record<string, string>)[section ?? ''] ?? c.tools;
   return <div className="flex flex-col gap-4" data-testid="mainnet-product"><ScreenHeader title={title} description={c.readOnly} />
+    {path === 'wallet/create' && <WalletCreate />}
+    {path === 'wallet/restore' && <WalletRestore />}
+    {path === 'wallet' && <TaplyWalletHome />}
     {section === 'wallet' && <><Card><p>{path === 'wallet' ? c.walletHelp : c.vaultHelp}</p><WalletPanel />
       <div className="mt-3 flex flex-wrap gap-4"><Link href="/m/wallet/create">{c.create}</Link><Link href="/m/wallet/restore">{c.restore}</Link></div></Card><Balances /><ProductLinks compact /></>}
     {section === 'tools' && <ProductLinks />}
-    {section === 'send' && <><DraftComposer kind="send" /><PaymentNetworks /><Link href="/m/pay">{c.review}</Link></>}
+    {section === 'send' && <><WalletSend /><PaymentNetworks /></>}
     {section === 'receive' && <Receive />}
     {(section === 'pay' || section === 'scan') && <><Scan withCamera={section === 'scan'} /><PaymentNetworks /></>}
     {section === 'contacts' && <Contacts />}
@@ -68,7 +73,7 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <DraftComposer kind="gift" /> : <Notice tone="caution">{c.blocked}</Notice>}</>}
     {(section === 'activity' || section === 'merchant') && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><ActivityList removeLabel={c.remove} /><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
     {section === 'checkout' && <Card><p className="break-all font-mono">{path.slice(9)}</p><p className="mt-2">{c.checkoutHelp}</p><Link href="/m/pay">{c.pay}</Link></Card>}
-    {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice><Notice tone="caution">{c.blocked}</Notice></>}
+    {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice><ProtectedFixtures /></>}
     {(section === 's' || section === 'handshake') && <Notice tone="caution">{c.handshakeHelp}</Notice>}
     {section === 'receipt' && <><Notice tone="caution">{c.receiptHelp}</Notice><Link href={`/m/pay/${path.slice(8)}` as Route}>{c.open}</Link></>}
     {section === 'settings' && <><Card><p>{c.local}</p><p className="mt-2">{c.vaultHelp}</p><WalletPanel /></Card><PaymentNetworks /><ProductLinks /></>}

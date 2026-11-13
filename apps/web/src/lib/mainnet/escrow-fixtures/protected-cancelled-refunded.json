@@ -1,0 +1,39 @@
+{
+  "terms": {
+    "schemaVersion": "taply.intent.v1",
+    "id": "ffa621bb70e4d3e157b26d7f603ab11f3a8786c56d93861aad7cce34c8137582",
+    "network": "near-mainnet",
+    "contractId": "payments.fixture.near",
+    "creationNonce": "0000000000000000000000000000000000000000000000000000000000000002",
+    "creatorAccountId": "alice.near",
+    "assetId": "near:native",
+    "amountBaseUnits": "1000000000000000000000000",
+    "mode": "protected",
+    "cancelDurationNs": "60000000000",
+    "fundingExpiresAtNs": "1793520900000000000",
+    "permittedPayerAccountId": null,
+    "merchantAccountId": null,
+    "memo": "",
+    "sessionBinding": null
+  },
+  "termsHash": "d36fb23079133a719c23da61dcd7da4949b5c1a2a11e3b0c38bd8d1bed14dc0f",
+  "sessionCommitment": null,
+  "recipientAccountId": "alice.near",
+  "status": "CANCELLED_REFUNDED",
+  "revision": "4",
+  "createdAtNs": "1793520000000000000",
+  "payerAccountId": "bob.near",
+  "fundedAtNs": "1793520001000000000",
+  "cancelUntilNs": "1793520061000000000",
+  "settlementBranch": "PAYER",
+  "latestOperation": {
+    "nonce": "1",
+    "kind": "PROTECTED_REFUND",
+    "destinationAccountId": "bob.near",
+    "amountBaseUnits": "1000000000000000000000000",
+    "status": "SUCCEEDED",
+    "startedAtNs": "1793520060999999999",
+    "resolvedAtNs": "1793520061000000002",
+    "failureCode": null
+  }
+}
