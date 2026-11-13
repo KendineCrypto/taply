@@ -178,6 +178,11 @@ describe('host and store isolation', () => {
 });
 
 describe('mainnet integration switches', () => {
+  it('the simulated wallet authority test harness is refused on Production', () => {
+    expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION: 'on' }).failed).toEqual(['simulated wallet authority off on Production']);
+    expect(run({ ...PRODUCTION, VERCEL_ENV: 'preview', NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: undefined, NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION: 'on' }).failed).toEqual([]);
+  });
+
   it('unapproved Mainnet Gift and escrow contracts are refused on Production, allowed on a staging Preview', () => {
     expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID: 'gift-candidate.near' }).failed).toEqual(['Gift contract not configured on Production (not approved)']);
     expect(run({ ...PRODUCTION, NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID: 'escrow-candidate.near' }).failed).toEqual(['Mainnet escrow not configured on Production (not deployed/approved)']);
