@@ -81,9 +81,9 @@ export function randomToken(bytes = 32): string {
   return btoa(String.fromCharCode(...raw)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** `#j=<token>` from the merchant's QR link; anything else is ignored. */
+/** `#j=<token>` (optionally followed by the sale commitment `&c=…`) from the merchant's QR link; anything else is ignored. */
 export function joinTokenFromHash(hash: string): string | null {
-  const match = /^#j=([A-Za-z0-9_-]{22,64})$/.exec(hash);
+  const match = /^#j=([A-Za-z0-9_-]{22,64})(?:&c=[A-Za-z0-9_-]{1,3000})?$/.exec(hash);
   return match?.[1] ?? null;
 }
 

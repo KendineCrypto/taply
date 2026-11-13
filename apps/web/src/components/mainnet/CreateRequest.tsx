@@ -16,6 +16,9 @@ import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { CallPreview, Notice, Row } from './bits';
 import { readPrefill } from '@/lib/mainnet/prefill';
 import { WalletPanel } from './WalletPanel';
+import { OperationError, OperationReview, useOperation } from './Operation';
+import { bindSale, encodeSale, newCommerceSession, rememberSale } from '@/lib/mainnet/commerce';
+import type { MainnetCommerceSession } from '@taply/near-client';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
 const HOUR_NS = 3_600_000_000_000n;
@@ -58,7 +61,8 @@ export function buildTerms(input: {
 type CreateQuote = Parameters<typeof prepareMainnetCreateRequest>[0]['quote'];
 type Bond = ({ kind: 'fixture' | 'quoted' } & CreateQuote) | { kind: 'unknown' };
 
-export function CreateRequest() {
+/** `commerce`: merchant register — each instance is one sale bound to a fresh commerce session (Codex binding). */
+export function CreateRequest({ commerce = false }: { readonly commerce?: boolean } = {}) {
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const wallet = useMainnetWallet();
@@ -79,6 +83,8 @@ export function CreateRequest() {
   const [reviewAtMs, setReviewAtMs] = useState<number | null>(null);
   const reviewing = reviewAtMs !== null;
   const [nonce] = useState(randomNonce);
+  const [session, setSession] = useState<MainnetCommerceSession | null>(null);
+  const op = useOperation();
   const [quotedBond, setQuotedBond] = useState<{ termsHash: string; bond: Bond } | null>(null);
   const [storageBounds, setStorageBounds] = useState<{ account: string; min: string } | null>(null);
 
@@ -92,14 +98,21 @@ export function CreateRequest() {
   const parsed = useMemo(() => amount.trim() === '' ? null : parseMainnetAmount(amount, asset), [amount, asset]);
   const memoOk = new TextEncoder().encode(memo).length <= 256;
 
-  const terms = useMemo(() => {
+  const bound = useMemo(() => {
     if (reviewAtMs === null || parsed === null || !parsed.ok || creator === null || contractId === null || !memoOk) return null;
     try {
-      return buildTerms({ contractId, creator, asset, amountBaseUnits: parsed.baseUnits, memo, nowMs: reviewAtMs, nonce });
+      const draft = buildTerms({ contractId, creator, asset, amountBaseUnits: parsed.baseUnits, memo, nowMs: reviewAtMs, nonce });
+      if (!commerce || session === null) return { terms: draft, sale: null };
+      return bindSale(draft, session);
     } catch {
       return null;
     }
-  }, [reviewAtMs, parsed, creator, contractId, asset, memo, nonce, memoOk]);
+  }, [reviewAtMs, parsed, creator, contractId, asset, memo, nonce, memoOk, commerce, session]);
+  const terms = bound?.terms ?? null;
+  const saleLink = bound?.sale && terms ? `/m/pay/${terms.id}?m=${terms.creatorAccountId}#c=${encodeSale(bound.sale)}` : null;
+  useEffect(() => {
+    if (bound?.sale && terms) { try { rememberSale(window.localStorage, terms.id, bound.sale); } catch { /* the sale link still works */ } }
+  }, [bound, terms]);
 
   // Storage bond: the contract's quote_create_request (real) or the labelled sandbox value (fixture).
   useEffect(() => {
@@ -184,7 +197,13 @@ export function CreateRequest() {
             className="flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (parsed?.ok && creator !== null && memoOk) setReviewAtMs(Date.now());
+              if (parsed?.ok && creator !== null && memoOk) {
+                const at = Date.now();
+                // One session per sale; the request's funding expiry (1 h) equals the session expiry.
+                if (commerce && contractId !== null) setSession(newCommerceSession(contractId, creator, (BigInt(at) * 1_000_000n + HOUR_NS).toString()));
+                setReviewAtMs(at);
+                op.reset();
+              }
             }}
           >
             <fieldset>
@@ -239,11 +258,26 @@ export function CreateRequest() {
             </Row>
             <Row label={c.pay.expires}>{c.create.expiry}</Row>
           </dl>
-          {createCall !== null && <div className="mt-3"><CallPreview call={createCall} title={c.create.callTitle} /></div>}
+          {commerce && reviewing && terms === null && <Notice tone="danger" testId="sale-bind-error">{c.create.saleBindError}</Notice>}
+          {saleLink !== null && (
+            <div className="mt-3 flex flex-col gap-1" data-testid="sale-commitment">
+              <p className="text-[13px] font-semibold">{c.create.saleTitle}</p>
+              <p className="text-[12px] text-[var(--text-secondary)]">{c.create.saleHelp}</p>
+              <p data-testid="sale-link" className="break-all font-mono text-[11px]">{saleLink}</p>
+            </div>
+          )}
+          {fixtures && createCall !== null && <div className="mt-3"><CallPreview call={createCall} title={c.create.callTitle} /></div>}
+          {!fixtures && terms !== null && (
+            <div className="mt-3 flex flex-col gap-2">
+              <Button variant="secondary" data-testid="create-op-review" disabled={op.busy} onClick={() => void op.run({ kind: 'instantCreate', terms })}>{c.create.callTitle}</Button>
+              <OperationError code={op.error} />
+              {op.prepared !== null && <OperationReview prepared={op.prepared} title={c.create.callTitle} />}
+            </div>
+          )}
           <div className="mt-3 flex flex-col gap-2">
             <Button variant="primary" size="lg" block disabled aria-describedby="signing-off">{c.create.sign}</Button>
             <p id="signing-off" className="text-[13px] text-[var(--tone-caution-fg)]">{c.wallet.signingDisabled}</p>
-            <Button variant="ghost" onClick={() => setReviewAtMs(null)}>{c.create.back}</Button>
+            <Button variant="ghost" onClick={() => { setReviewAtMs(null); setSession(null); op.reset(); }}>{c.create.back}</Button>
           </div>
         </Card>
       )}

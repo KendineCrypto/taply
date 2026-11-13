@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { prepareMainnetPayment } from '@taply/near-client';
 import { MainnetAccountSchema } from '@taply/shared';
+import { displayMemo, saleFromHash, saleMatches } from '@/lib/mainnet/commerce';
+import type { SaleCommitment } from '@/lib/mainnet/commerce';
 import type { MainnetCall, MainnetProfile } from '@taply/near-client';
 import { Button } from '@/components/primitives/Button';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
@@ -19,6 +21,7 @@ import type { HintState } from '@/lib/mainnet/hooks';
 import { BASE_USDC } from '@/lib/mainnet/oneclick/allowlist';
 import type { OriginChain, RefundFormat } from '@/lib/mainnet/oneclick/allowlist';
 import { ORIGIN_COPY } from '@/lib/mainnet/origin-copy';
+import { OperationError, OperationReview, useOperation } from './Operation';
 import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
 import { derivePaymentView } from '@/lib/mainnet/status';
 import type { PaymentState } from '@/lib/mainnet/status';
@@ -43,10 +46,16 @@ function formatTime(ms: number, locale: string): string {
 }
 
 const BIND_EN = {
+  saleOk: 'This is exactly the sale you were shown: the on-chain request matches its signed sale commitment.',
+  saleBad: 'This request does not match the sale commitment in your link. Do not pay it; ask the cashier for a new sale code.',
+  terms: 'Reviewed terms hash',
   mismatch: 'Incorrect merchant account. You opened this from the checkout of {store}, but this request pays {recipient}. Do not pay it; ask the cashier for this store\'s sale request.',
   match: 'Pays the store you opened: {store}.',
 };
 const BIND_TR: typeof BIND_EN = {
+  saleOk: 'Bu tam olarak size gösterilen satış: zincirdeki talep imzalı satış taahhüdüyle eşleşiyor.',
+  saleBad: 'Bu talep bağlantınızdaki satış taahhüdüyle eşleşmiyor. Ödemeyin; kasiyerden yeni bir satış kodu isteyin.',
+  terms: 'İncelenen koşul özeti',
   mismatch: 'Yanlış işletme hesabı. Bunu {store} ödeme sayfasından açtınız, ancak bu talep {recipient} hesabına ödüyor. Ödemeyin; kasiyerden bu mağazanın satış talebini isteyin.',
   match: 'Açtığınız mağazaya öder: {store}.',
 };
@@ -67,6 +76,14 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
     const m = new URLSearchParams(window.location.search).get('m');
     if (m !== null && MainnetAccountSchema.safeParse(m).success) queueMicrotask(() => setExpectedMerchant(m));
   }, []);
+  // Per-sale commitment (#c=…): reviewed hash + session, compared with the FINAL request before any payment method.
+  const [sale, setSale] = useState<SaleCommitment | 'invalid' | null>(null);
+  useEffect(() => {
+    const h = window.location.hash;
+    if (!/(^#|&)c=/.test(h)) return;
+    const parsed = saleFromHash(h);
+    queueMicrotask(() => setSale(parsed ?? 'invalid'));
+  }, []);
 
   if (!MAINNET_CONFIG.ok) return <Notice tone="danger">{c.home.configBroken}</Notice>;
   if (read.kind === 'disabled') return <Notice tone="caution">{c.home.contractNotConfigured}</Notice>;
@@ -77,7 +94,8 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const r = read.request;
   const asset = assetById(r.terms.assetId)!;
   const wrongMerchant = expectedMerchant !== null && r.recipientAccountId !== expectedMerchant;
-  const open = r.status === 'OPEN' && nsToMs(r.terms.fundingExpiresAtNs) > now && !wrongMerchant;
+  const saleOk = sale === null ? null : sale !== 'invalid' && sale.session.merchantAccountId === r.recipientAccountId && saleMatches(r.terms, sale);
+  const open = r.status === 'OPEN' && nsToMs(r.terms.fundingExpiresAtNs) > now && !wrongMerchant && saleOk !== false;
   const bind = locale === 'tr' ? BIND_TR : BIND_EN;
 
   return (
@@ -88,7 +106,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
         <p data-testid="pay-amount" className="mt-0.5 text-[2rem] font-semibold leading-tight tabular-nums">{formatMainnetAmount(r.terms.amountBaseUnits, asset, locale)}</p>
         <dl className="mt-2">
           <Row label={c.pay.merchant} mono>{r.recipientAccountId}</Row>
-          {r.terms.memo !== '' && <Row label={c.pay.memo}>{r.terms.memo}</Row>}
+          {displayMemo(r.terms.memo) !== '' && <Row label={c.pay.memo}>{displayMemo(r.terms.memo)}</Row>}
           <Row label={c.pay.expires}>{formatTime(nsToMs(r.terms.fundingExpiresAtNs), locale)}</Row>
           <Row label={c.pay.contract} mono>{r.terms.contractId}</Row>
           <Row label={c.pay.requestId} mono>{short(r.terms.id, 12, 12)}</Row>
@@ -96,6 +114,9 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
         <p className="mt-2 text-[12px] text-[var(--text-muted)]">{c.pay.fixedNote}</p>
       </Card>
 
+      {sale !== null && (saleOk
+        ? <Notice tone="muted" testId="commerce-verified"><span className="font-semibold">{bind.saleOk}</span> <span className="block break-all font-mono text-[11px]">{bind.terms} {sale !== 'invalid' ? sale.termsHash : ''}</span></Notice>
+        : <Notice tone="danger" live testId="commerce-mismatch">{bind.saleBad}</Notice>)}
       {expectedMerchant !== null && (wrongMerchant
         ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
         : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
@@ -151,34 +172,38 @@ function profileFor(request: MainnetRequest): MainnetProfile | null {
 function WalletPayReview({ request, asset }: { request: MainnetRequest; asset: MainnetAsset }) {
   const c = useMainnetCopy();
   const wallet = useMainnetWallet();
+  const op = useOperation();
   const now = useNow(5000);
-  const profile = profileFor(request);
+  const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
+  // FIXTURE preview only: the labelled fixture request through the typed builder. Real builds use the planner below.
   let call: MainnetCall | null = null;
-  if (profile !== null && wallet.accountId !== null) {
+  const profile = profileFor(request);
+  if (fixtures && profile !== null && wallet.accountId !== null) {
     try {
-      call = prepareMainnetPayment({
-        profile,
-        terms: request.terms,
-        status: request.status,
-        termsHash: request.termsHash,
-        signerAccountId: wallet.accountId,
-        observedAtNs: (BigInt(now) * 1_000_000n).toString(),
-      });
-    } catch {
-      call = null;
-    }
+      call = prepareMainnetPayment({ profile, terms: request.terms, status: request.status, termsHash: request.termsHash,
+        signerAccountId: wallet.accountId, observedAtNs: (BigInt(now) * 1_000_000n).toString() });
+    } catch { call = null; }
   }
   return (
     <Card>
       <h2 className="mb-2 text-[15px] font-semibold">{c.pay.methodWallet}</h2>
       <WalletPanel />
       {call !== null && <div className="mt-3"><CallPreview call={call} title={c.create.callTitle} /></div>}
-      <div className="mt-3 flex flex-col gap-2">
-        <Button variant="primary" size="lg" block disabled aria-describedby="wallet-signing-off">
-          {c.create.sign} · {asset.symbol}
-        </Button>
-        <p id="wallet-signing-off" className="text-[13px] text-[var(--tone-caution-fg)]">{c.wallet.signingDisabled}</p>
-      </div>
+      {!fixtures && (
+        <div className="mt-3 flex flex-col gap-2">
+          <Button variant="secondary" data-testid="pay-review" disabled={op.busy} onClick={() => void op.run({ kind: 'instantPay', id: request.terms.id })}>{c.create.review}</Button>
+          <OperationError code={op.error} />
+          {op.prepared !== null && <OperationReview prepared={op.prepared} title={c.pay.methodWallet} />}
+        </div>
+      )}
+      {(fixtures || op.prepared === null) && (
+        <div className="mt-3 flex flex-col gap-2">
+          <Button variant="primary" size="lg" block disabled aria-describedby="wallet-signing-off">
+            {c.create.sign} · {asset.symbol}
+          </Button>
+          <p id="wallet-signing-off" className="text-[13px] text-[var(--tone-caution-fg)]">{c.wallet.signingDisabled}</p>
+        </div>
+      )}
     </Card>
   );
 }

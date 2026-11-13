@@ -4,6 +4,8 @@ import {
   calculateMainnetRequestId,
   calculateMainnetTermsHash,
 } from '@taply/shared';
+import { bindMainnetCommerceTerms } from '@taply/near-client';
+import type { MainnetCommerceSession } from '@taply/near-client';
 import type { MainnetIntentTerms } from '@taply/shared';
 import type { z } from 'zod';
 import type { ContractStatus, OneClickStatus } from './status';
@@ -136,7 +138,23 @@ export function fixtureRequests(nowMs: number): ReadonlyArray<FixtureEntry> {
   return FIXTURE_SCENARIOS.map((scenario) => ({ scenario, request: buildFixtureRequest(scenario, nowMs) }));
 }
 
+/**
+ * FIXTURE sale bound with Codex's bindMainnetCommerceTerms to a fixed, obviously
+ * synthetic session, so the pay page's commitment check runs on a real bound record.
+ */
+export const COMMERCE_FIXTURE_SCENARIO: FixtureScenario = { name: 'usdc-commerce-sale', asset: 'USDC', amountBaseUnits: '4200000', status: 'OPEN', oneClick: null, memo: 'Counter 2' };
+export function commerceFixture(nowMs: number): { request: MainnetRequest; session: MainnetCommerceSession; termsHash: string } {
+  const draft = buildFixtureRequest(COMMERCE_FIXTURE_SCENARIO, nowMs);
+  const session: MainnetCommerceSession = { version: 'taply.commerce.v1', network: 'near-mainnet', contractId: FIXTURE_CONTRACT,
+    merchantAccountId: FIXTURE_MERCHANT, sessionId: fixtureNonce('sale-session'), sessionNonce: fixtureNonce('sale-nonce'), expiresAtNs: draft.terms.fundingExpiresAtNs };
+  const bound = bindMainnetCommerceTerms('instant', draft.terms, session);
+  const terms = bound.terms as MainnetIntentTerms;
+  return { request: MainnetRequestSchema.parse({ ...draft, terms, termsHash: bound.termsHash }), session, termsHash: bound.termsHash };
+}
+
 export function fixtureById(id: string, nowMs: number): FixtureEntry | null {
+  const sale = commerceFixture(nowMs);
+  if (sale.request.terms.id === id) return { scenario: COMMERCE_FIXTURE_SCENARIO, request: sale.request };
   return fixtureRequests(nowMs).find((f) => f.request.terms.id === id) ?? null;
 }
 

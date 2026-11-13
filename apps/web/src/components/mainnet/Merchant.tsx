@@ -77,7 +77,7 @@ export function MerchantRegister() {
         <Button className="mt-3" variant="secondary" data-testid="next-sale" onClick={() => setSale((n) => n + 1)}>{c.nextSale}</Button>
       </Card>
       {/* key = sale: a new CreateRequest instance draws a new creation nonce, so a new request id. */}
-      <CreateRequest key={sale} />
+      <CreateRequest key={sale} commerce />
     </div>
   );
 }

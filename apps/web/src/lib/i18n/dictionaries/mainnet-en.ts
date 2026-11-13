@@ -69,6 +69,9 @@ export interface MainnetCopy {
     readonly usdcRegCta: string;
     readonly review: string;
     readonly reviewTitle: string;
+    readonly saleTitle: string;
+    readonly saleHelp: string;
+    readonly saleBindError: string;
     readonly callTitle: string;
     readonly sign: string;
     readonly back: string;
@@ -213,6 +216,9 @@ export const mainnetEn: MainnetCopy = {
     usdcRegCta: 'Register on USDC (storage deposit)',
     review: 'Review request',
     reviewTitle: 'Review',
+    saleTitle: 'Sale commitment (this sale only)',
+    saleHelp: 'Show this to the customer. Its link carries the sale commitment; the pay page refuses any request that does not match it.',
+    saleBindError: 'This sale could not be bound (the note may be too long for the sale commitment). Shorten the note.',
     callTitle: 'Transaction your wallet would sign',
     sign: 'Sign with wallet',
     back: 'Back',

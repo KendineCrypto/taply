@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, ButtonLink } from '@/components/primitives/Button';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
-import { assetById, formatMainnetAmount } from '@/lib/mainnet/assets';
+import { assetById, formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/assets';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
-import { fixtureRequests } from '@/lib/mainnet/fixtures';
+import { commerceFixture, fixtureRequests } from '@/lib/mainnet/fixtures';
+import { encodeSale } from '@/lib/mainnet/commerce';
 import { Notice, short } from './bits';
 import { WalletPanel } from './WalletPanel';
 import { ProductLinks } from './MainnetProduct';
@@ -29,6 +30,12 @@ export function MainnetHome() {
   const [payInput, setPayInput] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [fixtures] = useState(() => (MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures ? fixtureRequests(Date.now()) : []));
+  // FIXTURE sale bound to a commerce session (Codex binding); its link carries the reviewed commitment in the fragment.
+  const [sale] = useState(() => {
+    if (!(MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures)) return null;
+    const f = commerceFixture(Date.now());
+    return { href: `/m/pay/${f.request.terms.id}?m=${f.session.merchantAccountId}#c=${encodeSale({ session: f.session, termsHash: f.termsHash })}`, amount: f.request.terms.amountBaseUnits };
+  });
 
   if (!MAINNET_CONFIG.ok) return <Notice tone="danger">{c.home.configBroken}</Notice>;
   const contract = MAINNET_CONFIG.contract;
@@ -107,6 +114,14 @@ export function MainnetHome() {
                 </li>
               );
             })}
+            {sale !== null && (
+              <li key="usdc-commerce-sale">
+                <a href={sale.href} className="pressable flex min-h-[var(--tap-target)] items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 py-2 text-[13px]">
+                  <span className="font-mono">usdc-commerce-sale</span>
+                  <span className="text-[var(--text-secondary)]">{formatMainnetAmount(sale.amount, MAINNET_ASSETS.USDC, locale)}</span>
+                </a>
+              </li>
+            )}
           </ul>
         </Card>
       )}

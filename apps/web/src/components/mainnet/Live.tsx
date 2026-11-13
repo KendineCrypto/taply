@@ -9,6 +9,7 @@ import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { fill, useMainnetLocale } from '@/lib/mainnet/copy';
 import { liveEn, liveTr } from '@/lib/mainnet/live-copy';
 import type { LiveCopy } from '@/lib/mainnet/live-copy';
+import { recalledSale } from '@/lib/mainnet/commerce';
 import { joinTokenFromHash, LiveError, liveApi, liveStore, randomToken, useLiveAvailable, useLiveSync } from '@/lib/mainnet/live';
 import type { LiveErrorCode, LivePresenceState, LiveSnapshot, MerchantRoom } from '@/lib/mainnet/live';
 import { Notice } from './bits';
@@ -101,7 +102,9 @@ export function LiveMerchantCard({ requestId }: { readonly requestId: string }) 
   }
 
   if (available === false) return <Card><h2 className="font-semibold">{c.title}</h2><p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.unavailable}</p></Card>;
-  const link = room === null ? null : `${shareOrigin()}/m/s/${room.roomId}#j=${room.joinToken}`;
+  // The sale commitment travels with the join link so the customer's device checks it against the FINAL request.
+  const saleParam = room === null || typeof window === 'undefined' ? null : recalledSale(window.localStorage, room.requestId);
+  const link = room === null ? null : `${shareOrigin()}/m/s/${room.roomId}#j=${room.joinToken}${saleParam ? `&c=${saleParam}` : ''}`;
   const ended = snap !== null && (snap.closed || snap.expired);
   return (
     <Card>
@@ -147,7 +150,9 @@ export function LiveCustomer({ roomId }: { readonly roomId: string }) {
     const fromLink = joinTokenFromHash(window.location.hash);
     // Drop the join secret from the address bar once read; keep it only in this browser for rejoin.
     if (fromLink !== null) {
-      history.replaceState(null, '', window.location.pathname);
+      // The public sale commitment (`c=`) is not a secret: keep it so the pay screen can check it against the chain.
+      const sale = /&c=([A-Za-z0-9_-]{1,3000})$/.exec(window.location.hash);
+      history.replaceState(null, '', window.location.pathname + (sale ? `#c=${sale[1]}` : ''));
       liveStore.saveJoinToken(roomId, fromLink);
     }
     const joinToken = fromLink ?? liveStore.joinToken(roomId);
