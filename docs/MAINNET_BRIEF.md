@@ -8,13 +8,15 @@ If any of these is still a placeholder, stop and ask me.
 
 | Item | Value |
 |---|---|
-| Mainnet hostname | `<mainnet.taplyapp.xyz>` |
-| Production contract account | `<name I will create>` |
-| Staging contract account (keeps its key, deleted afterwards) | `<name I will create>` |
-| Recovery account (my own named mainnet account, see 4.3) | `<mine.near>` |
+| Mainnet hostname | `mainnet.taplyapp.xyz` — owner confirmed |
+| Production contract account | `taply-pay.kendinecrypto.near` — owner agreed to keep contract separate from recovery account; must be created and verified before deployment |
+| Staging contract account (keeps its key, deleted afterwards) | `devkendinecrypto.near` — owner supplied; must verify it is dedicated and disposable before any proposed account deletion |
+| Recovery account (my own named mainnet account, see 4.3) | `kendinecrypto.near` — owner supplied; personal account keys MUST be retained |
 | Per-request cap, USDC | `25000000` (25 USDC) unless I say otherwise |
-| Per-request cap, NEAR | `<yoctoNEAR, about the same value>` |
+| Per-request cap, NEAR | **UNCONFIRMED** — owner must provide an explicit number in yoctoNEAR or choose a supported default before real-money work |
 | 1Click API key | none (see 3) unless I give one |
+
+**Owner inputs confirmed on 2026-11-13:** hostname, separate production contract account, staging account, recovery account. Mainnet contract account registration, funding, signing, deployment, deletion of access keys, and real transfers remain blocked pending final numeric cap, security verification, and a separate explicit deployment GO. Never delete or modify access keys on `kendinecrypto.near`. Do not delete `devkendinecrypto.near` unless the owner independently confirms it is a disposable account with no other assets or purpose.
 
 ## 1. Mission
 
