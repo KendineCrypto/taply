@@ -1,0 +1,34 @@
+name: Taply for X (alpha)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/extension/**'
+      - '.github/workflows/taply-for-x.yml'
+  push:
+    branches: [feature/taply-for-x-mvp]
+    paths:
+      - 'apps/extension/**'
+      - '.github/workflows/taply-for-x.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate manifest
+        run: node -e "const m=require('./apps/extension/manifest.json'); if(m.manifest_version!==3 || m.permissions.join(',')!=='storage') process.exit(1)"
+      - name: Syntax check
+        run: |
+          node --check apps/extension/shared.js
+          node --check apps/extension/content.js
+          node --check apps/extension/popup.js
+      - name: Unit tests
+        run: node --test apps/extension/tests.cjs
