@@ -85,6 +85,7 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
   const [nonce] = useState(randomNonce);
   const [session, setSession] = useState<MainnetCommerceSession | null>(null);
   const op = useOperation();
+  const reg = useOperation();
   const [quotedBond, setQuotedBond] = useState<{ termsHash: string; bond: Bond } | null>(null);
   const [storageBounds, setStorageBounds] = useState<{ account: string; min: string } | null>(null);
 
@@ -295,7 +296,10 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
           {registration === 'not_registered' && (
             <div className="mt-2 flex flex-col gap-2">
               {registerCall !== null && <CallPreview call={registerCall} title={c.create.callTitle} />}
-              <Button variant="secondary" disabled>{c.create.usdcRegCta}</Button>
+              {!fixtures && <Button variant="secondary" data-testid="usdc-register-review" disabled={reg.busy} onClick={() => void reg.run({ kind: 'registerUsdc' })}>{c.create.usdcRegCta}</Button>}
+              {fixtures && <Button variant="secondary" disabled>{c.create.usdcRegCta}</Button>}
+              <OperationError code={reg.error} />
+              {reg.prepared !== null && <OperationReview prepared={reg.prepared} title={c.create.usdcRegCta} />}
             </div>
           )}
         </Card>

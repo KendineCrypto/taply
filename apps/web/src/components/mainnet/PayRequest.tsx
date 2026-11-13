@@ -121,6 +121,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
         ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
         : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
       <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} />
+      <RecipientActions request={r} />
       {after?.(r, open)}
 
       {open ? (
@@ -169,6 +170,30 @@ function profileFor(request: MainnetRequest): MainnetProfile | null {
 }
 
 /** Pay with a NEAR wallet: shows the exact unsigned call (shared recipient message for USDC). Signing is gated off. */
+/** Recipient-only actions on a real configured contract: cancel while unfunded, retry a recorded failed payout. */
+function RecipientActions({ request }: { request: MainnetRequest }) {
+  const c = useMainnetCopy();
+  const { locale } = useLocale();
+  const op = useOperation();
+  const [kind, setKind] = useState<'instantCancel' | 'instantRetry' | null>(null);
+  if (!(MAINNET_CONFIG.ok && MAINNET_CONFIG.profile) || op.signer.kind !== 'ok' || op.signer.accountId !== request.recipientAccountId) return null;
+  const canCancel = request.status === 'OPEN' && request.payerAccountId === null;
+  const canRetry = request.latestOperation?.status === 'FAILED';
+  if (!canCancel && !canRetry) return null;
+  const t = locale === 'tr' ? { cancel: 'Talebi iptal et (ödenmedi)', retry: 'Başarısız ödemeyi tekrar dene' } : { cancel: 'Cancel this request (unpaid)', retry: 'Retry the failed payout' };
+  return (
+    <Card>
+      <div className="flex flex-col gap-2" data-testid="recipient-actions">
+        {canCancel && <Button variant="secondary" data-testid="instant-cancel" disabled={op.busy} onClick={() => { setKind('instantCancel'); void op.run({ kind: 'instantCancel', id: request.terms.id }); }}>{t.cancel}</Button>}
+        {canRetry && <Button variant="secondary" data-testid="instant-retry" disabled={op.busy} onClick={() => { setKind('instantRetry'); void op.run({ kind: 'instantRetry', id: request.terms.id }); }}>{t.retry}</Button>}
+        <OperationError code={op.error} />
+        {op.prepared !== null && kind !== null && <OperationReview prepared={op.prepared} title={kind === 'instantCancel' ? t.cancel : t.retry} />}
+        <p className="text-[12px] text-[var(--text-muted)]">{c.wallet.signingDisabled}</p>
+      </div>
+    </Card>
+  );
+}
+
 function WalletPayReview({ request, asset }: { request: MainnetRequest; asset: MainnetAsset }) {
   const c = useMainnetCopy();
   const wallet = useMainnetWallet();
