@@ -1,0 +1,65 @@
+{
+  "kind": "LIVE_MAINNET_READ_ONLY",
+  "trustModel": "configured-rpc (rpc.mainnet.fastnear.com); not a light-client proof",
+  "limitations": "Read-only. No signing, transfer, account creation or deployment. Observed code hashes are observations, not approved pins.",
+  "codexProbe": {
+    "observedAt": "2026-11-13T19:09:36.351Z",
+    "kind": "READ_ONLY_CONFIGURED_RPC_EVIDENCE",
+    "profile": {
+      "network": "near-mainnet",
+      "rpcUrl": "https://rpc.mainnet.fastnear.com",
+      "rpcProviderId": "fastnear-readonly"
+    },
+    "genesisValidated": true,
+    "accountId": "devkendinecrypto.near",
+    "block": {
+      "hash": "53ChitaZrsKrN2NFqiXw9mqoEEzF6TxvZZLrmNsy6jwq",
+      "height": "224405329",
+      "timestampNs": "1794596973520436528"
+    },
+    "amountYocto": "0",
+    "codeHash": "11111111111111111111111111111111",
+    "fullAccessKeyPresent": true,
+    "snapshot": {
+      "network": "near-mainnet",
+      "accountId": "devkendinecrypto.near",
+      "publicKey": "ed25519:BTmZqkL8EMdMjTPzABu94NEPAAE2Dm8W7qWzBZL9E9WC",
+      "nonce": "224330344000000",
+      "blockHash": "31uK5A2NwuzELsAh3HnAgVyWeJovTZaMWXrc5SFq8VHX",
+      "blockHeight": "224405330",
+      "blockTimestampNs": "1794596973707945743",
+      "amountYocto": "0",
+      "storageUsageBytes": "182",
+      "storageByteCostYocto": "10000000000000000000",
+      "gasPriceYocto": "100000000"
+    },
+    "limitations": "No account creation, signing, transfer or candidate deployment. Public account/key reads do not prove wallet ownership."
+  },
+  "viewAccountFinal": {
+    "taply-pay.kendinecrypto.near": {
+      "error": "UNKNOWN_ACCOUNT",
+      "block_height": 224405361
+    },
+    "devkendinecrypto.near": {
+      "amount": "0",
+      "code_hash": "11111111111111111111111111111111",
+      "storage_usage": 182,
+      "block_hash": "5jLQoPgJaE2ocLxHb2SxZ7myeKj5eEj972epvNAYd6WS",
+      "block_height": 224405361
+    },
+    "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1": {
+      "amount": "7302023592270990461886577459",
+      "code_hash": "DVJx7F3dHEHJYwpYPwXHu8K9Uo7h4kXFcALucY5oNX8q",
+      "storage_usage": 66648180,
+      "block_hash": "EPTs6BQSkUxMFJ1T2JMaYHWQ2uUJm7cTJJq261K5vjGR",
+      "block_height": 224405362
+    },
+    "intents.near": {
+      "amount": "137463287169232706310274020935",
+      "code_hash": "BtA1BEFNS619KkvXFsgcpQ21Tb5yMm32aaUkn7xNothk",
+      "storage_usage": 13675352379,
+      "block_hash": "EPTs6BQSkUxMFJ1T2JMaYHWQ2uUJm7cTJJq261K5vjGR",
+      "block_height": 224405362
+    }
+  }
+}

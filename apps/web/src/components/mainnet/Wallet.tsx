@@ -5,22 +5,21 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   createMainnetAccountReader,
   createMainnetAttemptJournal,
-  createMainnetNativeWalletBackend,
   createMainnetWalletChain,
   ed25519PublicKeyFromHex,
   EncryptedMainnetVault,
   mainnetSpendingBudget,
   MainnetVaultError,
   openMainnetAttemptStore,
-  prepareMainnetUsdcTransfer,
 } from '@taply/near-client';
-import type { MainnetAttempt, MainnetNativeReview, MainnetReadProfile, MainnetWalletIdentity, MainnetWalletSnapshot } from '@taply/near-client';
+import type { MainnetAttempt, MainnetReadProfile, MainnetWalletIdentity, MainnetWalletSnapshot } from '@taply/near-client';
 import { MainnetAccountSchema } from '@taply/shared';
 import { Button } from '@/components/primitives/Button';
 import { Card } from '@/components/primitives/Surface';
 import { QrCode } from '@/components/payments/QrCode';
 import { formatMainnetAmount, MAINNET_ASSETS, parseMainnetAmount } from '@/lib/mainnet/assets';
-import { readUsdcTransferEvidence, UsdcEvidenceError } from '@/lib/mainnet/usdc-evidence';
+import { newBusinessId, stableBusinessId } from '@/lib/mainnet/wallet-ops';
+import { LedgerPanel, OperationError, OperationReview, OPERATION_COPY, useOperation } from './Operation';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { MAINNET_SIGNING_RELEASE_APPROVED } from '@/lib/mainnet/release-gates';
@@ -35,9 +34,9 @@ import { Notice, Row } from './bits';
  *    Testnet backups rejected; never activates an account;
  *  - createMainnetWalletChain: final-block account + FullAccess key evidence =
  *    the only source of "activated";
- *  - createMainnetNativeWalletBackend: exact, 60-second native transfer review;
- *    submission throws while MAINNET_PROTOCOL_SIGNING_RELEASED is false;
- *  - durable attempt journal: an unresolved attempt blocks any new payment.
+ *  - Send: Codex's unified planner/backend via ./Operation (exact 60-second
+ *    review; submit closed while MAINNET_PROTOCOL_SIGNING_RELEASED is false);
+ *  - legacy v1 attempt journal: never migrated; any entry still blocks sending.
  * No key, phrase or password is stored by this component.
  */
 export function useWalletCopy(): WalletCopy {
@@ -74,7 +73,7 @@ export function readProfile(): MainnetReadProfile | null {
 }
 
 function vaultError(c: WalletCopy, e: unknown): string {
-  const code = e instanceof MainnetVaultError ? e.code : e instanceof UsdcEvidenceError ? e.code : e instanceof Error ? e.message : '';
+  const code = e instanceof MainnetVaultError ? e.code : e instanceof Error ? e.message : '';
   return (c.errors as Record<string, string>)[code] ?? c.errors.UNKNOWN;
 }
 
@@ -329,134 +328,86 @@ export function TaplyWalletHome() {
 }
 
 /** Native send with the exact review from the reviewed backend. Confirmation is gated off. */
-type UsdcReview = ReturnType<typeof prepareMainnetUsdcTransfer> & { readonly balance: string; readonly blockHash: string; readonly nonce: string; readonly publicKey: string; readonly amount: string; readonly expiresAtMs: number };
-type SendReview = { kind: 'NEAR'; review: MainnetNativeReview } | { kind: 'USDC'; review: UsdcReview };
-
 const AMOUNT_ERROR = { invalid: 'AMOUNT_INVALID', precision: 'AMOUNT_PRECISION', zero: 'AMOUNT_INVALID', cap: 'AMOUNT_CAP' } as const;
 
-/** USDC: snapshot, then balance + both registrations at that same block, then Codex's builder. */
-async function prepareUsdc(profile: MainnetReadProfile, identity: MainnetWalletIdentity, receiverId: string, amount: string): Promise<UsdcReview> {
-  const parsed = parseMainnetAmount(amount, MAINNET_ASSETS.USDC);
-  if (!parsed.ok) throw new Error(AMOUNT_ERROR[parsed.reason]);
-  if (receiverId === identity.accountId) throw new Error('SELF_TRANSFER');
-  const snapshot = await createMainnetWalletChain(profile).snapshot(identity.accountId, publicKeyOf(identity));
-  if (snapshot === null) throw new Error('ACCOUNT_NOT_ACTIVATED');
-  const evidence = await readUsdcTransferEvidence(profile, snapshot, receiverId);
-  if (!evidence.senderRegistered) throw new Error('TOKEN_SENDER_UNREGISTERED');
-  if (!evidence.receiverRegistered) throw new Error('TOKEN_RECEIVER_UNREGISTERED');
-  if (BigInt(parsed.baseUnits) > BigInt(evidence.balance)) throw new Error('INSUFFICIENT_TOKEN_BALANCE');
-  const call = prepareMainnetUsdcTransfer({ snapshot, receiverId, amountBaseUnits: parsed.baseUnits, tokenEvidence: evidence });
-  return Object.freeze({ ...call, balance: evidence.balance, blockHash: snapshot.blockHash, nonce: (BigInt(snapshot.nonce) + 1n).toString(), // the nonce this transaction would use, as in the NEAR review
-   
-    publicKey: snapshot.publicKey, amount: parsed.baseUnits, expiresAtMs: Date.now() + 60_000 });
-}
-
+/**
+ * Send NEAR / USDC through Codex's unified planner (`nativeSend` / `usdcSend`).
+ * The business ID is stable for this user payment across reload and review and
+ * changes ONLY when the user explicitly starts a new payment. USDC evidence
+ * (balance, both registrations, pinned token code) is read by the planner at
+ * the snapshot block; the app no longer has its own token reader.
+ */
 export function WalletSend() {
   const c = useWalletCopy();
   const { locale } = useMainnetLocale();
-  const { identity } = useMainnetVault();
+  const op = useOperation();
   const [asset, setAsset] = useState<'NEAR' | 'USDC'>('NEAR');
   const [receiver, setReceiver] = useState('');
   const [amount, setAmount] = useState('');
-  const [review, setReview] = useState<SendReview | null>(null);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  const { status: attempt, attempt: record } = useAttemptRecord(identity?.accountId ?? null);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-  if (identity === null) return <Notice tone="muted">{c.noWallet} <Link className="underline" href="/m/wallet/create">{c.create}</Link></Notice>;
-  const me = identity;
+  const accountId = op.signer.kind === 'ok' ? op.signer.accountId : null;
+  const legacy = useAttemptRecord(accountId);
+  if (op.signer.kind !== 'ok') {
+    return op.signer.kind === 'external-no-key'
+      ? <Notice tone="caution" testId="external-no-key">{OPERATION_COPY[locale].externalNoKey}</Notice>
+      : <Notice tone="muted">{c.noWallet} <Link className="underline" href="/m/wallet/create">{c.create}</Link></Notice>;
+  }
+  const from = op.signer.accountId;
+  const edit = (f: () => void) => { f(); op.reset(); setError(''); };
 
   async function prepare() {
-    setError(''); setReview(null);
-    const profile = readProfile();
+    setError('');
     const to = receiver.trim();
     if (!MainnetAccountSchema.safeParse(to).success) { setError(c.errors.BAD_RECIPIENT); return; }
-    if (profile === null) { setError(c.errors.UNKNOWN); return; }
-    setBusy(true);
-    let store: Awaited<ReturnType<typeof openMainnetAttemptStore>> | null = null;
-    try {
-      if (asset === 'USDC') {
-        // The journal must be readable and empty before any token review, exactly as for NEAR.
-        store = await openMainnetAttemptStore();
-        if (await createMainnetAttemptJournal(store).read(me.accountId) !== null) throw new Error('OUTCOME_UNRESOLVED');
-        setReview({ kind: 'USDC', review: await prepareUsdc(profile, me, to, amount) });
-      } else {
-        store = await openMainnetAttemptStore();
-        const backend = createMainnetNativeWalletBackend({ profile, store, signer: { kind: 'internal', vault: vault() } });
-        setReview({ kind: 'NEAR', review: await backend.prepare(to, amount.trim()) });
-      }
-    } catch (e) { setError(vaultError(c, e)); }
-    finally { store?.close(); setBusy(false); }
+    const parsed = parseMainnetAmount(amount, asset === 'USDC' ? MAINNET_ASSETS.USDC : MAINNET_ASSETS.NEAR);
+    if (!parsed.ok && !(asset === 'NEAR' && parsed.reason === 'cap')) { setError(c.errors[AMOUNT_ERROR[parsed.reason]]); return; }
+    let businessId: string;
+    try { businessId = stableBusinessId(window.localStorage, from, 'send'); } catch { setError(c.errors.UNKNOWN); return; }
+    await op.run(asset === 'USDC' && parsed.ok
+      ? { kind: 'usdcSend', receiverId: to, amountBaseUnits: parsed.baseUnits, businessId }
+      : { kind: 'nativeSend', receiverId: to, amountNear: amount.trim(), businessId });
   }
-  const remaining = review === null ? 0 : review.review.expiresAtMs - now;
+  function startNew() {
+    try { newBusinessId(window.localStorage, from, 'send'); } catch { /* storage unavailable: prepare will fail closed */ }
+    setReceiver(''); setAmount(''); setError(''); op.reset();
+  }
   return (
     <div className="flex flex-col gap-3">
-      {attempt === 'unresolved' && (
+      {legacy.status === 'unresolved' && (
         <Notice tone="caution" live testId="attempt-unresolved">
           {c.unresolved}
-          {record !== null && <AttemptDetails c={c} attempt={record} />}
+          {legacy.attempt !== null && <AttemptDetails c={c} attempt={legacy.attempt} />}
         </Notice>
       )}
-      {attempt === 'unavailable' && <Notice tone="danger" live testId="attempt-unavailable">{c.journalUnavailable}</Notice>}
+      {legacy.status === 'unavailable' && <Notice tone="danger" live testId="attempt-unavailable">{c.journalUnavailable}</Notice>}
+      <LedgerPanel />
       <Card>
         <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
-          <p className="text-[13px] text-[var(--text-secondary)]">{c.from}: <span className="break-all font-mono">{me.accountId}</span></p>
+          <p className="text-[13px] text-[var(--text-secondary)]">{c.from}: <span className="break-all font-mono">{from}</span></p>
           <fieldset className="flex gap-2" data-testid="send-asset">
             <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.asset}</legend>
             {(['NEAR', 'USDC'] as const).map((a) => (
               <label key={a} className="flex min-h-[var(--tap-target)] cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 has-[:checked]:border-[var(--accent)]">
-                <input type="radio" name="mw-asset" value={a} checked={asset === a} onChange={() => { setAsset(a); setReview(null); setError(''); }} />
+                <input type="radio" name="mw-asset" value={a} checked={asset === a} onChange={() => edit(() => setAsset(a))} />
                 {a}
               </label>
             ))}
           </fieldset>
           <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="mw-to">{c.recipient}</label>
-          <input id="mw-to" className={input} autoCapitalize="none" spellCheck={false} value={receiver} onChange={(e) => { setReceiver(e.target.value); setReview(null); }} />
+          <input id="mw-to" className={input} autoCapitalize="none" spellCheck={false} value={receiver} onChange={(e) => edit(() => setReceiver(e.target.value))} />
           <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="mw-amount">{asset === 'USDC' ? c.amountUsdc : c.amountNear}</label>
-          <input id="mw-amount" inputMode="decimal" className={input} value={amount} onChange={(e) => { setAmount(e.target.value); setReview(null); }} />
-          <Button type="submit" data-testid="send-review" disabled={busy || attempt !== 'none'}>{busy ? c.working : c.reviewSend}</Button>
+          <input id="mw-amount" inputMode="decimal" className={input} value={amount} onChange={(e) => edit(() => setAmount(e.target.value))} />
+          <Button type="submit" data-testid="send-review" disabled={op.busy || legacy.status !== 'none'}>{op.busy ? c.working : c.reviewSend}</Button>
           {error && <Notice tone="danger" live testId="wallet-error">{error}</Notice>}
+          <OperationError code={op.error} />
+          {op.error === 'OPERATION_ALREADY_CONSUMED' && <Button variant="secondary" data-testid="send-new" onClick={startNew}>{c.startNew}</Button>}
         </form>
       </Card>
-      {review !== null && (
-        <Card>
-          <div data-testid="send-review-card" data-asset={review.kind} className="flex flex-col gap-2">
-            <h2 className="font-semibold">{c.reviewTitle}</h2>
-            {review.kind === 'NEAR' ? (
-              <dl>
-                <Row label={c.recipient} mono>{review.review.receiverId}</Row>
-                <Row label={c.amountNear}><span data-testid="review-amount">{formatMainnetAmount(review.review.depositYocto, MAINNET_ASSETS.NEAR, locale)}</span></Row>
-                <Row label={c.from} mono>{review.review.signerAccountId}</Row>
-                <Row label={c.key} mono>{review.review.publicKey}</Row>
-                <Row label={c.nonce} mono>{review.review.nonce}</Row>
-                <Row label={c.block} mono>{review.review.blockHash}</Row>
-                <Row label={c.reserved}>{formatMainnetAmount((BigInt(review.review.gasReserveYocto) + BigInt(review.review.storageReserveYocto)).toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
-                <Row label={c.network}>NEAR Mainnet</Row>
-              </dl>
-            ) : (
-              <dl>
-                <Row label={c.recipient} mono><span data-testid="review-recipient">{review.review.args.receiver_id}</span></Row>
-                <Row label={c.amountUsdc}><span data-testid="review-amount">{formatMainnetAmount(review.review.args.amount, MAINNET_ASSETS.USDC, locale)}</span></Row>
-                <Row label={c.tokenContract} mono><span data-testid="review-token">{review.review.receiverId}</span></Row>
-                <Row label={c.tokenMethod} mono>{review.review.methodName}</Row>
-                <Row label={c.tokenDeposit}>1 yoctoNEAR</Row>
-                <Row label={c.tokenGas}>{(BigInt(review.review.gas) / 1_000_000_000_000n).toString()} Tgas</Row>
-                <Row label={c.usdcBalance}>{formatMainnetAmount(review.review.balance, MAINNET_ASSETS.USDC, locale)}</Row>
-                <Row label={c.receiverRegistered}>{c.yes}</Row>
-                <Row label={c.from} mono>{review.review.signerAccountId}</Row>
-                <Row label={c.key} mono>{review.review.publicKey}</Row>
-                <Row label={c.nonce} mono>{review.review.nonce}</Row>
-                <Row label={c.block} mono>{review.review.blockHash}</Row>
-                <Row label={c.reserved}>{formatMainnetAmount((BigInt(review.review.gasReserveYocto) + BigInt(review.review.storageReserveYocto)).toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
-                <Row label={c.network}>NEAR Mainnet</Row>
-              </dl>
-            )}
-            <p className="text-[12px] text-[var(--text-muted)]" data-testid="review-expiry">{remaining > 0 ? `${c.reviewExpires} ${Math.ceil(remaining / 1000)} s` : c.reviewExpired}</p>
-            <Button variant="primary" size="lg" disabled data-testid="send-confirm">{c.confirmSend}</Button>
-            <p className="text-[13px] text-[var(--tone-caution-fg)]">{MAINNET_SIGNING_RELEASE_APPROVED ? '' : c.signingOff}</p>
-          </div>
-        </Card>
+      {op.prepared !== null && (
+        <div data-testid="send-review-card" data-asset={asset}>
+          <OperationReview prepared={op.prepared} title={c.reviewTitle} />
+          <Button className="mt-2" variant="ghost" data-testid="send-new" onClick={startNew}>{c.startNew}</Button>
+        </div>
       )}
     </div>
   );

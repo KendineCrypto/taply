@@ -26,7 +26,7 @@ vi.mock('@/lib/mainnet/config', () => ({
 }));
 vi.mock('@/lib/mainnet/wallet', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  useMainnetWallet: () => ({ status: 'idle', accountId: null, walletName: null, error: null, connect: async () => {}, disconnect: async () => {} }),
+  useMainnetWallet: () => ({ status: 'idle', accountId: null, walletName: null, error: null, publicKey: null, signerWallet: () => null, connect: async () => {}, disconnect: async () => {} }),
 }));
 
 const { PaymentStatusPanel, IntentsCheckout } = await import('../PayRequest');

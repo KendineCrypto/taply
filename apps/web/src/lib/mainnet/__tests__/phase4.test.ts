@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MAINNET_USDC } from '@taply/shared';
-import type { MainnetWalletSnapshot } from '@taply/near-client';
-import { prepareMainnetUsdcTransfer } from '@taply/near-client';
 import { decodePersonalGift, encodePersonalGift } from '../personal-gift';
 import type { PersonalGiftPayload } from '../personal-gift';
 import { resolveGiftProfile } from '../gift-profile';
 import { CANCEL_MINUTES, FUNDING_MINUTES, minutesToNs, randomCreationNonce, resolveEscrowProfile } from '../escrow-profile';
-import { readUsdcTransferEvidence, UsdcEvidenceError } from '../usdc-evidence';
 import { matchesActivityFilter } from '@/components/mainnet/Activity';
 import { saleRequestId } from '@/components/mainnet/Merchant';
 import { isProductRoute } from '../product';
@@ -69,55 +65,6 @@ describe('Gift and escrow profiles fail closed', () => {
     const a = randomCreationNonce(), b = randomCreationNonce();
     expect(a).toMatch(/^[0-9a-f]{64}$/);
     expect(a).not.toBe(b);
-  });
-});
-
-const SNAP: MainnetWalletSnapshot = { network: 'near-mainnet', accountId: 'alice.near', publicKey: 'ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp',
-  nonce: '7', blockHash: HASH, blockHeight: '150000000', blockTimestampNs: '1763035200000000000', amountYocto: '5000000000000000000000000',
-  storageUsageBytes: '182', storageByteCostYocto: '10000000000000000000', gasPriceYocto: '100000000' };
-
-function rpcFake(answers: Record<string, { value: unknown; block?: string } | 'error'>) {
-  const calls: Array<{ method: string; args: unknown; block: unknown; account: unknown }> = [];
-  const fetcher = async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(String(init.body));
-    const p = body.params;
-    const args = JSON.parse(atob(p.args_base64));
-    calls.push({ method: p.method_name, args, block: p.block_id, account: p.account_id });
-    const key = `${p.method_name}:${args.account_id}`;
-    const a = answers[key];
-    if (a === undefined || a === 'error') return new Response(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32000 } }), { status: 200 });
-    const bytes = Array.from(new TextEncoder().encode(JSON.stringify(a.value)));
-    return new Response(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { result: bytes, logs: [], block_height: 150000000, block_hash: a.block ?? HASH } }), { status: 200 });
-  };
-  return { fetcher, calls };
-}
-const PROFILE = { network: 'near-mainnet' as const, rpcUrl: 'https://rpc.mainnet.fastnear.com' as const, rpcProviderId: 'fastnear' };
-const REG = { total: '1250000000000000000000', available: '0' };
-
-describe('USDC transfer evidence (synthetic RPC, same block as the snapshot)', () => {
-  it('reads balance and both registrations at the snapshot block and feeds Codex\'s builder', async () => {
-    const { fetcher, calls } = rpcFake({ 'ft_balance_of:alice.near': { value: '30000000' }, 'storage_balance_of:alice.near': { value: REG }, 'storage_balance_of:bob.near': { value: REG } });
-    const e = await readUsdcTransferEvidence(PROFILE, SNAP, 'bob.near', fetcher);
-    expect(e).toEqual({ blockHash: HASH, accountId: 'alice.near', receiverId: 'bob.near', balance: '30000000', senderRegistered: true, receiverRegistered: true });
-    expect(calls.every((c) => c.block === HASH && c.account === MAINNET_USDC)).toBe(true);
-    const call = prepareMainnetUsdcTransfer({ snapshot: SNAP, receiverId: 'bob.near', amountBaseUnits: '12500000', tokenEvidence: e });
-    expect(call).toMatchObject({ receiverId: MAINNET_USDC, methodName: 'ft_transfer', depositYocto: '1', args: { receiver_id: 'bob.near', amount: '12500000' } });
-  });
-  it('reports an unregistered receiver instead of building a failing transfer', async () => {
-    const { fetcher } = rpcFake({ 'ft_balance_of:alice.near': { value: '30000000' }, 'storage_balance_of:alice.near': { value: REG }, 'storage_balance_of:bob.near': { value: null } });
-    const e = await readUsdcTransferEvidence(PROFILE, SNAP, 'bob.near', fetcher);
-    expect(e.receiverRegistered).toBe(false);
-    expect(() => prepareMainnetUsdcTransfer({ snapshot: SNAP, receiverId: 'bob.near', amountBaseUnits: '1', tokenEvidence: e })).toThrow('INVALID_TOKEN_EVIDENCE');
-  });
-  it('refuses an answer from another block', async () => {
-    const { fetcher } = rpcFake({ 'ft_balance_of:alice.near': { value: '30000000', block: OTHER }, 'storage_balance_of:alice.near': { value: REG }, 'storage_balance_of:bob.near': { value: REG } });
-    await expect(readUsdcTransferEvidence(PROFILE, SNAP, 'bob.near', fetcher)).rejects.toMatchObject({ code: 'EVIDENCE_MISMATCH' });
-  });
-  it('refuses malformed balances and RPC errors', async () => {
-    const bad = rpcFake({ 'ft_balance_of:alice.near': { value: 30000000 }, 'storage_balance_of:alice.near': { value: REG }, 'storage_balance_of:bob.near': { value: REG } });
-    await expect(readUsdcTransferEvidence(PROFILE, SNAP, 'bob.near', bad.fetcher)).rejects.toBeInstanceOf(UsdcEvidenceError);
-    const err = rpcFake({ 'ft_balance_of:alice.near': 'error', 'storage_balance_of:alice.near': { value: REG }, 'storage_balance_of:bob.near': { value: REG } });
-    await expect(readUsdcTransferEvidence(PROFILE, SNAP, 'bob.near', err.fetcher)).rejects.toMatchObject({ code: 'RPC_UNAVAILABLE' });
   });
 });
 

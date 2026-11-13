@@ -73,6 +73,10 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_MAINNET_SIGNING?: string;
     /** SERVER ONLY. 1Click mode: off (default) | fixture | dry. Funded quotes are refused in code. */
     readonly TAPLY_ONECLICK_MODE?: string;
+    /** Native USDC token code pin for USDC operations (observed hash ≠ approval). Unset → USDC operations refused. */
+    readonly NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH?: string;
+    /** TEST ONLY: single-browser simulated wallet authority (requires fixtures). Refused on Production. */
+    readonly NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION?: string;
     /** Mainnet Protected Pay escrow (account + pinned code hash). Not deployed/approved: refused on Production. */
     readonly NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID?: string;
     readonly NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CODE_HASH?: string;

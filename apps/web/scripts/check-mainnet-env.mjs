@@ -215,6 +215,7 @@ export function evaluateMainnetEnv({ env, source = {}, vercelEnv, requireMainnet
     add('fixtures off on Production', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES), 'NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES must not be on in Production');
     add('1Click fixture mode off on Production', oneClickMode !== 'fixture', 'TAPLY_ONECLICK_MODE=fixture is refused in Production');
     // No Mainnet Gift account/fee/limits are owner-approved (docs/MAINNET_PROTOCOL_PHASE2.md "Gift").
+    add('simulated wallet authority off on Production', env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION !== 'on', 'NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION=on is a test harness and is refused in Production');
     add('Mainnet escrow not configured on Production (not deployed/approved)', !set(env.NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID), 'NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID must stay unset on Production until the escrow is reviewed, deployed and owner-approved');
     add('Gift contract not configured on Production (not approved)', !set(env.NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID), 'NEXT_PUBLIC_TAPLY_GIFT_CONTRACT_ID must stay unset on Production until the Gift account, fee and limits are owner-approved');
   }
