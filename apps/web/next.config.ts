@@ -1,4 +1,6 @@
 import type { NextConfig } from 'next';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
+import { evaluateMainnetEnv } from './scripts/check-mainnet-env.mjs';
 
 /**
  * Taply v0.4 frontend config.
@@ -33,4 +35,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Mainnet isolation guard (docs/MAINNET_INFRA.md §4). A NEAR Testnet build
+ * never enters this branch, so it behaves exactly as before. A mainnet
+ * production build refuses to start if any Testnet value (for example from the
+ * committed .env.production), the staging contract on Production, the
+ * recovery account or the Testnet host survived; `pnpm build:mainnet` runs the
+ * same checks with per-key sources before this point.
+ */
+export default function config(phase: string): NextConfig {
+  if (phase === PHASE_PRODUCTION_BUILD && process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet') {
+    const { checks } = evaluateMainnetEnv({ env: process.env, vercelEnv: process.env['VERCEL_ENV'], requireMainnet: true });
+    const failed = checks.filter((c) => !c.ok);
+    if (failed.length > 0) {
+      throw new Error(`Mainnet build refused:\n${failed.map((c) => `  - ${c.name}: ${c.detail ?? ''}`).join('\n')}`);
+    }
+  }
+  return nextConfig;
+}
