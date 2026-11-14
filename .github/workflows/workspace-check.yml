@@ -126,7 +126,10 @@ jobs:
           node scripts/mainnet-1click-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence" http://127.0.0.1:3113
           node scripts/mainnet-product-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/product" http://127.0.0.1:3113
           node ../../packages/near-client/test/mainnet-indexeddb-browser.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/indexeddb"
-          node scripts/mainnet-release-browser.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/release" closed
+          # Exercise the checked-out release state. Signing Preview branches use the
+          # open-gate adversarial suite; ordinary candidate branches use closed.
+          release_mode=$(node --input-type=module -e 'import { MAINNET_PROTOCOL_SIGNING_RELEASED } from "../../packages/near-client/dist/mainnet-vault.js"; console.log(MAINNET_PROTOCOL_SIGNING_RELEASED ? "open" : "closed")')
+          node scripts/mainnet-release-browser.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/release" "$release_mode"
 
       # Phase 2 parity (docs/MAINNET_PARITY_MATRIX.md): Mainnet Live Handshake on a
       # REAL redis-server (via the repo's Upstash REST shim) across two browser
