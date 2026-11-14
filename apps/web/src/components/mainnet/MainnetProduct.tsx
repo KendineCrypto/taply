@@ -67,7 +67,7 @@ export function MainnetProduct({ path }: { path: string }) {
     : section === 'receive' ? { title: t.screens.receive, description: t.walletUx.receive.subtitle }
     : section === 'activity' ? { title: t.oneTap.activity.title }
     : section === 'merchant' && path === 'merchant' ? 'merchant'
-    : path === 'wallet' ? 'none'
+    : path === 'wallet' || path === 'gift/p' ? 'none'
     : section === 'split' ? { title: tool.split.title, description: tool.split.description }
     : section === 'recurring' ? { title: tool.recurring.title, description: tool.recurring.description }
     : section === 'contacts' ? { title: tool.contacts.title, description: tool.contacts.description }
