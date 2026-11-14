@@ -6,7 +6,7 @@ import { MainnetAccountSchema } from '@taply/shared';
 import { displayMemo, saleFromHash, saleMatches } from '@/lib/mainnet/commerce';
 import type { SaleCommitment } from '@/lib/mainnet/commerce';
 import { Button } from '@/components/primitives/Button';
-import { Card, ScreenHeader } from '@/components/primitives/Surface';
+import { Card } from '@/components/primitives/Surface';
 import { nsToDate } from '@/lib/format/time';
 import { assetById, formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/assets';
 import type { MainnetAsset } from '@/lib/mainnet/assets';
@@ -24,6 +24,8 @@ import { derivePaymentView } from '@/lib/mainnet/status';
 import type { PaymentState } from '@/lib/mainnet/status';
 import { Notice, Row, short } from './bits';
 import { WalletPanel } from './WalletPanel';
+import { MainnetReceiptTicket, MainnetRequestTicket } from './MainnetTickets';
+import type { SubmitOutcome } from '@/lib/mainnet/wallet-ops';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
 const nsToMs = (ns: string) => nsToDate(ns).getTime();
@@ -62,6 +64,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const { read, refresh } = useMainnetRequest(id, true);
   const [method, setMethod] = useState<'base' | 'wallet' | null>(null);
   const [quotePrepared, setQuotePrepared] = useState(false);
+  const [paidTx, setPaidTx] = useState<string | null>(null);
   const now = useNow(5000);
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
   const isUsdc = read.kind === 'ok' && read.request.terms.assetId === MAINNET_ASSETS.USDC.id;
@@ -93,22 +96,22 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const saleOk = sale === null ? null : sale !== 'invalid' && sale.session.merchantAccountId === r.recipientAccountId && saleMatches(r.terms, sale);
   const open = r.status === 'OPEN' && nsToMs(r.terms.fundingExpiresAtNs) > now && !wrongMerchant && saleOk !== false;
   const bind = locale === 'tr' ? BIND_TR : BIND_EN;
+  // The receipt replaces the status card only for unambiguous FINAL contract states.
+  const hs = hint?.status ?? null;
+  const receipt = r.status === 'FINAL_PAID' && hs !== 'REFUNDED' && hs !== 'FAILED' ? 'paid' as const
+    : r.status === 'CANCELLED_UNFUNDED' && (hs === null || hs === 'PENDING_DEPOSIT') ? 'cancelled' as const : null;
 
   return (
     <div className="flex flex-col gap-4">
-      <ScreenHeader title={c.pay.title} />
-      <Card>
-        <p className="text-[13px] text-[var(--text-secondary)]">{c.pay.amount}</p>
-        <p data-testid="pay-amount" className="mt-0.5 text-[2rem] font-semibold leading-tight tabular-nums">{formatMainnetAmount(r.terms.amountBaseUnits, asset, locale)}</p>
-        <dl className="mt-2">
-          <Row label={c.pay.merchant} mono>{r.recipientAccountId}</Row>
-          {displayMemo(r.terms.memo) !== '' && <Row label={c.pay.memo}>{displayMemo(r.terms.memo)}</Row>}
-          <Row label={c.pay.expires}>{formatTime(nsToMs(r.terms.fundingExpiresAtNs), locale)}</Row>
-          <Row label={c.pay.contract} mono>{r.terms.contractId}</Row>
-          <Row label={c.pay.requestId} mono>{short(r.terms.id, 12, 12)}</Row>
-        </dl>
-        <p className="mt-2 text-[12px] text-[var(--text-muted)]">{c.pay.fixedNote}</p>
-      </Card>
+      <h1 className="sr-only">{c.pay.title}</h1>
+      {receipt !== null ? (
+        <MainnetReceiptTicket status={receipt} asset={asset} amountBaseUnits={r.terms.amountBaseUnits} recipientAccountId={r.recipientAccountId}
+          payerAccountId={r.payerAccountId} memo={displayMemo(r.terms.memo)} atNs={r.latestOperation?.resolvedAtNs ?? r.fundedAtNs}
+          requestId={r.terms.id} contractId={r.terms.contractId} transactionHash={paidTx} />
+      ) : (
+        <MainnetRequestTicket asset={asset} amountBaseUnits={r.terms.amountBaseUnits} recipientAccountId={r.recipientAccountId}
+          memo={displayMemo(r.terms.memo)} expiresAtNs={r.terms.fundingExpiresAtNs} />
+      )}
 
       {sale !== null && (saleOk
         ? <Notice tone="muted" testId="commerce-verified"><span className="font-semibold">{bind.saleOk}</span> <span className="block break-all font-mono text-[11px]">{bind.terms} {sale !== 'invalid' ? sale.termsHash : ''}</span></Notice>
@@ -116,11 +119,9 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {expectedMerchant !== null && (wrongMerchant
         ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
         : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
-      <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} />
-      <RecipientActions request={r} />
-      {after?.(r, open)}
-
-      {open ? (
+      {open && asset.symbol === 'NEAR' ? (
+        <div data-testid="method-wallet"><WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) setPaidTx(o.transactionHash); refresh(); }} /></div>
+      ) : open ? (
         <Card>
           <h2 className="mb-2 text-[15px] font-semibold">{c.pay.methodTitle}</h2>
           {asset.symbol === 'NEAR' && <p className="mb-2 text-[13px] text-[var(--text-secondary)]">{c.pay.methodNativeOnly}</p>}
@@ -131,14 +132,23 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
             <MethodButton active={method === 'wallet'} onClick={() => setMethod('wallet')} title={c.pay.methodWallet} hint={c.pay.methodWalletHint} testId="method-wallet" />
           </div>
         </Card>
-      ) : (
+      ) : receipt === null ? (
         <Notice tone="muted">{c.pay.notPayable}</Notice>
-      )}
+      ) : null}
 
       {open && method === 'base' && asset.symbol === 'USDC' && (
         fixtures ? <IntentsCheckout request={r} onPrepared={() => setQuotePrepared(true)} /> : <Notice tone="caution" testId="router-disabled">{c.pay.routerDisabled}</Notice>
       )}
-      {open && method === 'wallet' && <WalletPayReview request={r} asset={asset} />}
+      {open && asset.symbol === 'USDC' && method === 'wallet' && <WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) setPaidTx(o.transactionHash); refresh(); }} />}
+      {receipt === null ? <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /> : (
+        <details className="rounded-[var(--radius-card)] bg-[var(--surface-1)] p-4 text-sm">
+          <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{locale === 'tr' ? 'Ödeme durumu' : 'Payment status'}</summary>
+          <div className="mt-3"><PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /></div>
+        </details>
+      )}
+      <RecipientActions request={r} />
+      {after?.(r, open)}
+
     </div>
   );
 }
@@ -183,7 +193,7 @@ function RecipientActions({ request }: { request: MainnetRequest }) {
   );
 }
 
-function WalletPayReview({ request, asset }: { request: MainnetRequest; asset: MainnetAsset }) {
+function WalletPayReview({ request, asset, onPaid }: { request: MainnetRequest; asset: MainnetAsset; onPaid?: (outcome: SubmitOutcome) => void }) {
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const op = useOperation();
@@ -200,7 +210,7 @@ function WalletPayReview({ request, asset }: { request: MainnetRequest; asset: M
         </Button>
       )}
       <OperationError code={op.error} />
-      {op.prepared !== null && <OperationReview prepared={op.prepared} title={c.pay.methodWallet} />}
+      {op.prepared !== null && <OperationReview prepared={op.prepared} title={c.pay.methodWallet} {...(onPaid ? { onDone: onPaid } : {})} />}
     </div>
   );
 }
