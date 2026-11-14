@@ -1,0 +1,53 @@
+{
+  "evidenceKind": "LIVE_MAINNET_READ_ONLY_REQUEST_SNAPSHOT",
+  "archivedResultNotFreshCheck": true,
+  "contract": "taply-pay.kendinecrypto.near",
+  "codeHash": "9VpaiMp3Hoq8pVVvCW6oSZrvzBdZoNNgUmLCXrm32wX6",
+  "request": {
+    "terms": {
+      "schemaVersion": "taply.intent.v1",
+      "id": "a035569dc9662a19a7cd077606150e1f443673cef6823fe766ac4c73db852d16",
+      "network": "near-mainnet",
+      "contractId": "taply-pay.kendinecrypto.near",
+      "creationNonce": "46fd6dcbc74535f8c6d19174df362d138b792e604783040b25623e607d845a41",
+      "creatorAccountId": "ad797669c357fa0f741db7b4cda9779528af3f15e15ce660e7606871ea5c5ea3",
+      "assetId": "near:native",
+      "amountBaseUnits": "100000000000000000000000",
+      "mode": "instant",
+      "cancelDurationNs": null,
+      "fundingExpiresAtNs": "1794698157007000000",
+      "permittedPayerAccountId": null,
+      "merchantAccountId": null,
+      "memo": "",
+      "sessionBinding": null
+    },
+    "termsHash": "91698810ee630f0caf1b83b79d21b2533d3c630d3a37477199a5c5f4eeb568c6",
+    "sessionCommitment": null,
+    "recipientAccountId": "ad797669c357fa0f741db7b4cda9779528af3f15e15ce660e7606871ea5c5ea3",
+    "status": "FINAL_PAID",
+    "revision": "3",
+    "createdAtNs": "1794694562710287884",
+    "payerAccountId": "kendinecrypto.near",
+    "fundedAtNs": "1794694586700414500",
+    "cancelUntilNs": null,
+    "settlementBranch": "RECIPIENT",
+    "latestOperation": {
+      "nonce": "1",
+      "kind": "INSTANT_PAYOUT",
+      "destinationAccountId": "ad797669c357fa0f741db7b4cda9779528af3f15e15ce660e7606871ea5c5ea3",
+      "amountBaseUnits": "100000000000000000000000",
+      "status": "SUCCEEDED",
+      "startedAtNs": "1794694586700414500",
+      "resolvedAtNs": "1794694587897316400",
+      "failureCode": null
+    }
+  },
+  "fundingDiscovery": {
+    "kind": "found",
+    "candidates": [
+      "3a7kNLaYQH5aFUjHk422bRQ2iSt4pwMWhVGfBTMP7J2N"
+    ],
+    "blockHeight": 224575536,
+    "calls": 16
+  }
+}

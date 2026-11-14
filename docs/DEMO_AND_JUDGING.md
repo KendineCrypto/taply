@@ -1,33 +1,50 @@
-# Taply v0.4 judging, README and demo proof playbook
+# Taply demo and evaluation route
 
-> The storyboard below is the original product target, not shipped scope. Live on 2026-11-10: username wallets, request and pay (NEAR or test tokens via Ref), and the live two-phone Handshake session (coordination only; contract-bound sessions are not live), and Protected Pay on Testnet since 2026-11-11 (cancel window 1 minute to 1 hour; not audited). Current facts: [README](../README.md) and [submission package](HACKATHON_SUBMISSION_PACKAGE.md#what-is-live-today-2026-11-11).
+[Judge quick start](JUDGE_QUICK_START.md) is the interactive entry point.
+[Release status](RELEASE_STATUS.md) is the source of truth for network,
+commit, deployment and evidence scope.
 
-## Judging positioning
-**Compared to payment-link tools (e.g., PingPay):** Taply doesn't claim better cross-chain routing. It differentiates on **human-verifiable live merchant Handshake**, explicit settlement states and consent-based Protected Pay, all proven on NEAR Testnet. Do not claim exclusive invention of escrow, QR or wallets. Be honest that existing products cover adjacent capabilities.
+## A two-minute product demonstration
 
-## 55–60s final film storyboard
-0–5s 3D `taply.` logo reveal using approved brand geometry; no fake morphs.
-5–12s friction: address copying / confusion (tasteful product story).
-12–21s merchant QR -> customer scan -> matching live Handshake code, two synchronized phones.
-21–30s Instant wallet-sign + real chain transaction -> verified receipt on both screens.
-30–40s Protected mode selection + consent -> funds locked *not paid*, visible timer.
-40–48s split-screen: one Protected demo cancelled and refunded; separate case releases and pays, both actual Testnet tx proofs.
-48–55s view real contract/receipt evidence with readable tx IDs (factual, no invented data).
-55–60s logo + 'Payments with confidence. Powered by NEAR.'
+| Time | Show | Evidence behind the scene |
+| --- | --- | --- |
+| 0–15 s | A shop/freelancer creates an exact request in Taply | Immutable on-chain terms; amount and recipient review |
+| 15–35 s | Second device scans and sees the same sale | QR navigation, live request read; Testnet Handshake is coordination only |
+| 35–60 s | Payer reviews and confirms in the wallet | Explicit signature; submitted is distinguished from paid |
+| 60–85 s | Both devices show the result and its receipt | Contract payout callback, then independent verifier |
+| 85–105 s | Separate Protected Pay refund/release examples | Real Testnet evidence; locked and refunded never labelled paid |
+| 105–120 s | Public Mainnet transaction, proof JSON and CI | Actual 0.1 NEAR settlement; exact source/test links |
 
-## Voiceover
-'Bir ödeme, sadece para göndermek değildir. Doğru kişiye, doğru tutarı, doğru koşullarla ulaştırmaktır. Taply ile QR'ı okut, aynı ödeme oturumunu birlikte doğrula, cüzdanından onayla. Anında öde. Ya da korumalı ödemeyi seç: paran belirlenen süre boyunca kontratta güvende kalsın, koşullar tamamlanınca aktarılsın. Her adım, NEAR üzerinde doğrulanabilir. Taply. Ödemenin kontrolü sende.'
+Use actual captured footage and original network labels. The cinematic product
+story is presentation; public chain evidence establishes the payment result.
+Preview footage must identify the served build. The newest source is not yet
+deployment evidence while Vercel reports `build-rate-limit`.
 
-Adjust narration to actual shipped features. Never voice 'Protected Pay live' if not implemented. Clips of real app/Testnet transfers are primary proof; cinematic overlays secondary.
+## What makes the implementation inspectable
 
-## README at submission
-Above fold: real app link + actual screenshots/video + testnet contract + what shipped/what disabled. Then problem/solution, differentiator, network, architecture diagram, install (`.env.example`), test script, two-wallet reproduction steps, merchant QR and escrow tests, explorer proofs, threat model, limits, contributions, license.
+- A request's exact terms and canonical hash bind the wallet review to the
+  contract call. The recipient is not taken on trust from a QR caption.
+- NEAR's async payout and callback are part of the payment state machine.
+  A successful submission is not sufficient for a paid receipt.
+- Either side can independently inspect the receipt graph. The Mainnet native
+  example has public inputs, output and a read-only reproduction script.
+- Failure tests accompany the happy path: missing evidence, wrong beneficiary,
+  unknown outcome, duplicate operation and replay.
+- Testnet runs, Mainnet observations, synthetic browser fixtures and local
+  sandbox results are labelled separately in [release status](RELEASE_STATUS.md).
 
-## External proof collection
-Actual deployment Testnet account, WASM hash, release commit/tag, 3–5 real Testnet transaction links (instant pay, protected lock, cancelled refund, protected release), contract test logs, CI status, screenshots with accurate labels. If no observed proof, do not fabricate it.
+## Evaluation material
 
-## Independent AI reviewer instruction (run after implementation)
-'Act as a skeptical NEAR Hackathon reviewer. Treat every README claim as untrusted until verified in source or Testnet execution. Identify broken install paths, fake/mock data presented as production, unsafe contract transition races, unbounded gas sponsorship, escrow refund failures, and lack of NEAR-specific work. Score reproducibility and list exact code/test evidence.'
+| Material | Link |
+| --- | --- |
+| Product entry and scope | [README](../README.md) |
+| Five-minute hands-on route | [Judge quick start](JUDGE_QUICK_START.md) |
+| Architecture and source map | [System overview](SYSTEM_OVERVIEW.md) |
+| Real Mainnet proof | [0.1 NEAR settlement](evidence/mainnet-live-settlement-2026-11-14/README.md) |
+| Real Testnet feature evidence | [Verification matrix](VERIFICATION_MATRIX.md) |
+| Exact tested source and CI | [Release status](RELEASE_STATUS.md) |
+| Security and limitations | [Security](SECURITY.md) · [R-2 reachability analysis](R2_REACHABILITY.md) |
 
-## Deadline
-Official: https://nearhackathon.com/ ; Nov 14 2026 at 23:59 UTC. Verify submission form and relevant track on submission day. Public repository and X demo link required.
+AI assistance is disclosed in the README. Product claims are supported by
+source, test output and public transactions; no ranking or safety guarantee is
+implied by an AI review or a passing test suite.

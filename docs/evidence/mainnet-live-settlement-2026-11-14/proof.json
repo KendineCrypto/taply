@@ -1,0 +1,39 @@
+{
+  "evidenceVersion": 1,
+  "observationDateUtc": "2026-11-14",
+  "evidenceKind": "LIVE_MAINNET_READ_ONLY_VERIFICATION",
+  "archivedResultNotFreshCheck": true,
+  "requestId": "a035569dc9662a19a7cd077606150e1f443673cef6823fe766ac4c73db852d16",
+  "reproductionSourceCommit": "f88bc3fdd1d7b9cfabf95f73a3b48baf376968eb",
+  "funding": {
+    "transactionHash": "3a7kNLaYQH5aFUjHk422bRQ2iSt4pwMWhVGfBTMP7J2N",
+    "signerAccountId": "kendinecrypto.near"
+  },
+  "profile": {
+    "network": "near-mainnet",
+    "rpcUrl": "https://rpc.mainnet.fastnear.com",
+    "rpcProviderId": "fastnear-mainnet",
+    "contract": {
+      "accountId": "taply-pay.kendinecrypto.near",
+      "expectedCodeHash": "9VpaiMp3Hoq8pVVvCW6oSZrvzBdZoNNgUmLCXrm32wX6"
+    }
+  },
+  "proof": {
+    "kind": "VERIFIED_SETTLEMENT",
+    "network": "near-mainnet",
+    "status": "PAID",
+    "assetId": "near:native",
+    "amountBaseUnits": "100000000000000000000000",
+    "beneficiary": "ad797669c357fa0f741db7b4cda9779528af3f15e15ce660e7606871ea5c5ea3",
+    "operationNonce": "1",
+    "fundingTransactionHash": "3a7kNLaYQH5aFUjHk422bRQ2iSt4pwMWhVGfBTMP7J2N",
+    "settlementTransactionHash": "3a7kNLaYQH5aFUjHk422bRQ2iSt4pwMWhVGfBTMP7J2N",
+    "transferReceiptId": "A8mumNKfkBGDDxhxVkm8ZiLo7e6RGbSzhbnTz44B6K3p",
+    "callbackReceiptId": "4JU1sMCUbtU1RT4kVBRWrFVopet5P2MnUE9GdhNc9QJH",
+    "stateBlockHash": "CvUpHCWHru5MKp3FP5TcXddEsdmhwzFfLEbGrYotcSFh",
+    "routerDelivery": false,
+    "routerSurplusBaseUnits": "0",
+    "scope": "NEAR_SETTLEMENT_ONLY",
+    "trustModel": "configured-rpc"
+  }
+}

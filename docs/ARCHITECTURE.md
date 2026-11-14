@@ -1,5 +1,10 @@
 # Taply v0.4 architecture — contract boundaries
 
+> Current release map (14 November UTC): [RELEASE_STATUS.md](RELEASE_STATUS.md).
+> This document preserves its dated Testnet/design/submission snapshot. Mainnet
+> source, live native settlement proof and pending Preview deployment are mapped
+> separately there; older status text is not the current Mainnet release status.
+
 > Historical architecture/Phase 0 scope below is not current deployment status. The Instant-only Testnet pilot is recorded in [EVIDENCE.md](EVIDENCE.md); current API/G2 and release limitations are in [release readiness](RELEASE_READINESS.md). Planned components are not all running services.
 
 ## Components
