@@ -11,7 +11,7 @@ import { Monogram } from '@/components/experience/Basics';
 import { AmountField } from '@/components/payments/AmountField';
 import { NoWalletCard } from './NoWalletCard';
 import { useT } from '@/lib/i18n/provider';
-import { QrCode } from '@/components/payments/QrCode';
+import { RequestShare } from './RequestShare';
 import type { SubmitOutcome } from '@/lib/mainnet/wallet-ops';
 import { MAINNET_ASSETS, formatMainnetAmount, parseMainnetAmount } from '@/lib/mainnet/assets';
 import type { MainnetAsset } from '@/lib/mainnet/assets';
@@ -285,15 +285,8 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
           </form>
       ) : reviewing ? (
         <div className="flex flex-col gap-3">
-          {done !== null && done.kind === 'FINAL_EXECUTION' && done.execution === 'SUCCESS' && payLink !== null ? (
-            <Card>
-              <div className="flex flex-col items-center gap-3 text-center" data-testid="request-share">
-                <p className="display-amount text-[2rem] leading-none">{parsed?.ok ? formatMainnetAmount(parsed.baseUnits, asset, locale) : ''}</p>
-                <QrCode value={saleLink !== null ? `${shareOrigin}${saleLink}` : payLink} label={c.create.title} />
-                <p className="break-all font-mono text-[12px] text-[var(--text-secondary)]" data-testid="request-link">{saleLink !== null ? `${shareOrigin}${saleLink}` : payLink}</p>
-                <Button variant="secondary" onClick={() => { void navigator.clipboard?.writeText(saleLink !== null ? `${shareOrigin}${saleLink}` : payLink); }}>Copy link</Button>
-              </div>
-            </Card>
+          {done !== null && done.kind === 'FINAL_EXECUTION' && done.execution === 'SUCCESS' && payLink !== null && terms !== null ? (
+            <RequestShare id={terms.id} link={saleLink !== null ? `${shareOrigin}${saleLink}` : payLink} amount={parsed?.ok ? formatMainnetAmount(parsed.baseUnits, asset, locale) : ''} />
           ) : (
             <>
               {fixtures && (
