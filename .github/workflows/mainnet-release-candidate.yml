@@ -37,6 +37,7 @@ jobs:
           node-version-file: .node-version
       - name: Install
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq redis-server
           npm install -g pnpm@11.5.0
           pnpm install --frozen-lockfile
           npm install --prefix "$RUNNER_TEMP/pw" --no-audit --no-fund playwright@1.62.1

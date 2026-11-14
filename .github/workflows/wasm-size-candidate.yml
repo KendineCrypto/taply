@@ -62,7 +62,8 @@ jobs:
           (cd contracts/payments-protected-mainnet && bash scripts/build.sh)
           optimize payments-protected-mainnet payments-protected.wasm
           sha256sum "$RUNNER_TEMP"/wasm-size/*.raw "$RUNNER_TEMP"/wasm-size/*.oz | tee "$RUNNER_TEMP/wasm-size/sha256.txt"
-          # Reproducibility: the optimized files must match the committed release manifest exactly.
+          # The deployable files are these CI outputs (the sandbox below runs on exactly them). Builds embed
+          # the source path, so a build on another machine/path differs; the manifest pins the CI runner build.
           (cd "$RUNNER_TEMP/wasm-size" && sha256sum -c "$GITHUB_WORKSPACE/docs/release/mainnet-wasm.sha256")
       - name: payments-mainnet sandbox on the OPTIMIZED artifact
         working-directory: contracts/payments-mainnet

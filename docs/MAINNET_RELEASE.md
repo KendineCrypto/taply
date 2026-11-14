@@ -34,17 +34,23 @@ a second device is not stopped by Taply. Codex review requested for the one prot
 2. Mainnet Vercel env (Preview first): `NEXT_PUBLIC_TAPLY_MAINNET_SIGNING=on`,
    `NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device`. Funded 1Click quotes and the independent verifier stay closed.
 
-## 3. Contract artifacts (reproducible; `docs/release/mainnet-wasm.sha256`)
+## 3. Contract artifacts (`docs/release/mainnet-wasm.sha256`)
 
-Built with each crate's `scripts/build.sh` (Rust 1.95.0) + Binaryen 132.0.0
-`wasm-opt -Oz --strip-debug --strip-producers --mvp-features`. Existing sandbox suites pass on these
-exact files (CI run 43530718655: payments 7/7, gift 5/5, protected 4/4 + token 4/4).
+Deploy **the CI-built files**, not a local rebuild: each crate's `scripts/build.sh` (Rust 1.95.0)
+embeds the source path, so a build on another machine produces different bytes and a different code
+hash (measured: local vs runner differ). The `wasm-size-candidate` workflow builds on the runner, applies
+Binaryen 132.0.0 `wasm-opt -Oz --strip-debug --strip-producers --mvp-features`, checks the bytes
+against the manifest, then runs each existing sandbox suite **on those exact files**. Download its
+artifact `wasm-size-candidate-<commit>` from a passing run, then `sha256sum -c` before deploying.
+(Codex: add `--remap-path-prefix` to make builds machine-independent.)
 
-| Contract | Account | Bytes | sha256 | NEAR code hash (env pin) |
-| --- | --- | --- | --- | --- |
-| payments-mainnet | `taply-pay.kendinecrypto.near` (hard-coded in contract) | 267,495 | `4d99af8c…3448` | `6DvKAXmFu1rowy7RuPMzRuvWktzouenmTCXY4n11VNKZ` |
-| gift-mainnet | `taply-gift.kendinecrypto.near` (proposed) | 159,675 | `3266e4fb…ae3c` | `4PkPM3kDMMxesZ4HwBrAzJq86oy7i3b7bg1VWCY55N8s` |
-| payments-protected-mainnet | `taply-escrow.kendinecrypto.near` (proposed; must differ from payments) | 251,932 | `c01b7a2f…f270` | `DvuaaqZugHBQ9QQWpi1gCxDNLcVnqPr4MY5c2M2RtGjy` |
+| Contract | Account | sha256 | NEAR code hash (env pin) |
+| --- | --- | --- | --- |
+| payments-mainnet | `taply-pay.kendinecrypto.near` (hard-coded in contract) | `7e3f8ef1…d671` | `9VpaiMp3Hoq8pVVvCW6oSZrvzBdZoNNgUmLCXrm32wX6` |
+| gift-mainnet | `taply-gift.kendinecrypto.near` (proposed) | `33942d30…686e` | `4ULqkwn73pc7W9K9ohr4TDvZm6NDLUc8SJo8gJP4S3ob` |
+| payments-protected-mainnet | `taply-escrow.kendinecrypto.near` (proposed; must differ from payments) | `ef2c7f44…7333` | `H6do1Wn1UK2dnPkeW5nRcYkwtXj2UkdCRei8smuaZ6JN` |
+
+Sizes ≈ 267 KB / 160 KB / 252 KB (runner build of protected: 252,068 bytes).
 
 Initializers (private: must be signed by the contract account itself):
 
