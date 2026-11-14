@@ -346,6 +346,9 @@ export function WalletSend() {
   const [error, setError] = useState('');
   const accountId = op.signer.kind === 'ok' ? op.signer.accountId : null;
   const legacy = useAttemptRecord(accountId);
+  const { unlocked } = useMainnetVault();
+  const [password, setPassword] = useState('');
+  const locked = op.signer.kind === 'ok' && op.signer.signer.kind === 'internal' && !unlocked;
   if (op.signer.kind !== 'ok') {
     return op.signer.kind === 'external-no-key'
       ? <Notice tone="caution" testId="external-no-key">{OPERATION_COPY[locale].externalNoKey}</Notice>
@@ -380,6 +383,16 @@ export function WalletSend() {
       )}
       {legacy.status === 'unavailable' && <Notice tone="danger" live testId="attempt-unavailable">{c.journalUnavailable}</Notice>}
       <LedgerPanel />
+      {locked && (
+        <Card>
+          <form className="flex flex-col gap-2" data-testid="send-unlock" onSubmit={async (e) => { e.preventDefault(); setError(''); try { await vault().unlock(password); setPassword(''); } catch (err) { setError(vaultError(c, err)); } }}>
+            <p className="text-[14px] font-medium">{OPERATION_COPY[locale].errors['WALLET_LOCKED']}</p>
+            <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="mw-send-unlock">{c.password}</label>
+            <input id="mw-send-unlock" type="password" autoComplete="current-password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Button type="submit" variant="secondary">{c.unlock}</Button>
+          </form>
+        </Card>
+      )}
       <Card>
         <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
           <p className="text-[13px] text-[var(--text-secondary)]">{c.from}: <span className="break-all font-mono">{from}</span></p>

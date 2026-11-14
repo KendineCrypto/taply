@@ -197,7 +197,17 @@ export async function prepareOperation(input: {
   if (input.authority.kind === 'simulated' || input.authority.kind === 'device') {
     const backend = createMainnetWalletBackend({ profiles: input.profiles, deviceId: input.deviceId, signer: input.signer, store: input.authority.store }, fetcher);
     const review = await backend.prepare(input.operation);
-    return { review, authority: input.authority.kind, submit: (confirm) => submitReviewed(backend, review, confirm) };
+    const signer = input.signer;
+    // A locked Taply Wallet must be refused BEFORE the reservation: once reserved, a signing
+    // failure is recorded as UNCERTAIN (correctly, by Codex's handoff) and blocks new payments.
+    const assertUnlocked = () => { if (signer.kind === 'internal' && !signer.vault.unlocked) throw new Error('WALLET_LOCKED'); };
+    return {
+      review, authority: input.authority.kind,
+      submit: (confirm) => {
+        assertUnlocked();
+        return submitReviewed(backend, review, async (r) => { assertUnlocked(); const ok = await confirm(r); assertUnlocked(); return ok; });
+      },
+    };
   }
   let fallback: PreparedOperation['authority'] = 'unavailable';
   if (input.authority.kind === 'http') {
