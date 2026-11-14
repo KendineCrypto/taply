@@ -1,5 +1,7 @@
 'use client';
 
+import { ExternalWalletVerification } from './ExternalWalletVerification';
+
 import { useId, useState } from 'react';
 import { MainnetAccountSchema } from '@taply/shared';
 import { Envelope, EnvelopeSwatch } from '@/components/gift/Envelope';
@@ -17,7 +19,7 @@ import { stableBusinessId } from '@/lib/mainnet/wallet-ops';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { GIFT_PAGES_COPY, hexOf } from './GiftPages';
 import { newLinkKey } from './GiftMainnet';
-import { OPERATION_COPY, OperationError, OperationReview, useOperation } from './Operation';
+import { OperationError, OperationReview, useOperation } from './Operation';
 import { Notice } from './bits';
 import { NoWalletCard } from './NoWalletCard';
 
@@ -53,7 +55,7 @@ export function MainnetGiftWizard() {
   const [link, setLink] = useState<{ id: string; seedHex: string } | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  if (op.signer.kind === 'external-no-key') return <Notice tone="caution" testId="external-no-key">{OPERATION_COPY[mLocale].externalNoKey}</Notice>;
+  if (op.signer.kind === 'external-no-key') return <ExternalWalletVerification />;
   if (op.signer.kind !== 'ok') return <NoWalletCard text={t.walletUx.send.connectFirst} />;
   const me = op.signer.accountId;
   const profile = GIFT_PROFILE;
