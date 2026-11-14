@@ -1,12 +1,14 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MainnetLocaleProvider } from '@/lib/mainnet/copy';
+import { I18nProvider } from '@/lib/i18n/provider';
+import { MAINNET_DICTIONARIES } from '@/lib/i18n/mainnet-dictionaries';
 import { MainnetProduct } from '../MainnetProduct';
 import { productStorageKey } from '@/lib/mainnet/product';
 const state = vi.hoisted(() => ({ account: 'alice.near', push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: state.push }) }));
 vi.mock('@/lib/mainnet/wallet', () => ({ useMainnetWallet: () => ({ status: 'connected', accountId: state.account, connect: async () => {}, disconnect: async () => {} }) }));
-const view = (path: string, locale: 'en' | 'tr' = 'en') => <MainnetLocaleProvider locale={locale}><MainnetProduct path={path} /></MainnetLocaleProvider>;
+const view = (path: string, locale: 'en' | 'tr' = 'en') => <I18nProvider locale={locale} dictionaries={MAINNET_DICTIONARIES}><MainnetLocaleProvider locale={locale}><MainnetProduct path={path} /></MainnetLocaleProvider></I18nProvider>;
 afterEach(() => { cleanup(); localStorage.clear(); state.account = 'alice.near'; });
 it('saves contacts only under connected Mainnet owner and hides them immediately on account switch', async () => {
   const ui = render(view('contacts'));

@@ -11,6 +11,7 @@ export interface MainnetCopy {
     readonly pillAria: string;
     readonly banner: string;
     readonly capLine: string;
+    readonly capShort: string;
     readonly signingOn: string;
     readonly noGo: string;
     readonly fixtureBanner: string;
@@ -155,6 +156,7 @@ export const mainnetEn: MainnetCopy = {
     pillAria: 'Network: NEAR Mainnet. Real funds. Unaudited candidate, capped.',
     banner: 'NEAR Mainnet · real funds · unaudited candidate',
     capLine: 'Capped at 1 NEAR or 25 USDC per request by the contract.',
+    capShort: 'max 1 NEAR / 25 USDC',
     noGo: 'Real-money payments are not enabled yet. You can review every step; nothing can be signed or funded.',
     signingOn: 'Sending is on (Taply Wallet). Keep this browser\'s data.',
     fixtureBanner: 'FIXTURE DATA — not on chain. For testing the screens only.',

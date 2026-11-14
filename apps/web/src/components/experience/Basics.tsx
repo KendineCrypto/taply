@@ -40,15 +40,18 @@ export function AmountHero({
   tone = 'dark',
   size = 'xl',
   className,
+  asset = NEAR_NATIVE,
 }: {
   readonly baseUnits: string;
+  /** Token decimals + symbol; NEAR by default (Mainnet USDC requests pass USDC). */
+  readonly asset?: { readonly decimals: number; readonly symbol: string };
   readonly tone?: 'dark' | 'paper';
   readonly size?: 'lg' | 'xl';
   readonly className?: string;
 }) {
   const { locale } = useLocale();
   const t = useT();
-  const formatted = formatBaseUnits(baseUnits, NEAR_NATIVE.decimals, { locale, maxFractionDigits: 24 });
+  const formatted = formatBaseUnits(baseUnits, asset.decimals, { locale, maxFractionDigits: asset.decimals });
   const [whole, fraction] = formatted.exact.split(locale === 'tr' ? ',' : '.');
   const muted = tone === 'paper' ? 'text-[var(--ink-muted)]' : 'text-[var(--text-muted)]';
   const figure = size === 'xl' ? 'text-[3.25rem] min-[400px]:text-[3.75rem]' : 'text-[2.5rem]';
@@ -65,10 +68,10 @@ export function AmountHero({
         )}
       </span>
       <span className={`text-xl font-semibold tracking-tight ${muted}`} aria-hidden="true">
-        {NEAR_NATIVE.symbol}
+        {asset.symbol}
       </span>
       <span className="sr-only">
-        {formatted.exact} {NEAR_NATIVE.symbol}. {t.common.exactBaseUnits}: {formatted.baseUnits}
+        {formatted.exact} {asset.symbol}. {t.common.exactBaseUnits}: {formatted.baseUnits}
       </span>
     </p>
   );

@@ -72,6 +72,7 @@ export function PayLinkForm({
   onMerchant,
   onLive = openLivePath,
   approvedOrigins,
+  parse,
 }: {
   readonly onBack?: () => void;
   readonly onOpen: (id: string) => void;
@@ -80,6 +81,8 @@ export function PayLinkForm({
   /** Opens this app's own validated live-session path (`/s/<room>#j=<token>`). */
   readonly onLive?: (path: string) => void;
   readonly approvedOrigins?: ReadonlyArray<string>;
+  /** Network-specific parser (NEAR Mainnet). Defaults to the Testnet parser. */
+  readonly parse?: (text: string) => ScanInput;
 }) {
   const t = useT();
   const p = t.oneTap.payLink;
@@ -93,7 +96,7 @@ export function PayLinkForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        const parsed = parseScanInput(value, approvedOrigins ?? approvedPayOrigins(window.location.origin));
+        const parsed = parse ? parse(value) : parseScanInput(value, approvedOrigins ?? approvedPayOrigins(window.location.origin));
         if (parsed.kind === 'request') {
           onOpen(parsed.id);
           return;

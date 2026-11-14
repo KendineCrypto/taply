@@ -17,7 +17,9 @@ export function ReviewSummary({
   payerAccountId = null,
   permittedPayerAccountId = null,
   payableUntil = null,
+  asset,
 }: {
+  readonly asset?: { readonly decimals: number; readonly symbol: string };
   readonly recipientAccountId: string;
   readonly amountBaseUnits: string;
   readonly contractId: string;
@@ -35,7 +37,7 @@ export function ReviewSummary({
         <p className="eyebrow text-[var(--text-muted)]">{t.experience.youArePaying}</p>
         <NetworkPill />
       </div>
-      <AmountHero baseUnits={amountBaseUnits} />
+      <AmountHero {...(asset ? { asset } : {})} baseUnits={amountBaseUnits} />
       {memo !== '' && <p className="-mt-1 whitespace-pre-wrap break-words text-[var(--text-secondary)]">“{memo}”</p>}
       <div className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[rgb(244_243_232/0.04)] p-3">
         <Monogram accountId={recipientAccountId} />
