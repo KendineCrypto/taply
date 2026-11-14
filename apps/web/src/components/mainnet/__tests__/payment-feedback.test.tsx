@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { fixtureRequests } from '@/lib/mainnet/fixtures';
-const state = vi.hoisted(() => ({ read: {} as Record<string, unknown>, gift: {} as Record<string, unknown>, refresh: vi.fn(), run: vi.fn(), direct: vi.fn(), prepared: null as unknown }));
+const state = vi.hoisted(() => ({ read: {} as Record<string, unknown>, gift: {} as Record<string, unknown>, refresh: vi.fn(), run: vi.fn(), direct: vi.fn(), allowRetry: false, prepared: null as unknown }));
 vi.mock('@/lib/mainnet/hooks', () => ({ useMainnetRequest: () => ({ read: state.read, refresh: state.refresh }) }));
 vi.mock('@/lib/mainnet/use-gift', () => ({ useMainnetGift: () => ({ read: state.gift, refresh: state.refresh }) }));
 vi.mock('@/lib/mainnet/copy', () => ({ useMainnetLocale: () => ({ locale: 'en' }) }));
@@ -16,10 +16,10 @@ vi.mock('../Operation', () => ({
   OperationError: () => null,
   OperationReview: ({ onDone }: { onDone: (v: unknown) => void }) => <button onClick={() => onDone({ kind: 'FINAL_EXECUTION', execution: 'SUCCESS', transactionHash: '1'.repeat(32) })}>Confirm fixture</button>,
 }));
-vi.mock('@taply/near-client', async original => ({ ...await original<Record<string, unknown>>(), signMainnetGiftClaim: async () => 'a'.repeat(128), verifyMainnetDirectTransfer: state.direct, prepareMainnetGiftSettlement: () => { throw Error('NO_OTHER_ACTION'); } }));
+vi.mock('@taply/near-client', async original => ({ ...await original<Record<string, unknown>>(), signMainnetGiftClaim: async () => 'a'.repeat(128), verifyMainnetDirectTransfer: state.direct, prepareMainnetGiftSettlement: ({ action }: { action: string }) => { if (state.allowRetry && action === 'retry') return {}; throw Error('NO_OTHER_ACTION'); } }));
 const { RequestShare } = await import('../RequestShare');
 const { OpenGiftPage, PersonalGiftOpen } = await import('../GiftPages');
-afterEach(() => { cleanup(); sessionStorage.clear(); history.replaceState(null, '', '/'); state.prepared = null; vi.clearAllMocks(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); history.replaceState(null, '', '/'); state.prepared = null; state.allowRetry = false; vi.clearAllMocks(); });
 const gift = { id: 'a'.repeat(32), creator: 'sender.near', amountYocto: '100000000000000000000000', design: 0, message: 'For you!', expiresAtNs: '1999999999999999999', status: 'AVAILABLE', payout: null, beneficiary: null };
 const readGift = (patch = {}) => ({ kind: 'ok', config: { contractId: 'gift.near' }, nowNs: '1000000000000000000', data: { ...gift, ...patch } });
 it('creator QR becomes a receipt only after FINAL_PAID and a successful payout, without another payment action', () => {
@@ -64,4 +64,19 @@ it('Personal Gift unwrap automatically checks the exact transfer and never submi
   await vi.waitFor(() => expect(state.direct).toHaveBeenCalledWith(expect.anything(), { txHash: payload.txHash, from: payload.from, to: payload.to, amountYocto: payload.amountYocto }));
   expect((await screen.findByTestId('pg-result')).querySelector('[data-kind="VERIFIED"]')).toBeTruthy();
   expect(screen.getByText('Enjoy!')).toBeTruthy(); expect(state.run).not.toHaveBeenCalled();
+});
+
+it('a failed payout exposes exactly one retry review and never offers a new claim', async () => {
+  state.allowRetry = true; state.gift = readGift({ status: 'CLAIMED', payout: 'FAILED', beneficiary: 'friend.near' });
+  const view = render(<OpenGiftPage id={gift.id} />);
+  fireEvent.click(screen.getByTestId('og-retry-review'));
+  expect(state.run).toHaveBeenCalledWith({ kind: 'giftRetry', giftId: gift.id });
+  state.prepared = {}; view.rerender(<OpenGiftPage id={gift.id} />);
+  expect(screen.getByTestId('og-retry-ready')).toBeTruthy();
+  expect(screen.getAllByText('Confirm fixture')).toHaveLength(1); expect(screen.queryByTestId('og-sign')).toBeNull();
+});
+it('an expired gift is visibly labelled before unwrapping and cannot be claimed', () => {
+  state.gift = readGift({ status: 'EXPIRED' }); render(<OpenGiftPage id={gift.id} />);
+  expect(screen.getByRole('heading', { name: 'Expired' })).toBeTruthy();
+  fireEvent.click(screen.getByTestId('og-unwrap')); expect(screen.queryByTestId('og-sign')).toBeNull();
 });
