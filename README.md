@@ -171,6 +171,6 @@ Development history: [Testnet commits](https://github.com/KendineCrypto/taply/co
 and [Mainnet commits](https://github.com/KendineCrypto/taply/commits/staging/mainnet).
 The Testnet history and Mainnet staging history are separate review targets;
 [release status](docs/RELEASE_STATUS.md) records both. Historical reports keep
-their original dates. [Third-party notices](THIRD_PARTY_NOTICES.md).
+their original dates. [Documentation index](docs/README.md) · [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 Code: [MIT](LICENSE), © 2026 KendineCrypto_. Brand assets: [NOTICE](NOTICE).

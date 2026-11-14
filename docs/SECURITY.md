@@ -1,5 +1,11 @@
 # Taply v0.4 security, custody, escrow, receipt and identity
 
+> Scope: the original Testnet security policy below is preserved as design history.
+> For current deployed behavior, separate Mainnet source and evidence, use the
+> [release map](RELEASE_STATUS.md) and [system overview](SYSTEM_OVERVIEW.md).
+> Secret handling, explicit approval, truthful settlement and no-audit boundaries
+> remain applicable; a Mainnet payment proof is not a security audit.
+
 ## Hard boundaries
 1. **NEAR Testnet only**. Never solicit seed phrases from mainnet wallets; no real funds. Config rejects unexpected chain and provider endpoints; no mainnet fallback.
 2. No private keys or recovery phrases in backend, source, GitHub, screenshot/demo, logs, analytics, URL, QR or localStorage plaintext. Don't invent cryptographic primitives. Review passcode/KDF/encryption, wallet generation, backup, restore, secure storage, device loss and logout before enabling embedded wallet.
