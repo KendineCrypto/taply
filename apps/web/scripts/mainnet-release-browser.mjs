@@ -162,7 +162,7 @@ try {
       }
       if (r.method === 'EXPERIMENTAL_tx_status' || r.method === 'tx_status') {
         const signed = s.landed.get(p.tx_hash);
-        if (!signed) return new Response(JSON.stringify({ jsonrpc: '2.0', id: r.id, error: { code: -32000, name: 'HANDLER_ERROR', cause: { name: 'UNKNOWN_TRANSACTION' } } }), { headers: { 'Content-Type': 'application/json' } });
+        if (!signed || s.mode === 'lost') return new Response(JSON.stringify({ jsonrpc: '2.0', id: r.id, error: { code: -32000, name: 'HANDLER_ERROR', cause: { name: 'UNKNOWN_TRANSACTION' } } }), { headers: { 'Content-Type': 'application/json' } });
         return reply(r.id, txJson(signed, p.tx_hash));
       }
       throw new Error(`unexpected synthetic method ${r.method}`);
@@ -191,7 +191,7 @@ try {
     out.sent = sent;
     out.finalRead = await b1.reconcile(sent.transactionHash);
     out.replay = await err(() => backend().prepare(op(1)));
-    // Lost response after broadcast: precomputed hash is durable, outcome unresolved, new payments blocked.
+    // Lost response and unavailable transaction lookup: retained hash is durable and new payments stay blocked.
     s.mode = 'lost';
     const r3 = await b1.prepare(op(2));
     const lost = await b1.submit(r3.id, async () => true);
