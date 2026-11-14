@@ -25,7 +25,7 @@ import { useShortDateTime } from '@/components/experience/Basics';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
 import { durationSeconds, estimateCutoff, formatCountdown } from '@/lib/format/countdown';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import type { ProtectedFlowCopy } from '@/lib/i18n/protected-types';
 import { useT } from '@/lib/i18n/provider';
 import { usePayments } from '@/lib/payments/context';

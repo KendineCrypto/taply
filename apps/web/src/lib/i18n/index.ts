@@ -15,7 +15,7 @@ export type { Dictionary, Locale, ErrorCopy, PhaseCopy, StatusCopy } from './typ
  */
 export const DICTIONARIES: Readonly<Record<Locale, Dictionary>> = { en, tr };
 
-export const LOCALE_COOKIE = 'taply_locale';
+export { LOCALE_COOKIE } from './cookie';
 
 export function getDictionary(locale: Locale): Dictionary {
   return DICTIONARIES[locale];
@@ -31,11 +31,4 @@ export function resolveLocale(cookieValue: string | undefined): Locale {
   return isLocale(cookieValue) ? cookieValue : DEFAULT_LOCALE;
 }
 
-/**
- * Fills `{name}` placeholders. Values are inserted as plain text by React, so
- * nothing here can introduce markup. Unknown placeholders are left visible
- * rather than silently dropped, so a missing value is noticed in review.
- */
-export function fill(template: string, values: Readonly<Record<string, string>>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);
-}
+export { fill } from './fill';

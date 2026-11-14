@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from '@/components/shell/Icons';
 import type { IconName } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import type { TitleBody } from '@/lib/i18n/commerce-types';
 import { groupCode, isVerifiedStatus, journeyStatus, saleCode } from '@/lib/merchant/journey';

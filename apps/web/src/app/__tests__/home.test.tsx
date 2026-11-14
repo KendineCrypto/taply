@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NativeBalance, ReadResult } from '@taply/near-client';
 import HomePage from '../page';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import type { Locale } from '@/lib/i18n';
 import { WalletProvider } from '@/lib/wallet/provider';
 import { WalletError } from '@/lib/wallet/adapter';

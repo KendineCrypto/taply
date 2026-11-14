@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { WalletError, classifyWalletError } from '../adapter';
 import { resolveFlags } from '@/lib/flags/features';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 
 describe('classifyWalletError', () => {
   it('passes WalletError kinds through', () => {

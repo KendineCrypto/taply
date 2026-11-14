@@ -5,7 +5,7 @@ import { useId, useState } from 'react';
 import { Button } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { Sheet } from '@/components/shell/Sheet';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { contactForAccount, findSimilarContacts, searchContacts } from '@/lib/contacts/contacts';
 import type { Contact } from '@/lib/contacts/contacts';

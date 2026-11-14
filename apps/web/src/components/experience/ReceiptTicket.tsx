@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { TaplyWordmark } from '@/components/brand/TaplyIcon';
 import { Icon } from '@/components/shell/Icons';
 import { useT } from '@/lib/i18n/provider';
-import { explorerTransactionUrl } from '@/lib/near/config';
+import { explorerTransactionUrl } from '@/lib/near/explorer';
 import { groupCode } from '@/lib/merchant/journey';
 import { AmountHero, DemoStamp, Monogram, NetworkPill, PaperRow, TicketTear, useShortDateTime } from './Basics';
 

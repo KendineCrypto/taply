@@ -10,7 +10,7 @@ import { WalletKindBadge } from '@/components/wallet/WalletKind';
 import { WalletOnboarding } from '@/components/wallet/WalletOnboarding';
 import { TaplyWalletPanel, WalletModeSwitch } from '@/components/wallet/taply/TaplyWalletUi';
 import { useWalletMode } from '@/components/wallet/taply/mode';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { CHAIN_CONFIG, explorerAccountUrl } from '@/lib/near/config';
 import { useWallet } from '@/lib/wallet/provider';

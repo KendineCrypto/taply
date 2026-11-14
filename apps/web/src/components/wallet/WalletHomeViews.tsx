@@ -7,7 +7,7 @@ import { AmountHero, Monogram } from '@/components/experience/Basics';
 import { Button, ButtonLink } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import type { IconName } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { nsToDate } from '@/lib/format/time';

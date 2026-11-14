@@ -5,7 +5,7 @@ import { useId, useState } from 'react';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { useTaplyWallet } from './TaplyWalletProvider';
 import type { TaplyErrorCode } from './TaplyWalletProvider';

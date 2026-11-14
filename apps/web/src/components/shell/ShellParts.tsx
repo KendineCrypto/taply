@@ -13,7 +13,8 @@ import { QrScanner } from '@/components/scan/QrScanner';
 import { Sheet, SheetAction } from '@/components/shell/Sheet';
 import { useOnline } from '@/lib/hooks/browser';
 import { useLocale, useT } from '@/lib/i18n/provider';
-import { LOCALES, DICTIONARIES } from '@/lib/i18n';
+import { LOCALES } from '@/lib/i18n/types';
+import { LOCALE_NAMES } from '@/lib/i18n/locale-names';
 import type { Locale } from '@/lib/i18n';
 import type { ScanInput } from '@/lib/payments/pay-link';
 
@@ -138,7 +139,7 @@ export function LocaleSwitch() {
                 : 'border-[var(--border-strong)] text-[var(--text-secondary)]'
             }`}
           >
-            {DICTIONARIES[code].localeName}
+            {LOCALE_NAMES[code]}
           </button>
         ))}
       </div>

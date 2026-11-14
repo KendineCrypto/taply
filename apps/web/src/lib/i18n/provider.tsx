@@ -3,7 +3,7 @@
 import '@/lib/security/zod-jitless';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { DICTIONARIES, LOCALE_COOKIE } from './index';
+import { LOCALE_COOKIE } from './cookie';
 import type { Dictionary, Locale } from './types';
 
 interface I18nValue {
@@ -15,10 +15,11 @@ interface I18nValue {
 const I18nContext = createContext<I18nValue | null>(null);
 
 /**
- * `dictionaries` lets another build (NEAR Mainnet) render the same components with
- * network-adapted wording; Testnet passes nothing and keeps DICTIONARIES.
+ * Imports no dictionary: each build passes its own (Testnet: ./testnet-provider with
+ * DICTIONARIES; NEAR Mainnet: the generated Mainnet dictionaries), so the Mainnet bundle
+ * never carries the raw Testnet wording.
  */
-export function I18nProvider({ locale, children, dictionaries }: { locale: Locale; children: ReactNode; dictionaries?: Readonly<Record<Locale, Dictionary>> }) {
+export function I18nProvider({ locale, children, dictionaries }: { locale: Locale; children: ReactNode; dictionaries: Readonly<Record<Locale, Dictionary>> }) {
   const setLocale = useCallback((next: Locale) => {
     // Cookie is non-sensitive and intentionally readable by the server so the
     // first server render already uses the right dictionary (no FOUC swap).
@@ -28,7 +29,7 @@ export function I18nProvider({ locale, children, dictionaries }: { locale: Local
   }, []);
 
   const value = useMemo<I18nValue>(
-    () => ({ locale, t: (dictionaries ?? DICTIONARIES)[locale], setLocale }),
+    () => ({ locale, t: dictionaries[locale], setLocale }),
     [locale, setLocale, dictionaries],
   );
 

@@ -9,7 +9,7 @@ import { Icon } from '@/components/shell/Icons';
 import { Sheet } from '@/components/shell/Sheet';
 import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
 import { InvalidAmountError, formatBaseUnits, toBaseUnits } from '@/lib/format/amount';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { usePayments } from '@/lib/payments/context';
 import { buildPaymentView } from '@/lib/payments/intent';

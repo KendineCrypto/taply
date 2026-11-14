@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ReceiptTicket } from '../ReceiptTicket';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 
 /** Presentation only: the caller decides `status` from the independent verifier. */
 

@@ -3,7 +3,7 @@ import { join, relative, resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RoomDemo } from '../RoomDemo';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import { ROOM_SCENARIOS } from '@/lib/mock/room-demo';
 
 /** Phase 7G: gated room UI (DEMO preview) and real-vs-demo isolation. Synthetic only. */

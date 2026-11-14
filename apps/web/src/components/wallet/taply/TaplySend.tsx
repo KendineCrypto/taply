@@ -7,7 +7,7 @@ import { Amount } from '@/components/primitives/Amount';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { SendReview } from '@/components/send/SendParts';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatBaseUnits } from '@/lib/format/amount';
 import { NEAR_NATIVE } from '@/lib/protocol';

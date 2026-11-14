@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import { readFileSync } from 'node:fs';
 import { personalGiftUrl } from '@/lib/gift/link';
 import { PersonalGiftScreen } from '../PersonalGiftScreen';

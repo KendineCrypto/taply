@@ -5,7 +5,7 @@ import { PaymentProgress } from '../PaymentProgress';
 import { SharedSession } from '../SharedSession';
 import { ReceiptTicket } from '../ReceiptTicket';
 import { HandshakeDemo } from '@/components/handshake/HandshakeDemo';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import type { Locale } from '@/lib/i18n';
 import type { ProgressStage } from '../progress';
 

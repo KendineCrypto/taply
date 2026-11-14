@@ -10,7 +10,7 @@ import { Button, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
 import { formatBaseUnits } from '@/lib/format/amount';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { useWallet } from '@/lib/wallet/provider';
 import { CHAIN_CONFIG } from '@/lib/near/config';

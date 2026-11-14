@@ -1,7 +1,7 @@
 'use client';
 
 import { Icon } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 
 /**

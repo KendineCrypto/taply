@@ -9,7 +9,7 @@ import { Monogram } from '@/components/experience/Basics';
 import { WalletKindBadge } from '@/components/wallet/WalletKind';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { formatBaseUnits } from '@/lib/format/amount';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import type { Dictionary, ErrorCopy, Locale } from '@/lib/i18n';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { displayableBalance } from '@/lib/near/balance';

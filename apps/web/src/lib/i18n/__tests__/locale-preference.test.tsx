@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, useLocale, useT } from '../provider';
+import { I18nProvider, useLocale, useT } from '../testnet-provider';
 import { LOCALE_COOKIE } from '../index';
 
 function Probe() {

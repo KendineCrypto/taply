@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { Button } from '@/components/primitives/Button';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { checkContactAccount, findSimilarContacts, normalizeLabel } from '@/lib/contacts/contacts';
 import type { Contact, ContactInput } from '@/lib/contacts/contacts';

@@ -1,7 +1,7 @@
 // Synthetic presentations only. No chain reads, wallet or signing.
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SharedSession } from '@/components/experience/SharedSession';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 export const fixtures = (['en', 'tr'] as const).flatMap(locale =>
   (['awaiting', 'contract_paid', 'verified', 'unresolved', 'transfer'] as const).map(stage => ({
     locale, stage,
