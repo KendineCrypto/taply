@@ -282,8 +282,8 @@ function useNow(): number {
   return now;
 }
 
-/** The exact transaction a wallet would sign, from Codex's review. Confirm stays disabled. */
-export function OperationReview({ prepared, title, children }: { readonly prepared: PreparedOperation; readonly title: string; readonly children?: React.ReactNode }) {
+/** The exact transaction a wallet would sign (Codex's review): amount + receiver up front, every field under Details. */
+export function OperationReview({ prepared, title, children, onDone }: { readonly prepared: PreparedOperation; readonly title: string; readonly children?: React.ReactNode; readonly onDone?: (outcome: SubmitOutcome) => void }) {
   const c = useOperationCopy();
   const { locale } = useMainnetLocale();
   const now = useNow();
@@ -293,40 +293,39 @@ export function OperationReview({ prepared, title, children }: { readonly prepar
   let args: Record<string, unknown> | null = null;
   if (a.kind === 'call') { try { args = JSON.parse(a.argsJson) as Record<string, unknown>; } catch { args = null; } }
   const usdcAmount = a.kind === 'call' && r.receiverId === MAINNET_USDC && typeof args?.['amount'] === 'string' ? (args['amount'] as string) : null;
+  const headline = a.kind === 'transfer' ? formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)
+    : usdcAmount !== null ? formatMainnetAmount(usdcAmount, MAINNET_ASSETS.USDC, locale)
+    : a.depositYocto === '1' ? null : formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale);
   return (
     <Card>
-      <div data-testid="op-review" data-kind={a.kind} data-method={a.kind === 'call' ? a.methodName : 'transfer'} data-authority={prepared.authority} className="flex flex-col gap-2">
-        <h2 className="font-semibold">{title}</h2>
+      <div data-testid="op-review" data-kind={a.kind} data-method={a.kind === 'call' ? a.methodName : 'transfer'} data-authority={prepared.authority} className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-[var(--text-secondary)]">{title}</h2>
+        {headline !== null && <p className="display-amount text-[2rem] leading-none" data-testid="op-amount">{headline}</p>}
+        <p className="text-sm text-[var(--text-secondary)]">{c.receiver}: <span className="chain-id break-all text-[var(--text-primary)]" data-testid="op-receiver">{r.receiverId}</span></p>
         {children}
-        <dl>
-          <Row label={c.from} mono>{r.accountId}</Row>
-          <Row label={c.receiver} mono><span data-testid="op-receiver">{r.receiverId}</span></Row>
-          {a.kind === 'transfer' ? (
-            <Row label={c.transfer}><span data-testid="op-amount">{formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)}</span></Row>
-          ) : (
-            <>
-              <Row label={c.method} mono><span data-testid="op-method">{a.methodName}</span></Row>
-              {usdcAmount !== null && <Row label="USDC"><span data-testid="op-amount">{formatMainnetAmount(usdcAmount, MAINNET_ASSETS.USDC, locale)}</span></Row>}
-              <Row label={c.deposit}><span data-testid="op-deposit">{a.depositYocto === '1' ? '1 yoctoNEAR' : formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)}</span></Row>
-              <Row label={c.gas}>{(BigInt(a.gas) / 1_000_000_000_000n).toString()} Tgas</Row>
-            </>
-          )}
-          <Row label={c.key} mono>{r.publicKey}</Row>
-          <Row label={c.nonce} mono><span data-testid="op-nonce">{r.nonce ?? c.nonceExternal(r.minimumNonce)}</span></Row>
-          <Row label={c.block} mono>{r.blockHash}</Row>
-          <Row label={c.reserved}>{formatMainnetAmount((BigInt(r.gasReserveYocto) + BigInt(r.storageReserveYocto)).toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
-          <Row label={c.opId} mono><span data-testid="op-hash">{r.operationHash}</span></Row>
-          <Row label={c.network}>NEAR Mainnet</Row>
-          <Row label={c.authority}><span data-testid="op-authority" className="text-[var(--tone-caution-fg)]">{prepared.authority === 'simulated' ? c.authoritySimulated : prepared.authority === 'device' ? c.authorityDevice : prepared.authority === 'http' ? c.authorityHttp : prepared.authority === 'http-gated' ? c.authorityHttpGated : prepared.authority === 'http-unavailable' ? c.authorityHttpUnavailable : c.authorityUnavailable}</span></Row>
-        </dl>
-        {a.kind === 'call' && (
-          <details className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] p-3 text-[12px]">
-            <summary className="cursor-pointer text-[13px] font-semibold">{c.args}</summary>
-            <pre data-testid="op-args" className="mt-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] text-[var(--text-secondary)]">{a.argsJson}</pre>
-          </details>
-        )}
+        <SubmitControl prepared={prepared} expired={remaining <= 0} {...(onDone ? { onDone } : {})} />
         <p className="text-[12px] text-[var(--text-muted)]" data-testid="op-expiry">{remaining > 0 ? `${c.expires} ${Math.ceil(remaining / 1000)} s` : c.expired}</p>
-        <SubmitControl prepared={prepared} expired={remaining <= 0} />
+        <details className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] p-3 text-[12px]">
+          <summary className="cursor-pointer text-[13px] font-medium text-[var(--text-secondary)]">{c.args}</summary>
+          <dl className="mt-2">
+            <Row label={c.from} mono>{r.accountId}</Row>
+            {a.kind === 'call' && (
+              <>
+                <Row label={c.method} mono><span data-testid="op-method">{a.methodName}</span></Row>
+                <Row label={c.deposit}><span data-testid="op-deposit">{a.depositYocto === '1' ? '1 yoctoNEAR' : formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)}</span></Row>
+                <Row label={c.gas}>{(BigInt(a.gas) / 1_000_000_000_000n).toString()} Tgas</Row>
+              </>
+            )}
+            <Row label={c.key} mono>{r.publicKey}</Row>
+            <Row label={c.nonce} mono><span data-testid="op-nonce">{r.nonce ?? c.nonceExternal(r.minimumNonce)}</span></Row>
+            <Row label={c.block} mono>{r.blockHash}</Row>
+            <Row label={c.reserved}>{formatMainnetAmount((BigInt(r.gasReserveYocto) + BigInt(r.storageReserveYocto)).toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
+            <Row label={c.opId} mono><span data-testid="op-hash">{r.operationHash}</span></Row>
+            <Row label={c.network}>NEAR Mainnet</Row>
+            <Row label={c.authority}><span data-testid="op-authority">{prepared.authority === 'simulated' ? c.authoritySimulated : prepared.authority === 'device' ? c.authorityDevice : prepared.authority === 'http' ? c.authorityHttp : prepared.authority === 'http-gated' ? c.authorityHttpGated : prepared.authority === 'http-unavailable' ? c.authorityHttpUnavailable : c.authorityUnavailable}</span></Row>
+          </dl>
+          {a.kind === 'call' && <pre data-testid="op-args" className="mt-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] text-[var(--text-secondary)]">{a.argsJson}</pre>}
+        </details>
       </div>
     </Card>
   );
@@ -337,9 +336,8 @@ export function submitAllowed(prepared: PreparedOperation, signingEnabled: boole
   return signingEnabled && MAINNET_SIGNING_RELEASE_APPROVED && prepared.submit !== undefined && (prepared.authority === 'device' || prepared.authority === 'simulated');
 }
 
-function SubmitControl({ prepared, expired }: { readonly prepared: PreparedOperation; readonly expired: boolean }) {
+function SubmitControl({ prepared, expired, onDone }: { readonly prepared: PreparedOperation; readonly expired: boolean; readonly onDone?: (outcome: SubmitOutcome) => void }) {
   const c = useOperationCopy();
-  const { locale } = useMainnetLocale();
   const [state, setState] = useState<{ id: string; v: 'sending' | SubmitOutcome | { error: string } } | null>(null);
   const signing = MAINNET_CONFIG.ok && MAINNET_CONFIG.signingEnabled;
   const allowed = submitAllowed(prepared, signing);
@@ -347,13 +345,13 @@ function SubmitControl({ prepared, expired }: { readonly prepared: PreparedOpera
   async function send() {
     const submit = prepared.submit;
     if (!allowed || !submit || s !== null) return;
-    const r = prepared.review, a = r.action;
-    const what = a.kind === 'transfer' ? formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)
-      : `${a.methodName} · ${a.depositYocto === '1' ? '1 yoctoNEAR' : formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)}`;
+    const r = prepared.review;
     setState({ id: r.id, v: 'sending' });
     try {
-      const out = await submit(async (rv) => rv.id === r.id && window.confirm(c.reviewConfirm(rv.receiverId, what)));
+      // The exact review is on screen and this button is the confirmation (no second dialog).
+      const out = await submit(async (rv) => rv.id === r.id);
       setState({ id: r.id, v: out });
+      onDone?.(out);
     } catch (e) {
       setState({ id: r.id, v: { error: operationErrorCode(e) } });
     }
