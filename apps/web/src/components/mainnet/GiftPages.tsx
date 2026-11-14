@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { SubmitOutcome } from '@/lib/mainnet/wallet-ops';
+import { useMainnetGift as useGift } from '@/lib/mainnet/use-gift';
+import Link from 'next/link';
+import { nsToDate } from '@/lib/format/time';
+import { Icon } from '@/components/shell/Icons';
 import {
-  createMainnetGiftReader,
   prepareMainnetGiftSettlement,
   signMainnetGiftClaim,
   verifyMainnetDirectTransfer,
@@ -22,7 +26,8 @@ import { stableBusinessId } from '@/lib/mainnet/wallet-ops';
 import { Notice, Row } from './bits';
 import { newLinkKey } from './GiftMainnet';
 import { OperationError, OperationReview, useOperation } from './Operation';
-import { SettlementCheck } from './Settlement';
+import { ExternalWalletVerification } from './ExternalWalletVerification';
+import { SettlementCheck, rememberSettlementTransaction } from './Settlement';
 import { readProfile } from './Wallet';
 
 /**
@@ -148,7 +153,7 @@ export function PersonalGiftOpen() {
   if (payload === 'invalid') return <Notice tone="danger" testId="pg-bad">{c.badLink}</Notice>;
   async function check(p: PersonalGiftPayload) {
     const profile = readProfile();
-    if (profile === null) return;
+    if (profile === null) { setResult({ kind: 'NOT_VERIFIED', reason: 'UNAVAILABLE' }); return; }
     setResult('checking');
     try { setResult(await verifyMainnetDirectTransfer(profile, { txHash: p.txHash, from: p.from, to: p.to, amountYocto: p.amountYocto })); }
     catch { setResult({ kind: 'NOT_VERIFIED', reason: 'UNAVAILABLE' }); }
@@ -157,10 +162,19 @@ export function PersonalGiftOpen() {
     <Card>
       <div className="flex flex-col gap-3" data-testid="pg-open">
         <h2 className="font-semibold">{c.openTitle}</h2>
-        <Envelope design={payload.design} open={open} label={c.openTitle}><div className="p-6 text-center text-[#0B120E]"><p className="whitespace-pre-wrap break-words">{payload.message}</p></div></Envelope>
-        <Button variant="secondary" data-testid="pg-unwrap" onClick={() => setOpen(!open)}>{open ? c.rewrap : c.unwrap}</Button>
-        <dl><Row label={c.from} mono>{payload.from}</Row><Row label={c.amount}>{formatMainnetAmount(payload.amountYocto, MAINNET_ASSETS.NEAR, locale)}</Row></dl>
-        <Button data-testid="pg-check" onClick={() => void check(payload)} disabled={result === 'checking'}>{result === 'checking' ? c.checking : c.check}</Button>
+        {!open ? <>
+          <div className="mx-auto w-full max-w-[220px]"><Envelope design={payload.design} open={false} label={c.openTitle} /></div>
+          <p className="text-center text-sm text-[var(--text-secondary)]">{c.from} {payload.from}</p>
+          <Button size="lg" block data-testid="pg-unwrap" onClick={() => { setOpen(true); void check(payload); }}>{c.unwrap}</Button>
+        </> : <div className="animate-rise flex flex-col items-center gap-4 py-3 text-center">
+          {result !== null && result !== 'checking' && result.kind === 'VERIFIED' && <span className="grid size-16 place-items-center rounded-full bg-[var(--taply-lime)] text-[#0B120E]"><Icon name="check" size={32} /></span>}
+          <p className="display-amount text-4xl">{formatMainnetAmount(payload.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
+          <p className="whitespace-pre-wrap break-words text-[var(--text-secondary)]">{payload.message}</p>
+          <p className="break-all text-sm text-[var(--text-muted)]">{c.from} {payload.from}</p>
+          {result === 'checking' && <p role="status">{c.checking}</p>}
+          <Button variant="ghost" data-testid="pg-check" onClick={() => void check(payload)} disabled={result === 'checking'}>{result === 'checking' ? c.checking : c.check}</Button>
+          <Link href="/m" className="tap-target inline-flex items-center text-sm underline">{locale === 'tr' ? 'Cüzdana dön' : 'Back to wallet'}</Link>
+        </div>}
         {result !== null && result !== 'checking' && (
           <Notice tone={result.kind === 'VERIFIED' ? 'success' : 'caution'} live testId="pg-result">
             <span data-kind={result.kind}>{result.kind === 'VERIFIED' ? c.verified : c.notVerified[result.reason]}</span>
@@ -172,36 +186,28 @@ export function PersonalGiftOpen() {
   );
 }
 
-type GiftRead = { kind: 'loading' } | { kind: 'error' } | { kind: 'missing' } | { kind: 'ok'; data: NonNullable<Awaited<ReturnType<ReturnType<typeof createMainnetGiftReader>['readGift']>>['data']>; config: Awaited<ReturnType<ReturnType<typeof createMainnetGiftReader>['readGift']>>['config']; nowNs: string };
-
-function useGift(id: string): GiftRead {
-  const [read, setRead] = useState<GiftRead>({ kind: 'loading' });
-  useEffect(() => {
-    if (GIFT_PROFILE === null) return;
-    let live = true;
-    createMainnetGiftReader(GIFT_PROFILE).readGift(id)
-      .then((r) => live && setRead(r.data === null ? { kind: 'missing' } : { kind: 'ok', data: r.data, config: r.config, nowNs: r.timestampNs }))
-      .catch(() => live && setRead({ kind: 'error' }));
-    return () => { live = false; };
-  }, [id]);
-  return read;
-}
-
 /** Open Gift claim / expiry / refund / retry page: `/m/gift/<32 hex>#k=<64 hex link seed>`. */
 export function OpenGiftPage({ id }: { readonly id: string }) {
+  return <OpenGiftContent key={id} id={id} />;
+}
+
+function OpenGiftContent({ id }: { readonly id: string }) {
   const c = useC();
   const { locale } = useMainnetLocale();
-  const read = useGift(id);
+  const { read, refresh } = useGift(id);
   const [seed, setSeed] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<'claim' | 'refund' | 'retry' | null>(null);
+  const [outcome, setOutcome] = useState<SubmitOutcome | null>(null);
   const op = useOperation();
   const [error, setError] = useState('');
   useEffect(() => {
     const m = /^#k=([0-9a-f]{64})$/.exec(window.location.hash);
     const key = `taply.mainnet.gift.key:${id}`;
-    if (m) { sessionStorage.setItem(key, m[1]!); history.replaceState(null, '', window.location.pathname); }
-    queueMicrotask(() => setSeed(sessionStorage.getItem(key)));
+    let value = m?.[1] ?? null;
+    try { if (value) sessionStorage.setItem(key, value); else value = sessionStorage.getItem(key); } catch { /* The fragment still works when browser storage is unavailable. */ }
+    if (m) history.replaceState(null, '', window.location.pathname + window.location.search);
+    queueMicrotask(() => setSeed(value));
   }, [id]);
   const me = op.signer.kind === 'ok' ? op.signer.accountId : null;
   if (GIFT_PROFILE === null) return <Notice tone="caution" testId="gift-not-configured">{c.notConfigured}</Notice>;
@@ -213,7 +219,7 @@ export function OpenGiftPage({ id }: { readonly id: string }) {
   const allowed = (action: 'refund' | 'retry') => { if (!me) return false; try { prepareMainnetGiftSettlement({ config: cfg, gift: g, signerAccountId: me, observedAtNs: read.nowNs, action }); return true; } catch { return false; } };
   const canRefund = allowed('refund');
   const canRetry = allowed('retry');
-  const claimable = (g.status === 'AVAILABLE') && BigInt(read.nowNs) < BigInt(g.expiresAtNs);
+  const claimable = outcome === null && (g.status === 'AVAILABLE') && BigInt(read.nowNs) < BigInt(g.expiresAtNs);
   async function signClaim() {
     setError(''); setPending(null);
     try {
@@ -230,41 +236,62 @@ export function OpenGiftPage({ id }: { readonly id: string }) {
     setError(''); setPending(kind);
     await op.run({ kind: kind === 'refund' ? 'giftRefund' : 'giftRetry', giftId: g.id });
   }
+  const tr = locale === 'tr';
+  const settled = g.status === 'CLAIMED' || g.status === 'REFUNDED';
+  const confirmed = settled && g.payout === 'CONFIRMED';
+  const submitted = outcome !== null;
+  const done = (result: SubmitOutcome) => {
+    setOutcome(result);
+    if (result.transactionHash && me) rememberSettlementTransaction('gift', id, result.transactionHash, me);
+    refresh();
+  };
   return (
     <Card>
-      <div className="flex flex-col gap-3" data-testid="open-gift">
-        <h2 className="font-semibold">{c.openGift}</h2>
-        <Envelope design={g.design} open={open} label={c.openGift}><div className="p-6 text-center text-[#0B120E]"><p className="whitespace-pre-wrap break-words">{g.message}</p></div></Envelope>
-        <Button variant="secondary" data-testid="og-unwrap" onClick={() => setOpen(!open)}>{open ? c.rewrap : c.unwrap}</Button>
-        <p data-testid="og-state" data-status={g.status} className="text-[16px] font-semibold">{c.state[g.status]}</p>
-        {g.payout && <p data-testid="og-payout" data-payout={g.payout} className="text-[13px]">{c.payout[g.payout]}</p>}
-        <dl>
-          <Row label={c.amount}>{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</Row>
-          <Row label={c.from} mono>{g.creator}</Row>
-          <Row label={c.expires}>{new Date(Number.parseInt((BigInt(g.expiresAtNs) / 1_000_000n).toString(), 10)).toISOString()}</Row>
-        </dl>
-        {claimable && (
-          <div className="flex flex-col gap-2" data-testid="og-claim">
-            {seed === null ? <Notice tone="muted" testId="og-no-key">{c.noKey}</Notice> : me === null ? <Notice tone="muted" testId="og-no-wallet">{c.needWallet}</Notice> : (
-              <>
-                <p className="text-[13px] text-[var(--text-secondary)]">{c.claimant}: <span className="break-all font-mono" data-testid="og-claimant">{me}</span></p>
-                <Button data-testid="og-sign" disabled={op.busy} onClick={() => void signClaim()}>{c.claimSign}</Button>
-              </>
-            )}
-          </div>
-        )}
-        {canRefund && <div data-testid="og-refund" className="flex flex-col gap-2"><Button variant="secondary" data-testid="og-refund-review" disabled={op.busy} onClick={() => void settle('refund')}>{c.refund}</Button></div>}
-        {canRetry && <div data-testid="og-retry" className="flex flex-col gap-2"><Button variant="secondary" data-testid="og-retry-review" disabled={op.busy} onClick={() => void settle('retry')}>{c.retry}</Button></div>}
+      <div className="flex flex-col gap-5" data-testid="open-gift">
+        <h1 className="text-center text-xl font-semibold">{confirmed ? (g.status === 'REFUNDED' ? (tr ? 'Hediye iade edildi' : 'Gift returned') : (tr ? 'Hediye alındı' : 'Gift claimed')) : c.openTitle}</h1>
+        {confirmed ? <div role="status" className="animate-rise flex flex-col items-center gap-3 py-4 text-center" data-testid="og-success">
+          <span className="grid size-16 place-items-center rounded-full bg-[var(--taply-lime)] text-[#0B120E]"><Icon name="check" size={32} /></span>
+          <p className="display-amount text-4xl">{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
+          <p className="break-all text-sm text-[var(--text-secondary)]">{g.beneficiary}</p>
+          <p className="text-xs text-[var(--text-muted)]">{tr ? 'Transfer sözleşmede tamamlandı.' : 'Transfer completed on the Gift contract.'}</p>
+          <a className="taply-button tap-target mt-2 inline-flex items-center justify-center font-semibold" href={`/m/gift/${g.id}/receipt`}>{c.receipt}</a>
+          <Link href="/m" className="tap-target inline-flex items-center text-sm underline">{tr ? 'Cüzdana dön' : 'Back to wallet'}</Link>
+        </div> : submitted || settled ? <div role="status" className="flex flex-col items-center gap-3 py-4 text-center" data-testid="og-processing">
+          <p className="display-amount text-3xl">{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
+          <p className="text-lg font-semibold">{g.payout === 'FAILED' ? (tr ? 'Transfer tamamlanamadı' : 'Transfer did not complete') : outcome?.kind === 'FINAL_EXECUTION' && outcome.execution !== 'SUCCESS' ? (tr ? 'İşlem başarısız' : 'Transaction failed') : (tr ? 'Sonuç kontrol ediliyor…' : 'Checking the result…')}</p>
+          <p className="text-sm text-[var(--text-secondary)]">{tr ? 'Sonuç kesinleşmeden tekrar talep etmeyin.' : 'Do not claim again while the outcome is unresolved.'}</p>
+          <Button variant="secondary" onClick={refresh}>{tr ? 'Tekrar kontrol et' : 'Check again'}</Button>
+        </div> : <>
+          {!open ? <>
+            <div className="mx-auto w-full max-w-[220px]"><Envelope design={g.design} open={false} label={c.openTitle} /></div>
+            <p className="text-center text-sm text-[var(--text-secondary)]">{c.from} <span className="font-medium">{g.creator}</span></p>
+            <Button size="lg" block data-testid="og-unwrap" onClick={() => setOpen(true)}>{c.unwrap}</Button>
+          </> : <div className="animate-rise flex flex-col gap-4 text-center">
+            <p className="display-amount text-4xl">{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
+            {g.message && <p className="whitespace-pre-wrap break-words rounded-2xl bg-[var(--surface-0)] p-4 text-[var(--text-secondary)]">{g.message}</p>}
+            {claimable && op.prepared === null && <div className="flex flex-col gap-3" data-testid="og-claim">
+              {seed === null ? <Notice tone="muted" testId="og-no-key">{c.noKey}</Notice> : me === null ? op.signer.kind === 'external-no-key' ? <ExternalWalletVerification /> : <Notice tone="muted" testId="og-no-wallet">{c.needWallet}<Link className="mt-2 block underline" href="/m">{tr ? 'Cüzdanı aç' : 'Open wallet'}</Link></Notice> : <>
+                <p className="text-xs text-[var(--text-muted)]">{c.claimant}: <span data-testid="og-claimant">{me}</span></p>
+                <Button size="lg" block data-testid="og-sign" disabled={op.busy} onClick={() => void signClaim()}>{op.busy ? c.checking : c.claim}</Button>
+              </>}
+            </div>}
+          </div>}
+        </>}
         <OperationError code={op.error} />
-        {op.prepared !== null && pending !== null && (
-          <div data-testid={pending === 'claim' ? 'og-claim-ready' : `og-${pending}-ready`}>
-            {pending === 'claim' && <Notice tone="muted">{c.claimSigned}</Notice>}
-            <OperationReview prepared={op.prepared} title={pending === 'claim' ? c.claim : pending === 'refund' ? c.refund : c.retry} />
-          </div>
-        )}
-        {(g.status === 'CLAIMED' || g.status === 'REFUNDED') && <a className="underline" href={`/m/gift/${g.id}/receipt`}>{c.receipt}</a>}
+        {!submitted && !settled && op.prepared !== null && pending !== null && <div data-testid={pending === 'claim' ? 'og-claim-ready' : `og-${pending}-ready`}>
+          <OperationReview prepared={op.prepared} title={pending === 'claim' ? c.claim : pending === 'refund' ? c.refund : c.retry} onDone={done} />
+        </div>}
+        {!confirmed && canRefund && !submitted && <div data-testid="og-refund"><Button variant="secondary" data-testid="og-refund-review" disabled={op.busy} onClick={() => void settle('refund')}>{c.refund}</Button></div>}
+        {canRetry && !submitted && <div data-testid="og-retry"><Button variant="secondary" data-testid="og-retry-review" disabled={op.busy} onClick={() => { setOutcome(null); void settle('retry'); }}>{c.retry}</Button>
+          {pending === 'retry' && op.prepared !== null && <OperationReview prepared={op.prepared} title={c.retry} onDone={done} />}</div>}
+        <details className="text-xs text-[var(--text-muted)]"><summary className="tap-target flex cursor-pointer items-center">{tr ? 'Hediye ayrıntıları' : 'Gift details'}</summary>
+          <p data-testid="og-state" data-status={g.status}>{c.state[g.status]}</p>
+          {g.payout && <p data-testid="og-payout" data-payout={g.payout}>{c.payout[g.payout]}</p>}
+          <dl><Row label={c.from} mono>{g.creator}</Row><Row label={c.expires}>{nsToDate(g.expiresAtNs).toLocaleString(locale)}</Row></dl>
+          <a className="underline" href={`/m/gift/${g.id}/receipt`}>{c.receipt}</a>
+        </details>
+        {confirmed && <SettlementCheck key={id} kind="gift" id={id} automatic />}
         {error && <Notice tone="danger" live>{error}</Notice>}
-        <p className="text-[13px] text-[var(--tone-caution-fg)]">{c.submitOff}</p>
       </div>
     </Card>
   );
@@ -273,28 +300,26 @@ export function OpenGiftPage({ id }: { readonly id: string }) {
 export function OpenGiftReceipt({ id }: { readonly id: string }) {
   const c = useC();
   const { locale } = useMainnetLocale();
-  const read = useGift(id);
+  const { read } = useGift(id);
   if (GIFT_PROFILE === null) return <Notice tone="caution" testId="gift-not-configured">{c.notConfigured}</Notice>;
   if (read.kind === 'loading') return <Notice live>{c.loading}</Notice>;
   if (read.kind !== 'ok') return <Notice tone="danger" testId="gift-read-error">{read.kind === 'missing' ? c.missing : c.unreadable}</Notice>;
   const g = read.data;
-  return (
-    <Card>
-      <div className="flex flex-col gap-2" data-testid="og-receipt">
-        <h2 className="font-semibold">{c.receipt}</h2>
-        <p data-testid="og-receipt-state" data-status={g.status} data-payout={g.payout ?? ''} className="font-semibold">{c.state[g.status]}{g.payout ? ` · ${c.payout[g.payout]}` : ''}</p>
-        <dl>
-          <Row label={c.amount}>{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</Row>
-          <Row label={c.from} mono>{g.creator}</Row>
-          {g.beneficiary && <Row label={c.to} mono>{g.beneficiary}</Row>}
-          <Row label="Gift ID" mono>{g.id}</Row>
-          <Row label="Contract" mono>{read.config.contractId} · {read.config.version}</Row>
-        </dl>
-        <p className="text-[12px] text-[var(--text-muted)]">{c.recorded}</p>
-      </div>
-      {(g.status === 'CLAIMED' || g.status === 'REFUNDED') && <div className="mt-3"><SettlementCheck kind="gift" id={g.id} /></div>}
-    </Card>
-  );
+  const tr = locale === 'tr';
+  const confirmed = (g.status === 'CLAIMED' || g.status === 'REFUNDED') && g.payout === 'CONFIRMED';
+  return <div className="flex flex-col gap-4" data-testid="og-receipt">
+    <Card><div className="flex flex-col items-center gap-4 py-3 text-center">
+      {confirmed && <span className="grid size-16 place-items-center rounded-full bg-[var(--taply-lime)] text-[#0B120E]"><Icon name="check" size={32} /></span>}
+      <h1 className="text-xl font-semibold">{confirmed ? (g.status === 'REFUNDED' ? (tr ? 'Hediye iade edildi' : 'Gift returned') : (tr ? 'Hediye alındı' : 'Gift claimed')) : c.state[g.status]}</h1>
+      <p data-testid="receipt-amount" className="display-amount text-4xl">{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
+      {g.message && <p className="whitespace-pre-wrap break-words text-[var(--text-secondary)]">{g.message}</p>}
+      <dl className="w-full text-left"><Row label={c.from} mono>{g.creator}</Row>{g.beneficiary && <Row label={c.to} mono>{g.beneficiary}</Row>}</dl>
+      <p role="status" data-testid="og-receipt-state" data-status={g.status} data-payout={g.payout ?? ''} className="text-sm text-[var(--text-secondary)]">{c.state[g.status]}{g.payout ? ` · ${c.payout[g.payout]}` : ''}</p>
+      <Link href="/m" className="tap-target inline-flex items-center justify-center font-semibold">{tr ? 'Cüzdana dön' : 'Back to wallet'}</Link>
+      <details className="w-full text-left text-xs text-[var(--text-muted)]"><summary className="tap-target flex cursor-pointer items-center">{tr ? 'Teknik ayrıntılar' : 'Technical details'}</summary><dl><Row label="Gift ID" mono>{g.id}</Row><Row label="Contract" mono>{read.config.contractId} · {read.config.version}</Row></dl><p>{c.recorded}</p></details>
+    </div></Card>
+    {(g.status === 'CLAIMED' || g.status === 'REFUNDED') && <SettlementCheck key={id} kind="gift" id={g.id} automatic />}
+  </div>;
 }
 
 export const hexOf = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
