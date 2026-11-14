@@ -107,7 +107,8 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {receipt !== null ? (
         <MainnetReceiptTicket status={receipt} asset={asset} amountBaseUnits={r.terms.amountBaseUnits} recipientAccountId={r.recipientAccountId}
           payerAccountId={r.payerAccountId} memo={displayMemo(r.terms.memo)} atNs={r.latestOperation?.resolvedAtNs ?? r.fundedAtNs}
-          requestId={r.terms.id} contractId={r.terms.contractId} transactionHash={paidTx} />
+          requestId={r.terms.id} contractId={r.terms.contractId} transactionHash={paidTx}
+          state={receipt === 'paid' ? 'PAYMENT_RECORDED' : 'FAILED'} />
       ) : (
         <MainnetRequestTicket asset={asset} amountBaseUnits={r.terms.amountBaseUnits} recipientAccountId={r.recipientAccountId}
           memo={displayMemo(r.terms.memo)} expiresAtNs={r.terms.fundingExpiresAtNs} />
@@ -143,7 +144,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {receipt === null ? <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /> : (
         <details className="rounded-[var(--radius-card)] bg-[var(--surface-1)] p-4 text-sm">
           <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{locale === 'tr' ? 'Ödeme durumu' : 'Payment status'}</summary>
-          <div className="mt-3"><PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /></div>
+          <div className="mt-3"><PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} folded /></div>
         </details>
       )}
       <RecipientActions request={r} />
@@ -398,7 +399,7 @@ const STATE_TONE: Readonly<Record<PaymentState, 'neutral' | 'caution' | 'danger'
   UNKNOWN: 'caution',
 };
 
-export function PaymentStatusPanel({ request, readAtMs, hint, onRefresh }: { request: MainnetRequest; readAtMs: number; hint: HintState | null; onRefresh: () => void }) {
+export function PaymentStatusPanel({ request, readAtMs, hint, onRefresh, folded = false }: { request: MainnetRequest; readAtMs: number; hint: HintState | null; onRefresh: () => void; folded?: boolean }) {
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const now = useNow(5000);
@@ -414,11 +415,11 @@ export function PaymentStatusPanel({ request, readAtMs, hint, onRefresh }: { req
       <h2 className="text-[13px] text-[var(--text-secondary)]">{c.status.title}</h2>
       <div className="mt-2">
         <Notice tone={STATE_TONE[view.state]} live testId="payment-state">
-          <p className="text-[17px] font-semibold" data-state={view.state}>{c.status.states[view.state]}</p>
+          <p className="text-[17px] font-semibold" data-state={folded ? undefined : view.state}>{c.status.states[view.state]}</p>
           {c.status.details[view.detail] !== '' && <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.status.details[view.detail]}</p>}
         </Notice>
       </div>
-      {view.doNotRepay && <p role="alert" data-testid="do-not-repay" className="mt-2 text-[14px] font-semibold text-[var(--tone-caution-fg)]">{c.status.doNotRepay}</p>}
+      {view.doNotRepay && !folded && <p role="alert" data-testid="do-not-repay" className="mt-2 text-[14px] font-semibold text-[var(--tone-caution-fg)]">{c.status.doNotRepay}</p>}
       {view.state === 'PAYMENT_RECORDED' && <p className="mt-2 text-[12px] text-[var(--text-muted)]">{c.status.recordedLimit}</p>}
       <p data-testid="verified-unavailable" className="mt-1 text-[12px] text-[var(--text-muted)]">{c.status.verifiedUnavailable}</p>
       <dl className="mt-2">
