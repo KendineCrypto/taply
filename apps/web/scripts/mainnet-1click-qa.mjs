@@ -85,6 +85,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
 
     // Merchant: create a USDC request; cap enforced; review shows unsigned create_request; signing disabled.
     await page.goto(`${BASE}/m/request/new`);
+    await page.locator('label', { hasText: /^USDC$/ }).click(); // NEAR is the default asset
     await page.locator('#amount').fill('30');
     check(`${label}: USDC cap enforced`, await page.locator('p[role=alert]').isVisible());
     await page.locator('#amount').fill('12.50');
@@ -94,7 +95,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     await page.locator('details summary').first().click();
     const call = JSON.parse(await page.getByTestId('call-preview').first().textContent());
     check(`${label}: create_request candidate on the contract with exact terms`, call.methodName === 'create_request' && call.args.terms.amountBaseUnits === '12500000' && call.args.terms.network === 'near-mainnet', JSON.stringify(call).slice(0, 200));
-    check(`${label}: sign button disabled`, await page.getByRole('button', { name: /Sign with wallet|Cüzdanla imzala/ }).isDisabled());
+    check(`${label}: fixture build offers nothing to sign`, (await page.getByTestId('op-confirm').count()) === 0);
     await page.screenshot({ path: `${OUT}/${label}-06-create-review.png`, fullPage: true });
     await context.close();
   }

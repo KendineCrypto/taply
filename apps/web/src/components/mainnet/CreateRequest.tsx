@@ -87,7 +87,8 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const wallet = useMainnetWallet();
-  const [assetKey, setAssetKey] = useState<'USDC' | 'NEAR'>('NEAR');
+  // Personal requests default to NEAR (Taply Wallet balance); merchant sales to USDC.
+  const [assetKey, setAssetKey] = useState<'USDC' | 'NEAR'>(commerce ? 'USDC' : 'NEAR');
   const signerChoice = useSigner();
   const [done, setDone] = useState<SubmitOutcome | null>(null);
   const [amount, setAmount] = useState('');
