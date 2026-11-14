@@ -43,6 +43,25 @@ home, wallet page with unlock, receive, send.
 Testnet regression: this branch's Testnet build vs the live release with the same fixtures — 0 differing
 pixels on every connected screen except the "Updated · hh:mm" clock text, and the gift page (enabled here).
 
+## Fixture states (`fixtures/`)
+
+States the real app cannot reach without a funded, unlocked key. The REAL page components render in the
+test environment (`apps/web/src/__visual__/parity-fixtures.test.tsx`, run with `TAPLY_VISUAL_OUT=<dir>`)
+with mocked, non-signing providers — every sign/send mock throws — and each state is reached by actually
+filling and submitting the forms. `node fixture-shots.cjs <testnet|mainnet> <base> <''|/m> <out> <fragments>`
+then places each fragment inside the running app shell (header, nav, CSS) for the screenshot.
+Testnet = this branch's Testnet build (pixel-identical to the live release; the live CSS has no gift styles).
+
+31 unlocked Taply Wallet (Lock now, Receive/Send, Show recovery phrase) · 32 Send review 0.25 NEAR ·
+33 three saved contacts · 34 three activity rows · 35 the real request form on both sides (payments set up) ·
+36–38 gift steps 2–4: amount, envelope + message, review.
+
+Fixture notes: the Mainnet Send review uses an external-wallet signer (the vault unlock state is read inside
+Wallet.tsx, which a module mock cannot reach; the review card is identical for both signers); jsdom has no
+IndexedDB, so the durable attempt journal is mocked as "no pending attempt"; the Mainnet payment-safety
+(ledger) card is stubbed out of the Send shot. On this base branch the release gates are closed, so the
+Mainnet "Confirm and send" shows disabled with its reason; with the release patch (Preview) it is enabled.
+
 ## Remaining differences (and why)
 
 | Area | Difference | Reason |
@@ -50,7 +69,7 @@ pixels on every connected screen except the "Updated · hh:mm" clock text, and t
 | Safety line | One-line `NEAR Mainnet · real funds · unaudited candidate · max 1 NEAR / 25 USDC` (tap for details) | Required material notice on real-money screens |
 | Fixture build only | Green FIXTURE bar, fixture merchant preview on Request, fixture panels under Gift/Protected, fixture list in home details | Labelled QA fixtures; absent from the real Preview |
 | Asset choice | NEAR / USDC pill on Request, Send, Split, Recurring, Protected | Mainnet supports USDC; Testnet is NEAR only |
-| Send | "From" line and the Mainnet payment-safety (device ledger) card under the form; Mainnet operation review | Kept Mainnet review and safety controls unchanged |
+| Send | Payment-safety (device ledger) card under the form; review adds expiry and technical arguments; "Start a new payment" | Kept Mainnet review and safety controls unchanged |
 | Activity | Received / Paid / Open filter chips; ledger and tracked-request tools folded under Details | Mainnet history is saved request IDs read from the contract |
 | Gift | Personal Gift = exact NEAR transfer review; Open Gift needs the configured Gift contract | Mainnet planner operations |
 | Taply Wallet create / restore | Mainnet 12-word device wallet forms | Testnet username + faucet flow does not exist on Mainnet |

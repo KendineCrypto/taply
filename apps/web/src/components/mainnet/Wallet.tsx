@@ -331,6 +331,7 @@ export function WalletSend() {
           </Button>
         </form>
       )}
+      {op.prepared === null && (
       <form className="surface-card flex flex-col gap-5 p-5" noValidate onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="mw-to" className="text-sm font-medium">{t.walletUx.send.recipientLabel}</label>
@@ -389,10 +390,12 @@ export function WalletSend() {
           {!op.busy && <Icon name="arrow-right" size={18} />}
         </Button>
       </form>
+      )}
       {op.prepared !== null && (
-        <div data-testid="send-review-card" data-asset={asset}>
-          <OperationReview prepared={op.prepared} title={c.reviewTitle} />
-          <Button className="mt-2" variant="ghost" block data-testid="send-new" onClick={startNew}>{c.startNew}</Button>
+        <div data-testid="send-review-card" data-asset={asset} className="flex flex-col gap-2">
+          <OperationReview prepared={op.prepared} title={t.walletUx.send.reviewTitle} />
+          <Button variant="ghost" block onClick={() => op.reset()}>{t.walletUx.send.edit}</Button>
+          <Button variant="ghost" block data-testid="send-new" onClick={startNew}>{c.startNew}</Button>
         </div>
       )}
       <LedgerPanel />

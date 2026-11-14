@@ -5,6 +5,8 @@ import type { MainnetAuthorityCommand, MainnetOperation, MainnetWalletReview } f
 import { MAINNET_USDC } from '@taply/shared';
 import { Button } from '@/components/primitives/Button';
 import { Card } from '@/components/primitives/Surface';
+import { AmountHero, Monogram, NetworkPill } from '@/components/experience/Basics';
+import { useT } from '@/lib/i18n/provider';
 import { formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/assets';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { MAINNET_SIGNING_RELEASE_APPROVED } from '@/lib/mainnet/release-gates';
@@ -283,8 +285,10 @@ function useNow(): number {
 }
 
 /** The exact transaction a wallet would sign (Codex's review): amount + receiver up front, every field under Details. */
-export function OperationReview({ prepared, title, children, onDone }: { readonly prepared: PreparedOperation; readonly title: string; readonly children?: React.ReactNode; readonly onDone?: (outcome: SubmitOutcome) => void }) {
+/** `compact`: the caller already shows amount, recipient and network (e.g. the gift review); keep the safety parts only. */
+export function OperationReview({ prepared, title, children, onDone, compact = false }: { readonly prepared: PreparedOperation; readonly title: string; readonly children?: React.ReactNode; readonly onDone?: (outcome: SubmitOutcome) => void; readonly compact?: boolean }) {
   const c = useOperationCopy();
+  const t = useT();
   const { locale } = useMainnetLocale();
   const now = useNow();
   const r: MainnetWalletReview = prepared.review;
@@ -296,12 +300,67 @@ export function OperationReview({ prepared, title, children, onDone }: { readonl
   const headline = a.kind === 'transfer' ? formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)
     : usdcAmount !== null ? formatMainnetAmount(usdcAmount, MAINNET_ASSETS.USDC, locale)
     : a.depositYocto === '1' ? null : formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale);
+  const usdc = usdcAmount !== null;
   return (
-    <Card>
-      <div data-testid="op-review" data-kind={a.kind} data-method={a.kind === 'call' ? a.methodName : 'transfer'} data-authority={prepared.authority} className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-[var(--text-secondary)]">{title}</h2>
-        {headline !== null && <p className="display-amount text-[2rem] leading-none" data-testid="op-amount">{headline}</p>}
-        <p className="text-sm text-[var(--text-secondary)]">{c.receiver}: <span className="chain-id break-all text-[var(--text-primary)]" data-testid="op-receiver">{r.receiverId}</span></p>
+    <section className={compact ? '' : 'surface-card p-5'} aria-label={title}>
+      <div data-testid="op-review" data-kind={a.kind} data-method={a.kind === 'call' ? a.methodName : 'transfer'} data-authority={prepared.authority} className="flex flex-col gap-4">
+        {compact ? <h2 className="sr-only">{title}</h2> : (
+        <>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <NetworkPill />
+        </div>
+        {(a.kind === 'transfer' || usdc) ? (
+          <>
+            <p className="eyebrow text-[var(--text-muted)]">{t.walletUx.send.youSend}</p>
+            <div data-testid="op-amount">
+              <AmountHero baseUnits={a.kind === 'transfer' ? a.depositYocto : (usdcAmount ?? '0')} asset={usdc ? MAINNET_ASSETS.USDC : MAINNET_ASSETS.NEAR} />
+            </div>
+          </>
+        ) : headline !== null ? (
+          <p className="display-amount text-[2rem] leading-none" data-testid="op-amount">{headline}</p>
+        ) : null}
+        <div className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[rgb(244_243_232/0.04)] p-3">
+          <Monogram accountId={a.kind === 'call' && usdc && typeof args?.['receiver_id'] === 'string' ? (args['receiver_id'] as string) : r.receiverId} />
+          <div className="min-w-0">
+            <p className="text-xs text-[var(--text-muted)]">{a.kind === 'transfer' ? t.experience.to : c.receiver}</p>
+            <p className="chain-id break-all text-[0.9375rem] font-semibold" data-testid="op-receiver">{r.receiverId}</p>
+          </div>
+        </div>
+        <dl className="grid gap-2 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.common.network}</dt>
+            <dd className="text-right">{t.app.networkBadge}</dd>
+          </div>
+          {a.kind === 'transfer' && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.walletUx.send.walletAction}</dt>
+              <dd className="text-right">{t.walletUx.send.walletActionValue}</dd>
+            </div>
+          )}
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.experience.review.networkFee}</dt>
+            <dd className="text-right text-[var(--text-secondary)]">{t.walletUx.send.feeValue}</dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.experience.from}</dt>
+            <dd className="chain-id break-all text-right">{r.accountId}</dd>
+          </div>
+          {r.storageReserveYocto !== '0' && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.walletNative.send.storageReserve}</dt>
+              <dd className="text-right">{formatMainnetAmount(r.storageReserveYocto, MAINNET_ASSETS.NEAR, locale)}</dd>
+            </div>
+          )}
+          {r.gasReserveYocto !== '0' && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.walletNative.send.gasReserve}</dt>
+              <dd className="text-right">{formatMainnetAmount(r.gasReserveYocto, MAINNET_ASSETS.NEAR, locale)}</dd>
+            </div>
+          )}
+        </dl>
+        </>
+        )}
         {children}
         <SubmitControl prepared={prepared} expired={remaining <= 0} {...(onDone ? { onDone } : {})} />
         <p className="text-[12px] text-[var(--text-muted)]" data-testid="op-expiry">{remaining > 0 ? `${c.expires} ${Math.ceil(remaining / 1000)} s` : c.expired}</p>
@@ -327,7 +386,7 @@ export function OperationReview({ prepared, title, children, onDone }: { readonl
           {a.kind === 'call' && <pre data-testid="op-args" className="mt-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] text-[var(--text-secondary)]">{a.argsJson}</pre>}
         </details>
       </div>
-    </Card>
+    </section>
   );
 }
 
