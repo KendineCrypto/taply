@@ -129,7 +129,7 @@ export function PersonalGiftCompose() {
         <Button type="submit" data-testid="pg-review" disabled={op.busy}>{c.review}</Button>
         {error && <Notice tone="danger" live testId="pg-error">{error}</Notice>}
         <OperationError code={op.error} />
-        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel />}
+        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel onResolved={op.reset} />}
       </form>
       {op.prepared !== null && (
         <div className="mt-3" data-testid="pg-review-card">
@@ -280,7 +280,7 @@ function OpenGiftContent({ id }: { readonly id: string }) {
           </div>}
         </>}
         <OperationError code={op.error} />
-        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel />}
+        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel onResolved={op.reset} />}
         {!submitted && !settled && op.prepared !== null && pending !== null && <div data-testid={pending === 'claim' ? 'og-claim-ready' : `og-${pending}-ready`}>
           <OperationReview prepared={op.prepared} title={pending === 'claim' ? c.claim : pending === 'refund' ? c.refund : c.retry} onDone={done} />
         </div>}
@@ -379,7 +379,7 @@ export function OpenGiftCreate() {
         <Button type="submit" data-testid="ogc-review" disabled={op.busy}>{c.prepareGift}</Button>
         {error && <Notice tone="danger" live testId="ogc-error">{error}</Notice>}
         <OperationError code={op.error} />
-        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel />}
+        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel onResolved={op.reset} />}
       </form>
       {op.prepared !== null && link !== null && (
         <div className="mt-3 flex flex-col gap-2" data-testid="ogc-ready">

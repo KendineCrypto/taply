@@ -222,7 +222,7 @@ export function MainnetGiftWizard() {
           )}
           {error !== null && <p role="alert" data-testid="gift-error" className="text-sm text-[var(--tone-danger-fg)]">{error}</p>}
           <OperationError code={op.error} />
-          {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel />}
+          {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel onResolved={op.reset} />}
           <StepNav onBack={() => setStep(2)} onNext={() => void continueToReview()} busy={op.busy} disabled={msgError !== null} />
         </section>
       )}

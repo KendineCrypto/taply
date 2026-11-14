@@ -417,7 +417,7 @@ type Ledger = Awaited<ReturnType<NonNullable<ReturnType<typeof walletBackend>>['
 type Reconciled = Awaited<ReturnType<NonNullable<ReturnType<typeof walletBackend>>['reconcile']>>;
 
 /** Unknown-outcome UI: pending attempt, device ownership, FINAL reconciliation, permanent record. */
-export function LedgerPanel() {
+export function LedgerPanel({ onResolved }: { readonly onResolved?: () => void } = {}) {
   const c = useOperationCopy();
   const signer = useSigner();
   const env = useEnv();
@@ -441,7 +441,7 @@ export function LedgerPanel() {
           const checked = await backend.reconcile();
           if (checked.kind === 'FINAL_EXECUTION') {
             value = await backend.readAttempt();
-            if (live) setResult(checked);
+            if (live) { setResult(checked); onResolved?.(); }
           }
         }
         if (live) setLedger({ key, value });
@@ -454,7 +454,7 @@ export function LedgerPanel() {
     return () => { live = false; clearInterval(timer); window.removeEventListener('focus', read); };
     // backend is rebuilt each render; the key captures every input it depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, onResolved]);
   if (signer.kind !== 'ok') return null;
   if (env.authority.kind === 'unavailable') return <Notice tone="muted" testId="ledger-unavailable">{c.ledgerUnavailable}</Notice>;
   if (env.authority.kind === 'http') return <HttpLedgerStatus signer={signer.signer} accountId={signer.accountId} />;
@@ -462,7 +462,7 @@ export function LedgerPanel() {
   async function check() {
     if (backend === null) return;
     setResult('checking');
-    try { setResult(await backend.reconcile(hint.trim() === '' ? undefined : hint.trim())); setTick((t) => t + 1); }
+    try { const checked = await backend.reconcile(hint.trim() === '' ? undefined : hint.trim()); setResult(checked); setTick((t) => t + 1); if (checked.kind === 'FINAL_EXECUTION') onResolved?.(); }
     catch { setResult('error'); }
   }
   return (
