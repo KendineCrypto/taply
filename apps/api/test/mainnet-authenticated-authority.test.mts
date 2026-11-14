@@ -4,6 +4,7 @@ import {generateKeyPairSync,sign,createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {canonicalJson} from '../../../packages/shared/dist/index.js';
 import {MAINNET_GENESIS_HASH,createMainnetOperationPlanner,mainnetAuthorityMessageParameters,mainnetAuthorityPayload,authorizeMainnetNearConnectCommand,EncryptedMainnetVault,type MainnetSigningProfiles} from '../../../packages/near-client/dist/index.js';
+import {MAINNET_PROTOCOL_SIGNING_RELEASED} from '../../../packages/near-client/dist/mainnet-vault.js';
 import {ed25519PublicKeyFromHex} from '../../../packages/near-client/dist/wallet-chain.js';
 import {nep413Payload} from '../src/nep413.mts';
 import {createAuthenticatedMainnetAuthority,initialMainnetAuthorityState,type MainnetAuthorityCommand} from '../src/mainnet-authenticated-authority.mts';
@@ -100,7 +101,7 @@ test('HTTP adapter rejects origin, oversized bodies and caller identities; limit
   const response=await handler(req(JSON.stringify({publicKey:f.publicKey,command:{method:'read'}})),'trusted-ip');
   assert.equal(response.status,200);assert.match(response.headers.get('set-cookie')!,/Secure; HttpOnly; SameSite=Strict/);
 });
-test('client challenge validation matches server NEP-413 bytes; internal and NEAR Connect release gates prevent any signing',async()=>{
+test('client challenge validation matches server NEP-413 bytes; closed release gates or missing identity prevent any signing',async()=>{
   const f=fixture(),c={method:'read'} as const,i=await f.issue(c),ch=i.challenge;
   const expected={accountId:'alice.near',publicKey:f.publicKey,command:c,policyHash:ch.policyHash};
   const params=await mainnetAuthorityMessageParameters(ch,expected,1000);
@@ -111,10 +112,10 @@ test('client challenge validation matches server NEP-413 bytes; internal and NEA
   await assert.rejects(mainnetAuthorityMessageParameters(ch,{...expected,command:{method:'reconcile'}},1000));
   let calls=0;
   const wallet={getAccounts:async()=>{calls++;return [];},signMessage:async()=>{calls++;throw Error('must not sign');}};
-  await assert.rejects(authorizeMainnetNearConnectCommand(wallet,ch,expected,async()=>{calls++;return true;}),/SIGNING_DISABLED/);
+  await assert.rejects(authorizeMainnetNearConnectCommand(wallet,ch,expected,async()=>{calls++;return true;}),MAINNET_PROTOCOL_SIGNING_RELEASED ? /EXTERNAL_IDENTITY_MISMATCH/ : /SIGNING_DISABLED/);
   const vault=new EncryptedMainnetVault({getItem:()=>null,setItem:()=>{calls++;}});
-  await assert.rejects(vault.authorizeAuthorityCommand(ch,c,ch.policyHash,async()=>{calls++;return true;}),/SIGNING_DISABLED/);
-  assert.equal(calls,0);
+  await assert.rejects(vault.authorizeAuthorityCommand(ch,c,ch.policyHash,async()=>{calls++;return true;}),MAINNET_PROTOCOL_SIGNING_RELEASED ? /LOCKED/ : /SIGNING_DISABLED/);
+  assert.equal(calls,MAINNET_PROTOCOL_SIGNING_RELEASED ? 1 : 0);
 });
 test('authenticated commerce freezes session identity and exact terms; second device and merchant substitution fail',async()=>{
   const f=fixture(),draft=JSON.parse(readFileSync(new URL('../../../packages/near-client/test/fixtures/mainnet-protocol/protected-open.json',import.meta.url),'utf8')).terms;
