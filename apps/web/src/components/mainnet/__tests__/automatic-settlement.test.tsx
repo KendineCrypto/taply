@@ -34,3 +34,12 @@ it('retry evidence preserves order and deduplicates hashes instead of dropping t
   rememberSettlementTransaction('gift', ID, HASH, 'friend.near');
   expect(sessionStorage.getItem(`taply.mainnet.receipt:gift:${ID}`)).toBe(`${HASH} friend.near\n${'2'.repeat(32)} friend.near`);
 });
+
+it('navigating to another receipt never retains the prior verification result', async () => {
+  rememberSettlementTransaction('gift', ID, HASH, 'friend.near');
+  verify.mockResolvedValue({ kind: 'VERIFIED_GIFT_SETTLEMENT', status: 'CLAIMED', giftId: ID });
+  const view = render(<SettlementCheck kind="gift" id={ID} automatic />);
+  await screen.findByTestId('settlement-result');
+  view.rerender(<SettlementCheck kind="gift" id={'b'.repeat(32)} automatic />);
+  expect(screen.queryByTestId('settlement-result')).toBeNull();
+});
