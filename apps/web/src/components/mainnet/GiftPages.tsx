@@ -289,8 +289,8 @@ function OpenGiftContent({ id }: { readonly id: string }) {
           {g.payout && <p data-testid="og-payout" data-payout={g.payout}>{c.payout[g.payout]}</p>}
           <dl><Row label={c.from} mono>{g.creator}</Row><Row label={c.expires}>{nsToDate(g.expiresAtNs).toLocaleString(locale)}</Row></dl>
           <a className="underline" href={`/m/gift/${g.id}/receipt`}>{c.receipt}</a>
+          {confirmed && <SettlementCheck key={id} kind="gift" id={id} automatic />}
         </details>
-        {confirmed && <SettlementCheck key={id} kind="gift" id={id} automatic />}
         {error && <Notice tone="danger" live>{error}</Notice>}
       </div>
     </Card>
@@ -316,9 +316,10 @@ export function OpenGiftReceipt({ id }: { readonly id: string }) {
       <dl className="w-full text-left"><Row label={c.from} mono>{g.creator}</Row>{g.beneficiary && <Row label={c.to} mono>{g.beneficiary}</Row>}</dl>
       <p role="status" data-testid="og-receipt-state" data-status={g.status} data-payout={g.payout ?? ''} className="text-sm text-[var(--text-secondary)]">{c.state[g.status]}{g.payout ? ` · ${c.payout[g.payout]}` : ''}</p>
       <Link href="/m" className="tap-target inline-flex items-center justify-center font-semibold">{tr ? 'Cüzdana dön' : 'Back to wallet'}</Link>
-      <details className="w-full text-left text-xs text-[var(--text-muted)]"><summary className="tap-target flex cursor-pointer items-center">{tr ? 'Teknik ayrıntılar' : 'Technical details'}</summary><dl><Row label="Gift ID" mono>{g.id}</Row><Row label="Contract" mono>{read.config.contractId} · {read.config.version}</Row></dl><p>{c.recorded}</p></details>
+      <details className="w-full text-left text-xs text-[var(--text-muted)]"><summary className="tap-target flex cursor-pointer items-center">{tr ? 'Teknik ayrıntılar' : 'Technical details'}</summary><dl><Row label="Gift ID" mono>{g.id}</Row><Row label="Contract" mono>{read.config.contractId} · {read.config.version}</Row></dl><p>{c.recorded}</p>
+        {(g.status === 'CLAIMED' || g.status === 'REFUNDED') && <SettlementCheck key={id} kind="gift" id={g.id} automatic />}
+      </details>
     </div></Card>
-    {(g.status === 'CLAIMED' || g.status === 'REFUNDED') && <SettlementCheck key={id} kind="gift" id={g.id} automatic />}
   </div>;
 }
 
