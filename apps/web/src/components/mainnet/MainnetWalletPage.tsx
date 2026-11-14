@@ -101,6 +101,9 @@ function TaplyPanel() {
   const { locale } = useMainnetLocale();
   const { identity, unlocked } = useMainnetVault();
   const [tick, setTick] = useState(0);
+  // Unlocking changes no chain state: re-render only (the vault does not notify on unlock).
+  // Re-reading activation stays an explicit user action ("Check again"), e.g. after funding.
+  const [, setRendered] = useState(0);
   const activation = useActivation(identity, tick);
   const attempt = useUnresolvedAttempt(identity?.accountId ?? null);
 
@@ -164,7 +167,7 @@ function TaplyPanel() {
             </Button>
           </div>
         ) : (
-          <MainnetUnlockForm onUnlocked={() => setTick((x) => x + 1)} />
+          <MainnetUnlockForm onUnlocked={() => setRendered((x) => x + 1)} />
         )}
       </section>
       <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
