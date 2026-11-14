@@ -12,6 +12,7 @@ import { QrCode } from '@/components/payments/QrCode';
 import { Icon } from '@/components/shell/Icons';
 import { AccountChip } from '@/components/wallet/AccountChip';
 import { PassphraseField } from '@/components/wallet/PassphraseField';
+import { PhraseGrid } from '@/components/wallet/PhraseGrid';
 import { WalletKindBadge } from '@/components/wallet/WalletKind';
 import { IdentityCardView, WalletModeSwitchView, WalletStatusPill } from '@/components/wallet/WalletHomeViews';
 import { fill } from '@/lib/i18n/fill';
@@ -145,6 +146,10 @@ function TaplyPanel() {
         <section className="surface-card flex flex-col items-center gap-3 p-5 text-center" aria-label={n.username.finishSetup}>
           <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{c.activationHelp}</p>
           <QrCode value={identity.accountId} label={n.identityLabel} />
+          <Button variant="secondary" block onClick={() => setTick((x) => x + 1)}>
+            <Icon name="refresh" size={16} />
+            {c.refresh}
+          </Button>
         </section>
       )}
       {attempt === 'unresolved' && <Notice tone="caution" live testId="attempt-unresolved">{c.unresolved}</Notice>}
@@ -159,7 +164,7 @@ function TaplyPanel() {
             </Button>
           </div>
         ) : (
-          <MainnetUnlockForm />
+          <MainnetUnlockForm onUnlocked={() => setTick((x) => x + 1)} />
         )}
       </section>
       <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
@@ -188,6 +193,7 @@ function TaplyPanel() {
           <Icon name="external" size={16} />
         </ButtonLink>
       )}
+      {identity.recovery === 'RECOVERY_PHRASE' && <MainnetShowPhrasePanel />}
       <details className="disclosure rounded-[var(--radius-card)] bg-[var(--surface-1)] px-4 py-1">
         <summary className="flex min-h-[var(--tap-target)] cursor-pointer items-center text-sm text-[var(--text-secondary)]">{t.oneTap.payment.details}</summary>
         <dl className="pb-3">
@@ -213,7 +219,63 @@ function TaplyPanel() {
 }
 
 /** Testnet UnlockForm markup; unlocks the Mainnet vault. */
-function MainnetUnlockForm() {
+/**
+ * Testnet ShowPhrasePanel on the Mainnet vault: the password is checked by
+ * `revealRecoveryPhrase` (decrypts the encrypted entropy); the words live only in this
+ * component's state, blurred until tapped, and are dropped when hidden or unmounted.
+ */
+function MainnetShowPhrasePanel() {
+  const t = useT();
+  const p = t.walletNative.phrase;
+  const c = useWalletCopy();
+  const id = useId();
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [words, setWords] = useState<readonly string[] | null>(null);
+  return (
+    <section className="surface-card flex flex-col gap-3 p-5" aria-labelledby={`${id}-title`} data-testid="show-phrase">
+      <h3 id={`${id}-title`} className="font-semibold">{p.showTitle}</h3>
+      {words === null ? (
+        <form
+          className="flex flex-col gap-3"
+          noValidate
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (busy || password === '') return;
+            setBusy(true);
+            setError('');
+            try { setWords(await vault().revealRecoveryPhrase(password)); }
+            catch (err) { setError(vaultError(c, err)); }
+            finally { setBusy(false); setPassword(''); }
+          }}
+        >
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{p.showBody}</p>
+          <PassphraseField id={`${id}-pass`} label={t.walletNative.lock.passphrase} value={password} onChange={setPassword} autoComplete="current-password" />
+          {error !== '' && (
+            <p role="alert" className="flex items-start gap-2 text-sm text-[var(--tone-danger-fg)]">
+              <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
+              {error}
+            </p>
+          )}
+          <Button type="submit" variant="secondary" size="lg" block disabled={busy || password === ''}>
+            {busy ? <Spinner /> : <Icon name="shield" size={18} />}
+            {p.showButton}
+          </Button>
+        </form>
+      ) : (
+        <>
+          <p className="text-sm font-medium text-[var(--tone-caution-fg)]">{p.warning}</p>
+          <PhraseGrid words={words} />
+          <Button variant="ghost" block onClick={() => setWords(null)}>{p.hide}</Button>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** The vault notifies subscribers on lock only, so the caller re-renders itself after an unlock. */
+function MainnetUnlockForm({ onUnlocked }: { readonly onUnlocked: () => void }) {
   const t = useT();
   const c = useWalletCopy();
   const id = useId();
@@ -228,6 +290,7 @@ function MainnetUnlockForm() {
     try {
       await vault().unlock(passphrase);
       setPassphrase('');
+      onUnlocked();
     } catch (err) {
       setError(vaultError(c, err));
     } finally {

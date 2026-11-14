@@ -248,6 +248,7 @@ export function MainnetGiftWizard() {
           <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{type === 'open' ? g.review.openRules : g.review.personalRules}</p>
           {type === 'open' && <p className="text-xs text-[var(--text-muted)]">{g.review.unreviewed}</p>}
           <OperationReview
+            compact
             prepared={op.prepared}
             title={type === 'open' ? c.createTitle : c.reviewTitle}
             onDone={(outcome) => { if (outcome.kind === 'FINAL_EXECUTION' && outcome.execution === 'SUCCESS') { setDone(outcome.transactionHash); setStep(5); } }}

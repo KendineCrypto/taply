@@ -58,6 +58,7 @@ export function MainnetContacts() {
   const local = useLocalProduct();
   const ids = { name: useId(), account: useId(), search: useId() };
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [account, setAccount] = useState('');
   const [query, setQuery] = useState('');
@@ -74,11 +75,11 @@ export function MainnetContacts() {
             e.preventDefault();
             const id = account.trim();
             if (!MainnetAccountSchema.safeParse(id).success || name.trim() === '') { setError(p.invalid); return; }
-            local.save({ ...local.data, contacts: [...contacts.filter((v) => v.id !== id), { id, label: name.trim() }] });
-            setAdding(false); setName(''); setAccount(''); setError(''); setNotice(c.saved);
+            local.save({ ...local.data, contacts: [...contacts.filter((v) => v.id !== id && v.id !== editing), { id, label: name.trim() }] });
+            setAdding(false); setEditing(null); setName(''); setAccount(''); setError(''); setNotice(c.saved);
           }}
         >
-          <h2 className="text-lg font-semibold">{c.addTitle}</h2>
+          <h2 className="text-lg font-semibold">{editing === null ? c.addTitle : c.editTitle}</h2>
           <FormField id={ids.name} label={c.labelField} hint={c.labelHint}>
             <input id={ids.name} className="taply-input" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
           </FormField>
@@ -87,7 +88,7 @@ export function MainnetContacts() {
           </FormField>
           {error !== '' && <p role="alert" className="text-sm text-[var(--tone-danger-fg)]">{error}</p>}
           <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={() => { setAdding(false); setError(''); }}>{c.cancel}</Button>
+            <Button type="button" variant="secondary" onClick={() => { setAdding(false); setEditing(null); setError(''); }}>{c.cancel}</Button>
             <Button type="submit" block disabled={!local.ready}>{c.save}</Button>
           </div>
         </form>
@@ -126,6 +127,9 @@ export function MainnetContacts() {
                     <span className="chain-id break-all text-sm text-[var(--text-secondary)]">{contact.id}</span>
                   </div>
                   <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => { setEditing(contact.id); setName(contact.label); setAccount(contact.id); setAdding(true); setNotice(null); }}>
+                      {c.edit}
+                    </Button>
                     <Button variant="ghost" onClick={() => { local.save({ ...local.data, contacts: contacts.filter((a) => a.id !== contact.id) }); setNotice(c.deleted); }}>
                       {c.delete}
                     </Button>
