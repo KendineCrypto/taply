@@ -213,7 +213,7 @@ export function evaluateMainnetEnv({ env, source = {}, vercelEnv, requireMainnet
   const ledger = env.NEXT_PUBLIC_TAPLY_MAINNET_LEDGER ?? 'off';
   add('NEXT_PUBLIC_TAPLY_MAINNET_LEDGER is off or device', ['off', '', 'device'].includes(ledger), `NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=${JSON.stringify(ledger)}`);
   add('device ledger not combined with a test authority', ledger !== 'device' || (!on(env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION) && (env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY ?? 'off') === 'off'), 'NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device is exclusive with the simulated and isolated-http authorities');
-  add('signing flag off (NO-GO for mainnet funds)', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_SIGNING), 'NEXT_PUBLIC_TAPLY_MAINNET_SIGNING must stay off until the owner-approved release review');
+  add('signing only with the device ledger', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_SIGNING) || ledger === 'device', 'NEXT_PUBLIC_TAPLY_MAINNET_SIGNING=on requires NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device (owner-approved release, docs/MAINNET_RELEASE.md)');
   if (production) {
     add('fixtures off on Production', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES), 'NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES must not be on in Production');
     add('1Click fixture mode off on Production', oneClickMode !== 'fixture', 'TAPLY_ONECLICK_MODE=fixture is refused in Production');

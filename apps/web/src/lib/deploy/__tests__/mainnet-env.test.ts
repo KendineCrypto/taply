@@ -207,7 +207,8 @@ describe('mainnet integration switches', () => {
     for (const scope of ['production', 'preview']) {
       const base = { ...PRODUCTION, VERCEL_ENV: scope, NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: scope === 'production' ? PRODUCTION['NEXT_PUBLIC_TAPLY_SHARE_ORIGIN'] : undefined };
       expect(run({ ...base, TAPLY_ONECLICK_MODE: 'funded' }).failed).toEqual(['TAPLY_ONECLICK_MODE is off, fixture or dry']);
-      expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on' }).failed).toEqual(['signing flag off (NO-GO for mainnet funds)']);
+      expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on' }).failed).toEqual(['signing only with the device ledger']);
+      expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on', NEXT_PUBLIC_TAPLY_MAINNET_LEDGER: 'device' }).failed).toEqual([]);
     }
   });
 

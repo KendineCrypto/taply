@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {MAINNET_PROTOCOL_SIGNING_RELEASED as RELEASED} from '../dist/mainnet-vault.js';
 import {test} from 'node:test';
 import {readFileSync,readdirSync} from 'node:fs';
 import {MainnetEscrowRequestSchema,calculateMainnetEscrowTermsHash} from '@taply/shared';
@@ -89,8 +90,8 @@ test('native confirmation review is exact and immutable; closed gate never promp
   const review=await backend.prepare('bob.near','0.1');
   assert.equal(review.depositYocto,'100000000000000000000000');
   assert.equal(review.nonce,'1');assert.equal(review.expiresAtMs,61000);assert.ok(Object.isFrozen(review));
-  await assert.rejects(backend.submit(review.id,async()=>{confirmed++;return true;}),/MAINNET_SIGNING_DISABLED/);
-  assert.deepEqual([signed,confirmed,written],[0,0,0]);
+  if(!RELEASED){await assert.rejects(backend.submit(review.id,async()=>{confirmed++;return true;}),/MAINNET_SIGNING_DISABLED/);
+  assert.deepEqual([signed,confirmed,written],[0,0,0]);}
   await assert.rejects(backend.prepare('bob.testnet','0.1'));
   const unresolved=createMainnetNativeWalletBackend({profile,store:{...store,read:async()=>JSON.stringify({version:1,network:'near-mainnet',accountId:'alice.near',operationHash:'a'.repeat(64),attemptId:crypto.randomUUID(),state:'HANDOFF',transactionHash:null})},signer:{kind:'external',adapter}},mock());
   await assert.rejects(unresolved.prepare('bob.near','0.1'),/OUTCOME_UNRESOLVED/);

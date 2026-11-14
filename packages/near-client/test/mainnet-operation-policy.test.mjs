@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {MAINNET_PROTOCOL_SIGNING_RELEASED as RELEASED} from '../dist/mainnet-vault.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {canonicalJson,MAINNET_USDC,calculateMainnetRequestId,calculateMainnetTermsHash,calculateMainnetEscrowTermsHash} from '@taply/shared';
@@ -83,7 +84,8 @@ test('unified wallet gate refuses before confirmation, shared reservation or ext
   const backend=createMainnetWalletBackend({profiles,deviceId:crypto.randomUUID(),store:{scope:'account-global',read:async()=>null,compareAndSwap:async()=>{writes++;return true;}},signer:{kind:'near-connect',wallet,accountId:'alice.near',publicKey:key}},fetcher());
   const r=await backend.prepare({kind:'nativeSend',receiverId:'bob.near',amountNear:'0.01',businessId:'a'.repeat(64)});
   assert.equal(r.nonce,null);assert.equal(r.minimumNonce,'7');assert.ok(Object.isFrozen(r));
-  await assert.rejects(backend.submit(r.id,async()=>{confirms++;return true;}),/SIGNING_DISABLED/);assert.deepEqual([writes,signs,confirms],[0,0,0]);
+  // Released build: the open-gate path is proven by apps/web/scripts/mainnet-release-browser.mjs (expect=open).
+  if(!RELEASED){await assert.rejects(backend.submit(r.id,async()=>{confirms++;return true;}),/SIGNING_DISABLED/);assert.deepEqual([writes,signs,confirms],[0,0,0]);}
 });
 
 test('caller profile mutation cannot change a policy instance code pin',async()=>{

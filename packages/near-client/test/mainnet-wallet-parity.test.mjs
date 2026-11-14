@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EncryptedMainnetVault, EncryptedTestnetVault, MAINNET_WALLET_STORAGE_KEY,
   createMainnetAttemptJournal, prepareMainnetNativeTransfer, prepareMainnetUsdcTransfer } from '../dist/index.js';
-import { signMainnetVaultTransaction } from '../dist/mainnet-vault.js';
+import { signMainnetVaultTransaction, MAINNET_PROTOCOL_SIGNING_RELEASED as RELEASED } from '../dist/mainnet-vault.js';
 const password = 'local-synthetic-password';
 const storage = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k,v) => m.set(k,v) }; };
 test('Mainnet phrase roundtrip, encrypted backup isolation and closed signer', async () => {
@@ -16,7 +16,7 @@ test('Mainnet phrase roundtrip, encrypted backup isolation and closed signer', a
   const backup = vault.exportEncryptedBackup();
   assert.equal(backup.includes(words.join(' ')), false); assert.equal(vault.unlocked, false);
   await vault.unlock(password);
-  await assert.rejects(signMainnetVaultTransaction(vault, {}), { code: 'SIGNING_DISABLED' });
+  if (!RELEASED) await assert.rejects(signMainnetVaultTransaction(vault, {}), { code: 'SIGNING_DISABLED' });
   const testnet = new EncryptedTestnetVault(storage());
   await assert.rejects(testnet.restoreEncryptedBackup(backup, password));
   await testnet.create(password);

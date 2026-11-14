@@ -16,7 +16,7 @@ export async function signMainnetVaultTransaction(vault: EncryptedMainnetVault, 
   return sign(tx);
 }
 
-export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = false;
+export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = true;
 export const MAINNET_WALLET_STORAGE_KEY = "taply.mainnet-vault.v1";
 export const MAINNET_VAULT_UNLOCK_MS = 5 * 60 * 1000;
 /** Longest delay setTimeout supports; longer unlocks rely on the expiry check alone. */

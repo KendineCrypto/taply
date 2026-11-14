@@ -9,7 +9,7 @@
  */
 
 /** External-wallet signing of any mainnet transaction (create, pay, register, cancel, retry). */
-export const MAINNET_SIGNING_RELEASE_APPROVED = false as const;
+export const MAINNET_SIGNING_RELEASE_APPROVED = true as const;
 
 /** 1Click quotes with `dry: false`, i.e. quotes that return a fundable deposit address. */
 export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = false as const;

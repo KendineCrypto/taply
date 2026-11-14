@@ -15,8 +15,8 @@ const NOW = Date.UTC(2026, 10, 13, 12, 0, 0);
 const HASH = 'GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf';
 
 describe('release gates (owner NO-GO 2026-11-13)', () => {
-  it('all three gates are closed in code', () => {
-    expect(MAINNET_SIGNING_RELEASE_APPROVED).toBe(false);
+  it('signing released by the owner-approved release patch; funded quotes and verifier stay closed', () => {
+    expect(MAINNET_SIGNING_RELEASE_APPROVED).toBe(true);
     expect(ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED).toBe(false);
     expect(MAINNET_INDEPENDENT_VERIFIER_AVAILABLE).toBe(false);
   });
@@ -84,9 +84,11 @@ describe('mainnet profile', () => {
     expect(half.ok && half.contract).toEqual({ status: 'invalid', reason: 'half_set' });
   });
 
-  it('signing stays disabled even with the env flag on (compile-time gate)', () => {
-    const c = resolveMainnetConfig({ ...env, signing: 'on' });
-    expect(c.ok && c.signingEnabled).toBe(false);
+  it('released build: signing needs the env flag as well as the compile-time gate', () => {
+    const on = resolveMainnetConfig({ ...env, signing: 'on' });
+    expect(on.ok && on.signingEnabled).toBe(true);
+    const off = resolveMainnetConfig({ ...env });
+    expect(off.ok && off.signingEnabled).toBe(false);
   });
 });
 
