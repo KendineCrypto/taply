@@ -116,12 +116,10 @@ check('receipt: Payment recorded (contract state) for FINAL_PAID', (await r.getB
 check('receipt never says Verified', !/Verified Paid|Independently verified/.test(await r.locator('main').textContent()));
 await r.screenshot({ path: `${OUT}/receipt-01-recorded.png`, fullPage: true });
 await r.goto(`${BASE}/m/split`);
-await r.locator('select').first().selectOption('USDC');
-await r.locator('input[inputmode=decimal]').first().fill('10');
-await r.locator('input[type=number]').fill('3');
-await r.getByRole('button', { name: /Calculate|Hesapla/ }).click();
-await r.waitForSelector('[data-testid=split-shares] a');
-await r.locator('[data-testid=split-shares] a').first().click();
+// Same as Testnet: no calculator without a wallet. The link a share opens (requestPrefill) is checked
+// directly; the share math is unit-tested (src/lib/mainnet/__tests__/product.test.ts).
+check('split without a wallet: Testnet connect state', await r.getByTestId('split-no-wallet').isVisible());
+await r.goto(`${BASE}/m/request/new?${new URLSearchParams({ asset: 'USDC', amount: '3.333334', memo: 'Split 1/3' })}`);
 await r.waitForURL(/\/m\/request\/new\?/);
 await r.waitForFunction(() => document.querySelector('#amount')?.value === '3.333334', null, { timeout: 10000 }).catch(() => {});
 check('split share opens the request composer prefilled with the exact share', (await r.locator('#amount').inputValue()) === '3.333334', await r.locator('#amount').inputValue());
