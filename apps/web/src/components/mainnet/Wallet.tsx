@@ -1,5 +1,7 @@
 'use client';
 
+import { ExternalWalletVerification } from './ExternalWalletVerification';
+
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
@@ -287,7 +289,7 @@ export function WalletSend() {
   const balance = useMainnetBalance(accountId, op.prepared === null ? 0 : 1);
   if (op.signer.kind !== 'ok') {
     return op.signer.kind === 'external-no-key'
-      ? <Notice tone="caution" testId="external-no-key">{OPERATION_COPY[locale].externalNoKey}</Notice>
+      ? <ExternalWalletVerification />
       : <NoWalletCard text={t.walletUx.send.connectFirst} />;
   }
   const from = op.signer.accountId;

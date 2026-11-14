@@ -37,7 +37,7 @@ export interface ShellRoutes {
   readonly parse?: (text: string) => ScanInput;
 }
 
-export function ShellFrame({ routes, accountMenu, notice, children }: { readonly routes: ShellRoutes; readonly accountMenu: ReactNode; readonly notice?: ReactNode; readonly children: ReactNode }) {
+export function ShellFrame({ routes, accountMenu, notice, children, networkLabel }: { readonly routes: ShellRoutes; readonly accountMenu: ReactNode; readonly notice?: ReactNode; readonly children: ReactNode; readonly networkLabel?: string }) {
   const t = useT();
   const pathname = usePathname();
   return (
@@ -46,7 +46,7 @@ export function ShellFrame({ routes, accountMenu, notice, children }: { readonly
         {t.app.skipToContent}
       </a>
 
-      <TopBar home={routes.home} accountMenu={accountMenu} notice={notice} />
+      <TopBar home={routes.home} accountMenu={accountMenu} notice={notice} {...(networkLabel ? {networkLabel} : {})} />
       <OfflineBanner />
 
       <main id="main" className="flex-1 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-5">
@@ -61,7 +61,7 @@ export function ShellFrame({ routes, accountMenu, notice, children }: { readonly
   );
 }
 
-function TopBar({ home, accountMenu, notice }: { readonly home: string; readonly accountMenu: ReactNode; readonly notice?: ReactNode }) {
+function TopBar({ home, accountMenu, notice, networkLabel }: { readonly home: string; readonly accountMenu: ReactNode; readonly notice?: ReactNode; readonly networkLabel?: string }) {
   const t = useT();
 
   return (
@@ -71,7 +71,7 @@ function TopBar({ home, accountMenu, notice }: { readonly home: string; readonly
           <TaplyWordmark width={76} />
         </Link>
         <div className="flex items-center gap-2">
-          <NetworkBadge />
+          <NetworkBadge {...(networkLabel ? {label: networkLabel} : {})} />
           {accountMenu}
         </div>
       </div>
@@ -84,7 +84,7 @@ function TopBar({ home, accountMenu, notice }: { readonly home: string; readonly
  * The network badge is always visible and never derived from a wallet response.
  * It states the only network this build supports (freeze section 1).
  */
-export function NetworkBadge() {
+export function NetworkBadge({ label }: { readonly label?: string } = {}) {
   const t = useT();
   return (
     <span
@@ -93,7 +93,8 @@ export function NetworkBadge() {
       title={t.app.demoFundsNote}
     >
       <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--taply-lime)]" />
-      {t.app.networkBadge}
+      {label ?? t.app.networkBadge}
+      {label && <span className="sr-only">{t.app.networkBadge}</span>}
     </span>
   );
 }

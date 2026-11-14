@@ -1,5 +1,7 @@
 'use client';
 
+import { ExternalWalletVerification } from './ExternalWalletVerification';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MainnetAuthorityCommand, MainnetOperation, MainnetWalletReview } from '@taply/near-client';
 import { MAINNET_USDC } from '@taply/shared';
@@ -273,6 +275,7 @@ export function useOperation() {
 
 export function OperationError({ code }: { readonly code: string }) {
   const c = useOperationCopy();
+  if (code === 'EXTERNAL_KEY_UNKNOWN') return <ExternalWalletVerification />;
   if (!code) return null;
   const text = code === 'EXTERNAL_KEY_UNKNOWN' ? c.externalNoKey : c.errors[code] ?? c.errors['UNKNOWN']!;
   return <Notice tone="danger" live testId="op-error"><span data-code={code}>{text}</span></Notice>;

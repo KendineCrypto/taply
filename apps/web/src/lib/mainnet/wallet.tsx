@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { NearConnector } from '@hot-labs/near-connect';
+import { createMainnetWalletKeyProof } from '@taply/near-client';
 import type { MainnetNearConnectWallet } from '@taply/near-client';
 import { classifyWalletError } from '@/lib/wallet/adapter';
 import { MAINNET_CONFIG } from './config';
@@ -12,8 +13,8 @@ import { mainnetConnectorOptions, pageCspNonce } from './wallet-config';
  * Mainnet external-wallet session: connect, restore, disconnect, and the
  * reported account public key. `signerWallet()` hands the connected wallet ONLY
  * to Codex's createMainnetWalletBackend (lib/mainnet/wallet-ops.ts), whose submit
- * is closed while MAINNET_PROTOCOL_SIGNING_RELEASED is false. A wallet that does
- * not report its account public key is unsupported for payments (never guessed).
+ * is closed while MAINNET_PROTOCOL_SIGNING_RELEASED is false. Wallets that omit their key can provide it through an explicit, verified
+ * NEP-413 connection proof. Transaction-time FullAccess checks stay in the backend.
  * The Testnet adapter/vault are never mounted in this build.
  */
 export type MainnetWalletStatus = 'idle' | 'connecting' | 'connected' | 'error';
@@ -29,6 +30,7 @@ interface MainnetWalletValue {
   readonly signerWallet: () => MainnetNearConnectWallet | null;
   readonly connect: () => Promise<void>;
   readonly disconnect: () => Promise<void>;
+  readonly verifyKey: () => Promise<void>;
 }
 
 /** The subset of a NEAR Connect wallet the unified backend uses. */
@@ -54,6 +56,9 @@ export function MainnetWalletProvider({ children }: { readonly children: ReactNo
   const [error, setError] = useState<MainnetWalletError | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const walletRef = useRef<MainnetNearConnectWallet | null>(null);
+  const rawWalletRef = useRef<ExternalWallet | null>(null);
+  const generation = useRef(0);
+  const proofRef = useRef<{ accountId: string; publicKey: string } | null>(null);
   const connector = useRef<Promise<NearConnector> | null>(null);
   const rpcUrl = MAINNET_CONFIG.ok ? MAINNET_CONFIG.rpcUrl : null;
 
@@ -65,13 +70,14 @@ export function MainnetWalletProvider({ children }: { readonly children: ReactNo
   }, [rpcUrl]);
 
   const adopt = useCallback((accounts: ReadonlyArray<{ accountId: string; publicKey?: string }> | undefined, name: string, wallet?: ExternalWallet) => {
+    generation.current++; proofRef.current = null; rawWalletRef.current = wallet ?? null;
     const raw = accounts?.[0]?.accountId;
     const key = accounts?.[0]?.publicKey;
     setPublicKey(typeof key === 'string' && /^ed25519:[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(key) ? key : null);
     walletRef.current = wallet ? {
-      getAccounts: async () => (await wallet.getAccounts({ network: 'mainnet' })).map((a) => ({ accountId: a.accountId, ...(a.publicKey ? { publicKey: a.publicKey } : {}) })),
+      getAccounts: async () => (await wallet.getAccounts({ network: 'mainnet' })).map((a) => ({ accountId: a.accountId, ...(a.publicKey ? { publicKey: a.publicKey } : proofRef.current?.accountId === a.accountId ? { publicKey: proofRef.current.publicKey } : {}) })),
       signAndSendTransaction: (params) => wallet.signAndSendTransaction(params as never),
-      // Only reachable through Codex's authorizeMainnetNearConnectCommand (exact payload checks; gated).
+      // Used for the explicit connection proof and the reviewed authority flow; never a transaction.
       signMessage: (params: unknown) => wallet.signMessage(params) as Promise<{ accountId: string; publicKey: string; signature: string }>,
     } as MainnetNearConnectWallet : null;
     const ok = acceptMainnetAccount(raw);
@@ -113,7 +119,20 @@ export function MainnetWalletProvider({ children }: { readonly children: ReactNo
     }
   }, [getConnector, adopt]);
 
+  const verifyKey = useCallback(async () => {
+    const wallet = rawWalletRef.current, expected = accountId, version = generation.current;
+    if (!wallet || !expected) throw Error('WALLET_DISCONNECTED');
+    const proof = createMainnetWalletKeyProof(expected, window.location.origin);
+    const result = await wallet.signMessage(proof.params);
+    const key = await proof.accept(result);
+    const accounts = await wallet.getAccounts({ network: 'mainnet' });
+    if (version !== generation.current || wallet !== rawWalletRef.current || !accounts.some(a => a.accountId === expected && (!a.publicKey || a.publicKey === key))) throw Error('EXTERNAL_IDENTITY_MISMATCH');
+    proofRef.current = { accountId: expected, publicKey: key };
+    setPublicKey(key);
+  }, [accountId]);
+
   const disconnect = useCallback(async () => {
+    generation.current++; proofRef.current = null; rawWalletRef.current = null;
     try {
       await (await getConnector()).disconnect();
     } catch {
@@ -127,7 +146,7 @@ export function MainnetWalletProvider({ children }: { readonly children: ReactNo
   }, [getConnector]);
 
   const signerWallet = useCallback(() => walletRef.current, []);
-  const value = useMemo(() => ({ status, accountId, walletName, error, publicKey, signerWallet, connect, disconnect }), [status, accountId, walletName, error, publicKey, signerWallet, connect, disconnect]);
+  const value = useMemo(() => ({ status, accountId, walletName, error, publicKey, signerWallet, connect, disconnect, verifyKey }), [status, accountId, walletName, error, publicKey, signerWallet, connect, disconnect, verifyKey]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
