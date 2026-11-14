@@ -14,6 +14,7 @@ on:
       - apps/web/scripts/mainnet-release-browser.mjs
       - apps/web/src/lib/mainnet/device-ledger.ts
       - apps/web/src/lib/mainnet/wallet-ops.ts
+      - apps/web/src/lib/mainnet/release-gates.ts
       - apps/web/src/components/mainnet/Operation.tsx
       - packages/near-client/src/**
 
