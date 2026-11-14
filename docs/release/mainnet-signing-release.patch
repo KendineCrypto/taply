@@ -26,7 +26,7 @@ index 57c27b8..e82d682 100644
    });
  
 diff --git a/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts b/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts
-index 3143410..4b748e2 100644
+index 3143410..f9f795e 100644
 --- a/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts
 +++ b/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts
 @@ -15,8 +15,8 @@ const NOW = Date.UTC(2026, 10, 13, 12, 0, 0);
@@ -40,7 +40,7 @@ index 3143410..4b748e2 100644
      expect(ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED).toBe(false);
      expect(MAINNET_INDEPENDENT_VERIFIER_AVAILABLE).toBe(false);
    });
-@@ -84,9 +84,10 @@ describe('mainnet profile', () => {
+@@ -84,9 +84,11 @@ describe('mainnet profile', () => {
      expect(half.ok && half.contract).toEqual({ status: 'invalid', reason: 'half_set' });
    });
  
@@ -48,7 +48,8 @@ index 3143410..4b748e2 100644
 -    const c = resolveMainnetConfig({ ...env, signing: 'on' });
 -    expect(c.ok && c.signingEnabled).toBe(false);
 +  it('released build: signing needs the env flag as well as the compile-time gate', () => {
-+    expect((({ ok, ...c }) => ok && (c as { signingEnabled: boolean }).signingEnabled)(resolveMainnetConfig({ ...env, signing: 'on' }) as never)).toBe(true);
++    const on = resolveMainnetConfig({ ...env, signing: 'on' });
++    expect(on.ok && on.signingEnabled).toBe(true);
 +    const off = resolveMainnetConfig({ ...env });
 +    expect(off.ok && off.signingEnabled).toBe(false);
    });

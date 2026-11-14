@@ -54,6 +54,9 @@ jobs:
           git apply docs/release/mainnet-signing-release.patch
           git diff --stat
           pnpm --filter @taply/near-client run build
+      - name: Gates OPEN — typecheck (next build typechecks tests too)
+        working-directory: apps/web
+        run: npx tsc --noEmit -p .
       - name: Gates OPEN — near-client suite
         working-directory: packages/near-client
         run: node --test test/*.test.mjs
