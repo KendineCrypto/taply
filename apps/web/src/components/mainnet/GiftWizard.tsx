@@ -19,7 +19,7 @@ import { stableBusinessId } from '@/lib/mainnet/wallet-ops';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { GIFT_PAGES_COPY, hexOf } from './GiftPages';
 import { newLinkKey } from './GiftMainnet';
-import { OperationError, OperationReview, useOperation } from './Operation';
+import { LedgerPanel, OperationError, OperationReview, useOperation } from './Operation';
 import { Notice } from './bits';
 import { NoWalletCard } from './NoWalletCard';
 
@@ -222,6 +222,7 @@ export function MainnetGiftWizard() {
           )}
           {error !== null && <p role="alert" data-testid="gift-error" className="text-sm text-[var(--tone-danger-fg)]">{error}</p>}
           <OperationError code={op.error} />
+          {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel />}
           <StepNav onBack={() => setStep(2)} onNext={() => void continueToReview()} busy={op.busy} disabled={msgError !== null} />
         </section>
       )}

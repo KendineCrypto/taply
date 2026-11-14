@@ -64,9 +64,17 @@ export function createMainnetWalletBackend(input:{profiles:MainnetSigningProfile
   async function state(){const id=await identity(),s=await chain.snapshot(id.accountId,id.publicKey);if(!s)throw Error('ACCOUNT_NOT_ACTIVATED');return s;}
   return Object.freeze({
     async prepare(operation:MainnetOperation):Promise<Readonly<MainnetWalletReview>>{
-      const s=await state(),ledger=await journal.read(s.accountId);
+      let s=await state(),ledger=await journal.read(s.accountId);
+      if(ledger&&ledger.ownerDeviceId!==input.deviceId)throw Error(ledger.pending?'OUTCOME_UNRESOLVED':'OTHER_DEVICE_READ_ONLY');
+      // A wallet can return before FINAL. Re-check a retained hash before
+      // rejecting the next review; this never signs, sends, or drops a fence.
+      if(ledger?.pending?.transactionHash){
+        try {
+          const reconciled=await journal.reconcile(s.accountId);
+          if(reconciled.kind==='FINAL_EXECUTION'){s=await state();ledger=await journal.read(s.accountId);}
+        }catch{/* Unavailable or mismatched proof keeps the reservation blocked. */}
+      }
       if(ledger?.pending)throw Error('OUTCOME_UNRESOLVED');
-      if(ledger&&ledger.ownerDeviceId!==input.deviceId)throw Error('OTHER_DEVICE_READ_ONLY');
       const op=structuredClone(operation),p=await planner.prepare(op,s);
       if(ledger?.completed.some(x=>x.attempt.operationHash===p.operationHash))throw Error('OPERATION_ALREADY_CONSUMED');
       const review=Object.freeze({id:crypto.randomUUID(),network:'near-mainnet' as const,accountId:s.accountId,publicKey:s.publicKey,

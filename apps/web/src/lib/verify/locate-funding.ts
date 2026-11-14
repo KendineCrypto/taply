@@ -3,6 +3,9 @@ import type { ContractRequest } from '@/lib/protocol';
 import { VerifierRpcError } from './rpc';
 import type { LocatorRpc } from './rpc';
 
+/** Network-neutral chain facts. The locator returns candidates, never proof. */
+export type FundingRequest = Pick<ContractRequest, 'status' | 'payerAccountId' | 'fundedAtNs' | 'latestOperation'> & { readonly terms: Pick<ContractRequest['terms'], 'id'> };
+
 /**
  * Phase 7G: find the funding transaction of a paid request from public chain
  * data, so the merchant's phone can run the independent receipt verifier
@@ -51,7 +54,7 @@ export type LocateResult =
 export interface LocateInput {
   readonly rpc: LocatorRpc;
   readonly contractId: string;
-  readonly request: ContractRequest;
+  readonly request: FundingRequest;
   readonly maxCalls?: number;
   /** Blocks before the funding block to scan for the transaction (default 3). */
   readonly blocksBack?: number;

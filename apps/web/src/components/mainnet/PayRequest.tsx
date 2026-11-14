@@ -20,6 +20,7 @@ import type { OriginChain, RefundFormat } from '@/lib/mainnet/oneclick/allowlist
 import { ORIGIN_COPY } from '@/lib/mainnet/origin-copy';
 import { OperationError, OperationReview, useOperation } from './Operation';
 import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
+import { useVerifiedMainnetReceipt } from '@/lib/mainnet/use-verified-receipt';
 import { derivePaymentView } from '@/lib/mainnet/status';
 import type { PaymentState } from '@/lib/mainnet/status';
 import { Notice, Row, short } from './bits';
@@ -66,6 +67,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const { read, refresh } = useMainnetRequest(id, true);
+  const verification = useVerifiedMainnetReceipt(read.kind === 'ok' ? read.request : null);
   const [method, setMethod] = useState<'base' | 'wallet' | null>(null);
   const [quotePrepared, setQuotePrepared] = useState(false);
   const [paidTx, setPaidTx] = useState<string | null>(null);
@@ -114,7 +116,10 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {receipt !== null ? (
         <div data-state={receipt === 'paid' ? 'PAYMENT_RECORDED' : 'FAILED'}>
           <ReceiptTicket
-            status={receipt === 'paid' ? 'contract_paid' : 'cancelled'}
+            compact
+            {...(receipt === 'paid' && verification?.kind !== 'verified' ? { statusNote: verification?.kind === 'checking' ? (locale === 'tr' ? 'Makbuz kontrol ediliyor…' : 'Checking receipt…') : (locale === 'tr' ? 'Ödeme alındı' : 'Payment received') } : {})}
+            status={receipt === 'paid' ? (verification?.kind === 'verified' ? 'verified' : 'contract_paid') : 'cancelled'}
+            {...(verification?.kind === 'verified' ? { celebrateKey: `mainnet:${id}:${verification.proof.transferReceiptId}` } : {})}
             asset={asset}
             amountBaseUnits={r.terms.amountBaseUnits}
             recipientAccountId={r.recipientAccountId}
@@ -123,11 +128,12 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
             settledAtNs={r.latestOperation?.resolvedAtNs ?? r.fundedAtNs}
             references={[
               { label: c.pay.requestId, value: r.terms.id },
+              ...(verification?.kind === 'verified' ? [{ label: t.experience.receipt.references, value: verification.proof.fundingTransactionHash, transaction: true }] : []),
               ...(paidTx !== null ? [{ label: t.experience.receipt.references, value: paidTx, transaction: true }] : []),
             ]}
             explorerBaseUrl={MAINNET_CONFIG.ok ? MAINNET_CONFIG.explorerBaseUrl : null}
             checkedVia={r.terms.contractId}
-            proofActions={<SettlementCheck key={id} kind="instant" id={id} fixture={read.fixture} automatic />}
+            proofActions={<SettlementCheck key={id} kind="instant" id={id} fixture={read.fixture} automatic={asset.symbol !== 'NEAR'} />}
             actions={receipt === 'paid' ? <p className="text-center text-sm font-medium text-[var(--tone-caution-fg)]" data-testid="do-not-repay">{c.status.doNotRepay}</p> : undefined}
           />
         </div>

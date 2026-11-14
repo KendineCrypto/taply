@@ -61,8 +61,8 @@ const en = {
   ledgerHttpGated: 'Reading this account\'s payment record needs a wallet authorization, which stays disabled until the release review. Sending stays disabled.',
   ledgerHttpUnavailable: 'The payment authority is not reachable from this build or refused this device. Sending stays disabled.',
   ledgerHttpOk: 'Payment record read from the authenticated authority (isolated test configuration).',
-  pendingTitle: 'A payment from this account has an unknown outcome',
-  pendingLead: 'New payments are blocked until its FINAL outcome is read from the chain. Do not pay again.',
+  pendingTitle: 'Payment confirmation pending',
+  pendingLead: 'Check the previous payment before sending again.',
   pendingState: 'Recorded state', states: { RESERVED: 'Reserved before signing', HANDOFF: 'Handed to the signer', UNCERTAIN: 'Outcome unknown' },
   txHash: 'Transaction hash', noHash: 'None recorded — the transaction may or may not have been broadcast.',
   hint: 'Transaction hash from your wallet (optional, used only as a lookup hint)',
@@ -74,7 +74,7 @@ const en = {
   ownerThis: 'Payments for this account are owned by this device.',
   history: 'Executed on this account (permanent record)', none: 'No payment attempts recorded for this account.',
   errors: {
-    OUTCOME_UNRESOLVED: 'A previous payment has an unknown outcome. Check it below. Do not pay again.',
+    OUTCOME_UNRESOLVED: 'Previous payment needs confirmation. Check below; do not pay again.',
     AUTHORITY_POLICY_MISMATCH: 'The payment authority answered with a different account, key or contract policy than this app expects. Nothing was signed.',
     LEGACY_OUTCOME_UNRESOLVED: 'An older payment record on this device has an unknown outcome. It is not migrated automatically, so sending stays blocked.',
     JOURNAL_UNAVAILABLE: 'This browser\'s payment safety record is unavailable. Sending is blocked.',
@@ -155,7 +155,7 @@ const tr: Copy = {
   ownerThis: 'Bu hesabın ödemeleri bu cihaza ait.',
   history: 'Bu hesapta yürütülenler (kalıcı kayıt)', none: 'Bu hesap için kayıtlı ödeme denemesi yok.',
   errors: {
-    OUTCOME_UNRESOLVED: 'Önceki bir ödemenin sonucu bilinmiyor. Aşağıdan kontrol edin. Tekrar ödemeyin.',
+    OUTCOME_UNRESOLVED: 'Önceki ödeme kontrol ediliyor. Tekrar ödemeyin.',
     AUTHORITY_POLICY_MISMATCH: 'Ödeme yetkilisi bu uygulamanın beklediğinden farklı bir hesap, anahtar veya sözleşme politikasıyla yanıt verdi. Hiçbir şey imzalanmadı.',
     LEGACY_OUTCOME_UNRESOLVED: 'Bu cihazdaki eski bir ödeme kaydının sonucu bilinmiyor. Otomatik taşınmaz; gönderme engelli kalır.',
     JOURNAL_UNAVAILABLE: 'Bu tarayıcının ödeme güvenlik kaydı kullanılamıyor. Gönderme engellendi.',
@@ -278,7 +278,7 @@ export function OperationError({ code }: { readonly code: string }) {
   if (code === 'EXTERNAL_KEY_UNKNOWN') return <ExternalWalletVerification />;
   if (!code) return null;
   const text = code === 'EXTERNAL_KEY_UNKNOWN' ? c.externalNoKey : c.errors[code] ?? c.errors['UNKNOWN']!;
-  return <Notice tone="danger" live testId="op-error"><span data-code={code}>{text}</span></Notice>;
+  return <Notice tone={code === 'OUTCOME_UNRESOLVED' ? 'caution' : 'danger'} live testId="op-error"><span data-code={code}>{text}</span></Notice>;
 }
 
 function useNow(): number {
@@ -330,38 +330,7 @@ export function OperationReview({ prepared, title, children, onDone, compact = f
             <p className="chain-id break-all text-[0.9375rem] font-semibold" data-testid="op-receiver">{r.receiverId}</p>
           </div>
         </div>
-        <dl className="grid gap-2 text-sm">
-          <div className="flex items-start justify-between gap-3">
-            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.common.network}</dt>
-            <dd className="text-right">{t.app.networkBadge}</dd>
-          </div>
-          {a.kind === 'transfer' && (
-            <div className="flex items-start justify-between gap-3">
-              <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.walletUx.send.walletAction}</dt>
-              <dd className="text-right">{t.walletUx.send.walletActionValue}</dd>
-            </div>
-          )}
-          <div className="flex items-start justify-between gap-3">
-            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.experience.review.networkFee}</dt>
-            <dd className="text-right text-[var(--text-secondary)]">{t.walletUx.send.feeValue}</dd>
-          </div>
-          <div className="flex items-start justify-between gap-3">
-            <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.experience.from}</dt>
-            <dd className="chain-id break-all text-right">{r.accountId}</dd>
-          </div>
-          {r.storageReserveYocto !== '0' && (
-            <div className="flex items-start justify-between gap-3">
-              <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.walletNative.send.storageReserve}</dt>
-              <dd className="text-right">{formatMainnetAmount(r.storageReserveYocto, MAINNET_ASSETS.NEAR, locale)}</dd>
-            </div>
-          )}
-          {r.gasReserveYocto !== '0' && (
-            <div className="flex items-start justify-between gap-3">
-              <dt className="shrink-0 whitespace-nowrap text-[var(--text-muted)]">{t.walletNative.send.gasReserve}</dt>
-              <dd className="text-right">{formatMainnetAmount(r.gasReserveYocto, MAINNET_ASSETS.NEAR, locale)}</dd>
-            </div>
-          )}
-        </dl>
+        <dl className="text-sm"><Row label={c.from} mono>{r.accountId}</Row></dl>
         </>
         )}
         {children}
@@ -462,8 +431,27 @@ export function LedgerPanel() {
   useEffect(() => {
     if (backend === null) return;
     let live = true;
-    backend.readAttempt().then((v) => live && setLedger({ key, value: v }), () => live && setLedger({ key, value: 'error' }));
-    return () => { live = false; };
+    let checking = false;
+    const read = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        let value = await backend.readAttempt();
+        if (value?.pending?.transactionHash) {
+          const checked = await backend.reconcile();
+          if (checked.kind === 'FINAL_EXECUTION') {
+            value = await backend.readAttempt();
+            if (live) setResult(checked);
+          }
+        }
+        if (live) setLedger({ key, value });
+      } catch { if (live) setLedger({ key, value: 'error' }); }
+      finally { checking = false; }
+    };
+    void read();
+    const timer = setInterval(() => void read(), 6000);
+    window.addEventListener('focus', read);
+    return () => { live = false; clearInterval(timer); window.removeEventListener('focus', read); };
     // backend is rebuilt each render; the key captures every input it depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
@@ -510,8 +498,8 @@ export function LedgerPanel() {
             : <Notice tone="muted" live testId="ledger-result"><span data-kind="FINAL_EXECUTION" data-execution={result.execution}>{c.executed(result.execution === 'SUCCESS')}</span> <span className="block text-[12px]">{c.settlementNote}</span></Notice>
         )}
         {l && l !== 'error' && l.completed.length > 0 && (
-          <div>
-            <h3 className="text-[13px] font-semibold">{c.history}</h3>
+          <details>
+            <summary className="cursor-pointer text-[13px] font-semibold">{c.history}</summary>
             <ul className="mt-1 flex flex-col gap-1" data-testid="ledger-history">
               {[...l.completed].reverse().slice(0, 10).map((x) => (
                 <li key={x.attempt.attemptId} data-execution={x.proof.execution} className="flex flex-col gap-1 break-all font-mono text-[11px] text-[var(--text-secondary)]">
@@ -520,7 +508,7 @@ export function LedgerPanel() {
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         )}
       </div>
     </Card>
