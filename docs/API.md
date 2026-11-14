@@ -1,5 +1,9 @@
 ﻿# Taply API / protocol v1 — Phase 0 shared package
 
+> Scope: the original Testnet specification/plan below is preserved as design history.
+> For current deployed behavior, separate Mainnet source and evidence, use the
+> [release map](RELEASE_STATUS.md) and [system overview](SYSTEM_OVERVIEW.md).
+
 > This document freezes protocol shapes and historical Phase 0 scope, not a current deployed-API inventory. An Instant Testnet contract and gated in-process API implementation now exist; production authentication/live G2 remain closed. See [current release readiness](RELEASE_READINESS.md). Planned Protected methods are not enabled capabilities.
 
 Authority: [Lead Protocol Freeze v1](LEAD_PROTOCOL_FREEZE_v1.md). This replaces

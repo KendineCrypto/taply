@@ -1,5 +1,9 @@
 # Taply v0.4 UX — every screen, state and label
 
+> Scope: the original Testnet specification/plan below is preserved as design history.
+> For current deployed behavior, separate Mainnet source and evidence, use the
+> [release map](RELEASE_STATUS.md) and [system overview](SYSTEM_OVERVIEW.md).
+
 ## Brand
 Use `brand/assets/wordmark-dark.svg` and `brand/assets/icon-dark.svg` as delivered; don't regenerate the t shape. Night `#0B120E`, Forest `#111C15`, Olive `#203226`, Cream `#F4F3E8`, Lime `#C7FC75`. All demo screen compositions 390x844 and 360x780, desktop responsive, contrast tested.
 

@@ -1,5 +1,9 @@
 # Taply — definitive Product Requirements v0.4
 
+> Scope: the original Testnet specification/plan below is preserved as design history.
+> For current deployed behavior, separate Mainnet source and evidence, use the
+> [release map](RELEASE_STATUS.md) and [system overview](SYSTEM_OVERVIEW.md).
+
 > Product requirements and targets, not a shipped-feature ledger. Shipped scope on 2026-11-10 is in the [README](../README.md#features): G1 is met on Testnet; the live two-phone Handshake session is on (contract-bound sessions are not); Protected Pay is disabled.
 
 ## Product hierarchy

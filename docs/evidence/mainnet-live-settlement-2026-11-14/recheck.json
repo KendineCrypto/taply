@@ -1,0 +1,22 @@
+{
+  "freshCheck": true,
+  "observedAtUtc": "2026-11-14T23:13:34.990Z",
+  "result": {
+    "kind": "VERIFIED_SETTLEMENT",
+    "network": "near-mainnet",
+    "status": "PAID",
+    "assetId": "near:native",
+    "amountBaseUnits": "100000000000000000000000",
+    "beneficiary": "ad797669c357fa0f741db7b4cda9779528af3f15e15ce660e7606871ea5c5ea3",
+    "operationNonce": "1",
+    "fundingTransactionHash": "3a7kNLaYQH5aFUjHk422bRQ2iSt4pwMWhVGfBTMP7J2N",
+    "settlementTransactionHash": "3a7kNLaYQH5aFUjHk422bRQ2iSt4pwMWhVGfBTMP7J2N",
+    "transferReceiptId": "A8mumNKfkBGDDxhxVkm8ZiLo7e6RGbSzhbnTz44B6K3p",
+    "callbackReceiptId": "4JU1sMCUbtU1RT4kVBRWrFVopet5P2MnUE9GdhNc9QJH",
+    "stateBlockHash": "6pqqsX5y4ToYHrcsRJzrZRydn5fKZRToVBKNyxcXiwTm",
+    "routerDelivery": false,
+    "routerSurplusBaseUnits": "0",
+    "scope": "NEAR_SETTLEMENT_ONLY",
+    "trustModel": "configured-rpc"
+  }
+}

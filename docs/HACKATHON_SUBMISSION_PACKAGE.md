@@ -1,5 +1,10 @@
 # NEAR HACKATHON submission package (updated 2026-11-10, not posted, not submitted)
 
+> Current release map (14 November UTC): [RELEASE_STATUS.md](RELEASE_STATUS.md).
+> This document preserves its dated Testnet/design/submission snapshot. Mainnet
+> source, live native settlement proof and pending Preview deployment are mapped
+> separately there; older status text is not the current Mainnet release status.
+
 Only the owner posts on X and submits the form. Nothing here has been
 published. Rules re-read on 2026-11-09 from
 [nearhackathon.com/HACKATHON.md](https://nearhackathon.com/HACKATHON.md);

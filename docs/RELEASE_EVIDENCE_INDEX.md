@@ -1,5 +1,10 @@
 # Release evidence index
 
+> Current release map (14 November UTC): [RELEASE_STATUS.md](RELEASE_STATUS.md).
+> This document preserves its dated Testnet/design/submission snapshot. Mainnet
+> source, live native settlement proof and pending Preview deployment are mapped
+> separately there; older status text is not the current Mainnet release status.
+
 Real NEAR **Testnet** evidence only. Files under `docs/evidence/` hold public
 data (accounts, hashes, receipts); automation keys never leave
 `~/.taply-automation` on the machine that ran them.
