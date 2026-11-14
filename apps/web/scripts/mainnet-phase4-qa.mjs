@@ -170,11 +170,14 @@ await noOverflow(w, 'p4-01-usdc-review');
 await w.screenshot({ path: `${OUT}/p4-01-usdc-review.png`, fullPage: true });
 
 // ---------- 2. Personal Gift: compose (exact native review), open (separate unwrap, independent check) ----------
+// Testnet five-step wizard: type -> amount (+ recipient) -> envelope/message -> review.
 await w.goto(`${BASE}/m/gift/new`);
+await w.getByRole('button', { name: /Personal Gift/ }).click();
 await w.locator('#pg-to').fill('bob.near');
 await w.locator('#pg-amount').fill('0.5');
+await w.getByRole('button', { name: /^Continue/ }).click();
 await w.locator('#pg-msg').fill('Happy birthday!');
-await w.getByTestId('pg-review').click();
+await w.getByRole('button', { name: /^Continue/ }).click();
 const pgReview = await waitFor(w, 'pg-review-card') ? await text(w, 'pg-review-card') : '';
 check('Personal Gift: exact native transfer review (bob.near, 0.5 NEAR, from this wallet, nonce 8)', /bob\.near/.test(pgReview) && /0[.,]5 NEAR/.test(pgReview) && pgReview.includes(ME) && /8/.test(pgReview), pgReview.slice(0, 300));
 await noOverflow(w, 'p4-02-personal-gift-review');

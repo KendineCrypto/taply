@@ -21,10 +21,10 @@ const viewports = [['390', { width: 390, height: 844 }], ['375', { width: 375, h
       await go('/activity'); await shot('09-activity');
       for (const [label, path] of [['12-merchant','/merchant'],['13-protected','/protected/new'],['14-contacts','/contacts'],['15-split','/split'],['16-recurring','/recurring'],['17-settings','/settings'],['18-wallet','/wallet']]) { await go(path); await shot(label); }
       if (prefix) {
-        await go(''); await page.locator('summary', { hasText: /Network details|Ağ ayrıntıları/ }).click();
+        await go(''); await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { if (d.querySelector('[data-testid=fixture-list]')) d.open = true; }));
         for (const [label, fx] of [['10-pay-open', 'usdc-awaiting'], ['11-pay-final-paid', 'usdc-recorded']]) {
           const href = await page.locator('[data-testid=fixture-list] a', { hasText: fx }).getAttribute('href');
-          const q = await ctx.newPage(); await q.goto(base + href, { waitUntil: 'networkidle' }); await q.waitForTimeout(1200);
+          const q = await ctx.newPage(); await q.goto(base + href, { waitUntil: 'load' }); await q.waitForSelector('[data-testid=pay-amount], [data-state]', { timeout: 20000 }).catch(() => {}); await q.waitForTimeout(1200);
           await q.screenshot({ path: `${out}/${vp}-${label}-${name}.png`, fullPage: true }); await q.close();
         }
       } else {

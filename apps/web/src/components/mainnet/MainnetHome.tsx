@@ -7,18 +7,21 @@ import { useState } from 'react';
 import { Button } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { QrCode } from '@/components/payments/QrCode';
-import { FirstLaunchChooserView, HomeActionsView, IdentityCardView, WalletStatusPill } from '@/components/wallet/WalletHomeViews';
+import { FirstLaunchChooserView, HomeActionsView } from '@/components/wallet/WalletHomeViews';
 import { useT } from '@/lib/i18n/provider';
 import { ActivityList } from './Activity';
 import { useActivation, useMainnetVault } from './Wallet';
 import { useCurrentMainnetAccount } from './MainnetShell';
-import { Card } from '@/components/primitives/Surface';
 import { assetById, formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/assets';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { commerceFixture, fixtureRequests } from '@/lib/mainnet/fixtures';
 import { encodeSale } from '@/lib/mainnet/commerce';
 import { Notice, short } from './bits';
 import { WalletPanel } from './WalletPanel';
+import { MainnetIdentityCard } from './MainnetWalletPage';
+import { MainnetBalanceHero } from './MainnetBalance';
+import { WalletKindBadge } from '@/components/wallet/WalletKind';
+import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { useProductCopy } from './MainnetProduct';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
@@ -54,10 +57,7 @@ export function MainnetHome() {
       <h1 className="sr-only">{c.home.title}</h1>
       <HomeHero />
       {accountId !== null && <HomeActionsView receive="/m/receive" request="/m/request/new" pay="/m/scan" />}
-      <section aria-labelledby="home-recent" className="flex flex-col gap-3">
-        <h2 id="home-recent" className="text-sm font-semibold text-[var(--text-secondary)]">{p.recent}</h2>
-        <ActivityList removeLabel={p.remove} />
-      </section>
+      {accountId !== null && <ActivityList preview />}
       <details className="rounded-[var(--radius-card)] bg-[var(--surface-1)] p-4 text-sm">
         <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{p.details}</summary>
         <div className="mt-3 flex flex-col gap-4">
@@ -94,39 +94,38 @@ export function MainnetHome() {
               : c.home.contractNotConfigured}
         </p>
       </div>
+          {fixtures.length > 0 && (
+            <div>
+              <h2 className="text-[15px] font-semibold">{c.home.fixturesTitle}</h2>
+              <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.home.fixturesHint}</p>
+              <ul className="mt-3 flex flex-col gap-1.5" data-testid="fixture-list">
+                {fixtures.map(({ scenario, request }) => {
+                  const asset = assetById(request.terms.assetId)!;
+                  return (
+                    <li key={scenario.name}>
+                      <Link
+                        href={`/m/pay/${request.terms.id}` as Route}
+                        className="pressable flex min-h-[var(--tap-target)] items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 py-2 text-[13px]"
+                      >
+                        <span className="font-mono">{scenario.name}</span>
+                        <span className="text-[var(--text-secondary)]">{formatMainnetAmount(request.terms.amountBaseUnits, asset, locale)}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+                {sale !== null && (
+                  <li key="usdc-commerce-sale">
+                    <a href={sale.href} className="pressable flex min-h-[var(--tap-target)] items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 py-2 text-[13px]">
+                      <span className="font-mono">usdc-commerce-sale</span>
+                      <span className="text-[var(--text-secondary)]">{formatMainnetAmount(sale.amount, MAINNET_ASSETS.USDC, locale)}</span>
+                    </a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
         </div>
       </details>
-
-      {fixtures.length > 0 && (
-        <Card>
-          <h2 className="text-[15px] font-semibold">{c.home.fixturesTitle}</h2>
-          <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.home.fixturesHint}</p>
-          <ul className="mt-3 flex flex-col gap-1.5" data-testid="fixture-list">
-            {fixtures.map(({ scenario, request }) => {
-              const asset = assetById(request.terms.assetId)!;
-              return (
-                <li key={scenario.name}>
-                  <Link
-                    href={`/m/pay/${request.terms.id}` as Route}
-                    className="pressable flex min-h-[var(--tap-target)] items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 py-2 text-[13px]"
-                  >
-                    <span className="font-mono">{scenario.name}</span>
-                    <span className="text-[var(--text-secondary)]">{formatMainnetAmount(request.terms.amountBaseUnits, asset, locale)}</span>
-                  </Link>
-                </li>
-              );
-            })}
-            {sale !== null && (
-              <li key="usdc-commerce-sale">
-                <a href={sale.href} className="pressable flex min-h-[var(--tap-target)] items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 py-2 text-[13px]">
-                  <span className="font-mono">usdc-commerce-sale</span>
-                  <span className="text-[var(--text-secondary)]">{formatMainnetAmount(sale.amount, MAINNET_ASSETS.USDC, locale)}</span>
-                </a>
-              </li>
-            )}
-          </ul>
-        </Card>
-      )}
     </div>
   );
 }
@@ -141,35 +140,19 @@ function HomeHero() {
   const n = t.walletNative;
   const { identity, unlocked } = useMainnetVault();
   const { accountId, kind } = useCurrentMainnetAccount();
+  const external = useMainnetWallet();
   const [tick, setTick] = useState(0);
   const activation = useActivation(identity, tick);
   if (accountId === null) {
     return <FirstLaunchChooserView externalSlot={<WalletPanel primary />} taplyAvailable createHref="/m/wallet/create" restoreHref="/m/wallet/restore" />;
   }
   if (kind !== 'taply') {
-    return <section className="surface-hero p-5" data-testid="home-external"><WalletPanel /></section>;
+    return <MainnetBalanceHero accountId={accountId} badge={<WalletKindBadge kind="external" {...(external.walletName !== null ? { walletName: external.walletName } : {})} />} />;
   }
-  const active = activation.kind === 'active' ? activation : null;
-  const statusPill = active
-    ? <WalletStatusPill tone="success" icon="check" label={n.status.provisioned.title} />
-    : activation.kind === 'not_activated'
-      ? <WalletStatusPill tone="caution" icon="alert" label={n.status.localOnly.title} />
-      : <WalletStatusPill tone="neutral" icon="clock" label={n.status.unknown.title} />;
-  const lockPill = (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${unlocked ? 'bg-[var(--surface-2)] text-[var(--text-primary)] ring-1 ring-[var(--border-strong)]' : 'bg-[var(--tone-neutral-bg)] text-[var(--text-secondary)]'}`}>
-      <Icon name={unlocked ? 'shield' : 'clock'} size={13} />
-      {unlocked ? n.lock.unlocked : n.lock.locked}
-    </span>
-  );
   return (
-    <IdentityCardView
-      accountId={accountId}
-      badges={<>{statusPill}{lockPill}</>}
-      balance={active ? { baseUnits: active.snapshot.amountYocto, blockTimestampNs: active.snapshot.blockTimestampNs, blockHeight: active.snapshot.blockHeight } : null}
-      emptyBalance={activation.kind === 'not_activated' ? n.home.noBalance : '—'}
-      statusBody={active ? n.status.provisioned.body : activation.kind === 'not_activated' ? n.status.localOnly.body : n.status.unknown.body}
+    <MainnetIdentityCard
+      activation={activation}
       onRefresh={() => setTick((x) => x + 1)}
-      {...(activation.kind === 'unreadable' ? { onRetry: () => setTick((x) => x + 1) } : {})}
       extra={activation.kind === 'not_activated' ? <div className="mt-4 flex justify-center"><QrCode value={accountId} label={n.identityLabel} /></div> : undefined}
       actions={
         <Link href="/m/wallet" className="tap-target inline-flex items-center gap-1.5 rounded-full px-3 text-xs font-medium text-[var(--text-secondary)] ring-1 ring-[var(--border-strong)] hover:text-[var(--text-primary)]">

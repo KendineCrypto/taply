@@ -297,7 +297,7 @@ export function OpenGiftReceipt({ id }: { readonly id: string }) {
   );
 }
 
-const hexOf = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+export const hexOf = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 
 /** Open Gift creation on the configured Gift contract: `giftCreate` through Codex's planner. */
 export function OpenGiftCreate() {

@@ -230,3 +230,36 @@ export function TaplyIntroView({ createHref, restoreHref }: { readonly createHre
     </section>
   );
 }
+
+/** Segmented switch between the external wallet and Taply Wallet (view choice only). */
+export function WalletModeSwitchView({ mode, onChange }: { readonly mode: 'external' | 'taply'; readonly onChange: (mode: 'external' | 'taply') => void }) {
+  const t = useT();
+  const options = [
+    { value: 'external' as const, label: t.walletNative.external, icon: 'link' as const },
+    { value: 'taply' as const, label: t.walletNative.taply, icon: 'shield' as const },
+  ];
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="eyebrow mb-2 text-[var(--text-muted)]">{t.walletNative.switchLabel}</legend>
+      <div className="grid grid-cols-2 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={mode === o.value}
+            onClick={() => onChange(o.value)}
+            className={`flex min-h-[44px] items-center justify-center gap-2 rounded-[10px] px-2 text-sm font-semibold transition-colors ${
+              mode === o.value
+                ? 'bg-[var(--text-primary)] text-[var(--taply-night)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <Icon name={o.icon} size={16} />
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{t.walletNative.switchNote}</p>
+    </fieldset>
+  );
+}

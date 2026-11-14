@@ -13,6 +13,7 @@ const LEAKS = ['taply-e2e-ce38a238', 'taply-pay-pilot-1.testnet', 'rpc.testnet.n
   'testnet.nearblocks.io', 'FWJ9kR6KFWoyMoNjpLXXGHeuiy7tEY6GmoFeCA5yuc6b', '963iSEB8XFKeUMY1gmj5bCuA2JMVD55ksjdLfCwiPA84',
   'BrR6bioUxuLzYD9m3TMSXmY9KYiLSrq3DSnQrfP6iZ9B', 'taply.testnet-vault.v1', '"abandon","ability"', 'faucet'];
 const results = [];
+const openFixtures = (page) => page.evaluate(() => document.querySelectorAll('details').forEach((d) => { if (d.querySelector('[data-testid=fixture-list]')) d.open = true; })); // fixture list sits in the folded home details
 const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : ' — ' + detail}`); };
 
 (async () => {
@@ -42,6 +43,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     await page.screenshot({ path: `${OUT}/${label}-01-home.png`, fullPage: true });
 
     // Customer: USDC request -> Base USDC -> verified quote review
+    await openFixtures(page);
     await page.getByTestId('fixture-list').getByText('usdc-awaiting').click();
     await page.waitForSelector('[data-testid=pay-amount]');
     check(`${label}: exact USDC amount`, (await page.getByTestId('pay-amount').textContent()).replace(',', '.') === '12.5 USDC');
@@ -71,6 +73,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
 
     for (const [name, state] of [['usdc-recorded', 'PAYMENT_RECORDED'], ['usdc-refunded', 'REFUNDED'], ['usdc-r2-unknown', 'UNKNOWN'], ['usdc-deposit-seen', 'DEPOSIT_OBSERVED'], ['usdc-failed', 'FAILED']]) {
       await page.goto(`${BASE}/m`);
+      await openFixtures(page);
       await page.getByTestId('fixture-list').getByText(name, { exact: true }).click();
       await page.waitForSelector('[data-state]');
       await page.waitForFunction((s) => document.querySelector('[data-state]')?.getAttribute('data-state') === s, state, { timeout: 15000 }).catch(() => {});

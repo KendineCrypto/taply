@@ -14,6 +14,10 @@ import { fixtureById } from '@/lib/mainnet/fixtures';
 import type { MainnetRequest } from '@/lib/mainnet/fixtures';
 import { readerOrNull } from '@/lib/mainnet/hooks';
 import { derivePaymentView } from '@/lib/mainnet/status';
+import type { PaymentState } from '@/lib/mainnet/status';
+import { RecentActivityView } from '@/components/home/RecentActivityView';
+import type { ActivityRowData, ActivityTone } from '@/components/home/RecentActivityView';
+import { useT } from '@/lib/i18n/provider';
 import { useLocalProduct } from '@/lib/mainnet/use-product';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { useMainnetVault } from './Wallet';
@@ -184,41 +188,27 @@ export function TrackRequestButton({ requestId }: { readonly requestId: string }
   );
 }
 
-function ActivityRow({ id, read, onRemove, removeLabel }: { id: string; read: Read; onRemove: () => void; removeLabel: string }) {
+const STATE_TONE: Readonly<Record<PaymentState, ActivityTone>> = {
+  AWAITING_PAYMENT: 'caution',
+  DEPOSIT_OBSERVED: 'caution',
+  PROCESSING: 'caution',
+  PAYMENT_RECORDED: 'neutral',
+  VERIFIED: 'neutral',
+  FAILED: 'muted',
+  REFUNDED: 'muted',
+  UNKNOWN: 'caution',
+};
+
+/**
+ * Activity (home preview and Activity tab) in the Testnet layout: saved request IDs,
+ * each read live from the pinned contract at a final block (fixtures in a fixture
+ * build). Not an indexer; the filter matches the contract record's accounts.
+ */
+export function ActivityList({ preview = false }: { readonly preview?: boolean; readonly removeLabel?: string }) {
   const c = useActivityCopy();
+  const t = useT();
   const m = useMainnetCopy();
   const { locale } = useMainnetLocale();
-  return (
-    <li>
-      <Card>
-        <div data-testid="activity-row" className="flex flex-col gap-1">
-          {read.kind === 'ok' ? (
-            <>
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-[17px] font-semibold tabular-nums">{formatMainnetAmount(read.request.terms.amountBaseUnits, assetById(read.request.terms.assetId)!, locale)}</p>
-                <p data-testid="activity-state" className="text-[13px] font-semibold">
-                  {m.status.states[derivePaymentView({ contract: { status: read.request.status, readAtMs: read.readAtMs, inFlightSinceMs: read.request.status === 'PAYOUT_IN_FLIGHT' && read.request.latestOperation ? nsToDate(read.request.latestOperation.startedAtNs).getTime() : null }, oneClick: null, nowMs: read.readAtMs }).state]}
-                </p>
-              </div>
-              <p className="break-all text-[13px] text-[var(--text-secondary)]">{read.request.recipientAccountId}{read.request.terms.memo ? ` · ${read.request.terms.memo}` : ''}</p>
-            </>
-          ) : (
-            <p className="text-[13px] text-[var(--text-secondary)]">{read.kind === 'loading' ? c.loading : read.kind === 'missing' ? c.missing : c.unreadable}</p>
-          )}
-          <p className="font-mono text-[11px] text-[var(--text-muted)]">{short(id, 12, 12)}</p>
-          <div className="flex flex-wrap gap-3 text-[14px]">
-            <Link className="tap-target inline-flex items-center underline" href={`/m/pay/${id}` as Route}>{c.open}</Link>
-            <Link className="tap-target inline-flex items-center underline" href={`/m/receipt/${id}` as Route}>{c.receipt}</Link>
-            <Button variant="ghost" onClick={onRemove}>{removeLabel}</Button>
-          </div>
-        </div>
-      </Card>
-    </li>
-  );
-}
-
-export function ActivityList({ removeLabel }: { readonly removeLabel: string }) {
-  const c = useActivityCopy();
   const local = useLocalProduct();
   const { accountId } = useMainnetWallet();
   const { identity } = useMainnetVault();
@@ -226,34 +216,54 @@ export function ActivityList({ removeLabel }: { readonly removeLabel: string }) 
   const accounts = useMemo(() => new Set([accountId, identity?.accountId].filter((a): a is string => typeof a === 'string' && a !== '')), [accountId, identity?.accountId]);
   const ids = useMemo(() => [...local.data.requests].reverse(), [local.data.requests]);
   const reads = useRequestsOnce(ids);
-  const shown = ids.filter((id) => matchesActivityFilter(reads.get(id), filter, accounts));
+  const shown = ids.filter((id) => matchesActivityFilter(reads.get(id), filter, accounts)).slice(0, preview ? 3 : undefined);
+  const time = (ns: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(nsToDate(ns));
+  const me = accounts.values().next().value ?? null;
+  const rows: ActivityRowData[] = shown.map((id) => {
+    const read = reads.get(id) ?? { kind: 'loading' as const };
+    if (read.kind !== 'ok') {
+      return { key: id, href: `/m/pay/${id}`, icon: 'request', title: short(id, 8, 6), time: read.kind === 'loading' ? c.loading : read.kind === 'missing' ? c.missing : c.unreadable, amount: null, phase: '—', tone: 'muted' };
+    }
+    const r = read.request;
+    const received = accounts.has(r.recipientAccountId);
+    const state = derivePaymentView({ contract: { status: r.status, readAtMs: read.readAtMs, inFlightSinceMs: r.status === 'PAYOUT_IN_FLIGHT' && r.latestOperation ? nsToDate(r.latestOperation.startedAtNs).getTime() : null }, oneClick: null, nowMs: read.readAtMs }).state;
+    return {
+      key: id,
+      href: r.status === 'FINAL_PAID' ? `/m/receipt/${id}` : `/m/pay/${id}`,
+      icon: received ? 'request' : 'send',
+      title: received ? t.walletUx.activity.method.create_request : t.walletUx.activity.method.pay_instant_native,
+      time: time(r.createdAtNs),
+      amount: <span className="text-sm font-semibold tabular-nums">{formatMainnetAmount(r.terms.amountBaseUnits, assetById(r.terms.assetId)!, locale)}</span>,
+      phase: m.status.states[state],
+      tone: STATE_TONE[state],
+    };
+  });
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-[14px] text-[var(--text-secondary)]">{c.lead}</p>
-      {local.ready && local.data.requests.length === 0 && <Notice tone="muted">{c.empty}</Notice>}
-      {ids.length > 0 && (
-        <fieldset className="flex flex-wrap gap-2" data-testid="activity-filter">
-          <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.filterLabel}</legend>
-          {(['all', 'received', 'paid', 'open'] as const).map((f) => (
-            <label key={f} className="flex min-h-[var(--tap-target)] cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 text-[14px] has-[:checked]:border-[var(--accent)]">
-              <input type="radio" name="activity-filter" value={f} checked={filter === f} onChange={() => setFilter(f)} />
-              {c.filters[f]}
-            </label>
-          ))}
-        </fieldset>
-      )}
-      {(filter === 'received' || filter === 'paid') && (
-        accounts.size === 0
-          ? <Notice tone="muted" testId="activity-no-account">{c.noAccount}</Notice>
-          : <p className="break-all text-[12px] text-[var(--text-muted)]" data-testid="activity-accounts">{c.filterAccounts}: {[...accounts].join(', ')}</p>
-      )}
-      {ids.length > 0 && shown.length === 0 && filter !== 'all' && <Notice tone="muted" testId="activity-no-match">{c.noMatch}</Notice>}
-      <ul className="flex flex-col gap-2" data-testid="activity-list">
-        {shown.map((id) => (
-          <ActivityRow key={id} id={id} read={reads.get(id) ?? { kind: 'loading' }} removeLabel={removeLabel} onRemove={() => local.save({ ...local.data, requests: local.data.requests.filter((r) => r !== id) })} />
-        ))}
-      </ul>
-    </div>
+    <RecentActivityView
+      preview={preview}
+      rows={rows}
+      allHref="/m/activity"
+      emptyBody={accounts.size === 0 ? t.home.activityConnectBody : t.walletUx.home.activityEmptyBody}
+      explorerHref={me !== null ? nearAccountUrl(me) : null}
+      filters={!preview && ids.length > 0 ? (
+        <>
+          <div className="mb-3 flex flex-wrap gap-2" role="radiogroup" aria-label={c.filterLabel} data-testid="activity-filter">
+            {(['all', 'received', 'paid', 'open'] as const).map((f) => (
+              <label key={f} className="relative inline-flex min-h-[36px] cursor-pointer items-center rounded-full px-3 text-xs font-medium text-[var(--text-secondary)] ring-1 ring-[var(--border-subtle)] has-[:checked]:bg-[var(--surface-2)] has-[:checked]:text-[var(--text-primary)] has-[:checked]:ring-[var(--border-strong)]">
+                <input type="radio" className="absolute inset-0 cursor-pointer opacity-0" name="activity-filter" value={f} checked={filter === f} onChange={() => setFilter(f)} />
+                {c.filters[f]}
+              </label>
+            ))}
+          </div>
+          {(filter === 'received' || filter === 'paid') && (
+            accounts.size === 0
+              ? <Notice tone="muted" testId="activity-no-account">{c.noAccount}</Notice>
+              : <p className="mb-2 break-all px-1 text-[12px] text-[var(--text-muted)]" data-testid="activity-accounts">{c.filterAccounts}: {[...accounts].join(', ')}</p>
+          )}
+          {shown.length === 0 && filter !== 'all' && <Notice tone="muted" testId="activity-no-match">{c.noMatch}</Notice>}
+        </>
+      ) : undefined}
+    />
   );
 }
 
