@@ -232,6 +232,39 @@ try {
     assert.equal(result.sends, 2); assert.equal(result.completed, 2);
     ok('FINAL reconciliation releases the block; exactly 2 broadcasts for 2 payments');
   }
+  // A disposable local vault, real IndexedDB CryptoKey cloning and actual reload.
+  // No RPC, account provisioning or transaction signing in these session checks.
+  await signingPage.evaluate(async () => {
+    const { EncryptedMainnetVault } = await import('/packages/near-client/src/mainnet-vault.ts');
+    const { createMainnetVaultSessionStore } = await import('/apps/web/src/lib/mainnet/vault-session.ts');
+    const v = new EncryptedMainnetVault(localStorage, { session: createMainnetVaultSessionStore() });
+    await v.create('disposable browser session password');
+    await v.unlock('disposable browser session password');
+    v.release();
+  });
+  await signingPage.reload();
+  assert.equal(await signingPage.evaluate(async () => {
+    const { EncryptedMainnetVault } = await import('/packages/near-client/src/mainnet-vault.ts');
+    const { createMainnetVaultSessionStore } = await import('/apps/web/src/lib/mainnet/vault-session.ts');
+    const v = new EncryptedMainnetVault(localStorage, { session: createMainnetVaultSessionStore() });
+    window.refreshTestVault = v;
+    return await v.resume() && v.unlocked;
+  }), true);
+  ok('Mainnet tab reload restores the nonextractable session with real IndexedDB');
+  const freshTab = await open(context);
+  assert.equal(await freshTab.evaluate(async () => {
+    const { EncryptedMainnetVault } = await import('/packages/near-client/src/mainnet-vault.ts');
+    const { createMainnetVaultSessionStore } = await import('/apps/web/src/lib/mainnet/vault-session.ts');
+    return new EncryptedMainnetVault(localStorage, { session: createMainnetVaultSessionStore() }).resume();
+  }), false);
+  await signingPage.evaluate(() => window.refreshTestVault.lock());
+  await signingPage.reload();
+  assert.equal(await signingPage.evaluate(async () => {
+    const { EncryptedMainnetVault } = await import('/packages/near-client/src/mainnet-vault.ts');
+    const { createMainnetVaultSessionStore } = await import('/apps/web/src/lib/mainnet/vault-session.ts');
+    return new EncryptedMainnetVault(localStorage, { session: createMainnetVaultSessionStore() }).resume();
+  }), false);
+  ok('a fresh tab stays locked and explicit Lock now survives reload');
   writeFileSync(resolve(output, 'checks.json'), JSON.stringify(checks, null, 2));
   console.log(`release browser: ${checks.length} checks passed (gate ${expect})`);
 } finally {

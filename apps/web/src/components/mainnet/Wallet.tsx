@@ -1,6 +1,7 @@
 'use client';
 
 import { ExternalWalletVerification } from './ExternalWalletVerification';
+import { createMainnetVaultSessionStore } from '@/lib/mainnet/vault-session';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
@@ -50,13 +51,20 @@ export function useWalletCopy(): WalletCopy {
 }
 
 let vaultSingleton: EncryptedMainnetVault | null = null;
+let vaultResume: Promise<boolean> | null = null;
 export function vault(): EncryptedMainnetVault {
-  vaultSingleton ??= new EncryptedMainnetVault(window.localStorage);
+  if (vaultSingleton === null) {
+    const session = createMainnetVaultSessionStore();
+    vaultSingleton = new EncryptedMainnetVault(window.localStorage, session === null ? {} : { session });
+    window.addEventListener('pagehide', () => vaultSingleton?.release());
+    window.addEventListener('pageshow', (event) => { if (event.persisted) void vaultSingleton?.resume().catch(() => false); });
+  }
   return vaultSingleton;
 }
 const subscribe = (cb: () => void) => vault().subscribe(cb);
 /** Identity + unlocked state, re-rendered on vault changes. */
 export function useMainnetVault(): { identity: MainnetWalletIdentity | null; unlocked: boolean } {
+  useEffect(() => { vaultResume ??= vault().resume().catch(() => false); }, []);
   const snap = useSyncExternalStore(
     subscribe,
     () => {
