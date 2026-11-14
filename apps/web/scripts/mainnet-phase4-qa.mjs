@@ -46,12 +46,13 @@ const SEED = '07'.repeat(32);
 const { createPrivateKey, createPublicKey } = await import('node:crypto');
 const SEED_PUBLIC_HEX = createPublicKey(createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.from(SEED, 'hex')]), format: 'der', type: 'pkcs8' }))
   .export({ format: 'der', type: 'spki' }).subarray(-32).toString('hex');
+let claimedAvailableGift = false;
 function giftView(id) {
   const base = { id, creator: 'carol.near', amountYocto: '500000000000000000000000', publicKey: SEED_PUBLIC_HEX, message: 'Mutlu yıllar — happy new year', design: 1,
     createdAtNs: '1793510000000000000', createdHeight: '199990000', expiresAtNs: '1793600000000000000', status: 'AVAILABLE',
     beneficiary: null, settledAtNs: null, settledHeight: null, payout: null, payoutNonce: null };
   const settled = (beneficiary, payout, status = 'CLAIMED') => ({ ...base, status, beneficiary, settledAtNs: '1793515000000000000', settledHeight: '199995000', payout, payoutNonce: 1 });
-  if (id === GIFT.available) return base;
+  if (id === GIFT.available) return claimedAvailableGift ? settled(ME, 'CONFIRMED') : base;
   if (id === GIFT.expired) return { ...base, creator: ME, status: 'EXPIRED', expiresAtNs: '1793515000000000000' };
   if (id === GIFT.pending) return settled(ME, 'PENDING');
   if (id === GIFT.failed) return settled(ME, 'FAILED');
@@ -187,9 +188,8 @@ const frag = (v) => `#p=${Buffer.from(JSON.stringify(v)).toString('base64url')}`
 const { page: r } = await ctx('recipient', { width: 360, height: 780 });
 await r.goto(`${BASE}/m/gift/p${frag(payload)}`);
 await waitFor(r, 'pg-open');
-check('Personal Gift link opens on /m/gift/p with the envelope and a separate Unwrap button', await r.getByTestId('pg-unwrap').isVisible() && await r.getByTestId('pg-check').isVisible());
+check('Personal Gift link opens on /m/gift/p with the envelope and a separate Unwrap button', await r.getByTestId('pg-unwrap').isVisible() && !(await r.getByTestId('pg-check').isVisible().catch(() => false)));
 await r.getByTestId('pg-unwrap').click();
-await r.getByTestId('pg-check').click();
 await waitFor(r, 'pg-result');
 const verified = await r.locator('[data-testid=pg-result] [data-kind]').getAttribute('data-kind');
 const verifiedText = await text(r, 'pg-result');
@@ -201,14 +201,14 @@ await r.screenshot({ path: `${OUT}/p4-03-personal-gift-verified.png`, fullPage: 
 await r.goto('about:blank');
 await r.goto(`${BASE}/m/gift/p${frag({ ...payload, amountYocto: '3000000000000000000000000' })}`);
 await waitFor(r, 'pg-open');
-await r.getByTestId('pg-check').click();
+await r.getByTestId('pg-unwrap').click();
 await waitFor(r, 'pg-result');
 check('tampered amount in the link → NOT_VERIFIED (MISMATCH)', (await r.locator('[data-testid=pg-result] [data-kind]').getAttribute('data-kind')) === 'NOT_VERIFIED');
 txMode = 'unknown';
 await r.goto('about:blank');
 await r.goto(`${BASE}/m/gift/p${frag(payload)}`);
 await waitFor(r, 'pg-open');
-await r.getByTestId('pg-check').click();
+await r.getByTestId('pg-unwrap').click();
 await waitFor(r, 'pg-result');
 check('unknown transaction → NOT_VERIFIED (not found), never paid', (await r.locator('[data-testid=pg-result] [data-kind]').getAttribute('data-kind')) === 'NOT_VERIFIED');
 txMode = 'ok';
@@ -221,9 +221,12 @@ await w.goto(`${BASE}/m/gift/${GIFT.available}#k=${SEED}`);
 await waitFor(w, 'open-gift');
 check('Open Gift: link key moved out of the URL (fragment stripped)', !(await w.evaluate(() => location.hash)).includes(SEED));
 check('Open Gift: AVAILABLE read from the Gift contract', (await w.getByTestId('og-state').getAttribute('data-status')) === 'AVAILABLE');
-check('Open Gift: unwrap and claim are separate actions', await w.getByTestId('og-unwrap').isVisible() && await w.getByTestId('og-sign').isVisible());
+check('Open Gift: unwrap and claim are separate actions', await w.getByTestId('og-unwrap').isVisible() && !(await w.getByTestId('og-sign').isVisible().catch(() => false)));
 await w.getByTestId('og-unwrap').click();
 check('unwrapping does not claim', !(await w.getByTestId('og-claim-ready').isVisible().catch(() => false)));
+const claimButton = await w.getByTestId('og-sign').boundingBox();
+check('unwrapped gift primary action fits above the mobile bottom navigation', claimButton !== null && claimButton.y + claimButton.height < 744);
+await w.screenshot({ path: `${OUT}/p4-04-gift-unwrapped.png`, fullPage: true });
 check('claimant is this Taply Wallet (the account that would sign)', (await text(w, 'og-claimant')).trim() === ME);
 await w.getByTestId('og-sign').click();
 const claimReady = await waitFor(w, 'og-claim-ready') ? await text(w, 'og-claim-ready') : '';
@@ -232,7 +235,16 @@ await noOverflow(w, 'p4-04-open-gift-claim');
 await w.screenshot({ path: `${OUT}/p4-04-open-gift-claim.png`, fullPage: true });
 const { page: nokey } = await ctx('no-key');
 await nokey.goto(`${BASE}/m/gift/${GIFT.available}`);
+await nokey.getByTestId('og-unwrap').click();
 check('Open Gift without the link key: claim not possible', await waitFor(nokey, 'og-no-key'));
+// A read-only chain transition must replace the opened gift with a clear receipt
+// treatment on both devices. No wallet transaction or claim is sent by this test.
+claimedAvailableGift = true;
+check('gift FINAL confirmed payout replaces stale AVAILABLE without reload', await waitFor(w, 'og-success', 15000));
+check('confirmed gift hides the old claim review and button', !(await w.getByTestId('og-sign').isVisible().catch(() => false)) && !(await w.getByTestId('og-claim-ready').isVisible().catch(() => false)));
+await noOverflow(w, 'p4-04-gift-confirmed');
+await w.screenshot({ path: `${OUT}/p4-04-gift-confirmed.png`, fullPage: true });
+claimedAvailableGift = false;
 await w.goto(`${BASE}/m/gift/${GIFT.expired}`);
 await waitFor(w, 'open-gift');
 check('expired gift (creator = this wallet): refund offered, no claim', (await w.getByTestId('og-state').getAttribute('data-status')) === 'EXPIRED' && await w.getByTestId('og-refund').isVisible() && !(await w.getByTestId('og-sign').isVisible().catch(() => false)));
