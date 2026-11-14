@@ -23,6 +23,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 function start() {
   render(<MainnetLocaleProvider locale="en"><CreateRequest /></MainnetLocaleProvider>);
+  fireEvent.click(screen.getByLabelText('USDC')); // NEAR is the default asset
   fireEvent.change(screen.getByLabelText('Amount (USDC)'), { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: mainnetEn.create.review }));
 }

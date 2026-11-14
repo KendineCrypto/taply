@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { prepareMainnetPayment } from '@taply/near-client';
 import { MainnetAccountSchema } from '@taply/shared';
 import { displayMemo, saleFromHash, saleMatches } from '@/lib/mainnet/commerce';
 import type { SaleCommitment } from '@/lib/mainnet/commerce';
-import type { MainnetCall, MainnetProfile } from '@taply/near-client';
 import { Button } from '@/components/primitives/Button';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
 import { nsToDate } from '@/lib/format/time';
@@ -14,7 +12,6 @@ import { assetById, formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/as
 import type { MainnetAsset } from '@/lib/mainnet/assets';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { baseAddressUrl, nearAccountUrl } from '@/lib/mainnet/explorer';
-import { FIXTURE_CODE_HASH } from '@/lib/mainnet/fixtures';
 import type { MainnetRequest } from '@/lib/mainnet/fixtures';
 import { useMainnetRequest, useOneClickHint } from '@/lib/mainnet/hooks';
 import type { HintState } from '@/lib/mainnet/hooks';
@@ -25,8 +22,7 @@ import { OperationError, OperationReview, useOperation } from './Operation';
 import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
 import { derivePaymentView } from '@/lib/mainnet/status';
 import type { PaymentState } from '@/lib/mainnet/status';
-import { useMainnetWallet } from '@/lib/mainnet/wallet';
-import { CallPreview, Notice, Row, short } from './bits';
+import { Notice, Row, short } from './bits';
 import { WalletPanel } from './WalletPanel';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
@@ -162,13 +158,6 @@ function MethodButton(props: { active: boolean; onClick: () => void; title: stri
   );
 }
 
-function profileFor(request: MainnetRequest): MainnetProfile | null {
-  if (!MAINNET_CONFIG.ok) return null;
-  if (MAINNET_CONFIG.profile !== null) return MAINNET_CONFIG.profile;
-  if (!MAINNET_CONFIG.fixtures) return null;
-  return { network: 'near-mainnet', rpcUrl: MAINNET_CONFIG.rpcUrl, rpcProviderId: MAINNET_CONFIG.rpcProviderId, contract: { accountId: request.terms.contractId, expectedCodeHash: FIXTURE_CODE_HASH } };
-}
-
 /** Pay with a NEAR wallet: shows the exact unsigned call (shared recipient message for USDC). Signing is gated off. */
 /** Recipient-only actions on a real configured contract: cancel while unfunded, retry a recorded failed payout. */
 function RecipientActions({ request }: { request: MainnetRequest }) {
@@ -196,40 +185,23 @@ function RecipientActions({ request }: { request: MainnetRequest }) {
 
 function WalletPayReview({ request, asset }: { request: MainnetRequest; asset: MainnetAsset }) {
   const c = useMainnetCopy();
-  const wallet = useMainnetWallet();
+  const { locale } = useLocale();
   const op = useOperation();
-  const now = useNow(5000);
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
-  // Typed-builder preview (as before); real builds additionally prepare the wallet review through the planner below.
-  let call: MainnetCall | null = null;
-  const profile = profileFor(request);
-  if (profile !== null && wallet.accountId !== null) {
-    try {
-      call = prepareMainnetPayment({ profile, terms: request.terms, status: request.status, termsHash: request.termsHash,
-        signerAccountId: wallet.accountId, observedAtNs: (BigInt(now) * 1_000_000n).toString() });
-    } catch { call = null; }
+  const amount = formatMainnetAmount(request.terms.amountBaseUnits, asset, locale);
+  if (op.signer.kind !== 'ok') {
+    return <Card><WalletPanel /></Card>;
   }
   return (
-    <Card>
-      <h2 className="mb-2 text-[15px] font-semibold">{c.pay.methodWallet}</h2>
-      <WalletPanel />
-      {call !== null && <div className="mt-3"><CallPreview call={call} title={c.create.callTitle} /></div>}
-      {!fixtures && (
-        <div className="mt-3 flex flex-col gap-2">
-          <Button variant="secondary" data-testid="pay-review" disabled={op.busy} onClick={() => void op.run({ kind: 'instantPay', id: request.terms.id })}>{c.create.review}</Button>
-          <OperationError code={op.error} />
-          {op.prepared !== null && <OperationReview prepared={op.prepared} title={c.pay.methodWallet} />}
-        </div>
+    <div className="flex flex-col gap-3">
+      {op.prepared === null && (
+        <Button variant="primary" size="lg" block data-testid="pay-review" disabled={op.busy || fixtures} onClick={() => void op.run({ kind: 'instantPay', id: request.terms.id })}>
+          {op.busy ? '…' : `${c.create.sign} · ${amount}`}
+        </Button>
       )}
-      {(fixtures || op.prepared === null) && (
-        <div className="mt-3 flex flex-col gap-2">
-          <Button variant="primary" size="lg" block disabled aria-describedby="wallet-signing-off">
-            {c.create.sign} · {asset.symbol}
-          </Button>
-          <p id="wallet-signing-off" className="text-[13px] text-[var(--tone-caution-fg)]">{c.wallet.signingDisabled}</p>
-        </div>
-      )}
-    </Card>
+      <OperationError code={op.error} />
+      {op.prepared !== null && <OperationReview prepared={op.prepared} title={c.pay.methodWallet} />}
+    </div>
   );
 }
 

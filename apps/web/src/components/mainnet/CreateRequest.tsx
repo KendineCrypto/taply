@@ -7,13 +7,15 @@ import { prepareMainnetCreateRequest, prepareMainnetTokenStorageDeposit } from '
 import type { MainnetCall } from '@taply/near-client';
 import { Button } from '@/components/primitives/Button';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
+import { QrCode } from '@/components/payments/QrCode';
+import type { SubmitOutcome } from '@/lib/mainnet/wallet-ops';
 import { MAINNET_ASSETS, formatMainnetAmount, parseMainnetAmount } from '@/lib/mainnet/assets';
 import type { MainnetAsset } from '@/lib/mainnet/assets';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { FIXTURE_CODE_HASH, FIXTURE_CONTRACT, FIXTURE_MERCHANT, FIXTURE_STORAGE_BOND_YOCTO } from '@/lib/mainnet/fixtures';
 import { readerOrNull, useUsdcRegistration } from '@/lib/mainnet/hooks';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
-import { CallPreview, Notice, Row } from './bits';
+import { CallPreview, Notice } from './bits';
 import { readPrefill } from '@/lib/mainnet/prefill';
 import { WalletPanel } from './WalletPanel';
 import { OperationError, OperationReview, useOperation, useSigner } from './Operation';
@@ -85,7 +87,9 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const wallet = useMainnetWallet();
-  const [assetKey, setAssetKey] = useState<'USDC' | 'NEAR'>('USDC');
+  const [assetKey, setAssetKey] = useState<'USDC' | 'NEAR'>('NEAR');
+  const signerChoice = useSigner();
+  const [done, setDone] = useState<SubmitOutcome | null>(null);
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   // Prefill from Split / Recurring links, re-validated (lib/mainnet/prefill.ts).
@@ -110,7 +114,8 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
 
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
   const asset = MAINNET_ASSETS[assetKey];
-  const creator = wallet.accountId ?? (fixtures ? FIXTURE_MERCHANT : null);
+  // The Taply Wallet (or a connected wallet that reports its key) receives the payment.
+  const creator = (signerChoice.kind === 'ok' ? signerChoice.accountId : null) ?? wallet.accountId ?? (fixtures ? FIXTURE_MERCHANT : null);
   const contractId = MAINNET_CONFIG.ok && MAINNET_CONFIG.contract.status === 'configured'
     ? (MAINNET_CONFIG.contract.accountId as 'taply-pay.kendinecrypto.near' | 'devkendinecrypto.near')
     : fixtures ? FIXTURE_CONTRACT : null;
@@ -197,16 +202,8 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
 
   let createCall: MainnetCall | null = null;
   if (terms !== null && bond.kind !== 'unknown' && profileForBuild !== null && creator !== null) {
-    try {
-      createCall = prepareMainnetCreateRequest({
-        profile: profileForBuild,
-        terms,
-        signerAccountId: creator,
-        quote: bond,
-      });
-    } catch {
-      createCall = null;
-    }
+    try { createCall = prepareMainnetCreateRequest({ profile: profileForBuild, terms, signerAccountId: creator, quote: bond }); }
+    catch { createCall = null; }
   }
   let registerCall: MainnetCall | null = null;
   if (!fixtures && assetKey === 'USDC' && registration === 'not_registered' && profileForBuild !== null && creator !== null && storageBounds?.account === creator) {
@@ -214,19 +211,30 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
     catch { registerCall = null; }
   }
 
+  useEffect(() => {
+    if (terms === null || fixtures || op.prepared !== null || op.busy || op.error !== '') return;
+    void op.run({ kind: 'instantCreate', terms });
+    // Runs once per bound terms object; op is a fresh object each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terms, fixtures]);
+  const shareOrigin = MAINNET_CONFIG.ok && MAINNET_CONFIG.shareOrigin ? MAINNET_CONFIG.shareOrigin : typeof window === 'undefined' ? '' : window.location.origin;
+  const payLink = terms !== null ? `${shareOrigin}/m/pay/${terms.id}` : null;
+
   if (!MAINNET_CONFIG.ok) return <Notice tone="danger">{c.home.configBroken}</Notice>;
 
   return (
     <div className="flex flex-col gap-4">
       <ScreenHeader title={c.create.title} description={c.create.lead} />
 
-      <Card>
-        <h2 className="mb-2 text-[14px] font-semibold">{c.create.receiveTo}</h2>
-        {wallet.accountId === null && fixtures && <Notice tone="muted">{fill(c.create.fixtureMerchant, { account: FIXTURE_MERCHANT })}</Notice>}
-        {wallet.accountId === null && !fixtures && <p className="mb-2 text-[14px] text-[var(--text-secondary)]">{c.create.connectFirst}</p>}
-        <div className="mt-2"><WalletPanel /></div>
-        <p className="mt-2 text-[12px] text-[var(--text-muted)]">{c.create.receiveToFixed}</p>
-      </Card>
+      {creator === null || (fixtures && wallet.accountId === null && signerChoice.kind !== 'ok') ? (
+        <Card>
+          {fixtures && <Notice tone="muted">{fill(c.create.fixtureMerchant, { account: FIXTURE_MERCHANT })}</Notice>}
+          {!fixtures && <p className="mb-2 text-[14px] text-[var(--text-secondary)]">{c.create.connectFirst}</p>}
+          <div className="mt-2"><WalletPanel /></div>
+        </Card>
+      ) : (
+        <p className="text-sm text-[var(--text-secondary)]">{c.create.receiveTo}: <span className="chain-id break-all text-[var(--text-primary)]">{creator}</span></p>
+      )}
 
       {!reviewing ? (
         <Card>
@@ -278,46 +286,46 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
           </form>
         </Card>
       ) : (
-        <Card>
-          <h2 className="mb-2 text-[15px] font-semibold">{c.create.reviewTitle}</h2>
-          <dl>
-            <Row label={c.create.receiveTo} mono>{creator}</Row>
-            <Row label={c.create.amountLabel}>{parsed?.ok ? formatMainnetAmount(parsed.baseUnits, asset, locale) : '—'}</Row>
-            {memo !== '' && <Row label={c.create.memoLabel}>{memo}</Row>}
-            <Row label={c.pay.contract} mono>{contractId ?? '—'}</Row>
-            {terms !== null && <Row label={c.pay.requestId} mono><span data-testid="create-request-id">{terms.id}</span></Row>}
-            <Row label={c.create.storageTitle}>
-              {bond.kind === 'fixture'
-                ? fill(c.create.storageFixture, { amount: formatMainnetAmount(bond.depositYocto, MAINNET_ASSETS.NEAR, locale).replace(' NEAR', '') })
-                : bond.kind === 'quoted'
-                  ? fill(c.create.storageQuote, { amount: formatMainnetAmount(bond.depositYocto, MAINNET_ASSETS.NEAR, locale).replace(' NEAR', '') })
-                  : c.create.storageUnknown}
-            </Row>
-            <Row label={c.pay.expires}>{c.create.expiry}</Row>
-          </dl>
-          {commerce && reviewing && terms === null && <Notice tone="danger" testId="sale-bind-error">{c.create.saleBindError}</Notice>}
-          {saleLink !== null && (
-            <div className="mt-3 flex flex-col gap-1" data-testid="sale-commitment">
-              <p className="text-[13px] font-semibold">{c.create.saleTitle}</p>
-              <p className="text-[12px] text-[var(--text-secondary)]">{c.create.saleHelp}</p>
-              <p data-testid="sale-link" className="break-all font-mono text-[11px]">{saleLink}</p>
-              {terms !== null && frozen?.id === terms.id && <p data-testid="sale-freeze" data-status={frozen.status} className="text-[12px] text-[var(--tone-caution-fg)]">{c.create.saleFreeze[frozen.status]}</p>}
-            </div>
-          )}
-          {createCall !== null && <div className="mt-3"><CallPreview call={createCall} title={c.create.callTitle} /></div>}
-          {!fixtures && terms !== null && (
-            <div className="mt-3 flex flex-col gap-2">
-              <Button variant="secondary" data-testid="create-op-review" disabled={op.busy} onClick={() => void op.run({ kind: 'instantCreate', terms })}>{c.create.callTitle}</Button>
+        <div className="flex flex-col gap-3">
+          {done !== null && done.kind === 'FINAL_EXECUTION' && done.execution === 'SUCCESS' && payLink !== null ? (
+            <Card>
+              <div className="flex flex-col items-center gap-3 text-center" data-testid="request-share">
+                <p className="display-amount text-[2rem] leading-none">{parsed?.ok ? formatMainnetAmount(parsed.baseUnits, asset, locale) : ''}</p>
+                <QrCode value={saleLink !== null ? `${shareOrigin}${saleLink}` : payLink} label={c.create.title} />
+                <p className="break-all font-mono text-[12px] text-[var(--text-secondary)]" data-testid="request-link">{saleLink !== null ? `${shareOrigin}${saleLink}` : payLink}</p>
+                <Button variant="secondary" onClick={() => { void navigator.clipboard?.writeText(saleLink !== null ? `${shareOrigin}${saleLink}` : payLink); }}>Copy link</Button>
+              </div>
+            </Card>
+          ) : (
+            <>
+              {fixtures && (
+                <Card>
+                  <p className="display-amount text-[2rem] leading-none">{parsed?.ok ? formatMainnetAmount(parsed.baseUnits, asset, locale) : '—'}</p>
+                  {terms !== null && <p className="mt-2 break-all font-mono text-[11px] text-[var(--text-muted)]" data-testid="create-request-id">{terms.id}</p>}
+                </Card>
+              )}
+              {commerce && reviewing && terms === null && <Notice tone="danger" testId="sale-bind-error">{c.create.saleBindError}</Notice>}
+              {!fixtures && op.busy && op.prepared === null && <p role="status" className="text-sm text-[var(--text-secondary)]">…</p>}
               <OperationError code={op.error} />
-              {op.prepared !== null && <OperationReview prepared={op.prepared} title={c.create.callTitle} />}
-            </div>
+              {op.prepared !== null && (
+                <OperationReview prepared={op.prepared} title={c.create.title} onDone={setDone}>
+                  {memo !== '' && <p className="text-sm text-[var(--text-secondary)]">{memo}</p>}
+                  {bond.kind === 'quoted' && <p className="text-[12px] text-[var(--text-muted)]">{fill(c.create.storageQuote, { amount: formatMainnetAmount(bond.depositYocto, MAINNET_ASSETS.NEAR, locale).replace(' NEAR', '') })}</p>}
+                  {terms !== null && <span className="sr-only" data-testid="create-request-id">{terms.id}</span>}
+                </OperationReview>
+              )}
+              {createCall !== null && (
+                <details className="text-[12px] text-[var(--text-muted)]">
+                  <summary className="cursor-pointer">{c.create.callTitle}</summary>
+                  <CallPreview call={createCall} title={c.create.callTitle} />
+                </details>
+              )}
+              {saleLink !== null && <p data-testid="sale-link" className="break-all font-mono text-[11px] text-[var(--text-muted)]">{saleLink}</p>}
+              {terms !== null && frozen?.id === terms.id && <p data-testid="sale-freeze" data-status={frozen.status} className="text-[12px] text-[var(--tone-caution-fg)]">{c.create.saleFreeze[frozen.status]}</p>}
+              <Button variant="ghost" onClick={() => { setReviewAtMs(null); setSession(null); setDone(null); op.reset(); }}>{c.create.back}</Button>
+            </>
           )}
-          <div className="mt-3 flex flex-col gap-2">
-            <Button variant="primary" size="lg" block disabled aria-describedby="signing-off">{c.create.sign}</Button>
-            <p id="signing-off" className="text-[13px] text-[var(--tone-caution-fg)]">{c.wallet.signingDisabled}</p>
-            <Button variant="ghost" onClick={() => { setReviewAtMs(null); setSession(null); op.reset(); }}>{c.create.back}</Button>
-          </div>
-        </Card>
+        </div>
       )}
 
       {assetKey === 'USDC' && creator !== null && (
