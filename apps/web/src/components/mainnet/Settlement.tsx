@@ -90,7 +90,12 @@ export function rememberSettlementTransaction(kind: 'instant' | 'escrow' | 'gift
   } catch { /* Verification can still be run manually when browser storage is unavailable. */ }
 }
 
-export function SettlementCheck({ kind, id, fixture = false, automatic = false }: { readonly kind: 'instant' | 'escrow' | 'gift'; readonly id: string; readonly fixture?: boolean; readonly automatic?: boolean }) {
+type SettlementCheckProps = { readonly kind: 'instant' | 'escrow' | 'gift'; readonly id: string; readonly fixture?: boolean; readonly automatic?: boolean };
+export function SettlementCheck(props: SettlementCheckProps) {
+  return <SettlementCheckContent key={`${props.kind}:${props.id}`} {...props} />;
+}
+
+function SettlementCheckContent({ kind, id, fixture = false, automatic = false }: SettlementCheckProps) {
   const { locale } = useMainnetLocale();
   const c = COPY[locale];
   const [text, setText] = useState('');
