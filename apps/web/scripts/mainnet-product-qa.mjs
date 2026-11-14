@@ -28,9 +28,9 @@ try {
     await page.goto(`${base}/m/send`);
     check(`${locale} send: no enabled confirm`, await page.getByRole('button', { name: locale === 'tr' ? 'Onayla ve gönder' : 'Confirm and send' }).count() === 0 || await page.getByRole('button', { name: locale === 'tr' ? 'Onayla ve gönder' : 'Confirm and send' }).isDisabled());
     await page.goto(`${base}/m/split`);
-    await page.getByLabel(locale === 'tr' ? 'Tutar' : 'Amount', { exact: true }).fill('0.000005');
-    await page.getByRole('button', { name: locale === 'tr' ? 'Kesin payları hesapla' : 'Calculate exact shares' }).click();
-    check(`${locale} split: exact remainder`, (await page.locator('ol').textContent()).includes('0.000003 USDC'));
+    // Same as Testnet: without a wallet Split shows the connect card and empty state, no calculator
+    // (the exact-remainder math is covered by src/lib/mainnet/__tests__/product.test.ts).
+    check(`${locale} split: Testnet no-wallet state, no calculator`, await page.getByTestId('split-no-wallet').isVisible() && await page.getByRole('button', { name: locale === 'tr' ? 'Kesin payları hesapla' : 'Calculate exact shares' }).count() === 0);
     await page.goto(`${base}/m/gift/new`);
     await page.getByLabel(locale === 'tr' ? 'Mesaj / not' : 'Message / memo').fill('Taply 💚');
     await page.getByRole('button', { name: locale === 'tr' ? 'Zarfı önizle' : 'Preview envelope' }).click();

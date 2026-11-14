@@ -55,7 +55,7 @@ export function ToolNoWallet({ kind }: { readonly kind: 'split' | 'recurring' })
   const t = useT();
   const s = kind === 'split' ? t.tools.split : t.tools.recurring;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-testid={`${kind}-no-wallet`}>
       <NoWalletCard text={s.connectFirst} />
       <EmptyState title={s.empty.title} body={s.empty.body} />
       {kind === 'split' && (
