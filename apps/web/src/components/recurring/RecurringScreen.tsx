@@ -9,7 +9,7 @@ import { Icon } from '@/components/shell/Icons';
 import { Sheet } from '@/components/shell/Sheet';
 import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
 import { formatBaseUnits } from '@/lib/format/amount';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import type { Locale } from '@/lib/i18n';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { NEAR_NATIVE } from '@/lib/protocol';

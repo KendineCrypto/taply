@@ -6,7 +6,7 @@ import { Button } from '@/components/primitives/Button';
 import { Card, EmptyState, ScreenHeader } from '@/components/primitives/Surface';
 import { Icon } from '@/components/shell/Icons';
 import { Sheet } from '@/components/shell/Sheet';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { MAX_CONTACTS, checkContactAccount, searchContacts } from '@/lib/contacts/contacts';
 import type { Contact } from '@/lib/contacts/contacts';

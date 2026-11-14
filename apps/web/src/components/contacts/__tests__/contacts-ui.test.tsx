@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NearTestnetClient } from '@taply/near-client';
 import { ContactsScreen } from '../ContactsScreen';
 import { SendFlow } from '@/components/send/SendFlow';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import { CONTACTS_STORAGE_KEY } from '@/lib/contacts/contacts';
 import { installChain, readySetup, recordingWallet, renderWithChain } from '@/test/chain';
 

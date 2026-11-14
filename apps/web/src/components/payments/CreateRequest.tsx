@@ -12,7 +12,7 @@ import { AmountHero, Monogram } from '@/components/experience/Basics';
 import { Icon } from '@/components/shell/Icons';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { formatCutoff } from '@/lib/format/time';
 import { formatBaseUnits } from '@/lib/format/amount';

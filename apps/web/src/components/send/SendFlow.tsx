@@ -7,7 +7,7 @@ import { Card } from '@/components/primitives/Surface';
 import { Icon } from '@/components/shell/Icons';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { InvalidAmountError, formatBaseUnits, toBaseUnits } from '@/lib/format/amount';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { classifyAccountId } from '@/lib/near/account';
 import { displayableBalance } from '@/lib/near/balance';

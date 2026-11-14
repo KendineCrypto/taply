@@ -8,7 +8,7 @@ import { LocaleSwitch } from '@/components/shell/AppShell';
 import { AccountChip } from '@/components/wallet/AccountChip';
 import { ConnectWalletButton, WalletErrorNotice } from '@/components/wallet/WalletConnect';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { CHAIN_CONFIG } from '@/lib/near/config';
 import { useWallet } from '@/lib/wallet/provider';

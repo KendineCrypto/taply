@@ -186,10 +186,7 @@ export function explorerAccountUrl(explorerBaseUrl: string, accountId: string): 
   return `${explorerBaseUrl}/address/${encodeURIComponent(accountId)}`;
 }
 
-/** Explorer evidence link for a transaction. Evidence to look at, not proof by itself. */
-export function explorerTransactionUrl(explorerBaseUrl: string, transactionHash: string): string {
-  return `${explorerBaseUrl}/txns/${encodeURIComponent(transactionHash)}`;
-}
+export { explorerTransactionUrl } from './explorer';
 
 /**
  * Provider order for the receipt verifier and the funding locator.

@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/shell/Icons';
 import { usePrefersReducedMotion } from '@/lib/hooks/browser';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { openLivePath, parseScanInput } from '@/lib/payments/pay-link';
 import type { ScanInput } from '@/lib/payments/pay-link';

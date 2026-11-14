@@ -8,7 +8,7 @@ import { Card, DetailRow } from '@/components/primitives/Surface';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Icon } from '@/components/shell/Icons';
 import { formatCutoff } from '@/lib/format/time';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { useCopy } from '@/lib/hooks/browser';
 import { explorerTransactionUrl } from '@/lib/near/config';

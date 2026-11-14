@@ -5,7 +5,7 @@ import { TESTNET_GENESIS_HASH, createNearTestnetClient } from '@taply/near-clien
 import type { ContractConfig, WalletTransactionReview } from '@taply/near-client';
 import { calculateTermsHash } from '@/lib/protocol';
 import type { ContractRequest, IntentTerms } from '@/lib/protocol';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import type { Locale } from '@/lib/i18n';
 import { PaymentsProvider } from '@/lib/payments/context';
 import type { PaymentsSetup } from '@/lib/payments/context';

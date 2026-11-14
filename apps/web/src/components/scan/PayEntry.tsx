@@ -3,7 +3,7 @@
 import { useId, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { openLivePath, parseScanInput } from '@/lib/payments/pay-link';
 import type { ScanInput } from '@/lib/payments/pay-link';

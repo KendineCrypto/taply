@@ -4,7 +4,7 @@ import { HandshakeDemo } from '../HandshakeDemo';
 import { SessionEntry } from '../SessionEntry';
 import { UNAVAILABLE_HANDSHAKE } from '@/lib/handshake/adapter';
 import { localComparisonCode } from '@/lib/handshake/present';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import { DEMO_TERMS } from '@/lib/mock/handshake-demo';
 
 afterEach(() => cleanup());

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from '../AppShell';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import type { Locale } from '@/lib/i18n';
 import { WalletProvider } from '@/lib/wallet/provider';
 import type { WalletAdapter, WalletSession } from '@/lib/wallet/adapter';

@@ -5,7 +5,7 @@ import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Button } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { presentHandshake } from '@/lib/handshake/present';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { DEMO_NOW_NS, DEMO_TERMS, DEMO_TERMS_SUBSTITUTED, demoSession } from '@/lib/mock/handshake-demo';
 import type { DemoStep } from '@/lib/mock/handshake-demo';

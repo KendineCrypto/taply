@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { liveApi, LiveError, liveStore, randomToken, useLiveAvailable, useLiveSync } from '@/lib/live-session/client';
 // The same short code both phones derive from the on-chain request ID.

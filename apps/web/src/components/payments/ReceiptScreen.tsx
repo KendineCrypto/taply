@@ -10,7 +10,7 @@ import type { ReceiptReference } from '@/components/experience/ReceiptTicket';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Icon } from '@/components/shell/Icons';
 import { useCopy } from '@/lib/hooks/browser';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { usePayments } from '@/lib/payments/context';
 import { callerRoleFor } from '@/lib/payments/intent';

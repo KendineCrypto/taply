@@ -4,7 +4,7 @@ import { cleanup, render } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SharedSession } from '../SharedSession';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import type { ProgressStage } from '../progress';
 
 /**

@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MainnetLocaleProvider } from '@/lib/mainnet/copy';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import { MAINNET_DICTIONARIES } from '@/lib/i18n/mainnet-dictionaries';
 import { MainnetProduct } from '../MainnetProduct';
 import { productStorageKey } from '@/lib/mainnet/product';

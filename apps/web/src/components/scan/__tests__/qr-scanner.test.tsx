@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { QrScanner, SUCCESS_HOLD_MS } from '../QrScanner';
 import type { QrScannerProps } from '../QrScanner';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import type { FrameDecoder } from '@/lib/qr/decoder';
 import { CAMERA_CONSTRAINTS } from '@/lib/qr/camera';
 

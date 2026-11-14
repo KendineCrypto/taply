@@ -12,7 +12,7 @@ import { useOptionalTaplyWallet } from '@/components/wallet/taply/TaplyWalletPro
 import { ConnectWalletButton } from '@/components/wallet/WalletConnect';
 import { recipientFormatCheck } from '@/components/send/SendFlow';
 import { formatBaseUnits } from '@/lib/format/amount';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useLocale, useT } from '@/lib/i18n/provider';
 import { useShareOrigin } from '@/lib/share/use-share-origin';
 import { useWallet } from '@/lib/wallet/provider';

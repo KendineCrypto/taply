@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SwapSnapshot } from '@taply/near-client';
 import { TESTNET_SWAP_ROUTES, TESTNET_USDC_ROUTE } from '@taply/near-client';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import type { SignOutcome, WalletCall } from '@/lib/wallet/adapter';
 import { TokenPay, testUsdcPurchaseNear } from '../TokenPay';
 import type { SwapTxResult, TokenPayDeps } from '../TokenPay';

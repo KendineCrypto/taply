@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
-import { I18nProvider } from '@/lib/i18n/provider';
+import { I18nProvider } from '@/lib/i18n/testnet-provider';
 import { WalletProvider } from '@/lib/wallet/provider';
 import { PaymentsProvider } from '@/lib/payments/context';
 import { TaplyWalletProvider } from '@/components/wallet/taply/TaplyWalletProvider';

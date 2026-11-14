@@ -5,7 +5,7 @@ import { useId, useState } from 'react';
 import { normalizePhrase, RECOVERY_WORDS } from '@taply/near-client';
 import { Button, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
+import { fill } from '@/lib/i18n/fill';
 import { useT } from '@/lib/i18n/provider';
 import { normalizeUsername, usernameAccountId, usernameProblem } from '@/lib/wallet/testnet-account';
 import { useTaplyWallet } from './TaplyWalletProvider';
