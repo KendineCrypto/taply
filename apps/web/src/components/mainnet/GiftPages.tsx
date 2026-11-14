@@ -14,7 +14,7 @@ import {
 import type { MainnetDirectReceipt } from '@taply/near-client';
 import { MainnetAccountSchema } from '@taply/shared';
 import { Envelope } from '@/components/gift/Envelope';
-import { Button } from '@/components/primitives/Button';
+import { Button, ButtonLink } from '@/components/primitives/Button';
 import { Card } from '@/components/primitives/Surface';
 import { formatMainnetAmount, MAINNET_ASSETS, parseMainnetAmount } from '@/lib/mainnet/assets';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
@@ -161,7 +161,7 @@ export function PersonalGiftOpen() {
   return (
     <Card>
       <div className="flex flex-col gap-3" data-testid="pg-open">
-        <h2 className="font-semibold">{c.openTitle}</h2>
+        <h1 className="text-center text-xl font-semibold">{c.openTitle}</h1>
         {!open ? <>
           <div className="mx-auto w-full max-w-[220px]"><Envelope design={payload.design} open={false} label={c.openTitle} /></div>
           <p className="text-center text-sm text-[var(--text-secondary)]">{c.from} {payload.from}</p>
@@ -172,14 +172,17 @@ export function PersonalGiftOpen() {
           <p className="whitespace-pre-wrap break-words text-[var(--text-secondary)]">{payload.message}</p>
           <p className="break-all text-sm text-[var(--text-muted)]">{c.from} {payload.from}</p>
           {result === 'checking' && <p role="status">{c.checking}</p>}
-          <Button variant="ghost" data-testid="pg-check" onClick={() => void check(payload)} disabled={result === 'checking'}>{result === 'checking' ? c.checking : c.check}</Button>
-          <Link href="/m" className="tap-target inline-flex items-center text-sm underline">{locale === 'tr' ? 'Cüzdana dön' : 'Back to wallet'}</Link>
+          {(result === null || result === 'checking' || result.kind !== 'VERIFIED') && <Button variant="ghost" data-testid="pg-check" onClick={() => void check(payload)} disabled={result === 'checking'}>{result === 'checking' ? c.checking : c.check}</Button>}
+          <ButtonLink variant="primary" size="lg" block href="/m">{locale === 'tr' ? 'Cüzdana dön' : 'Back to wallet'}</ButtonLink>
         </div>}
         {result !== null && result !== 'checking' && (
-          <Notice tone={result.kind === 'VERIFIED' ? 'success' : 'caution'} live testId="pg-result">
-            <span data-kind={result.kind}>{result.kind === 'VERIFIED' ? c.verified : c.notVerified[result.reason]}</span>
-            {result.kind === 'VERIFIED' && !MAINNET_INDEPENDENT_VERIFIER_AVAILABLE && <span className="mt-1 block text-[12px]">{c.preRelease}</span>}
-          </Notice>
+          <div data-testid="pg-result" className="flex flex-col gap-2 text-sm">
+            <p role="status" className="text-center text-[var(--text-secondary)]">{result.kind === 'VERIFIED' ? (locale === 'tr' ? 'Transfer kontrol edildi' : 'Transfer checked') : c.notVerified[result.reason]}</p>
+            <details className="text-xs text-[var(--text-muted)]"><summary className="tap-target flex cursor-pointer items-center">{locale === 'tr' ? 'Transfer ayrıntıları' : 'Transfer details'}</summary>
+              <span data-kind={result.kind}>{result.kind === 'VERIFIED' ? c.verified : c.notVerified[result.reason]}</span>
+              {result.kind === 'VERIFIED' && !MAINNET_INDEPENDENT_VERIFIER_AVAILABLE && <span className="mt-1 block">{c.preRelease}</span>}
+            </details>
+          </div>
         )}
       </div>
     </Card>
@@ -254,7 +257,7 @@ function OpenGiftContent({ id }: { readonly id: string }) {
           <p className="display-amount text-4xl">{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
           <p className="break-all text-sm text-[var(--text-secondary)]">{g.beneficiary}</p>
           <p className="text-xs text-[var(--text-muted)]">{tr ? 'Transfer sözleşmede tamamlandı.' : 'Transfer completed on the Gift contract.'}</p>
-          <a className="taply-button tap-target mt-2 inline-flex items-center justify-center font-semibold" href={`/m/gift/${g.id}/receipt`}>{c.receipt}</a>
+          <ButtonLink variant="primary" size="lg" block href={`/m/gift/${g.id}/receipt`}>{c.receipt}</ButtonLink>
           <Link href="/m" className="tap-target inline-flex items-center text-sm underline">{tr ? 'Cüzdana dön' : 'Back to wallet'}</Link>
         </div> : submitted || settled ? <div role="status" className="flex flex-col items-center gap-3 py-4 text-center" data-testid="og-processing">
           <p className="display-amount text-3xl">{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
@@ -271,7 +274,7 @@ function OpenGiftContent({ id }: { readonly id: string }) {
             {g.message && <p className="whitespace-pre-wrap break-words rounded-2xl bg-[var(--surface-0)] p-4 text-[var(--text-secondary)]">{g.message}</p>}
             {claimable && op.prepared === null && <div className="flex flex-col gap-3" data-testid="og-claim">
               {seed === null ? <Notice tone="muted" testId="og-no-key">{c.noKey}</Notice> : me === null ? op.signer.kind === 'external-no-key' ? <ExternalWalletVerification /> : <Notice tone="muted" testId="og-no-wallet">{c.needWallet}<Link className="mt-2 block underline" href="/m">{tr ? 'Cüzdanı aç' : 'Open wallet'}</Link></Notice> : <>
-                <p className="text-xs text-[var(--text-muted)]">{c.claimant}: <span data-testid="og-claimant">{me}</span></p>
+                <p className="min-w-0 text-xs text-[var(--text-muted)]">{c.claimant}: <span className="block break-all font-mono" data-testid="og-claimant">{me}</span></p>
                 <Button size="lg" block data-testid="og-sign" disabled={op.busy} onClick={() => void signClaim()}>{op.busy ? c.checking : c.claim}</Button>
               </>}
             </div>}
