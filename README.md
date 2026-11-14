@@ -59,7 +59,7 @@ The Testnet domain has not been switched to Mainnet. [Exact status and CI](docs/
 4. **Verify:** a receipt distinguishes the contract's recorded result from an
    independent check of funding, payout and callback receipts.
 
-## What is built
+## Features
 
 | Capability | Testnet evidence | Mainnet scope |
 | --- | --- | --- |
