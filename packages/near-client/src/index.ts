@@ -77,3 +77,5 @@ export * from './mainnet-wallet-v2.js';
 export * from './mainnet-settlement-receipts.js';
 export * from './mainnet-commerce-binding.js';
 export * from './mainnet-wallet-auth.js';
+
+export { createMainnetWalletKeyProof } from './mainnet-wallet-key-proof.js';
