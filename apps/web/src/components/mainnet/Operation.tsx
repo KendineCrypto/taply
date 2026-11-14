@@ -62,7 +62,7 @@ const en = {
   ledgerHttpUnavailable: 'The payment authority is not reachable from this build or refused this device. Sending stays disabled.',
   ledgerHttpOk: 'Payment record read from the authenticated authority (isolated test configuration).',
   pendingTitle: 'Payment confirmation pending',
-  pendingLead: 'Check the previous payment before sending again.',
+  pendingLead: 'Do not pay again. Checking the previous payment.',
   pendingState: 'Recorded state', states: { RESERVED: 'Reserved before signing', HANDOFF: 'Handed to the signer', UNCERTAIN: 'Outcome unknown' },
   txHash: 'Transaction hash', noHash: 'None recorded — the transaction may or may not have been broadcast.',
   hint: 'Transaction hash from your wallet (optional, used only as a lookup hint)',
