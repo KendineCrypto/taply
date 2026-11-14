@@ -14,40 +14,15 @@ import { ActivationPanel } from './UsernameActivation';
 import { ShowPhrasePanel } from './RecoveryPhrase';
 import type { TaplyErrorCode, TaplyWalletState } from './TaplyWalletProvider';
 import { useWalletMode } from './mode';
-import { IdentityCardView } from '../WalletHomeViews';
+import { IdentityCardView, WalletModeSwitchView } from '../WalletHomeViews';
+import { PassphraseField } from '../PassphraseField';
+
+export { PassphraseField };
 
 /** Segmented switch between the external wallet and Taply Wallet. A view choice only. */
 export function WalletModeSwitch() {
-  const t = useT();
   const [mode, setMode] = useWalletMode();
-  const options = [
-    { value: 'external' as const, label: t.walletNative.external, icon: 'link' as const },
-    { value: 'taply' as const, label: t.walletNative.taply, icon: 'shield' as const },
-  ];
-  return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="eyebrow mb-2 text-[var(--text-muted)]">{t.walletNative.switchLabel}</legend>
-      <div className="grid grid-cols-2 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            aria-pressed={mode === o.value}
-            onClick={() => setMode(o.value)}
-            className={`flex min-h-[44px] items-center justify-center gap-2 rounded-[10px] px-2 text-sm font-semibold transition-colors ${
-              mode === o.value
-                ? 'bg-[var(--text-primary)] text-[var(--taply-night)]'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <Icon name={o.icon} size={16} />
-            {o.label}
-          </button>
-        ))}
-      </div>
-      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{t.walletNative.switchNote}</p>
-    </fieldset>
-  );
+  return <WalletModeSwitchView mode={mode} onChange={setMode} />;
 }
 
 /** On-chain status in words + glyph. Local-only is never styled as active. */
@@ -132,53 +107,6 @@ export function TaplyErrorNotice({ code }: { readonly code: TaplyErrorCode | nul
       <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
       {t.walletNative.errors[code]}
     </p>
-  );
-}
-
-/** Password input with a show/hide toggle. Values never leave component state except to the controller. */
-export function PassphraseField({
-  id,
-  label,
-  value,
-  onChange,
-  autoComplete,
-  describedBy,
-  invalid = false,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly autoComplete: 'new-password' | 'current-password';
-  readonly describedBy?: string | undefined;
-  readonly invalid?: boolean;
-}) {
-  const t = useT();
-  const [visible, setVisible] = useState(false);
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <div className="flex gap-2">
-        <input
-          id={id}
-          type={visible ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoComplete={autoComplete}
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          className="taply-input"
-          aria-describedby={describedBy}
-          aria-invalid={invalid || undefined}
-        />
-        <Button variant="secondary" className="shrink-0" onClick={() => setVisible((v) => !v)} aria-pressed={visible} aria-controls={id}>
-          {visible ? t.walletNative.createFlow.hide : t.walletNative.createFlow.show}
-        </Button>
-      </div>
-    </div>
   );
 }
 

@@ -7,6 +7,10 @@ import { Monogram } from '@/components/experience/Basics';
 import { InstantOnlyBadge } from '@/components/merchant/MerchantParts';
 import { Card, DetailRow, EmptyState, ScreenHeader } from '@/components/primitives/Surface';
 import { Icon } from '@/components/shell/Icons';
+import { Button } from '@/components/primitives/Button';
+import { AccountChip } from '@/components/wallet/AccountChip';
+import { fill } from '@/lib/i18n/fill';
+import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { LocaleSwitch } from '@/components/shell/ShellParts';
 import { useT } from '@/lib/i18n/provider';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
@@ -82,21 +86,28 @@ export function RecurringPill() {
 export function MainnetSettingsView({ extra }: { readonly extra?: ReactNode }) {
   const t = useT();
   const { accountId, kind } = useCurrentMainnetAccount();
+  const external = useMainnetWallet();
   const contract = MAINNET_CONFIG.ok && MAINNET_CONFIG.contract.status === 'configured' ? MAINNET_CONFIG.contract.accountId : null;
   return (
     <div className="flex flex-col gap-4">
       <Card as="section">
         <h2 className="mb-3 text-sm font-semibold">{t.settings.walletSection}</h2>
-        {accountId !== null ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <Monogram accountId={accountId} size={40} />
-              <div className="min-w-0">
-                <p className="chain-id break-all font-semibold">{accountId}</p>
-                <p className="text-xs text-[var(--text-muted)]">{kind === 'taply' ? t.walletNative.taply : t.walletNative.external}</p>
-              </div>
+        {accountId !== null && kind === 'external' ? (
+          <>
+            <AccountChip accountId={accountId} full caption={fill(t.wallet.connectedWith, { wallet: external.walletName ?? 'NEAR wallet' })} />
+            <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">{t.wallet.reportedNotProven}</p>
+            <Button variant="secondary" block className="mt-4" onClick={() => void external.disconnect()}>
+              <Icon name="logout" size={18} />
+              {t.wallet.disconnect}
+            </Button>
+          </>
+        ) : accountId !== null ? (
+          <div className="flex items-center gap-3">
+            <Monogram accountId={accountId} size={40} />
+            <div className="min-w-0">
+              <p className="chain-id break-all font-semibold">{accountId}</p>
+              <p className="text-xs text-[var(--text-muted)]">{t.walletNative.taply}</p>
             </div>
-            {kind === 'external' && <WalletPanel />}
           </div>
         ) : (
           <div className="flex flex-col gap-3">

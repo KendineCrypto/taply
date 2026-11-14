@@ -11,6 +11,7 @@ import type { MainnetEscrowConfig } from '@taply/near-client';
 import { calculateMainnetEscrowRequestId, calculateMainnetEscrowTermsHash, MainnetAccountSchema, MainnetEscrowTermsSchema, MAINNET_USDC_ASSET } from '@taply/shared';
 import type { MainnetEscrowRequest, MainnetEscrowTerms } from '@taply/shared';
 import { Button } from '@/components/primitives/Button';
+import { Icon } from '@/components/shell/Icons';
 import { Card } from '@/components/primitives/Surface';
 import { nsToDate } from '@/lib/format/time';
 import { assetById, formatMainnetAmount, MAINNET_ASSETS, parseMainnetAmount } from '@/lib/mainnet/assets';
@@ -95,7 +96,6 @@ const tr: Copy = {
 };
 const COPY = { en, tr };
 
-const input = 'min-h-[var(--tap-target)] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 text-[15px]';
 const minutesOf = (ns: string) => (BigInt(ns) / 60_000_000_000n).toString();
 const utc = (ns: string) => nsToDate(ns).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
 
@@ -161,34 +161,44 @@ export function ProtectedCreate() {
   const a = prepared === null ? null : assetById(prepared.terms.assetId);
   return (
     <div className="flex flex-col gap-3" data-testid="protected-create">
-      <Card>
-        <h2 className="font-semibold">{c.createTitle}</h2>
-        <p className="mt-1 text-[14px] text-[var(--text-secondary)]">{c.createLead}</p>
-        <form className="mt-3 flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void quote(); }} onChange={() => { setPrepared(null); setConsent(false); op.reset(); }}>
-          <p className="text-[13px] text-[var(--text-secondary)]">{c.creator}: <span className="break-all font-mono" data-testid="pc-creator">{me}</span></p>
-          <fieldset className="flex gap-2">
-            <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.asset}</legend>
-            {(['NEAR', 'USDC'] as const).map((x) => (
-              <label key={x} className="flex min-h-[var(--tap-target)] cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 has-[:checked]:border-[var(--accent)]">
-                <input type="radio" name="pc-asset" value={x} checked={asset === x} onChange={() => setAsset(x)} />{x}
-              </label>
-            ))}
-          </fieldset>
-          <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="pc-amount">{c.amount} ({asset})</label>
-          <input id="pc-amount" inputMode="decimal" className={input} value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="pc-cancel">{c.cancelMinutes}</label>
-          <input id="pc-cancel" inputMode="numeric" className={input} value={cancel} onChange={(e) => setCancel(e.target.value)} />
-          <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="pc-funding">{c.fundingMinutes}</label>
-          <input id="pc-funding" inputMode="numeric" className={input} value={funding} onChange={(e) => setFunding(e.target.value)} />
-          <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="pc-payer">{c.payer}</label>
-          <input id="pc-payer" className={input} autoCapitalize="none" spellCheck={false} value={payer} onChange={(e) => setPayer(e.target.value)} />
-          <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="pc-memo">{c.memo}</label>
-          <input id="pc-memo" className={input} value={memo} onChange={(e) => setMemo(e.target.value)} />
-          <Button type="submit" data-testid="pc-quote" disabled={busy || op.busy}>{busy || op.busy ? c.working : c.quote}</Button>
-          {error && <Notice tone="danger" live testId="pc-error">{error}</Notice>}
-          {op.error && <div data-testid="pc-error"><OperationError code={op.error} /></div>}
-        </form>
-      </Card>
+      <p className="-mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{c.createLead}</p>
+      <form className="surface-card flex flex-col gap-4 p-5" onSubmit={(e) => { e.preventDefault(); void quote(); }} onChange={() => { setPrepared(null); setConsent(false); op.reset(); }}>
+        <fieldset className="grid grid-cols-2 gap-1 self-start rounded-full bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]">
+          <legend className="sr-only">{c.asset}</legend>
+          {(['NEAR', 'USDC'] as const).map((x) => (
+            <label key={x} className={`relative flex min-h-[36px] cursor-pointer items-center justify-center rounded-full px-4 text-xs font-semibold ${asset === x ? 'bg-[var(--text-primary)] text-[var(--taply-night)]' : 'text-[var(--text-secondary)]'}`}>
+              <input type="radio" name="pc-asset" value={x} checked={asset === x} onChange={() => setAsset(x)} className="absolute inset-0 cursor-pointer opacity-0" />{x}
+            </label>
+          ))}
+        </fieldset>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium" htmlFor="pc-amount">{c.amount} ({asset})</label>
+          <input id="pc-amount" inputMode="decimal" className="taply-input" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium" htmlFor="pc-cancel">{c.cancelMinutes}</label>
+          <input id="pc-cancel" inputMode="numeric" className="taply-input" value={cancel} onChange={(e) => setCancel(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium" htmlFor="pc-funding">{c.fundingMinutes}</label>
+          <input id="pc-funding" inputMode="numeric" className="taply-input" value={funding} onChange={(e) => setFunding(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium" htmlFor="pc-payer">{c.payer}</label>
+          <input id="pc-payer" className="taply-input chain-id" autoCapitalize="none" spellCheck={false} value={payer} onChange={(e) => setPayer(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium" htmlFor="pc-memo">{c.memo}</label>
+          <input id="pc-memo" className="taply-input" value={memo} onChange={(e) => setMemo(e.target.value)} />
+        </div>
+        <p className="text-xs text-[var(--text-muted)]">{c.creator}: <span className="chain-id break-all" data-testid="pc-creator">{me}</span></p>
+        {error && <Notice tone="danger" live testId="pc-error">{error}</Notice>}
+        {op.error && <div data-testid="pc-error"><OperationError code={op.error} /></div>}
+        <Button type="submit" size="lg" block data-testid="pc-quote" disabled={busy || op.busy}>
+          <Icon name="shield" size={18} />
+          {busy || op.busy ? c.working : c.quote}
+        </Button>
+      </form>
       {prepared !== null && a !== null && op.prepared !== null && (
         <Card>
           <div data-testid="pc-review" className="flex flex-col gap-2">

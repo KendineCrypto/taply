@@ -32,10 +32,8 @@ try {
     // (the exact-remainder math is covered by src/lib/mainnet/__tests__/product.test.ts).
     check(`${locale} split: Testnet no-wallet state, no calculator`, await page.getByTestId('split-no-wallet').isVisible() && await page.getByRole('button', { name: locale === 'tr' ? 'Kesin payları hesapla' : 'Calculate exact shares' }).count() === 0);
     await page.goto(`${base}/m/gift/new`);
-    await page.getByLabel(locale === 'tr' ? 'Mesaj / not' : 'Message / memo').fill('Taply 💚');
-    await page.getByRole('button', { name: locale === 'tr' ? 'Zarfı önizle' : 'Preview envelope' }).click();
-    // Phase 3 adds the Open Gift and gift-state envelopes on this page; this check targets the draft envelope.
-    check(`${locale} Gift: opened preview only`, await page.getByRole('img', { name: locale === 'tr' ? 'Taslak · fon gönderilmedi' : 'Draft · no funds sent' }).getAttribute('data-open') === 'true');
+    // Testnet gift wizard: step 1 offers both gift types; without a wallet it asks to connect first.
+    check(`${locale} Gift: wizard or connect state, nothing funded`, (await page.getByTestId('gift-wizard').count()) === 1 || (await page.getByRole('button', { name: locale === 'tr' ? 'Cüzdan bağla' : 'Connect wallet' }).count()) > 0);
     check(`${locale} Gift: no funded link`, await page.locator('a[href*="#k="]').count() === 0);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(250);

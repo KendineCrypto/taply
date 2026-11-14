@@ -12,26 +12,28 @@ const view = (path: string, locale: 'en' | 'tr' = 'en') => <I18nProvider locale=
 afterEach(() => { cleanup(); localStorage.clear(); state.account = 'alice.near'; });
 it('saves contacts only under connected Mainnet owner and hides them immediately on account switch', async () => {
   const ui = render(view('contacts'));
-  await waitFor(() => expect((screen.getByRole('button', { name: 'Save on device' }) as HTMLButtonElement).disabled).toBe(false));
+  await waitFor(() => expect((screen.getByRole('button', { name: 'Add contact' }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: 'Add contact' }));
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bob' } });
-  fireEvent.change(screen.getByLabelText('NEAR account'), { target: { value: 'bob.near' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save on device' }));
+  fireEvent.change(screen.getByLabelText('NEAR Mainnet account ID'), { target: { value: 'bob.near' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save contact' }));
   expect(JSON.parse(localStorage.getItem(productStorageKey('alice.near'))!).contacts[0].id).toBe('bob.near');
   state.account = 'carol.near'; ui.rerender(view('contacts'));
   expect(screen.queryByText('Bob')).toBeNull();
-  await waitFor(() => expect((screen.getByRole('button', { name: 'Save on device' }) as HTMLButtonElement).disabled).toBe(false));
+  await waitFor(() => expect((screen.getByRole('button', { name: 'Add contact' }) as HTMLButtonElement).disabled).toBe(false));
   expect(localStorage.getItem(productStorageKey('carol.near'))).toBeNull();
 });
 it('computes exact split shares and invalidates the result when terms change', () => {
-  render(view('split')); fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '0.000005' } });
+  render(view('split')); fireEvent.click(screen.getByRole('button', { name: 'New split' }));
+  fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '0.000005' } });
   fireEvent.click(screen.getByRole('button', { name: 'Calculate exact shares' }));
   expect(screen.getByText('1. 0.000003 USDC')).toBeTruthy(); expect(screen.getByText('2. 0.000002 USDC')).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '0.000006' } }); expect(screen.queryByText('1. 0.000003 USDC')).toBeNull();
 });
-it('Gift envelope preview never creates a secret, transaction or fundable link', () => {
-  render(view('gift/new')); fireEvent.change(screen.getByLabelText('Message / memo'), { target: { value: 'Happy birthday' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Preview envelope' }));
-  expect(screen.getByRole('img', { name: 'Draft · no funds sent' }).getAttribute('data-open')).toBe('true');
+it('Gift page without a wallet asks to connect and never creates a secret, transaction or fundable link', () => {
+  render(view('gift/new'));
+  // This mocked external session has no public key, so nothing can be prepared or signed.
+  expect(screen.getByTestId('external-no-key')).toBeTruthy();
   expect(document.querySelector('a[href*="#k="]')).toBeNull(); expect(localStorage.length).toBe(0);
 });
 it('restore collects the phrase only into the Mainnet vault form; Send never offers an enabled confirm (both languages)', () => {

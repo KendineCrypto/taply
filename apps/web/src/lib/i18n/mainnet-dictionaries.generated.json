@@ -512,7 +512,7 @@
     "labelField": "Name",
     "labelHint": "Only you see this.",
     "accountField": "NEAR Mainnet account ID",
-    "accountHint": "e.g. alice.mainnet",
+    "accountHint": "e.g. alice.near",
     "save": "Save contact",
     "cancel": "Cancel",
     "edit": "Edit",
@@ -949,7 +949,7 @@
    "amount": {
     "heading": "How much NEAR?",
     "recipientLabel": "Recipient",
-    "recipientHint": "A NEAR Mainnet account, for example friend.mainnet",
+    "recipientHint": "A NEAR Mainnet account, for example friend.near",
     "available": "Available: {amount} NEAR",
     "limits": "Between {min} and {max} NEAR",
     "errors": {
@@ -2152,7 +2152,7 @@
    "from": "From",
    "scanToPay": "Scan to pay with any NEAR Mainnet wallet",
    "validUntil": "Valid until",
-   "testFunds": "Test funds only",
+   "testFunds": "Real funds",
    "instantPay": "Instant Pay",
    "yourAccount": "Your account",
    "progress": {
@@ -2318,7 +2318,7 @@
     },
     "create": {
      "title": "Create Taply Wallet",
-     "body": "Pick a username and get a real username.mainnet account, protected on this device."
+     "body": "Pick a username and get a real username.near account, protected on this device."
     },
     "restore": {
      "title": "Restore Taply Wallet",
@@ -2373,7 +2373,7 @@
      "body": "Direct sending is not enabled in Taply yet."
     },
     "recipientLabel": "To",
-    "recipientPlaceholder": "name.mainnet",
+    "recipientPlaceholder": "name.near",
     "recipientHint": "The full NEAR Mainnet account ID",
     "recipientChecking": "Checking the account on NEAR Mainnet…",
     "recipientFound": "Account exists on NEAR Mainnet",
@@ -2519,7 +2519,7 @@
     "title": "Taply Wallet",
     "body": "A NEAR Mainnet wallet whose key is generated and encrypted on this device. Only you can unlock it."
    },
-   "point1": "NEAR Mainnet only. Never use it for real funds.",
+   "point1": "NEAR Mainnet only. Real funds: keep only small amounts here.",
    "point2": "Your 12-word recovery phrase is the only backup. Taply has no copy and cannot reset it.",
    "point3": "You confirm every transaction before it is signed. NEAR Mainnet only; not independently security-reviewed.",
    "create": "Create Taply Wallet",
@@ -2570,7 +2570,7 @@
     "understandTitle": "Before you start",
     "ack1": "I understand Taply Wallet is for NEAR Mainnet only.",
     "ack2": "I understand Taply cannot recover my wallet if I lose my recovery phrase.",
-    "ack3": "I understand Taply Wallet is not independently security-reviewed and is for test funds only.",
+    "ack3": "I understand Taply Wallet is not independently security-reviewed and holds real funds, so I keep only small amounts in it.",
     "continue": "Continue",
     "back": "Back",
     "passTitle": "Create a password",
@@ -2613,14 +2613,14 @@
     "CANCELLED": "The operation was interrupted. Try again.",
     "LOCKED": "Unlock the wallet first.",
     "ACCOUNT_NOT_PROVISIONED": "This wallet is not active on NEAR Mainnet yet.",
-    "INVALID_ADDRESS": "Enter a NEAR Mainnet account: name.mainnet or a 64-character implicit ID.",
+    "INVALID_ADDRESS": "Enter a NEAR Mainnet account: name.near or a 64-character implicit ID.",
     "INVALID_AMOUNT": "Enter an amount like 0.5.",
     "INSUFFICIENT_AVAILABLE_BALANCE": "More than the available balance after reserves.",
     "NETWORK_MISMATCH": "The connected RPC is not NEAR Mainnet.",
     "RPC_UNAVAILABLE": "NEAR Mainnet could not be reached.",
     "UNAVAILABLE": "Not available in this browser.",
     "UNKNOWN": "Something went wrong. Nothing was sent.",
-    "INVALID_ACCOUNT_ID": "Choose a username like alice.mainnet.",
+    "INVALID_ACCOUNT_ID": "Choose a username like alice.near.",
     "NAME_TAKEN": "That username is already taken on NEAR Mainnet. Choose another one.",
     "FAUCET_RATE_LIMITED": "The NEAR Mainnet network is busy (rate limit). Wait a minute and try again.",
     "FAUCET_REJECTED": "The NEAR Mainnet network refused this request. Try again or choose another username.",
@@ -2649,7 +2649,7 @@
     "importBody": "Enter your 12 words and your username. Phrases from Taply, MyNearWallet or Meteor work.",
     "phraseLabel": "Recovery phrase",
     "wordCount": "{n} / 12 words",
-    "usernameOptional": "Your account (username.mainnet)",
+    "usernameOptional": "Your account (username.near)",
     "importButton": "Import wallet",
     "importing": "Checking the account on NEAR Mainnet…",
     "newPassword": "Create a password for this device",
@@ -3451,7 +3451,7 @@
     "labelField": "İsim",
     "labelHint": "Yalnızca sana görünür.",
     "accountField": "NEAR Mainnet hesap kimliği",
-    "accountHint": "ör. ali.mainnet",
+    "accountHint": "ör. ali.near",
     "save": "Kişiyi kaydet",
     "cancel": "Vazgeç",
     "edit": "Düzenle",
@@ -3888,7 +3888,7 @@
    "amount": {
     "heading": "Ne kadar NEAR?",
     "recipientLabel": "Alıcı",
-    "recipientHint": "Bir NEAR Mainnet hesabı, örneğin arkadas.mainnet",
+    "recipientHint": "Bir NEAR Mainnet hesabı, örneğin arkadas.near",
     "available": "Kullanılabilir: {amount} NEAR",
     "limits": "{min} ile {max} NEAR arası",
     "errors": {
@@ -5091,7 +5091,7 @@
    "from": "Gönderen",
    "scanToPay": "Herhangi bir NEAR Mainnet cüzdanıyla ödemek için tarayın",
    "validUntil": "Geçerlilik",
-   "testFunds": "Yalnızca test fonları",
+   "testFunds": "Gerçek para",
    "instantPay": "Anında Ödeme",
    "yourAccount": "Hesabınız",
    "progress": {
@@ -5257,7 +5257,7 @@
     },
     "create": {
      "title": "Taply Cüzdan oluştur",
-     "body": "Bir kullanıcı adı seçin ve bu cihazda korunan gerçek bir kullaniciadi.mainnet hesabı alın."
+     "body": "Bir kullanıcı adı seçin ve bu cihazda korunan gerçek bir kullaniciadi.near hesabı alın."
     },
     "restore": {
      "title": "Taply Cüzdanı geri yükle",
@@ -5312,7 +5312,7 @@
      "body": "Gönderim henüz kapalı."
     },
     "recipientLabel": "Alıcı",
-    "recipientPlaceholder": "isim.mainnet",
+    "recipientPlaceholder": "isim.near",
     "recipientHint": "Tam NEAR Mainnet hesap kimliği",
     "recipientChecking": "Hesap NEAR Mainnet üzerinde kontrol ediliyor…",
     "recipientFound": "Hesap NEAR Mainnet üzerinde mevcut",
@@ -5458,7 +5458,7 @@
     "title": "Taply Cüzdan",
     "body": "Anahtarı bu cihazda oluşturulan ve şifrelenen bir NEAR Mainnet cüzdanı. Kilidini yalnızca siz açabilirsiniz."
    },
-   "point1": "Yalnızca NEAR Mainnet. Asla gerçek fonlar için kullanmayın.",
+   "point1": "Yalnızca NEAR Mainnet. Gerçek para: burada yalnızca küçük tutarlar tutun.",
    "point2": "12 kelimelik kurtarma ifadeniz tek yedektir. Taply’da kopyası yoktur ve sıfırlayamaz.",
    "point3": "Her işlemi imzalanmadan önce siz onaylarsınız. Yalnızca NEAR Mainnet; bağımsız güvenlik incelemesinden geçmedi.",
    "create": "Taply Cüzdan oluştur",
@@ -5509,7 +5509,7 @@
     "understandTitle": "Başlamadan önce",
     "ack1": "Taply Cüzdanın yalnızca NEAR Mainnet için olduğunu anlıyorum.",
     "ack2": "Kurtarma ifademi kaybedersem Taply’ın cüzdanımı geri getiremeyeceğini anlıyorum.",
-    "ack3": "Taply Cüzdan’ın bağımsız güvenlik incelemesinden geçmediğini ve yalnızca test fonları için olduğunu anlıyorum.",
+    "ack3": "Taply Cüzdan’ın bağımsız güvenlik incelemesinden geçmediğini ve gerçek para tuttuğu için içinde yalnızca küçük tutarlar tutacağımı anlıyorum.",
     "continue": "Devam",
     "back": "Geri",
     "passTitle": "Bir parola oluşturun",
@@ -5552,14 +5552,14 @@
     "CANCELLED": "İşlem kesildi. Tekrar deneyin.",
     "LOCKED": "Önce cüzdanın kilidini açın.",
     "ACCOUNT_NOT_PROVISIONED": "Bu cüzdan henüz NEAR Mainnet üzerinde etkin değil.",
-    "INVALID_ADDRESS": "Bir NEAR Mainnet hesabı girin: isim.mainnet ya da 64 karakterli örtük kimlik.",
+    "INVALID_ADDRESS": "Bir NEAR Mainnet hesabı girin: isim.near ya da 64 karakterli örtük kimlik.",
     "INVALID_AMOUNT": "0,5 gibi bir tutar girin.",
     "INSUFFICIENT_AVAILABLE_BALANCE": "Ayrılan tutarlardan sonra kalan bakiyeden fazla.",
     "NETWORK_MISMATCH": "Bağlı RPC NEAR Mainnet değil.",
     "RPC_UNAVAILABLE": "NEAR Mainnet’e ulaşılamadı.",
     "UNAVAILABLE": "Bu tarayıcıda kullanılamıyor.",
     "UNKNOWN": "Bir şeyler ters gitti. Hiçbir şey gönderilmedi.",
-    "INVALID_ACCOUNT_ID": "ali.mainnet gibi bir kullanıcı adı seçin.",
+    "INVALID_ACCOUNT_ID": "ali.near gibi bir kullanıcı adı seçin.",
     "NAME_TAKEN": "Bu kullanıcı adı NEAR Mainnet üzerinde alınmış. Başka bir tane seçin.",
     "FAUCET_RATE_LIMITED": "NEAR Mainnet musluğu meşgul (istek sınırı). Bir dakika bekleyip tekrar deneyin.",
     "FAUCET_REJECTED": "NEAR Mainnet musluğu bu isteği reddetti. Tekrar deneyin veya başka bir kullanıcı adı seçin.",
@@ -5588,7 +5588,7 @@
     "importBody": "12 kelimenizi ve kullanıcı adınızı girin. Taply, MyNearWallet veya Meteor ifadeleri çalışır.",
     "phraseLabel": "Kurtarma ifadesi",
     "wordCount": "{n} / 12 kelime",
-    "usernameOptional": "Hesabınız (kullaniciadi.mainnet)",
+    "usernameOptional": "Hesabınız (kullaniciadi.near)",
     "importButton": "Cüzdanı içe aktar",
     "importing": "Hesap NEAR Mainnet üzerinde kontrol ediliyor…",
     "newPassword": "Bu cihaz için bir parola oluşturun",

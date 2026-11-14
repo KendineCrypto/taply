@@ -7,6 +7,10 @@ import { prepareMainnetCreateRequest, prepareMainnetTokenStorageDeposit } from '
 import type { MainnetCall } from '@taply/near-client';
 import { Button } from '@/components/primitives/Button';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
+import { Monogram } from '@/components/experience/Basics';
+import { AmountField } from '@/components/payments/AmountField';
+import { NoWalletCard } from './NoWalletCard';
+import { useT } from '@/lib/i18n/provider';
 import { QrCode } from '@/components/payments/QrCode';
 import type { SubmitOutcome } from '@/lib/mainnet/wallet-ops';
 import { MAINNET_ASSETS, formatMainnetAmount, parseMainnetAmount } from '@/lib/mainnet/assets';
@@ -17,7 +21,6 @@ import { readerOrNull, useUsdcRegistration } from '@/lib/mainnet/hooks';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { CallPreview, Notice } from './bits';
 import { readPrefill } from '@/lib/mainnet/prefill';
-import { WalletPanel } from './WalletPanel';
 import { OperationError, OperationReview, useOperation, useSigner } from './Operation';
 import { bindSale, displayMemo, encodeSale, newCommerceSession, rememberSale } from '@/lib/mainnet/commerce';
 import { AuthorityError, createHttpMainnetAuthority } from '@/lib/mainnet/authority-client';
@@ -85,6 +88,7 @@ async function freezeSale(signer: ReturnType<typeof useSigner>, session: Mainnet
 /** `commerce`: merchant register — each instance is one sale bound to a fresh commerce session (Codex binding). */
 export function CreateRequest({ commerce = false }: { readonly commerce?: boolean } = {}) {
   const c = useMainnetCopy();
+  const t = useT();
   const { locale } = useLocale();
   const wallet = useMainnetWallet();
   // Personal requests default to NEAR (Taply Wallet balance); merchant sales to USDC.
@@ -225,22 +229,17 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
 
   return (
     <div className="flex flex-col gap-4">
-      <ScreenHeader title={c.create.title} description={c.create.lead} />
+      {!reviewing && <ScreenHeader title={t.oneTap.request.title} />}
 
-      {creator === null || (fixtures && wallet.accountId === null && signerChoice.kind !== 'ok') ? (
-        <Card>
-          {fixtures && <Notice tone="muted">{fill(c.create.fixtureMerchant, { account: FIXTURE_MERCHANT })}</Notice>}
-          {!fixtures && <p className="mb-2 text-[14px] text-[var(--text-secondary)]">{c.create.connectFirst}</p>}
-          <div className="mt-2"><WalletPanel /></div>
-        </Card>
-      ) : (
-        <p className="text-sm text-[var(--text-secondary)]">{c.create.receiveTo}: <span className="chain-id break-all text-[var(--text-primary)]">{creator}</span></p>
+      {creator === null && !fixtures && <NoWalletCard text={t.payment.create.connectFirst} />}
+      {fixtures && wallet.accountId === null && signerChoice.kind !== 'ok' && (
+        <Notice tone="muted">{fill(c.create.fixtureMerchant, { account: FIXTURE_MERCHANT })}</Notice>
       )}
 
-      {!reviewing ? (
-        <Card>
+      {!reviewing && creator !== null ? (
           <form
-            className="flex flex-col gap-3"
+            className="flex flex-col gap-5"
+            noValidate
             onSubmit={(e) => {
               e.preventDefault();
               if (parsed?.ok && creator !== null && memoOk) {
@@ -252,41 +251,39 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
               }
             }}
           >
-            <fieldset>
-              <legend className="mb-1.5 text-[13px] text-[var(--text-secondary)]">{c.create.assetLabel}</legend>
-              <div className="grid grid-cols-2 gap-2" role="radiogroup">
-                {(['USDC', 'NEAR'] as const).map((key) => (
-                  <label key={key} className={`pressable flex min-h-[var(--tap-target)] cursor-pointer items-center justify-center rounded-[var(--radius-control)] border text-[15px] font-semibold ${assetKey === key ? 'border-[var(--taply-lime)] bg-[var(--tone-success-bg)]' : 'border-[var(--border-subtle)]'}`}>
-                    <input type="radio" name="asset" value={key} checked={assetKey === key} onChange={() => setAssetKey(key)} className="sr-only" />
-                    {key}
-                  </label>
-                ))}
-              </div>
+            <fieldset className="mx-auto grid grid-cols-2 gap-1 rounded-full bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]">
+              <legend className="sr-only">{c.create.assetLabel}</legend>
+              {(['NEAR', 'USDC'] as const).map((key) => (
+                <label key={key} className={`relative flex min-h-[36px] cursor-pointer items-center justify-center rounded-full px-4 text-xs font-semibold ${assetKey === key ? 'bg-[var(--text-primary)] text-[var(--taply-night)]' : 'text-[var(--text-secondary)]'}`}>
+                  <input type="radio" name="asset" value={key} checked={assetKey === key} onChange={() => setAssetKey(key)} className="absolute inset-0 cursor-pointer opacity-0" />
+                  {key}
+                </label>
+              ))}
             </fieldset>
-            <div>
-              <label htmlFor="amount" className="text-[13px] text-[var(--text-secondary)]">{c.create.amountLabel} ({asset.symbol})</label>
-              <input
-                id="amount"
-                inputMode="decimal"
-                autoComplete="off"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                aria-invalid={parsed !== null && !parsed.ok}
-                aria-describedby="amount-help"
-                className="mt-1 min-h-[52px] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 text-[20px] font-semibold tabular-nums"
-              />
-              <p id="amount-help" className="mt-1 text-[12px] text-[var(--text-muted)]">{fill(c.create.capNote, { cap: formatMainnetAmount(asset.capBaseUnits, asset, locale) })}</p>
-              {parsed !== null && !parsed.ok && <p role="alert" className="mt-1 text-[13px] text-[var(--tone-danger-fg)]">{c.create.errors[parsed.reason]}</p>}
-            </div>
-            <div>
-              <label htmlFor="memo" className="text-[13px] text-[var(--text-secondary)]">{c.create.memoLabel}</label>
-              <input id="memo" value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={256} className="mt-1 min-h-[var(--tap-target)] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 text-[15px]" />
-              <p className="mt-1 text-[12px] text-[var(--text-muted)]">{c.create.memoHint}</p>
+            <AmountField
+              id="amount"
+              value={amount}
+              onChange={setAmount}
+              suffix={asset.symbol}
+              hint={fill(c.create.capNote, { cap: formatMainnetAmount(asset.capBaseUnits, asset, locale) })}
+              error={parsed !== null && !parsed.ok ? c.create.errors[parsed.reason] : null}
+            />
+
+            {/* The recipient is always this wallet; it is never edited here. */}
+            <p className="mx-auto flex max-w-full items-center gap-2 rounded-full bg-[var(--tone-neutral-bg)] py-1.5 pl-1.5 pr-3.5 text-sm">
+              <Monogram accountId={creator} size={26} />
+              <span className="shrink-0 text-[var(--text-muted)]">{commerce ? t.commerce.sale.receivingLabel : t.oneTap.request.toYou}</span>
+              <span className="chain-id truncate font-medium" title={creator}>{creator}</span>
+            </p>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="memo" className="text-sm font-medium">{c.create.memoLabel}</label>
+              <input id="memo" value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={256} className="taply-input" />
+              <p className="text-xs text-[var(--text-muted)]">{c.create.memoHint}</p>
             </div>
             <Button type="submit" variant="primary" size="lg" block disabled={!(parsed?.ok && creator !== null && memoOk)}>{c.create.review}</Button>
           </form>
-        </Card>
-      ) : (
+      ) : reviewing ? (
         <div className="flex flex-col gap-3">
           {done !== null && done.kind === 'FINAL_EXECUTION' && done.execution === 'SUCCESS' && payLink !== null ? (
             <Card>
@@ -327,7 +324,7 @@ export function CreateRequest({ commerce = false }: { readonly commerce?: boolea
             </>
           )}
         </div>
-      )}
+      ) : null}
 
       {assetKey === 'USDC' && creator !== null && (
         <Card>

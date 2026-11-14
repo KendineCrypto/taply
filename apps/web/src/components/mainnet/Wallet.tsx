@@ -8,16 +8,19 @@ import {
   createMainnetWalletChain,
   ed25519PublicKeyFromHex,
   EncryptedMainnetVault,
-  mainnetSpendingBudget,
   MainnetVaultError,
   openMainnetAttemptStore,
 } from '@taply/near-client';
 import type { MainnetAttempt, MainnetReadProfile, MainnetWalletIdentity, MainnetWalletSnapshot } from '@taply/near-client';
 import { MainnetAccountSchema } from '@taply/shared';
-import { Button } from '@/components/primitives/Button';
+import { Button, Spinner } from '@/components/primitives/Button';
+import { Icon } from '@/components/shell/Icons';
+import { PassphraseField } from '@/components/wallet/PassphraseField';
+import { formatBaseUnits } from '@/lib/format/amount';
+import { fill } from '@/lib/i18n/fill';
+import { useMainnetBalance } from './MainnetBalance';
 import { Card } from '@/components/primitives/Surface';
-import { QrCode } from '@/components/payments/QrCode';
-import { formatMainnetAmount, MAINNET_ASSETS, parseMainnetAmount } from '@/lib/mainnet/assets';
+import { MAINNET_ASSETS, parseMainnetAmount } from '@/lib/mainnet/assets';
 import { newBusinessId, stableBusinessId } from '@/lib/mainnet/wallet-ops';
 import { LedgerPanel, OperationError, OperationReview, OPERATION_COPY, useOperation } from './Operation';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
@@ -73,7 +76,7 @@ export function readProfile(): MainnetReadProfile | null {
   return MAINNET_CONFIG.ok ? { network: 'near-mainnet', rpcUrl: MAINNET_CONFIG.rpcUrl, rpcProviderId: MAINNET_CONFIG.rpcProviderId } : null;
 }
 
-function vaultError(c: WalletCopy, e: unknown): string {
+export function vaultError(c: WalletCopy, e: unknown): string {
   const code = e instanceof MainnetVaultError ? e.code : e instanceof Error ? e.message : '';
   return (c.errors as Record<string, string>)[code] ?? c.errors.UNKNOWN;
 }
@@ -257,77 +260,6 @@ export function AttemptDetails({ c, attempt }: { c: WalletCopy; attempt: Mainnet
   );
 }
 
-export function TaplyWalletHome() {
-  const c = useWalletCopy();
-  const { locale } = useMainnetLocale();
-  const { identity, unlocked } = useMainnetVault();
-  const [tick, setTick] = useState(0);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const activation = useActivation(identity, tick);
-  const attempt = useUnresolvedAttempt(identity?.accountId ?? null);
-  if (identity === null) {
-    return (
-      <Card>
-        <div className="flex flex-col gap-2" data-testid="taply-wallet-empty">
-          <h2 className="font-semibold">{c.title}</h2>
-          <p className="text-[14px] text-[var(--text-secondary)]">{c.emptyLead}</p>
-          <div className="flex flex-wrap gap-3"><Link className="underline" href="/m/wallet/create">{c.create}</Link><Link className="underline" href="/m/wallet/restore">{c.restore}</Link></div>
-        </div>
-      </Card>
-    );
-  }
-  const spendable = activation.kind === 'active' ? mainnetSpendingBudget(activation.snapshot, '0') : null;
-  return (
-    <Card>
-      <div className="flex flex-col gap-3" data-testid="taply-wallet">
-        <h2 className="font-semibold">{c.title}</h2>
-        <dl>
-          <Row label={c.account} mono>{identity.accountId}</Row>
-          <Row label={c.status}>
-            <span data-testid="activation" data-state={activation.kind}>
-              {activation.kind === 'checking' ? c.checking : activation.kind === 'not_activated' ? c.notActivated : activation.kind === 'active' ? c.activated : c.unreadable}
-            </span>
-          </Row>
-          {activation.kind === 'active' && spendable && (
-            <>
-              <Row label={c.balance}>{formatMainnetAmount(activation.snapshot.amountYocto, MAINNET_ASSETS.NEAR, locale)}</Row>
-              <Row label={c.available}><span data-testid="available">{formatMainnetAmount(spendable.availableYocto, MAINNET_ASSETS.NEAR, locale)}</span></Row>
-              <Row label={c.reserved}>{formatMainnetAmount((BigInt(spendable.storageReserveYocto) + BigInt(spendable.gasReserveYocto)).toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
-              {activation.usdc !== null && <Row label="USDC">{formatMainnetAmount(activation.usdc, MAINNET_ASSETS.USDC, locale)}</Row>}
-              <Row label={c.finalBlock} mono>{activation.snapshot.blockHeight}</Row>
-            </>
-          )}
-        </dl>
-        {activation.kind === 'not_activated' && (
-          <>
-            <Notice tone="caution">{c.activationHelp}</Notice>
-            <div className="flex justify-center"><QrCode value={identity.accountId} label={c.account} /></div>
-          </>
-        )}
-        {attempt === 'unresolved' && <Notice tone="caution" live testId="attempt-unresolved">{c.unresolved}</Notice>}
-        {attempt === 'unavailable' && <Notice tone="danger" live>{c.journalUnavailable}</Notice>}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={() => setTick((t) => t + 1)}>{c.refresh}</Button>
-          <Link className="tap-target inline-flex items-center underline" href="/m/send">{c.send}</Link>
-          <Link className="tap-target inline-flex items-center underline" href="/m/receive">{c.receive}</Link>
-        </div>
-        {unlocked ? (
-          <Button variant="ghost" onClick={() => vault().lock()}>{c.lock}</Button>
-        ) : (
-          <form className="flex flex-col gap-2" onSubmit={async (e) => { e.preventDefault(); setError(''); try { await vault().unlock(password); setPassword(''); } catch (err) { setError(vaultError(c, err)); } }}>
-            <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="mw-unlock">{c.password}</label>
-            <input id="mw-unlock" type="password" autoComplete="current-password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} />
-            <Button type="submit" variant="secondary" data-testid="wallet-unlock">{c.unlock}</Button>
-          </form>
-        )}
-        {unlocked && <p data-testid="unlocked" className="text-[12px] text-[var(--text-muted)]">{c.unlockedNote}</p>}
-        {error && <Notice tone="danger" live testId="wallet-error">{error}</Notice>}
-      </div>
-    </Card>
-  );
-}
-
 /** Native send with the exact review from the reviewed backend. Confirmation is gated off. */
 const AMOUNT_ERROR = { invalid: 'AMOUNT_INVALID', precision: 'AMOUNT_PRECISION', zero: 'AMOUNT_INVALID', cap: 'AMOUNT_CAP' } as const;
 
@@ -352,6 +284,7 @@ export function WalletSend() {
   const { unlocked } = useMainnetVault();
   const [password, setPassword] = useState('');
   const locked = op.signer.kind === 'ok' && op.signer.signer.kind === 'internal' && !unlocked;
+  const balance = useMainnetBalance(accountId, op.prepared === null ? 0 : 1);
   if (op.signer.kind !== 'ok') {
     return op.signer.kind === 'external-no-key'
       ? <Notice tone="caution" testId="external-no-key">{OPERATION_COPY[locale].externalNoKey}</Notice>
@@ -376,8 +309,10 @@ export function WalletSend() {
     try { newBusinessId(window.localStorage, from, 'send'); } catch { /* storage unavailable: prepare will fail closed */ }
     setReceiver(''); setAmount(''); setError(''); op.reset();
   }
+  const avail = balance.kind === 'ok' ? (asset === 'USDC' ? balance.usdc : balance.native) : null;
+  const assetMeta = asset === 'USDC' ? MAINNET_ASSETS.USDC : MAINNET_ASSETS.NEAR;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {legacy.status === 'unresolved' && (
         <Notice tone="caution" live testId="attempt-unresolved">
           {c.unresolved}
@@ -385,45 +320,82 @@ export function WalletSend() {
         </Notice>
       )}
       {legacy.status === 'unavailable' && <Notice tone="danger" live testId="attempt-unavailable">{c.journalUnavailable}</Notice>}
-      <LedgerPanel />
       {locked && (
-        <Card>
-          <form className="flex flex-col gap-2" data-testid="send-unlock" onSubmit={async (e) => { e.preventDefault(); setError(''); try { await vault().unlock(password); setPassword(''); } catch (err) { setError(vaultError(c, err)); } }}>
-            <p className="text-[14px] font-medium">{OPERATION_COPY[locale].errors['WALLET_LOCKED']}</p>
-            <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="mw-send-unlock">{c.password}</label>
-            <input id="mw-send-unlock" type="password" autoComplete="current-password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} />
-            <Button type="submit" variant="secondary">{c.unlock}</Button>
-          </form>
-        </Card>
-      )}
-      <Card>
-        <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
-          <p className="text-[13px] text-[var(--text-secondary)]">{c.from}: <span className="break-all font-mono">{from}</span></p>
-          <fieldset className="flex gap-2" data-testid="send-asset">
-            <legend className="mb-1 text-[13px] text-[var(--text-secondary)]">{c.asset}</legend>
-            {(['NEAR', 'USDC'] as const).map((a) => (
-              <label key={a} className="flex min-h-[var(--tap-target)] cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3 has-[:checked]:border-[var(--accent)]">
-                <input type="radio" name="mw-asset" value={a} checked={asset === a} onChange={() => edit(() => setAsset(a))} />
-                {a}
-              </label>
-            ))}
-          </fieldset>
-          <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="mw-to">{c.recipient}</label>
-          <input id="mw-to" className={input} autoCapitalize="none" spellCheck={false} value={receiver} onChange={(e) => edit(() => setReceiver(e.target.value))} />
-          <label className="text-[13px] text-[var(--text-secondary)]" htmlFor="mw-amount">{asset === 'USDC' ? c.amountUsdc : c.amountNear}</label>
-          <input id="mw-amount" inputMode="decimal" className={input} value={amount} onChange={(e) => edit(() => setAmount(e.target.value))} />
-          <Button type="submit" data-testid="send-review" disabled={op.busy || legacy.status !== 'none'}>{op.busy ? c.working : c.reviewSend}</Button>
-          {error && <Notice tone="danger" live testId="wallet-error">{error}</Notice>}
-          <OperationError code={op.error} />
-          {op.error === 'OPERATION_ALREADY_CONSUMED' && <Button variant="secondary" data-testid="send-new" onClick={startNew}>{c.startNew}</Button>}
+        <form className="surface-card flex flex-col gap-3 p-5" data-testid="send-unlock" onSubmit={async (e) => { e.preventDefault(); setError(''); try { await vault().unlock(password); setPassword(''); } catch (err) { setError(vaultError(c, err)); } }}>
+          <h3 className="font-semibold">{t.walletNative.lock.unlockTitle}</h3>
+          <p className="text-sm text-[var(--text-secondary)]">{OPERATION_COPY[locale].errors['WALLET_LOCKED']}</p>
+          <PassphraseField id="mw-send-unlock" label={t.walletNative.lock.passphrase} value={password} onChange={setPassword} autoComplete="current-password" />
+          <Button type="submit" size="lg" block disabled={password === ''}>
+            <Icon name="shield" size={18} />
+            {t.walletNative.lock.unlock}
+          </Button>
         </form>
-      </Card>
+      )}
+      <form className="surface-card flex flex-col gap-5 p-5" noValidate onSubmit={(e) => { e.preventDefault(); void prepare(); }}>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="mw-to" className="text-sm font-medium">{t.walletUx.send.recipientLabel}</label>
+          <input
+            id="mw-to"
+            value={receiver}
+            onChange={(e) => edit(() => setReceiver(e.target.value))}
+            placeholder={t.walletUx.send.recipientPlaceholder}
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="taply-input chain-id"
+          />
+          <p className="text-xs text-[var(--text-muted)]">{t.walletUx.send.recipientHint}</p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor="mw-amount" className="text-sm font-medium">{t.walletUx.send.amountLabel}</label>
+            <fieldset className="grid grid-cols-2 gap-1 rounded-full bg-[var(--surface-1)] p-1 ring-1 ring-[var(--border-subtle)]" data-testid="send-asset">
+              <legend className="sr-only">{c.asset}</legend>
+              {(['NEAR', 'USDC'] as const).map((a) => (
+                <label key={a} className={`relative flex min-h-[36px] cursor-pointer items-center justify-center rounded-full px-3 text-xs font-semibold ${asset === a ? 'bg-[var(--text-primary)] text-[var(--taply-night)]' : 'text-[var(--text-secondary)]'}`}>
+                  <input type="radio" className="absolute inset-0 cursor-pointer opacity-0" name="mw-asset" value={a} checked={asset === a} onChange={() => edit(() => setAsset(a))} />
+                  {a}
+                </label>
+              ))}
+            </fieldset>
+          </div>
+          <div className="flex items-baseline gap-2 border-b-2 border-[var(--border-strong)] pb-2 focus-within:border-[var(--taply-lime)]">
+            <input
+              id="mw-amount"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0"
+              value={amount}
+              onChange={(e) => edit(() => setAmount(e.target.value))}
+              className="display-amount min-h-[64px] w-full min-w-0 bg-transparent text-[3rem] placeholder:text-[var(--text-muted)] focus-visible:outline-none"
+            />
+            <span aria-hidden="true" className="text-xl font-semibold text-[var(--text-secondary)]">{asset}</span>
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">
+            {avail === null
+              ? t.walletUx.send.availableUnknown
+              : fill(t.walletUx.send.available, { amount: `${formatBaseUnits(avail, assetMeta.decimals, { locale }).display} ${asset}` })}
+          </p>
+        </div>
+
+        <p className="-mt-2 text-xs text-[var(--text-muted)]">{c.from}: <span className="chain-id break-all">{from}</span></p>
+        {error && <Notice tone="danger" live testId="wallet-error">{error}</Notice>}
+        <OperationError code={op.error} />
+        {op.error === 'OPERATION_ALREADY_CONSUMED' && <Button variant="secondary" data-testid="send-new" onClick={startNew}>{c.startNew}</Button>}
+        <Button type="submit" size="lg" block data-testid="send-review" disabled={op.busy || legacy.status !== 'none'}>
+          {op.busy ? <Spinner /> : null}
+          {op.busy ? c.working : t.walletUx.send.review}
+          {!op.busy && <Icon name="arrow-right" size={18} />}
+        </Button>
+      </form>
       {op.prepared !== null && (
         <div data-testid="send-review-card" data-asset={asset}>
           <OperationReview prepared={op.prepared} title={c.reviewTitle} />
-          <Button className="mt-2" variant="ghost" data-testid="send-new" onClick={startNew}>{c.startNew}</Button>
+          <Button className="mt-2" variant="ghost" block data-testid="send-new" onClick={startNew}>{c.startNew}</Button>
         </div>
       )}
+      <LedgerPanel />
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { calculateMainnetTermsHash, type MainnetIntentTerms } from '@taply/shared';
 import { MainnetLocaleProvider } from '@/lib/mainnet/copy';
+import { I18nProvider } from '@/lib/i18n/provider';
+import { MAINNET_DICTIONARIES } from '@/lib/i18n/mainnet-dictionaries';
 import { mainnetEn } from '@/lib/i18n/dictionaries/mainnet-en';
 const mock = vi.hoisted(() => ({ quoteCreateRequest: vi.fn(), readUsdcStorageBounds: vi.fn() }));
 vi.mock('@/lib/mainnet/config', () => ({ MAINNET_CONFIG: {
@@ -22,9 +24,9 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 function start() {
-  render(<MainnetLocaleProvider locale="en"><CreateRequest /></MainnetLocaleProvider>);
+  render(<I18nProvider locale="en" dictionaries={MAINNET_DICTIONARIES}><MainnetLocaleProvider locale="en"><CreateRequest /></MainnetLocaleProvider></I18nProvider>);
   fireEvent.click(screen.getByLabelText('USDC')); // NEAR is the default asset
-  fireEvent.change(screen.getByLabelText('Amount (USDC)'), { target: { value: '1' } });
+  fireEvent.change(document.getElementById('amount')!, { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: mainnetEn.create.review }));
 }
 it('uses the current token storage minimum, never the fixture registration amount', async () => {

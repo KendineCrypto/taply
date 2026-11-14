@@ -27,6 +27,8 @@ describe('NEAR Mainnet dictionaries (generated)', () => {
     const walk = (v: unknown): void => { if (typeof v === 'string') values.push(v); else if (v !== null && typeof v === 'object') Object.values(v).forEach(walk); };
     walk(JSON.parse(text));
     expect(values.filter((v) => /testnet/i.test(v))).toEqual([]);
+    // No Testnet-only safety claim survives on Mainnet.
+    expect(values.filter((v) => /never use it for real funds|for test funds only|^test funds only$|asla gerçek fonlar|yalnızca test fonları/i.test(v))).toEqual([]);
   });
 
   it('says NEAR Mainnet where Testnet said NEAR Testnet', () => {

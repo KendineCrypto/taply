@@ -10,11 +10,20 @@ import type { Dictionary, Locale } from './types';
  * Testnet-only flows (faucet, username provisioning) are never rendered on Mainnet.
  */
 const RULES: ReadonlyArray<readonly [RegExp, string]> = [
+  // Testnet-only safety lines that would be false on Mainnet (run before the generic swaps).
+  [/Never use it for real funds\./g, 'Real funds: keep only small amounts here.'],
+  [/Asla gerçek fonlar için kullanmayın\./g, 'Gerçek para: burada yalnızca küçük tutarlar tutun.'],
+  [/is for test funds only\./g, 'holds real funds, so I keep only small amounts in it.'],
+  [/ve yalnızca test fonları için olduğunu anlıyorum\./g, 've gerçek para tuttuğu için içinde yalnızca küçük tutarlar tutacağımı anlıyorum.'],
+  [/^Test funds only$/g, 'Real funds'],
+  [/^Yalnızca test fonları$/g, 'Gerçek para'],
   [/NEAR Testnet/g, 'NEAR Mainnet'],
   [/Test funds only\./g, 'Real funds.'],
   [/Yalnızca test fonları\./g, 'Gerçek para.'],
   [/\btest NEAR\b/gi, 'NEAR'],
   [/Testnet/g, 'Mainnet'],
+  // Account examples: alice.testnet -> alice.near (Mainnet top-level account suffix).
+  [/\b([a-z]+)\.testnet\b/g, '$1.near'],
   [/testnet/g, 'mainnet'],
   [/faucet/g, 'network'],
   [/Faucet/g, 'Network'],
