@@ -28,8 +28,8 @@ contract deployment, wallet funding or real transaction by this change.
 
 - TypeScript and ESLint: passed (existing warnings remain).
 - Full web suite before the final Personal Gift simplification: 1568 passed,
-  20 existing gated/visual skips. Additional automatic-settlement tests: 4 passed.
-- Focused feedback suite: 13 passed (creator QR/receipt, Gift completion,
+  20 existing gated/visual skips. Additional automatic-settlement tests: 5 passed.
+- Focused feedback suite: 14 passed (creator QR/receipt, Gift completion,
   read errors, polling/navigation races, automatic receipt verification).
 - Standalone API strict types/lint and offline tests: 80 passed, 5 real-Redis
   tests skipped locally. CI runs those with Redis.
