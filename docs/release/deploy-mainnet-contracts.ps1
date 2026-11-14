@@ -11,7 +11,7 @@
 # Locks about 7.0 NEAR as contract storage (not spent; owned by the new accounts), ~0.03 NEAR fees.
 
 $ErrorActionPreference = 'Stop'
-$Owner = 'kendinecrypto.near'
+Set-Variable -Name Owner -Value 'kendinecrypto.near' -Option ReadOnly
 $Usdc = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1'
 $Rpc = 'https://rpc.mainnet.fastnear.com'
 $Near = @('--yes', 'near-cli-rs')
@@ -58,8 +58,9 @@ foreach ($c in $Contracts) {
 }
 
 # 1. Owner key in the local keychain (once). Opens your NEAR wallet in the browser to approve.
-$owner = View-Account $Owner
-Write-Host ("{0}: {1:N4} NEAR" -f $Owner, ([decimal]$owner.amount / 1e24))
+# NOTE: PowerShell variable names are case-insensitive; never reuse $Owner for anything else.
+$ownerState = View-Account $Owner
+Write-Host ("{0}: {1:N4} NEAR" -f $Owner, ([decimal]$ownerState.amount / 1e24))
 Write-Host ''; Write-Host "Step 1: let near-cli sign as $Owner on THIS computer (adds a key you can remove later)." -ForegroundColor Yellow
 $ans = Read-Host 'Type YES to import now, or SKIP if you already did this'
 if ($ans -eq 'YES') { Near @('account', 'import-account', 'using-web-wallet', 'network-config', 'mainnet') }
