@@ -398,7 +398,7 @@ await w.screenshot({ path: `${OUT}/p4-10-unknown-outcome.png`, fullPage: true })
 await wc.addCookies([{ name: 'taply_locale', value: 'tr', url: BASE }]);
 await w.goto(`${BASE}/m/protected/new`);
 await waitFor(w, 'protected-create');
-check('Turkish: Protected create in Turkish', /Yeni korumalı talep/.test(await text(w, 'protected-create')));
+check('Turkish: Protected create in Turkish', /Yeni Korumalı talep/.test(await text(w, 'mainnet-product')) && /Ödemeyi siz alırsınız/.test(await text(w, 'protected-create')));
 await w.goto(`${BASE}/m/send`);
 await waitFor(w, 'attempt-details');
 check('Turkish: unknown-outcome details in Turkish', /Sonuç bilinmiyor/.test(await text(w, 'attempt-details')));
