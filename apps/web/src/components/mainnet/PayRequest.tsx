@@ -23,6 +23,7 @@ import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
 import { derivePaymentView } from '@/lib/mainnet/status';
 import type { PaymentState } from '@/lib/mainnet/status';
 import { Notice, Row, short } from './bits';
+import { SettlementCheck, rememberSettlementTransaction } from './Settlement';
 import { WalletPanel } from './WalletPanel';
 import { ReceiptTicket } from '@/components/experience/ReceiptTicket';
 import { ReviewSummary } from '@/components/experience/ReviewSummary';
@@ -126,6 +127,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
             ]}
             explorerBaseUrl={MAINNET_CONFIG.ok ? MAINNET_CONFIG.explorerBaseUrl : null}
             checkedVia={r.terms.contractId}
+            proofActions={<SettlementCheck key={id} kind="instant" id={id} fixture={read.fixture} automatic />}
             actions={receipt === 'paid' ? <p className="text-center text-sm font-medium text-[var(--tone-caution-fg)]" data-testid="do-not-repay">{c.status.doNotRepay}</p> : undefined}
           />
         </div>
@@ -147,7 +149,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
           </div>
           <p className="text-xs text-[var(--text-muted)]">{t.payment.review.attachExactly}</p>
           {open && asset.symbol === 'NEAR' && (
-            <div data-testid="method-wallet"><WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) setPaidTx(o.transactionHash); refresh(); }} /></div>
+            <div data-testid="method-wallet"><WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) { setPaidTx(o.transactionHash); if (payer) rememberSettlementTransaction('instant', id, o.transactionHash, payer); } refresh(); }} /></div>
           )}
         </Card>
       )}
@@ -176,7 +178,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {open && method === 'base' && asset.symbol === 'USDC' && (
         fixtures ? <IntentsCheckout request={r} onPrepared={() => setQuotePrepared(true)} /> : <Notice tone="caution" testId="router-disabled">{c.pay.routerDisabled}</Notice>
       )}
-      {open && asset.symbol === 'USDC' && method === 'wallet' && <WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) setPaidTx(o.transactionHash); refresh(); }} />}
+      {open && asset.symbol === 'USDC' && method === 'wallet' && <WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) { setPaidTx(o.transactionHash); if (payer) rememberSettlementTransaction('instant', id, o.transactionHash, payer); } refresh(); }} />}
       {receipt === null ? <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /> : (
         <details className="rounded-[var(--radius-card)] bg-[var(--surface-1)] p-4 text-sm">
           <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{locale === 'tr' ? 'Ödeme durumu' : 'Payment status'}</summary>

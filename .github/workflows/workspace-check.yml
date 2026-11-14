@@ -126,7 +126,10 @@ jobs:
           node scripts/mainnet-1click-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence" http://127.0.0.1:3113
           node scripts/mainnet-product-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/product" http://127.0.0.1:3113
           node ../../packages/near-client/test/mainnet-indexeddb-browser.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/indexeddb"
-          node scripts/mainnet-release-browser.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/release" closed
+          # Exercise the checked-out release state. Signing Preview branches use the
+          # open-gate adversarial suite; ordinary candidate branches use closed.
+          release_mode=$(node --input-type=module -e 'import { MAINNET_PROTOCOL_SIGNING_RELEASED } from "../../packages/near-client/dist/mainnet-vault.js"; console.log(MAINNET_PROTOCOL_SIGNING_RELEASED ? "open" : "closed")')
+          node scripts/mainnet-release-browser.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/release" "$release_mode"
 
       # Phase 2 parity (docs/MAINNET_PARITY_MATRIX.md): Mainnet Live Handshake on a
       # REAL redis-server (via the repo's Upstash REST shim) across two browser
@@ -205,6 +208,13 @@ jobs:
             NEXT_PUBLIC_TAPLY_GIFT_MIN_YOCTO=10000000000000000000000 NEXT_PUBLIC_TAPLY_GIFT_MAX_YOCTO=2000000000000000000000000 NEXT_PUBLIC_TAPLY_GIFT_FEE_YOCTO=10000000000000000000000 \
             NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID=payments.fixture.near NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CODE_HASH=GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf \
             NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH=GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY=isolated-http
+          # Phase 6 deliberately tests refusal AT THE CLOSED protocol gate.
+          # The real checked-out release state was tested by release-browser above.
+          # Build this one isolated variant without changing any committed gate.
+          cp ../../packages/near-client/src/mainnet-vault.ts "$RUNNER_TEMP/mainnet-vault-phase6.ts"
+          trap 'cp "$RUNNER_TEMP/mainnet-vault-phase6.ts" ../../packages/near-client/src/mainnet-vault.ts' EXIT
+          node --input-type=module -e 'import fs from "node:fs"; const p="../../packages/near-client/src/mainnet-vault.ts"; const s=fs.readFileSync(p,"utf8"); const re=/export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = (?:true|false);/; if(!re.test(s)) throw Error("Protocol gate declaration missing"); fs.writeFileSync(p,s.replace(re,"export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = false;"));'
+          pnpm --filter @taply/near-client run build
           KV_REST_API_URL=https://build-placeholder.invalid KV_REST_API_TOKEN=placeholder pnpm run build:mainnet
           if grep -rl 'taply.mainnet.sim-authority' .next/static; then
             echo "Simulated wallet authority found in the authenticated-authority bundle"; exit 1
@@ -212,7 +222,7 @@ jobs:
           redis-server --port 6392 --save '' --appendonly no --daemonize yes
           TAPLY_ONECLICK_MODE=fixture pnpm exec next start -p 3122 --hostname 127.0.0.1 > "$RUNNER_TEMP/taply-browser-server-phase6.log" 2>&1 &
           server_pid=$!
-          trap 'kill "$server_pid"; redis-cli -p 6392 shutdown nosave || true' EXIT
+          trap 'kill "$server_pid"; redis-cli -p 6392 shutdown nosave || true; cp "$RUNNER_TEMP/mainnet-vault-phase6.ts" ../../packages/near-client/src/mainnet-vault.ts' EXIT
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3122/m > /dev/null; then break; fi
             sleep 1

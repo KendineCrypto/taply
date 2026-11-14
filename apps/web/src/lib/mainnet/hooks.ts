@@ -61,9 +61,14 @@ export function useMainnetRequest(id: string, poll: boolean): { read: RequestRea
     };
     void run();
     const timer = poll ? setInterval(() => void run(), POLL_MS) : null;
+    const resume = () => { if (poll && document.visibilityState === 'visible') void run(); };
+    window.addEventListener('focus', resume);
+    document.addEventListener('visibilitychange', resume);
     return () => {
       live = false;
       if (timer !== null) clearInterval(timer);
+      window.removeEventListener('focus', resume);
+      document.removeEventListener('visibilitychange', resume);
     };
   }, [id, poll, tick]);
 
