@@ -24,7 +24,9 @@ export function RequestTicket({
   demo = false,
   actions,
   code = null,
+  asset,
 }: {
+  readonly asset?: { readonly decimals: number; readonly symbol: string };
   readonly link: string;
   readonly recipientAccountId: string;
   readonly amountBaseUnits: string;
@@ -53,7 +55,7 @@ export function RequestTicket({
           </h2>
           {code !== null && <SaleCodeChip code={code} tone="paper" />}
         </div>
-        <AmountHero baseUnits={amountBaseUnits} tone="paper" className="mt-3" />
+        <AmountHero {...(asset ? { asset } : {})} baseUnits={amountBaseUnits} tone="paper" className="mt-3" />
         {memo !== '' && <p className="mt-3 whitespace-pre-wrap break-words text-base text-[var(--ink-secondary)]">“{memo}”</p>}
 
         <div className="mt-5 flex items-center gap-3">

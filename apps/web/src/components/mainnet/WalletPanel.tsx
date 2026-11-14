@@ -1,13 +1,17 @@
 'use client';
 
-import { Button } from '@/components/primitives/Button';
+import { Button, Spinner } from '@/components/primitives/Button';
+import { Icon } from '@/components/shell/Icons';
+import { useT } from '@/lib/i18n/provider';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { Notice } from './bits';
 import { fill, useMainnetCopy } from '@/lib/mainnet/copy';
 
 /** Connect/disconnect a NEAR mainnet wallet. Connecting signs nothing and adds no key. */
-export function WalletPanel() {
+/** `primary`: the Testnet ConnectWalletButton look (first-launch card). */
+export function WalletPanel({ primary = false }: { readonly primary?: boolean } = {}) {
   const c = useMainnetCopy();
+  const t = useT();
   const w = useMainnetWallet();
   return (
     <div className="flex flex-col gap-2">
@@ -17,9 +21,16 @@ export function WalletPanel() {
           <Button variant="ghost" onClick={() => void w.disconnect()}>{c.wallet.disconnect}</Button>
         </div>
       ) : (
-        <Button variant="secondary" block onClick={() => void w.connect()} disabled={w.status === 'connecting'}>
-          {w.status === 'connecting' ? c.wallet.connecting : c.wallet.connect}
-        </Button>
+        primary ? (
+          <Button variant="primary" size="lg" block onClick={() => void w.connect()} disabled={w.status === 'connecting'}>
+            {w.status === 'connecting' ? <Spinner /> : <Icon name="wallet" />}
+            {w.status === 'connecting' ? t.wallet.connecting : t.wallet.connect}
+          </Button>
+        ) : (
+          <Button variant="secondary" block onClick={() => void w.connect()} disabled={w.status === 'connecting'}>
+            {w.status === 'connecting' ? c.wallet.connecting : c.wallet.connect}
+          </Button>
+        )
       )}
       {w.error !== null && (
         <Notice tone="danger" live>

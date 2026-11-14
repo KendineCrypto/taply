@@ -15,7 +15,8 @@ import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { MAINNET_ASSETS, parseMainnetAmount, formatMainnetAmount } from '@/lib/mainnet/assets';
 import { productEn, productTr } from '@/lib/mainnet/product-copy';
-import { splitMainnetAmount, parseMainnetScan } from '@/lib/mainnet/product';
+import { splitMainnetAmount, parseMainnetScan, mainnetScanInput } from '@/lib/mainnet/product';
+import { ScanEntry } from '@/components/scan/ScanEntry';
 import { useLocalProduct } from '@/lib/mainnet/use-product';
 import { ActivityList } from './Activity';
 import { TaplyWalletHome, WalletCreate, WalletRestore, WalletSend } from './Wallet';
@@ -29,6 +30,11 @@ import { requestPrefill } from '@/lib/mainnet/prefill';
 import { openCamera, stopStream } from '@/lib/qr/camera';
 import { createFrameDecoder, type FrameDecoder } from '@/lib/qr/decoder';
 import { WalletPanel } from './WalletPanel';
+import { ReceiveCard } from '@/components/wallet/ReceiveCard';
+import { NoWalletCard } from './NoWalletCard';
+import { ActivityEmptyView, MainnetSettingsView, MerchantHeader, RecurringPill, ToolNoWallet } from './ParityScreens';
+import { useT } from '@/lib/i18n/provider';
+import { useCurrentMainnetAccount } from './MainnetShell';
 import { Notice } from './bits';
 
 export function useProductCopy() { return useMainnetLocale().locale === 'tr' ? productTr : productEn; }
@@ -47,12 +53,33 @@ export function ProductLinks({ compact = false }: { compact?: boolean }) {
 }
 export function MainnetProduct({ path }: { path: string }) {
   const c = useProductCopy();
+  const t = useT();
+  const { accountId } = useCurrentMainnetAccount();
   const section = path.split('/')[0];
   const title = ({ wallet: c.wallet, send: c.send, receive: c.receive, pay: c.pay, scan: c.scan, activity: c.activity,
     contacts: c.contacts, split: c.split, recurring: c.recurring, gift: c.gift, merchant: c.merchant,
     checkout: c.pay, protected: c.protected, receipt: c.receipt, handshake: c.handshake, s: c.handshake,
     tools: c.tools, settings: c.settings } as Record<string, string>)[section ?? ''] ?? c.tools;
-  return <div className="flex flex-col gap-4" data-testid="mainnet-product"><ScreenHeader title={title} description={MAINNET_CONFIG.ok && MAINNET_CONFIG.signingEnabled ? c.liveFunds : c.readOnly} />
+  if (section === 'scan' || section === 'pay') {
+    // The Testnet Pay entry + fullscreen QR scanner, with the Mainnet /m/ link parser.
+    return <div data-testid="mainnet-product"><ScanEntry payPath={(id) => `/m/pay/${id}`} checkoutPath={(a) => `/m/checkout/${a}`} parse={(text) => mainnetScanInput(text, window.location.origin)} /></div>;
+  }
+  // Testnet page headers (same words, Mainnet network) for every product screen.
+  const tool = t.tools;
+  const header: { title: string; description?: string } | null = section === 'send' ? { title: t.screens.send, description: t.walletUx.send.subtitle }
+    : section === 'receive' ? { title: t.screens.receive, description: t.walletUx.receive.subtitle }
+    : section === 'activity' ? { title: t.oneTap.activity.title }
+    : section === 'merchant' && path === 'merchant' ? null
+    : section === 'split' ? { title: tool.split.title, description: tool.split.description }
+    : section === 'recurring' ? { title: tool.recurring.title, description: tool.recurring.description }
+    : section === 'contacts' ? { title: tool.contacts.title, description: tool.contacts.description }
+    : section === 'settings' ? { title: t.screens.settings }
+    : section === 'gift' ? { title: t.gift.title }
+    : path === 'protected/new' ? { title: t.protectedFlow.newTitle }
+    : { title };
+  const noWallet = accountId === null;
+  return <div className="flex flex-col gap-4" data-testid="mainnet-product">{header === null ? <MerchantHeader /> : <ScreenHeader title={header.title} {...(header.description !== undefined ? { description: header.description } : {})} />}
+    {section === 'recurring' && <RecurringPill />}
     {path === 'wallet/create' && <WalletCreate />}
     {path === 'wallet/restore' && <WalletRestore />}
     {path === 'wallet' && <TaplyWalletHome />}
@@ -63,17 +90,19 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'receive' && <Receive />}
     {(section === 'pay' || section === 'scan') && <><Scan withCamera={section === 'scan'} /><PaymentNetworks /></>}
     {section === 'contacts' && <Contacts />}
-    {section === 'split' && <Split />}
-    {section === 'recurring' && <DraftComposer kind="recurring" />}
+    {section === 'split' && (noWallet ? <ToolNoWallet kind="split" /> : <Split />)}
+    {section === 'recurring' && (noWallet ? <ToolNoWallet kind="recurring" /> : <DraftComposer kind="recurring" />)}
     {section === 'gift' && <><Notice tone="caution">{c.giftHelp}</Notice>{path === 'gift/new' ? <><PersonalGiftCompose /><OpenGiftCreate /><GiftMainnet /><DraftComposer kind="gift" /></> : path === 'gift/p' ? <PersonalGiftOpen /> : <Notice tone="caution">{c.blocked}</Notice>}</>}
     {(path === 'merchant/register' || path === 'merchant/setup') && <MerchantRegister />}
-    {section === 'activity' && <LedgerPanel />}
-    {(section === 'activity' || section === 'merchant') && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><ActivityList removeLabel={c.remove} /><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
+    {section === 'activity' && noWallet && <ActivityEmptyView />}
+    {path === 'merchant' && noWallet && <NoWalletCard text={t.commerce.merchant.connectFirst} />}
+    {section === 'activity' && !noWallet && <LedgerPanel />}
+    {(section === 'activity' || section === 'merchant') && !noWallet && <><p className="text-sm text-[var(--text-secondary)]">{section === 'merchant' ? c.merchantHelp : c.history}</p><ActivityList removeLabel={c.remove} /><TrackedRequests /><Link href="/m/request/new" className="tap-target">{c.request}</Link>{section === 'merchant' && <Receive merchant />}</>}
     {section === 'checkout' && <MerchantCheckout account={path.slice(9)} />}
     {section === 'protected' && <><Notice tone="caution">{c.protectedHelp}</Notice>{/^protected\/[0-9a-f]{64}(\/receipt)?$/.test(path) ? <ProtectedRequestPage id={path.slice(10, 74)} /> : <><ProtectedCreate /><ProtectedFixtures /></>}</>}
     {(section === 's' || section === 'handshake') && <Notice tone="caution">{c.handshakeHelp}</Notice>}
     {section === 'receipt' && <><Notice tone="caution">{c.receiptHelp}</Notice><Link href={`/m/pay/${path.slice(8)}` as Route}>{c.open}</Link></>}
-    {section === 'settings' && <><Card><p>{c.local}</p><p className="mt-2">{c.vaultHelp}</p><WalletPanel /></Card><PaymentNetworks /><ProductLinks /></>}
+    {section === 'settings' && <MainnetSettingsView extra={<PaymentNetworks />} />}
   </div>;
 }
 function PaymentNetworks() { const c = useProductCopy(); return <Card><h2 className="font-semibold">{c.routes}</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">{c.routesHelp}</p></Card>; }
@@ -100,7 +129,10 @@ function Balances() {
     <p className="text-xs text-[var(--text-secondary)]">{c.balanceHelp}</p></div></Card>;
 }
 function Receive({ merchant = false }: { merchant?: boolean }) {
-  const c = useProductCopy(); const { accountId } = useMainnetWallet();
+  const c = useProductCopy(); const t = useT(); const { accountId } = useCurrentMainnetAccount();
+  // Personal receive: the Testnet receive card (address + QR + copy/share), Mainnet account.
+  if (!merchant && accountId) return <ReceiveCard accountId={accountId} />;
+  if (!merchant) return <NoWalletCard text={t.receive.connectFirst} />;
   const origin = MAINNET_CONFIG.ok ? MAINNET_CONFIG.shareOrigin : null;
   const value = accountId && (merchant ? origin ? `${origin}/m/checkout/${accountId}` : null : accountId);
   return <Card><p className="mb-3">{merchant ? c.checkoutHelp : c.receiveHelp}</p><WalletPanel />{value && <div className="mt-4 flex flex-col items-center gap-3"><QrCode value={value} label={merchant ? c.merchant : c.account} /><p className="break-all text-sm">{value}</p></div>}</Card>;

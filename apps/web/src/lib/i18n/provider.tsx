@@ -14,7 +14,11 @@ interface I18nValue {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-export function I18nProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
+/**
+ * `dictionaries` lets another build (NEAR Mainnet) render the same components with
+ * network-adapted wording; Testnet passes nothing and keeps DICTIONARIES.
+ */
+export function I18nProvider({ locale, children, dictionaries }: { locale: Locale; children: ReactNode; dictionaries?: Readonly<Record<Locale, Dictionary>> }) {
   const setLocale = useCallback((next: Locale) => {
     // Cookie is non-sensitive and intentionally readable by the server so the
     // first server render already uses the right dictionary (no FOUC swap).
@@ -24,8 +28,8 @@ export function I18nProvider({ locale, children }: { locale: Locale; children: R
   }, []);
 
   const value = useMemo<I18nValue>(
-    () => ({ locale, t: DICTIONARIES[locale], setLocale }),
-    [locale, setLocale],
+    () => ({ locale, t: (dictionaries ?? DICTIONARIES)[locale], setLocale }),
+    [locale, setLocale, dictionaries],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

@@ -7,6 +7,7 @@ import { usePrefersReducedMotion } from '@/lib/hooks/browser';
 import { fill } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/provider';
 import { openLivePath, parseScanInput } from '@/lib/payments/pay-link';
+import type { ScanInput } from '@/lib/payments/pay-link';
 import { CameraError, openCamera, stopStream } from '@/lib/qr/camera';
 import type { CameraProblem, MediaDevicesLike } from '@/lib/qr/camera';
 import { createFrameDecoder } from '@/lib/qr/decoder';
@@ -68,9 +69,12 @@ export interface QrScannerProps {
   readonly secureContext?: boolean;
   readonly createDecoder?: DecoderFactory;
   readonly approvedOrigins?: ReadonlyArray<string>;
+  /** Network-specific parser (NEAR Mainnet passes its /m/ link parser). Defaults to the Testnet parser. */
+  readonly parse?: (text: string) => ScanInput;
 }
 
 export function QrScanner({
+  parse,
   onClose,
   onRequest,
   onMerchant,
@@ -97,9 +101,9 @@ export function QrScanner({
   const openedPath = useRef(pathname);
 
   // Latest values for the long-running scan loop, without restarting the camera.
-  const latest = useRef({ onRequest, onMerchant, onLive, approvedOrigins, reduced, createDecoder });
+  const latest = useRef({ onRequest, onMerchant, onLive, approvedOrigins, reduced, createDecoder, parse });
   useEffect(() => {
-    latest.current = { onRequest, onMerchant, onLive, approvedOrigins, reduced, createDecoder };
+    latest.current = { onRequest, onMerchant, onLive, approvedOrigins, reduced, createDecoder, parse };
   });
 
   // A success that is still showing its animation must not navigate after a close.
@@ -197,7 +201,7 @@ export function QrScanner({
     }
 
     const handle = (text: string): boolean => {
-      const parsed = parseScanInput(text, latest.current.approvedOrigins ?? approvedPayOrigins(window.location.origin));
+      const parsed = latest.current.parse ? latest.current.parse(text) : parseScanInput(text, latest.current.approvedOrigins ?? approvedPayOrigins(window.location.origin));
       const onMerchantNow = latest.current.onMerchant;
       if (parsed.kind === 'request' || parsed.kind === 'live' || (parsed.kind === 'merchant' && onMerchantNow !== undefined)) {
         stop();

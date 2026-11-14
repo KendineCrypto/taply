@@ -3,14 +3,10 @@
 import Link from 'next/link';
 import { useId, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import { AmountHero, Monogram } from '@/components/experience/Basics';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Button, ButtonLink, Spinner } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
-import { fill } from '@/lib/i18n';
-import { useLocale, useT } from '@/lib/i18n/provider';
-import { formatBaseUnits } from '@/lib/format/amount';
-import { nsToDate } from '@/lib/format/time';
+import { useT } from '@/lib/i18n/provider';
 import { CHAIN_CONFIG, explorerAccountUrl } from '@/lib/near/config';
 import { isNamedTestnetAccount } from '@taply/near-client';
 import { useTaplyWallet } from './TaplyWalletProvider';
@@ -18,6 +14,7 @@ import { ActivationPanel } from './UsernameActivation';
 import { ShowPhrasePanel } from './RecoveryPhrase';
 import type { TaplyErrorCode, TaplyWalletState } from './TaplyWalletProvider';
 import { useWalletMode } from './mode';
+import { IdentityCardView } from '../WalletHomeViews';
 
 /** Segmented switch between the external wallet and Taply Wallet. A view choice only. */
 export function WalletModeSwitch() {
@@ -102,7 +99,6 @@ export function LockBadge() {
 /** Identity, status, lock state and (only when provisioned) the verified balance. */
 export function TaplyIdentityCard({ actions }: { readonly actions?: ReactNode }) {
   const t = useT();
-  const { locale } = useLocale();
   const { state, refresh } = useTaplyWallet();
   if (state.status !== 'local_only' && state.status !== 'unknown' && state.status !== 'provisioned') return null;
   const n = t.walletNative;
@@ -115,59 +111,16 @@ export function TaplyIdentityCard({ actions }: { readonly actions?: ReactNode })
           : n.status.localOnly
         : n.status.unknown;
   return (
-    <section className="surface-hero p-5" aria-labelledby="taply-identity-title">
-      <div className="flex items-start gap-3">
-        <Monogram accountId={state.identity.accountId} size={44} />
-        <div className="min-w-0 flex-1">
-          <h2 id="taply-identity-title" className="flex items-center gap-1.5 text-sm font-semibold text-[var(--taply-lime)]">
-            <Icon name="shield" size={15} />
-            {n.taply}
-          </h2>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <TaplyStatusBadge state={state} />
-            <LockBadge />
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <p className="text-xs text-[var(--text-muted)]">{n.identityLabel}</p>
-        <p className="chain-id mt-1 break-all text-sm text-[var(--text-primary)]">{state.identity.accountId}</p>
-      </div>
-
-      <div className="mt-5 border-t border-[var(--border-subtle)] pt-4" aria-live="polite">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-[var(--text-secondary)]">{t.walletUx.home.totalBalance}</p>
-          {state.status === 'provisioned' && (
-            <Button variant="ghost" className="px-2" onClick={refresh} aria-label={t.balance.refresh}>
-              <Icon name="refresh" size={16} />
-            </Button>
-          )}
-        </div>
-        {state.status === 'provisioned' ? (
-          <>
-            <AmountHero baseUnits={state.balance.amountYocto} className="mt-2" />
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-              <Icon name="check" size={14} className="text-[var(--taply-lime)]" />
-              {fill(t.balance.verifiedAt, {
-                time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(nsToDate(state.balance.blockTimestampNs)),
-              })}
-              <span className="sr-only">{fill(t.balance.finalBlock, { height: formatBaseUnits(state.balance.blockHeight, 0, { locale }).exact })}</span>
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-lg font-semibold text-[var(--text-muted)]">{state.status === 'local_only' ? n.home.noBalance : '—'}</p>
-        )}
-        <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{statusCopy.body}</p>
-        {state.status === 'unknown' && (
-          <Button variant="secondary" className="mt-3" onClick={refresh}>
-            <Icon name="refresh" size={16} />
-            {t.common.retry}
-          </Button>
-        )}
-      </div>
-      {actions !== undefined && <div className="mt-4">{actions}</div>}
-    </section>
+    <IdentityCardView
+      accountId={state.identity.accountId}
+      badges={<><TaplyStatusBadge state={state} /><LockBadge /></>}
+      balance={state.status === 'provisioned' ? { baseUnits: state.balance.amountYocto, blockTimestampNs: state.balance.blockTimestampNs, blockHeight: state.balance.blockHeight } : null}
+      emptyBalance={state.status === 'local_only' ? n.home.noBalance : '—'}
+      statusBody={statusCopy.body}
+      onRefresh={refresh}
+      {...(state.status === 'unknown' ? { onRetry: refresh } : {})}
+      {...(actions !== undefined ? { actions } : {})}
+    />
   );
 }
 

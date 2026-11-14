@@ -46,7 +46,9 @@ export function ReceiptTicket({
   code = null,
   mode = 'instant',
   extraRows = [],
+  asset,
 }: {
+  readonly asset?: { readonly decimals: number; readonly symbol: string };
   readonly status: ReceiptStatus;
   readonly amountBaseUnits: string;
   readonly recipientAccountId: string;
@@ -99,7 +101,7 @@ export function ReceiptTicket({
             {seal.title}
           </h2>
           <p className="mt-0.5 text-sm text-[var(--ink-muted)]">{seal.sub}</p>
-          <AmountHero baseUnits={amountBaseUnits} tone="paper" className="mt-5 justify-center" />
+          <AmountHero {...(asset ? { asset } : {})} baseUnits={amountBaseUnits} tone="paper" className="mt-5 justify-center" />
           {memo !== '' && <p className="mt-2 whitespace-pre-wrap break-words text-[var(--ink-secondary)]">“{memo}”</p>}
         </div>
 

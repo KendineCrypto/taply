@@ -25,6 +25,8 @@ import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { walletEn, walletTr } from '@/lib/mainnet/wallet-copy';
 import type { WalletCopy } from '@/lib/mainnet/wallet-copy';
 import { Notice, Row } from './bits';
+import { NoWalletCard } from './NoWalletCard';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Taply Wallet on NEAR Mainnet, wired to Codex's reviewed primitives
@@ -338,6 +340,7 @@ const AMOUNT_ERROR = { invalid: 'AMOUNT_INVALID', precision: 'AMOUNT_PRECISION',
  */
 export function WalletSend() {
   const c = useWalletCopy();
+  const t = useT();
   const { locale } = useMainnetLocale();
   const op = useOperation();
   const [asset, setAsset] = useState<'NEAR' | 'USDC'>('NEAR');
@@ -352,7 +355,7 @@ export function WalletSend() {
   if (op.signer.kind !== 'ok') {
     return op.signer.kind === 'external-no-key'
       ? <Notice tone="caution" testId="external-no-key">{OPERATION_COPY[locale].externalNoKey}</Notice>
-      : <Notice tone="muted">{c.noWallet} <Link className="underline" href="/m/wallet/create">{c.create}</Link></Notice>;
+      : <NoWalletCard text={t.walletUx.send.connectFirst} />;
   }
   const from = op.signer.accountId;
   const edit = (f: () => void) => { f(); op.reset(); setError(''); };

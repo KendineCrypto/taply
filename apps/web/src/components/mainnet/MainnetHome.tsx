@@ -4,13 +4,14 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Button, ButtonLink } from '@/components/primitives/Button';
-import { mainnetSpendingBudget } from '@taply/near-client';
+import { Button } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
-import type { IconName } from '@/components/shell/Icons';
+import { QrCode } from '@/components/payments/QrCode';
+import { FirstLaunchChooserView, HomeActionsView, IdentityCardView, WalletStatusPill } from '@/components/wallet/WalletHomeViews';
+import { useT } from '@/lib/i18n/provider';
 import { ActivityList } from './Activity';
 import { useActivation, useMainnetVault } from './Wallet';
-import { MainnetMonogram, useCurrentMainnetAccount } from './MainnetShell';
+import { useCurrentMainnetAccount } from './MainnetShell';
 import { Card } from '@/components/primitives/Surface';
 import { assetById, formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/assets';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
@@ -34,6 +35,7 @@ export function MainnetHome() {
   const p = useProductCopy();
   const { locale } = useLocale();
   const router = useRouter();
+  const { accountId } = useCurrentMainnetAccount();
   const [payInput, setPayInput] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [fixtures] = useState(() => (MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures ? fixtureRequests(Date.now()) : []));
@@ -51,7 +53,7 @@ export function MainnetHome() {
     <div className="flex flex-col gap-8 pt-2">
       <h1 className="sr-only">{c.home.title}</h1>
       <HomeHero />
-      <HomeActions />
+      {accountId !== null && <HomeActionsView receive="/m/receive" request="/m/request/new" pay="/m/scan" />}
       <section aria-labelledby="home-recent" className="flex flex-col gap-3">
         <h2 id="home-recent" className="text-sm font-semibold text-[var(--text-secondary)]">{p.recent}</h2>
         <ActivityList removeLabel={p.remove} />
@@ -130,101 +132,51 @@ export function MainnetHome() {
 }
 
 
-/** Balance hero, same layout as the Testnet Taply Wallet home card. Final-block reads only. */
+/**
+ * Wallet home hero: the Testnet first-launch chooser / Taply Wallet intro / identity card
+ * (components/wallet/WalletHomeViews), fed with Mainnet vault identity and FINAL-block reads.
+ */
 function HomeHero() {
-  const p = useProductCopy();
-  const { locale } = useLocale();
+  const t = useT();
+  const n = t.walletNative;
   const { identity, unlocked } = useMainnetVault();
   const { accountId, kind } = useCurrentMainnetAccount();
   const [tick, setTick] = useState(0);
   const activation = useActivation(identity, tick);
   if (accountId === null) {
-    return (
-      <section className="surface-hero p-5" aria-labelledby="home-intro" data-testid="home-intro">
-        <h2 id="home-intro" className="flex items-center gap-2 text-lg font-semibold">
-          <Icon name="shield" size={20} className="text-[var(--taply-lime)]" />
-          {p.heroIntro}
-        </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">{p.heroIntroBody}</p>
-        <div className="mt-4 flex flex-col gap-2">
-          <ButtonLink href="/m/wallet/create" variant="primary" size="lg" block>{p.create}</ButtonLink>
-          <ButtonLink href="/m/wallet/restore" variant="ghost" block>{p.restore}</ButtonLink>
-        </div>
-        <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
-          <p className="mb-2 text-xs text-[var(--text-muted)]">{p.orConnect}</p>
-          <WalletPanel />
-        </div>
-      </section>
-    );
+    return <FirstLaunchChooserView externalSlot={<WalletPanel primary />} taplyAvailable createHref="/m/wallet/create" restoreHref="/m/wallet/restore" />;
+  }
+  if (kind !== 'taply') {
+    return <section className="surface-hero p-5" data-testid="home-external"><WalletPanel /></section>;
   }
   const active = activation.kind === 'active' ? activation : null;
-  const spendable = active ? mainnetSpendingBudget(active.snapshot, '0') : null;
-  const total = active ? formatMainnetAmount(active.snapshot.amountYocto, MAINNET_ASSETS.NEAR, locale) : null;
-  const [figure, unit] = total ? [total.slice(0, total.lastIndexOf(' ')), 'NEAR'] : ['', ''];
-  return (
-    <section className="surface-hero p-5" aria-labelledby="home-identity" data-testid="home-hero">
-      <div className="flex items-start gap-3">
-        <MainnetMonogram accountId={accountId} size={44} />
-        <div className="min-w-0 flex-1">
-          <h2 id="home-identity" className="flex items-center gap-1.5 text-sm font-semibold text-[var(--taply-lime)]">
-            <Icon name={kind === 'taply' ? 'shield' : 'wallet'} size={15} />
-            {kind === 'taply' ? 'Taply Wallet' : 'NEAR wallet'}
-          </h2>
-          <p className="chain-id mt-1 break-all text-xs text-[var(--text-secondary)]">{accountId}</p>
-        </div>
-        <ButtonLink href="/m/wallet" variant="ghost" className="px-3 text-xs">{p.manage}</ButtonLink>
-      </div>
-      {kind === 'taply' && (
-        <div className="mt-5 border-t border-[var(--border-subtle)] pt-4" aria-live="polite">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-[var(--text-secondary)]">{p.totalBalance}</p>
-            <Button variant="ghost" className="px-2" onClick={() => setTick((t) => t + 1)} aria-label={p.refresh}>
-              <Icon name="refresh" size={16} />
-            </Button>
-          </div>
-          {total ? (
-            <>
-              <p className="display-amount mt-2 flex flex-wrap items-baseline gap-x-2">
-                <span className="text-[2.75rem] min-[400px]:text-[3.25rem] [overflow-wrap:anywhere]">{figure}</span>
-                <span className="text-lg text-[var(--text-muted)]">{unit}</span>
-              </p>
-              {spendable && <p className="mt-1 text-xs text-[var(--text-secondary)]">{p.available}: {formatMainnetAmount(spendable.availableYocto, MAINNET_ASSETS.NEAR, locale)}</p>}
-              {active?.usdc != null && <p className="mt-1 text-xs text-[var(--text-secondary)]">{formatMainnetAmount(active.usdc, MAINNET_ASSETS.USDC, locale)}</p>}
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-[var(--text-muted)]">
-              {activation.kind === 'checking' ? p.checking : activation.kind === 'not_activated' ? p.notActivated : p.unreadable}
-            </p>
-          )}
-          {!unlocked && <p className="mt-2 text-xs text-[var(--text-muted)]">{p.vaultHelp.split('.')[0]}.</p>}
-        </div>
-      )}
-    </section>
+  const statusPill = active
+    ? <WalletStatusPill tone="success" icon="check" label={n.status.provisioned.title} />
+    : activation.kind === 'not_activated'
+      ? <WalletStatusPill tone="caution" icon="alert" label={n.status.localOnly.title} />
+      : <WalletStatusPill tone="neutral" icon="clock" label={n.status.unknown.title} />;
+  const lockPill = (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${unlocked ? 'bg-[var(--surface-2)] text-[var(--text-primary)] ring-1 ring-[var(--border-strong)]' : 'bg-[var(--tone-neutral-bg)] text-[var(--text-secondary)]'}`}>
+      <Icon name={unlocked ? 'shield' : 'clock'} size={13} />
+      {unlocked ? n.lock.unlocked : n.lock.locked}
+    </span>
   );
-}
-
-/** The three real shortcuts under the balance (Receive, Request, Pay), as on Testnet. */
-function HomeActions() {
-  const p = useProductCopy();
-  const actions: ReadonlyArray<{ href: string; icon: IconName; label: string }> = [
-    { href: '/m/receive', icon: 'receive', label: p.receive },
-    { href: '/m/request/new', icon: 'request', label: p.requestShort },
-    { href: '/m/scan', icon: 'scan', label: p.payShort },
-  ];
   return (
-    <nav aria-label="Quick actions" className="grid grid-cols-3 gap-3" data-testid="home-actions">
-      {actions.map((a) => (
-        <Link
-          key={a.href}
-          href={a.href as Route}
-          className="flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-[var(--radius-card)] bg-[var(--surface-1)] px-1 text-center text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--taply-lime)]"
-        >
-          <span className="grid size-10 place-items-center rounded-full bg-[rgb(199_252_117/0.12)] text-[var(--taply-lime)]">
-            <Icon name={a.icon} size={20} />
-          </span>
-          {a.label}
+    <IdentityCardView
+      accountId={accountId}
+      badges={<>{statusPill}{lockPill}</>}
+      balance={active ? { baseUnits: active.snapshot.amountYocto, blockTimestampNs: active.snapshot.blockTimestampNs, blockHeight: active.snapshot.blockHeight } : null}
+      emptyBalance={activation.kind === 'not_activated' ? n.home.noBalance : '—'}
+      statusBody={active ? n.status.provisioned.body : activation.kind === 'not_activated' ? n.status.localOnly.body : n.status.unknown.body}
+      onRefresh={() => setTick((x) => x + 1)}
+      {...(activation.kind === 'unreadable' ? { onRetry: () => setTick((x) => x + 1) } : {})}
+      extra={activation.kind === 'not_activated' ? <div className="mt-4 flex justify-center"><QrCode value={accountId} label={n.identityLabel} /></div> : undefined}
+      actions={
+        <Link href="/m/wallet" className="tap-target inline-flex items-center gap-1.5 rounded-full px-3 text-xs font-medium text-[var(--text-secondary)] ring-1 ring-[var(--border-strong)] hover:text-[var(--text-primary)]">
+          {unlocked ? t.walletUx.home.manage : n.home.lockedHint}
+          <Icon name="chevron" size={14} />
         </Link>
-      ))}
-    </nav>
+      }
+    />
   );
 }

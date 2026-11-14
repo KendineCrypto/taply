@@ -24,7 +24,10 @@ import { derivePaymentView } from '@/lib/mainnet/status';
 import type { PaymentState } from '@/lib/mainnet/status';
 import { Notice, Row, short } from './bits';
 import { WalletPanel } from './WalletPanel';
-import { MainnetReceiptTicket, MainnetRequestTicket } from './MainnetTickets';
+import { ReceiptTicket } from '@/components/experience/ReceiptTicket';
+import { ReviewSummary } from '@/components/experience/ReviewSummary';
+import { useT } from '@/lib/i18n/provider';
+import { useSigner } from './Operation';
 import type { SubmitOutcome } from '@/lib/mainnet/wallet-ops';
 import { fill, useMainnetCopy, useMainnetLocale as useLocale } from '@/lib/mainnet/copy';
 
@@ -65,6 +68,9 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const [method, setMethod] = useState<'base' | 'wallet' | null>(null);
   const [quotePrepared, setQuotePrepared] = useState(false);
   const [paidTx, setPaidTx] = useState<string | null>(null);
+  const t = useT();
+  const signer = useSigner();
+  const payer = signer.kind === 'ok' ? signer.accountId : null;
   const now = useNow(5000);
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
   const isUsdc = read.kind === 'ok' && read.request.terms.assetId === MAINNET_ASSETS.USDC.id;
@@ -105,13 +111,45 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
     <div className="flex flex-col gap-4">
       <h1 className="sr-only">{c.pay.title}</h1>
       {receipt !== null ? (
-        <MainnetReceiptTicket status={receipt} asset={asset} amountBaseUnits={r.terms.amountBaseUnits} recipientAccountId={r.recipientAccountId}
-          payerAccountId={r.payerAccountId} memo={displayMemo(r.terms.memo)} atNs={r.latestOperation?.resolvedAtNs ?? r.fundedAtNs}
-          requestId={r.terms.id} contractId={r.terms.contractId} transactionHash={paidTx}
-          state={receipt === 'paid' ? 'PAYMENT_RECORDED' : 'FAILED'} />
+        <div data-state={receipt === 'paid' ? 'PAYMENT_RECORDED' : 'FAILED'}>
+          <ReceiptTicket
+            status={receipt === 'paid' ? 'contract_paid' : 'cancelled'}
+            asset={asset}
+            amountBaseUnits={r.terms.amountBaseUnits}
+            recipientAccountId={r.recipientAccountId}
+            payerAccountId={r.payerAccountId}
+            memo={displayMemo(r.terms.memo)}
+            settledAtNs={r.latestOperation?.resolvedAtNs ?? r.fundedAtNs}
+            references={[
+              { label: c.pay.requestId, value: r.terms.id },
+              ...(paidTx !== null ? [{ label: t.experience.receipt.references, value: paidTx, transaction: true }] : []),
+            ]}
+            explorerBaseUrl={MAINNET_CONFIG.ok ? MAINNET_CONFIG.explorerBaseUrl : null}
+            checkedVia={r.terms.contractId}
+            actions={receipt === 'paid' ? <p className="text-center text-sm font-medium text-[var(--tone-caution-fg)]" data-testid="do-not-repay">{c.status.doNotRepay}</p> : undefined}
+          />
+        </div>
       ) : (
-        <MainnetRequestTicket asset={asset} amountBaseUnits={r.terms.amountBaseUnits} recipientAccountId={r.recipientAccountId}
-          memo={displayMemo(r.terms.memo)} expiresAtNs={r.terms.fundingExpiresAtNs} />
+        <Card as="section" className="journey-amount-glow flex flex-col gap-4 p-5">
+          <h2 className="text-lg font-semibold">{t.payment.review.title}</h2>
+          <span className="sr-only" data-testid="pay-amount">{formatMainnetAmount(r.terms.amountBaseUnits, asset, locale)}</span>
+          <div className="journey-terms rounded-[var(--radius-control)]" data-testid="reviewed-terms">
+            <ReviewSummary
+              asset={asset}
+              recipientAccountId={r.recipientAccountId}
+              amountBaseUnits={r.terms.amountBaseUnits}
+              contractId={r.terms.contractId}
+              memo={displayMemo(r.terms.memo)}
+              payerAccountId={payer}
+              permittedPayerAccountId={r.terms.permittedPayerAccountId ?? null}
+              payableUntil={open ? formatTime(nsToMs(r.terms.fundingExpiresAtNs), locale) : null}
+            />
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">{t.payment.review.attachExactly}</p>
+          {open && asset.symbol === 'NEAR' && (
+            <div data-testid="method-wallet"><WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) setPaidTx(o.transactionHash); refresh(); }} /></div>
+          )}
+        </Card>
       )}
 
       {sale !== null && (saleOk
@@ -120,9 +158,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {expectedMerchant !== null && (wrongMerchant
         ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
         : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
-      {open && asset.symbol === 'NEAR' ? (
-        <div data-testid="method-wallet"><WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) setPaidTx(o.transactionHash); refresh(); }} /></div>
-      ) : open ? (
+      {open && asset.symbol === 'NEAR' ? null : open ? (
         <Card>
           <h2 className="mb-2 text-[15px] font-semibold">{c.pay.methodTitle}</h2>
           {asset.symbol === 'NEAR' && <p className="mb-2 text-[13px] text-[var(--text-secondary)]">{c.pay.methodNativeOnly}</p>}

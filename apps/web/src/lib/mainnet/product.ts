@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MainnetAccountSchema, AmountSchema, MAINNET_NATIVE_CAP, MAINNET_USDC_CAP } from '@taply/shared';
+import type { ScanInput } from '@/lib/payments/pay-link';
 
 export const PRODUCT_ROUTES = ['wallet', 'wallet/create', 'wallet/restore', 'send', 'receive', 'pay',
   'scan', 'activity', 'contacts', 'split', 'recurring', 'merchant', 'merchant/setup', 'merchant/register',
@@ -55,4 +56,22 @@ export function splitMainnetAmount(total: string, count: number): string[] {
   if (!/^[1-9][0-9]{0,38}$/.test(total) || !Number.isInteger(count) || count < 2 || count > 50 || BigInt(total) < BigInt(count)) throw new Error('INVALID_SPLIT');
   const n = BigInt(count); const value = BigInt(total);
   return Array.from({ length: count }, (_, i) => (value / n + (BigInt(i) < value % n ? 1n : 0n)).toString());
+}
+
+/**
+ * The Testnet scanner/paste UI's ScanInput, for NEAR Mainnet links only (`/m/pay/<id>`,
+ * `/m/checkout/<account>` on this origin). Testnet links and other sites are refused.
+ */
+export function mainnetScanInput(text: string, origin: string): ScanInput {
+  const route = parseMainnetScan(text, origin);
+  if (route !== null) {
+    const pay = /^\/m\/pay\/([0-9a-f]{64})$/.exec(route);
+    if (pay?.[1]) return { kind: 'request', id: pay[1] };
+    if (route.startsWith('/m/checkout/')) return { kind: 'merchant', accountId: route.slice('/m/checkout/'.length) };
+  }
+  try {
+    const url = new URL(text.trim());
+    if (url.origin !== new URL(origin).origin) return { kind: 'other_site', host: url.host };
+  } catch { /* not a URL */ }
+  return { kind: 'invalid' };
 }
