@@ -112,10 +112,12 @@ export function MainnetRequestTicket({ asset, amountBaseUnits, recipientAccountI
 export type MainnetReceiptStatus = 'paid' | 'refunded' | 'cancelled';
 
 /** The receipt a person keeps (FINAL contract state; never labelled "verified"). */
-export function MainnetReceiptTicket({ status, asset, amountBaseUnits, recipientAccountId, payerAccountId, memo, atNs, requestId, contractId, transactionHash }: {
+export function MainnetReceiptTicket({ status, asset, amountBaseUnits, recipientAccountId, payerAccountId, memo, atNs, requestId, contractId, transactionHash, state }: {
   readonly status: MainnetReceiptStatus; readonly asset: MainnetAsset; readonly amountBaseUnits: string;
   readonly recipientAccountId: string; readonly payerAccountId: string | null; readonly memo: string; readonly atNs: string | null;
   readonly requestId: string; readonly contractId: string; readonly transactionHash?: string | null;
+  /** The derived payment state (lib/mainnet/status), exposed for tests; same value the status card shows. */
+  readonly state?: string;
 }) {
   const c = useCopy();
   const when = useDateTime();
@@ -133,7 +135,7 @@ export function MainnetReceiptTicket({ status, asset, amountBaseUnits, recipient
         <span className={`grid size-16 place-items-center rounded-full ${status === 'paid' ? 'animate-seal bg-[var(--ink)] text-[var(--taply-lime)] shadow-[0_10px_30px_-10px_rgb(11_18_14/0.6)]' : 'border-2 border-[var(--ink-line)] text-[var(--ink-secondary)]'}`}>
           <Icon name={seal.icon} size={30} />
         </span>
-        <h2 id="mainnet-receipt-title" className="mt-3 text-xl font-semibold tracking-tight">{seal.title}</h2>
+        <h2 id="mainnet-receipt-title" className="mt-3 text-xl font-semibold tracking-tight" data-state={state}>{seal.title}</h2>
         <p className="mt-0.5 text-sm text-[var(--ink-muted)]">{seal.sub}</p>
         <Amount baseUnits={amountBaseUnits} asset={asset} />
         {memo !== '' && <p className="mt-2 whitespace-pre-wrap break-words text-[var(--ink-secondary)]">“{memo}”</p>}
