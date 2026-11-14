@@ -248,7 +248,7 @@ function OpenGiftContent({ id }: { readonly id: string }) {
   return (
     <Card>
       <div className="flex flex-col gap-5" data-testid="open-gift">
-        <h1 className="text-center text-xl font-semibold">{confirmed ? (g.status === 'REFUNDED' ? (tr ? 'Hediye iade edildi' : 'Gift returned') : (tr ? 'Hediye alındı' : 'Gift claimed')) : c.openTitle}</h1>
+        <h1 className="text-center text-xl font-semibold">{confirmed ? (g.status === 'REFUNDED' ? (tr ? 'Hediye iade edildi' : 'Gift returned') : (tr ? 'Hediye alındı' : 'Gift claimed')) : g.status === 'EXPIRED' ? c.state['EXPIRED'] : c.openTitle}</h1>
         {confirmed ? <div role="status" className="animate-rise flex flex-col items-center gap-3 py-4 text-center" data-testid="og-success">
           <span className="grid size-16 place-items-center rounded-full bg-[var(--taply-lime)] text-[#0B120E]"><Icon name="check" size={32} /></span>
           <p className="display-amount text-4xl">{formatMainnetAmount(g.amountYocto, MAINNET_ASSETS.NEAR, locale)}</p>
@@ -283,7 +283,7 @@ function OpenGiftContent({ id }: { readonly id: string }) {
         </div>}
         {!confirmed && canRefund && !submitted && <div data-testid="og-refund"><Button variant="secondary" data-testid="og-refund-review" disabled={op.busy} onClick={() => void settle('refund')}>{c.refund}</Button></div>}
         {canRetry && !submitted && <div data-testid="og-retry"><Button variant="secondary" data-testid="og-retry-review" disabled={op.busy} onClick={() => { setOutcome(null); void settle('retry'); }}>{c.retry}</Button>
-          {pending === 'retry' && op.prepared !== null && <OperationReview prepared={op.prepared} title={c.retry} onDone={done} />}</div>}
+          {pending === 'retry' && op.prepared !== null && <div data-testid="og-retry-ready"><OperationReview prepared={op.prepared} title={c.retry} onDone={done} /></div>}</div>}
         <details className="text-xs text-[var(--text-muted)]"><summary className="tap-target flex cursor-pointer items-center">{tr ? 'Hediye ayrıntıları' : 'Gift details'}</summary>
           <p data-testid="og-state" data-status={g.status}>{c.state[g.status]}</p>
           {g.payout && <p data-testid="og-payout" data-payout={g.payout}>{c.payout[g.payout]}</p>}
