@@ -16,6 +16,7 @@ import type {
   MainnetWalletReview,
 } from '@taply/near-client';
 import { MAINNET_CONFIG } from './config';
+import { deviceLedgerStore } from './device-ledger';
 import { AuthorityError, createHttpMainnetAuthority, nearConnectAuthoritySigner, vaultAuthoritySigner } from './authority-client';
 import type { AuthoritySigner } from './authority-client';
 import { ESCROW_PROFILE } from './escrow-profile';
@@ -75,6 +76,8 @@ export function deviceId(storage: Pick<Storage, 'getItem' | 'setItem'>): string 
 export type AuthorityState =
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'simulated'; readonly store: MainnetGlobalAttemptStore }
+  /** Release mode (NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device): Codex's coordinator on this browser's IndexedDB. */
+  | { readonly kind: 'device'; readonly store: MainnetGlobalAttemptStore }
   /** Isolated test configurations only: Codex's authenticated authority over its unmounted HTTP adapter. */
   | { readonly kind: 'http' };
 
@@ -110,6 +113,12 @@ export function resolveAuthority(sim: string | undefined, fixtures: boolean, sto
  * the test harness at all (CI greps every Mainnet bundle for it).
  */
 export function currentAuthority(): AuthorityState {
+  if (process.env.NEXT_PUBLIC_TAPLY_MAINNET_LEDGER === 'device') {
+    // Exclusive with both test modes: a build with more than one ledger flag fails closed.
+    if (process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY === 'isolated-http' || process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION === 'on') return { kind: 'unavailable' };
+    if (typeof window === 'undefined' || typeof window.indexedDB === 'undefined') return { kind: 'unavailable' };
+    return { kind: 'device', store: deviceLedgerStore(window.indexedDB) };
+  }
   if (process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY === 'isolated-http') {
     return process.env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION === 'on' ? { kind: 'unavailable' } : { kind: 'http' };
   }
@@ -140,13 +149,24 @@ export function signerIdentity(signer: WalletSigner): { accountId: string; publi
   return { accountId: id.accountId, publicKey: ed25519PublicKeyFromHex(id.publicKeyHex) };
 }
 
+export type SubmitOutcome =
+  | { readonly kind: 'FINAL_EXECUTION'; readonly transactionHash: string; readonly execution: 'SUCCESS' | 'FAILURE' }
+  /** Never a failure: the ledger keeps blocking until the FINAL outcome is read (LedgerPanel). */
+  | { readonly kind: 'OUTCOME_UNRESOLVED'; readonly transactionHash: string | null };
+
 export interface PreparedOperation {
   readonly review: Readonly<MainnetWalletReview>;
+  /**
+   * Present only with a ledger (device / simulated): Codex's backend.submit on the SAME backend
+   * instance that produced the review, then one FINAL read. Gated inside near-client
+   * (MAINNET_PROTOCOL_SIGNING_RELEASED); the UI additionally requires MAINNET_CONFIG.signingEnabled.
+   */
+  readonly submit?: (confirm: (review: Readonly<MainnetWalletReview>) => Promise<boolean>) => Promise<SubmitOutcome>;
   /**
    * unavailable / http-gated / http-unavailable = exact review only, nothing can be reserved;
    * simulated = test harness; http = reviewed through the authenticated authority.
    */
-  readonly authority: 'unavailable' | 'simulated' | 'http' | 'http-gated' | 'http-unavailable';
+  readonly authority: 'unavailable' | 'simulated' | 'device' | 'http' | 'http-gated' | 'http-unavailable';
 }
 
 /** Legacy v1 IndexedDB journal: never migrated. Any entry (or an unreadable journal) blocks new payments. */
@@ -174,9 +194,10 @@ export async function prepareOperation(input: {
   const legacy = await legacyAttemptBlocks(id.accountId);
   if (legacy === 'unresolved') throw new Error('LEGACY_OUTCOME_UNRESOLVED');
   if (legacy === 'unavailable') throw new Error('JOURNAL_UNAVAILABLE');
-  if (input.authority.kind === 'simulated') {
+  if (input.authority.kind === 'simulated' || input.authority.kind === 'device') {
     const backend = createMainnetWalletBackend({ profiles: input.profiles, deviceId: input.deviceId, signer: input.signer, store: input.authority.store }, fetcher);
-    return { review: await backend.prepare(input.operation), authority: 'simulated' };
+    const review = await backend.prepare(input.operation);
+    return { review, authority: input.authority.kind, submit: (confirm) => submitReviewed(backend, review, confirm) };
   }
   let fallback: PreparedOperation['authority'] = 'unavailable';
   if (input.authority.kind === 'http') {
@@ -208,9 +229,34 @@ export async function prepareOperation(input: {
   return { review, authority: fallback };
 }
 
-/** Ledger read / FINAL reconciliation, only through Codex's backend and only with an authority. */
+/**
+ * Codex's submit, then ONE FINAL read with the returned hash. Any error after the reservation is
+ * already recorded as UNCERTAIN by Codex's handoff; it is reported as unresolved, never as failed,
+ * and nothing is retried. Errors BEFORE the reservation (gate closed, review changed/expired,
+ * user rejected) are thrown unchanged: nothing was reserved or signed.
+ */
+export async function submitReviewed(
+  backend: Pick<ReturnType<typeof createMainnetWalletBackend>, 'submit' | 'reconcile'>,
+  review: Readonly<MainnetWalletReview>,
+  confirm: (review: Readonly<MainnetWalletReview>) => Promise<boolean>,
+  reads = 4, delayMs = 1500,
+): Promise<SubmitOutcome> {
+  const sent = await backend.submit(review.id, confirm);
+  if (sent.transactionHash === null) return { kind: 'OUTCOME_UNRESOLVED', transactionHash: null };
+  // Read-only FINAL lookups (an external wallet may return before finality). Never a resend.
+  for (let i = 0; i < reads; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, delayMs));
+    try {
+      const r = await backend.reconcile(sent.transactionHash);
+      if (r.kind === 'FINAL_EXECUTION') return { kind: 'FINAL_EXECUTION', transactionHash: r.transactionHash, execution: r.execution };
+    } catch { /* stays unresolved; LedgerPanel reads it again on request */ }
+  }
+  return { kind: 'OUTCOME_UNRESOLVED', transactionHash: sent.transactionHash };
+}
+
+/** Ledger read / FINAL reconciliation, only through Codex's backend and only with a ledger. */
 export function walletBackend(input: { signer: WalletSigner; profiles: MainnetSigningProfiles; authority: AuthorityState; deviceId: string }) {
-  if (input.authority.kind !== 'simulated') return null;
+  if (input.authority.kind !== 'simulated' && input.authority.kind !== 'device') return null;
   return createMainnetWalletBackend({ profiles: input.profiles, deviceId: input.deviceId, signer: input.signer, store: input.authority.store });
 }
 

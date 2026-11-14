@@ -93,3 +93,10 @@ test('concurrent reconcilers and lost terminal-write acknowledgement cannot eras
   assert.equal((await coordinator(s2).read('alice.near')).completed.length,1);
   await assert.rejects(coordinator(s2).reserve('a'.repeat(64),{...expectation,nonce:'9',minimumNonce:'8'}),/CONSUMED/);
 });
+test('device-local scope keeps every same-device protection; unknown scopes still refused',async()=>{
+  const s={...store(),scope:'device-local'},c=coordinator(s),a=await c.reserve('a'.repeat(64),expectation);
+  await assert.rejects(c.reserve('b'.repeat(64),expectation),/PENDING|UNRESOLVED|BLOCK/i);
+  await c.handoff(a,hash);assert.equal((await c.reconcile('alice.near')).kind,'FINAL_EXECUTION');
+  await assert.rejects(c.reserve('a'.repeat(64),{...expectation,nonce:'9',minimumNonce:'8'}),/CONSUMED/);
+  for(const scope of ['local','global',undefined])assert.throws(()=>coordinator({...store(),scope}),/GLOBAL_AUTHORITY_REQUIRED/);
+});

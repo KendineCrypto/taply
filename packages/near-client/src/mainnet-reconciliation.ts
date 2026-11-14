@@ -56,8 +56,12 @@ export async function verifyMainnetTransactionExecution(profile:MainnetReadProfi
 /** Must be one authenticated account-global durable authority, not localStorage
  * or an expiring lock. The server binds authenticated account/device ownership.
  * No production endpoint is enabled by this interface. */
+/** 'account-global': one linearizable record per account across devices (server authority).
+ * 'device-local': durable CAS on ONE device (release alternative, owner/Codex review): every
+ * same-device protection (reserve-before-handoff, UNCERTAIN blocks, FINAL reconciliation,
+ * tombstones) is unchanged; cross-device duplicate prevention is NOT provided. */
 export interface MainnetGlobalAttemptStore {
-  readonly scope:'account-global';
+  readonly scope:'account-global'|'device-local';
   read(accountId:string):Promise<string|null>;
   compareAndSwap(accountId:string,expected:string|null,next:string):Promise<boolean>;
 }
@@ -74,7 +78,7 @@ const Ledger=z.strictObject({version:z.literal(2),network:z.literal('near-mainne
  * audited archival scheme exists; never silently discard replay tombstones. */
 export function createMainnetTransactionCoordinator(input:{store:MainnetGlobalAttemptStore;deviceId:string;profile:MainnetReadProfile},
   fetcher:Fetch=(u,i)=>globalThis.fetch(u,i)){
-  if(input.store.scope!=='account-global')throw new Error('GLOBAL_AUTHORITY_REQUIRED');z.uuid().parse(input.deviceId);
+  if(input.store.scope!=='account-global'&&input.store.scope!=='device-local')throw new Error('GLOBAL_AUTHORITY_REQUIRED');z.uuid().parse(input.deviceId);
   async function load(accountId:string){
     MainnetAccountSchema.parse(accountId);const raw=await input.store.read(accountId);
     if(raw!==null&&raw.length>8*1024*1024)throw new Error('INVALID_LEDGER');

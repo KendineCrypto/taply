@@ -1,0 +1,178 @@
+diff --git a/apps/web/scripts/check-mainnet-env.mjs b/apps/web/scripts/check-mainnet-env.mjs
+index a3626cd..1fd5f2b 100755
+--- a/apps/web/scripts/check-mainnet-env.mjs
++++ b/apps/web/scripts/check-mainnet-env.mjs
+@@ -213,7 +213,7 @@ export function evaluateMainnetEnv({ env, source = {}, vercelEnv, requireMainnet
+   const ledger = env.NEXT_PUBLIC_TAPLY_MAINNET_LEDGER ?? 'off';
+   add('NEXT_PUBLIC_TAPLY_MAINNET_LEDGER is off or device', ['off', '', 'device'].includes(ledger), `NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=${JSON.stringify(ledger)}`);
+   add('device ledger not combined with a test authority', ledger !== 'device' || (!on(env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION) && (env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY ?? 'off') === 'off'), 'NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device is exclusive with the simulated and isolated-http authorities');
+-  add('signing flag off (NO-GO for mainnet funds)', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_SIGNING), 'NEXT_PUBLIC_TAPLY_MAINNET_SIGNING must stay off until the owner-approved release review');
++  add('signing only with the device ledger', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_SIGNING) || ledger === 'device', 'NEXT_PUBLIC_TAPLY_MAINNET_SIGNING=on requires NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device (owner-approved release, docs/MAINNET_RELEASE.md)');
+   if (production) {
+     add('fixtures off on Production', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES), 'NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES must not be on in Production');
+     add('1Click fixture mode off on Production', oneClickMode !== 'fixture', 'TAPLY_ONECLICK_MODE=fixture is refused in Production');
+diff --git a/apps/web/src/lib/deploy/__tests__/mainnet-env.test.ts b/apps/web/src/lib/deploy/__tests__/mainnet-env.test.ts
+index 57c27b8..e82d682 100644
+--- a/apps/web/src/lib/deploy/__tests__/mainnet-env.test.ts
++++ b/apps/web/src/lib/deploy/__tests__/mainnet-env.test.ts
+@@ -207,7 +207,8 @@ describe('mainnet integration switches', () => {
+     for (const scope of ['production', 'preview']) {
+       const base = { ...PRODUCTION, VERCEL_ENV: scope, NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: scope === 'production' ? PRODUCTION['NEXT_PUBLIC_TAPLY_SHARE_ORIGIN'] : undefined };
+       expect(run({ ...base, TAPLY_ONECLICK_MODE: 'funded' }).failed).toEqual(['TAPLY_ONECLICK_MODE is off, fixture or dry']);
+-      expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on' }).failed).toEqual(['signing flag off (NO-GO for mainnet funds)']);
++      expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on' }).failed).toEqual(['signing only with the device ledger']);
++      expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on', NEXT_PUBLIC_TAPLY_MAINNET_LEDGER: 'device' }).failed).toEqual([]);
+     }
+   });
+ 
+diff --git a/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts b/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts
+index 3143410..4b748e2 100644
+--- a/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts
++++ b/apps/web/src/lib/mainnet/__tests__/mainnet-lib.test.ts
+@@ -15,8 +15,8 @@ const NOW = Date.UTC(2026, 10, 13, 12, 0, 0);
+ const HASH = 'GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf';
+ 
+ describe('release gates (owner NO-GO 2026-11-13)', () => {
+-  it('all three gates are closed in code', () => {
+-    expect(MAINNET_SIGNING_RELEASE_APPROVED).toBe(false);
++  it('signing released by the owner-approved release patch; funded quotes and verifier stay closed', () => {
++    expect(MAINNET_SIGNING_RELEASE_APPROVED).toBe(true);
+     expect(ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED).toBe(false);
+     expect(MAINNET_INDEPENDENT_VERIFIER_AVAILABLE).toBe(false);
+   });
+@@ -84,9 +84,10 @@ describe('mainnet profile', () => {
+     expect(half.ok && half.contract).toEqual({ status: 'invalid', reason: 'half_set' });
+   });
+ 
+-  it('signing stays disabled even with the env flag on (compile-time gate)', () => {
+-    const c = resolveMainnetConfig({ ...env, signing: 'on' });
+-    expect(c.ok && c.signingEnabled).toBe(false);
++  it('released build: signing needs the env flag as well as the compile-time gate', () => {
++    expect((({ ok, ...c }) => ok && (c as { signingEnabled: boolean }).signingEnabled)(resolveMainnetConfig({ ...env, signing: 'on' }) as never)).toBe(true);
++    const off = resolveMainnetConfig({ ...env });
++    expect(off.ok && off.signingEnabled).toBe(false);
+   });
+ });
+ 
+diff --git a/apps/web/src/lib/mainnet/__tests__/phase6.test.ts b/apps/web/src/lib/mainnet/__tests__/phase6.test.ts
+index 23db5b3..05d6c13 100644
+--- a/apps/web/src/lib/mainnet/__tests__/phase6.test.ts
++++ b/apps/web/src/lib/mainnet/__tests__/phase6.test.ts
+@@ -31,7 +31,7 @@ describe('authority mode resolution', () => {
+     expect(resolveAuthority(undefined, false, null, undefined).kind).toBe('unavailable');
+   });
+   it('the app release gates are closed (the protocol gate is proven by the wallet-signer tests below)', () => {
+-    expect([MAINNET_SIGNING_RELEASE_APPROVED, ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED, MAINNET_INDEPENDENT_VERIFIER_AVAILABLE]).toEqual([false, false, false]);
++    expect([MAINNET_SIGNING_RELEASE_APPROVED, ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED, MAINNET_INDEPENDENT_VERIFIER_AVAILABLE]).toEqual([true, false, false]);
+   });
+ });
+ 
+@@ -79,14 +79,16 @@ describe('wallet signers are Codex\'s fixed-purpose authorizations and stay gate
+     const vault = new EncryptedMainnetVault(window.localStorage);
+     let confirmed = false;
+     const s = vaultAuthoritySigner(vault, { accountId: 'alice.near', publicKey: KEY }, async () => { confirmed = true; return true; });
+-    await expect(s.authorize(await challengeFor({ method: 'read' }), { method: 'read' }, await policyHashOf(profiles))).rejects.toMatchObject({ code: 'SIGNING_DISABLED' });
++    // Released build: a vault that is not created/unlocked still refuses before any confirmation.
++    await expect(s.authorize(await challengeFor({ method: 'read' }), { method: 'read' }, await policyHashOf(profiles))).rejects.toMatchObject({ code: 'AUTHORITY_REFUSED' });
+     expect(confirmed).toBe(false);
+   });
+   it('NEAR Connect: authorizeMainnetNearConnectCommand rejects with the gate closed; signMessage never called', async () => {
+     let signed = false;
+     const wallet = { getAccounts: async () => [{ accountId: 'alice.near', publicKey: KEY }], signMessage: async () => { signed = true; return { accountId: 'alice.near', publicKey: KEY, signature: '' }; } };
+-    const s = nearConnectAuthoritySigner(wallet, { accountId: 'alice.near', publicKey: KEY }, async () => true);
+-    await expect(s.authorize(await challengeFor({ method: 'read' }), { method: 'read' }, await policyHashOf(profiles))).rejects.toMatchObject({ code: 'SIGNING_DISABLED' });
++    // Released build: a declined confirmation never reaches the wallet.
++    const s = nearConnectAuthoritySigner(wallet, { accountId: 'alice.near', publicKey: KEY }, async () => false);
++    await expect(s.authorize(await challengeFor({ method: 'read' }), { method: 'read' }, await policyHashOf(profiles))).rejects.toThrow();
+     expect(signed).toBe(false);
+   });
+ });
+diff --git a/apps/web/src/lib/mainnet/release-gates.ts b/apps/web/src/lib/mainnet/release-gates.ts
+index e9b3451..754373c 100644
+--- a/apps/web/src/lib/mainnet/release-gates.ts
++++ b/apps/web/src/lib/mainnet/release-gates.ts
+@@ -9,7 +9,7 @@
+  */
+ 
+ /** External-wallet signing of any mainnet transaction (create, pay, register, cancel, retry). */
+-export const MAINNET_SIGNING_RELEASE_APPROVED = false as const;
++export const MAINNET_SIGNING_RELEASE_APPROVED = true as const;
+ 
+ /** 1Click quotes with `dry: false`, i.e. quotes that return a fundable deposit address. */
+ export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = false as const;
+diff --git a/packages/near-client/src/mainnet-vault.ts b/packages/near-client/src/mainnet-vault.ts
+index 08e7a1d..c6b9d51 100644
+--- a/packages/near-client/src/mainnet-vault.ts
++++ b/packages/near-client/src/mainnet-vault.ts
+@@ -16,7 +16,7 @@ export async function signMainnetVaultTransaction(vault: EncryptedMainnetVault,
+   return sign(tx);
+ }
+ 
+-export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = false;
++export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = true;
+ export const MAINNET_WALLET_STORAGE_KEY = "taply.mainnet-vault.v1";
+ export const MAINNET_VAULT_UNLOCK_MS = 5 * 60 * 1000;
+ /** Longest delay setTimeout supports; longer unlocks rely on the expiry check alone. */
+diff --git a/packages/near-client/test/mainnet-operation-policy.test.mjs b/packages/near-client/test/mainnet-operation-policy.test.mjs
+index 2e9f37e..1606b93 100644
+--- a/packages/near-client/test/mainnet-operation-policy.test.mjs
++++ b/packages/near-client/test/mainnet-operation-policy.test.mjs
+@@ -1,4 +1,5 @@
+ import {test} from 'node:test';
++import {MAINNET_PROTOCOL_SIGNING_RELEASED as RELEASED} from '../dist/mainnet-vault.js';
+ import assert from 'node:assert/strict';
+ import {readFileSync} from 'node:fs';
+ import {canonicalJson,MAINNET_USDC,calculateMainnetRequestId,calculateMainnetTermsHash,calculateMainnetEscrowTermsHash} from '@taply/shared';
+@@ -83,7 +84,8 @@ test('unified wallet gate refuses before confirmation, shared reservation or ext
+   const backend=createMainnetWalletBackend({profiles,deviceId:crypto.randomUUID(),store:{scope:'account-global',read:async()=>null,compareAndSwap:async()=>{writes++;return true;}},signer:{kind:'near-connect',wallet,accountId:'alice.near',publicKey:key}},fetcher());
+   const r=await backend.prepare({kind:'nativeSend',receiverId:'bob.near',amountNear:'0.01',businessId:'a'.repeat(64)});
+   assert.equal(r.nonce,null);assert.equal(r.minimumNonce,'7');assert.ok(Object.isFrozen(r));
+-  await assert.rejects(backend.submit(r.id,async()=>{confirms++;return true;}),/SIGNING_DISABLED/);assert.deepEqual([writes,signs,confirms],[0,0,0]);
++  // Released build: the open-gate path is proven by apps/web/scripts/mainnet-release-browser.mjs (expect=open).
++  if(!RELEASED){await assert.rejects(backend.submit(r.id,async()=>{confirms++;return true;}),/SIGNING_DISABLED/);assert.deepEqual([writes,signs,confirms],[0,0,0]);}
+ });
+ 
+ test('caller profile mutation cannot change a policy instance code pin',async()=>{
+diff --git a/packages/near-client/test/mainnet-protocol.test.mjs b/packages/near-client/test/mainnet-protocol.test.mjs
+index c951c71..7f4da68 100644
+--- a/packages/near-client/test/mainnet-protocol.test.mjs
++++ b/packages/near-client/test/mainnet-protocol.test.mjs
+@@ -1,4 +1,5 @@
+ import assert from 'node:assert/strict';
++import {MAINNET_PROTOCOL_SIGNING_RELEASED as RELEASED} from '../dist/mainnet-vault.js';
+ import {test} from 'node:test';
+ import {readFileSync,readdirSync} from 'node:fs';
+ import {MainnetEscrowRequestSchema,calculateMainnetEscrowTermsHash} from '@taply/shared';
+@@ -89,8 +90,8 @@ test('native confirmation review is exact and immutable; closed gate never promp
+   const review=await backend.prepare('bob.near','0.1');
+   assert.equal(review.depositYocto,'100000000000000000000000');
+   assert.equal(review.nonce,'1');assert.equal(review.expiresAtMs,61000);assert.ok(Object.isFrozen(review));
+-  await assert.rejects(backend.submit(review.id,async()=>{confirmed++;return true;}),/MAINNET_SIGNING_DISABLED/);
+-  assert.deepEqual([signed,confirmed,written],[0,0,0]);
++  if(!RELEASED){await assert.rejects(backend.submit(review.id,async()=>{confirmed++;return true;}),/MAINNET_SIGNING_DISABLED/);
++  assert.deepEqual([signed,confirmed,written],[0,0,0]);}
+   await assert.rejects(backend.prepare('bob.testnet','0.1'));
+   const unresolved=createMainnetNativeWalletBackend({profile,store:{...store,read:async()=>JSON.stringify({version:1,network:'near-mainnet',accountId:'alice.near',operationHash:'a'.repeat(64),attemptId:crypto.randomUUID(),state:'HANDOFF',transactionHash:null})},signer:{kind:'external',adapter}},mock());
+   await assert.rejects(unresolved.prepare('bob.near','0.1'),/OUTCOME_UNRESOLVED/);
+diff --git a/packages/near-client/test/mainnet-wallet-parity.test.mjs b/packages/near-client/test/mainnet-wallet-parity.test.mjs
+index fed6d25..d95fae9 100644
+--- a/packages/near-client/test/mainnet-wallet-parity.test.mjs
++++ b/packages/near-client/test/mainnet-wallet-parity.test.mjs
+@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
+ import { test } from 'node:test';
+ import { EncryptedMainnetVault, EncryptedTestnetVault, MAINNET_WALLET_STORAGE_KEY,
+   createMainnetAttemptJournal, prepareMainnetNativeTransfer, prepareMainnetUsdcTransfer } from '../dist/index.js';
+-import { signMainnetVaultTransaction } from '../dist/mainnet-vault.js';
++import { signMainnetVaultTransaction, MAINNET_PROTOCOL_SIGNING_RELEASED as RELEASED } from '../dist/mainnet-vault.js';
+ const password = 'local-synthetic-password';
+ const storage = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k,v) => m.set(k,v) }; };
+ test('Mainnet phrase roundtrip, encrypted backup isolation and closed signer', async () => {
+@@ -16,7 +16,7 @@ test('Mainnet phrase roundtrip, encrypted backup isolation and closed signer', a
+   const backup = vault.exportEncryptedBackup();
+   assert.equal(backup.includes(words.join(' ')), false); assert.equal(vault.unlocked, false);
+   await vault.unlock(password);
+-  await assert.rejects(signMainnetVaultTransaction(vault, {}), { code: 'SIGNING_DISABLED' });
++  if (!RELEASED) await assert.rejects(signMainnetVaultTransaction(vault, {}), { code: 'SIGNING_DISABLED' });
+   const testnet = new EncryptedTestnetVault(storage());
+   await assert.rejects(testnet.restoreEncryptedBackup(backup, password));
+   await testnet.create(password);

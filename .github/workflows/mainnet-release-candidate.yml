@@ -1,0 +1,69 @@
+# Proves the owner-approved release patch (docs/release/mainnet-signing-release.patch) WITHOUT
+# merging it: applies it in the runner only, then runs Codex's near-client suite, the full web
+# unit suite and the real-browser release path (device ledger → Codex backend → vault signing →
+# FINAL reconciliation) against a synthetic Mainnet RPC. No keys, secrets, chain access or deploys.
+name: mainnet-release-candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/festive-brahmagupta-qkqex1]
+    paths:
+      - .github/workflows/mainnet-release-candidate.yml
+      - docs/release/mainnet-signing-release.patch
+      - apps/web/scripts/mainnet-release-browser.mjs
+      - apps/web/src/lib/mainnet/device-ledger.ts
+      - apps/web/src/lib/mainnet/wallet-ops.ts
+      - apps/web/src/components/mainnet/Operation.tsx
+      - packages/near-client/src/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mainnet-release-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+      - name: Install
+        run: |
+          npm install -g pnpm@11.5.0
+          pnpm install --frozen-lockfile
+          npm install --prefix "$RUNNER_TEMP/pw" --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/pw/node_modules/playwright/cli.js" install --with-deps chromium --only-shell
+      - name: Gates CLOSED (as committed)
+        run: |
+          pnpm --filter @taply/shared run build
+          pnpm --filter @taply/near-client run build
+          node apps/web/scripts/mainnet-release-browser.mjs "$RUNNER_TEMP/pw/node_modules/playwright/index.mjs" "$RUNNER_TEMP/ev/closed" closed
+      - name: Apply the release patch (runner only)
+        run: |
+          git apply --check docs/release/mainnet-signing-release.patch
+          git apply docs/release/mainnet-signing-release.patch
+          git diff --stat
+          pnpm --filter @taply/near-client run build
+      - name: Gates OPEN — near-client suite
+        working-directory: packages/near-client
+        run: node --test test/*.test.mjs
+      - name: Gates OPEN — web unit suite
+        working-directory: apps/web
+        run: npx vitest run
+      - name: Gates OPEN — real-browser release path
+        run: node apps/web/scripts/mainnet-release-browser.mjs "$RUNNER_TEMP/pw/node_modules/playwright/index.mjs" "$RUNNER_TEMP/ev/open" open
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: mainnet-release-candidate-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/ev

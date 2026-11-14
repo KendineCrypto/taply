@@ -8,11 +8,12 @@ import { Card } from '@/components/primitives/Surface';
 import { formatMainnetAmount, MAINNET_ASSETS } from '@/lib/mainnet/assets';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { MAINNET_SIGNING_RELEASE_APPROVED } from '@/lib/mainnet/release-gates';
+import { MAINNET_CONFIG } from '@/lib/mainnet/config';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import {
   currentAuthority, deviceId, prepareOperation, signingProfiles, walletBackend,
 } from '@/lib/mainnet/wallet-ops';
-import type { AuthorityState, PreparedOperation, WalletSigner } from '@/lib/mainnet/wallet-ops';
+import type { AuthorityState, PreparedOperation, SubmitOutcome, WalletSigner } from '@/lib/mainnet/wallet-ops';
 import { authoritySignerFor } from '@/lib/mainnet/wallet-ops';
 import { AuthorityError, createHttpMainnetAuthority } from '@/lib/mainnet/authority-client';
 import { useMainnetVault, vault } from './Wallet';
@@ -38,6 +39,13 @@ const en = {
   authorityHttpGated: 'The payment authority answered, but your wallet cannot authorize it yet: wallet signing stays disabled until the release review. Nothing can be reserved or sent.',
   authorityHttpUnavailable: 'The payment authority is not reachable or refused this device. Nothing can be reserved or sent.',
   confirmCommand: (what: string): string => `Authorize this Taply payment-safety step with your wallet?\n\n${what}\n\nThis does not send money by itself.`,
+  authorityDevice: 'Checked against this device\'s payment record: an unknown outcome blocks new payments and a sent payment can never be sent again from here. Payments started on another device are not visible here.',
+  ledgerDevice: 'Payment record on this device (not shared with your other devices).',
+  sending: 'Waiting for your wallet…',
+  finalSent: (ok: boolean): string => ok ? 'Executed at a FINAL block (success).' : 'Executed at a FINAL block, but it failed on chain. Your funds were not transferred by this transaction.',
+  sentUnknown: 'Sent — outcome not confirmed yet. Do not pay again. Check it under Payment safety.',
+  viewTx: 'View on explorer',
+  reviewConfirm: (to: string, what: string): string => `Send on NEAR Mainnet (real funds)?\n\nTo: ${to}\n${what}\n\nThis cannot be undone.`,
   confirm: 'Confirm and send',
   gate: 'Sending real funds is disabled until the owner-approved release review and a reviewed payment authority. Nothing was signed.',
   pickSigner: 'Pay from', taplyWallet: 'Taply Wallet', external: 'Connected wallet',
@@ -88,6 +96,12 @@ const en = {
     ALREADY_REGISTERED: 'This account is already registered with USDC.',
     ARCHIVE_REQUIRED: 'This account\'s payment record is full and needs a reviewed archive. Sending is blocked.',
     INVALID_ARGUMENT: 'The reviewed builder refused this action in the current state. Nothing was prepared.',
+    MAINNET_SIGNING_DISABLED: 'Sending real funds is disabled on this build. Nothing was signed.',
+    USER_REJECTED_BEFORE_HANDOFF: 'Cancelled. Nothing was signed or sent.',
+    REVIEW_EXPIRED: 'This review expired. Review again. Nothing was signed.',
+    REVIEW_CHANGED: 'The account or chain changed since this review. Review again. Nothing was signed.',
+    STALE_ATTEMPT: 'Another tab changed this account\'s payment record. Review again. Nothing was signed.',
+    STALE_NONCE: 'The account changed since this review. Review again. Nothing was signed.',
     UNKNOWN: 'Something went wrong. Nothing was signed or sent.',
   } as Record<string, string>,
 };
@@ -105,6 +119,13 @@ const tr: Copy = {
   authorityHttpGated: 'Ödeme yetkilisi yanıt verdi, ancak cüzdanınız henüz yetkilendiremez: sürüm incelemesine kadar cüzdan imzası kapalı. Hiçbir şey ayrılamaz veya gönderilemez.',
   authorityHttpUnavailable: 'Ödeme yetkilisine ulaşılamıyor veya bu cihazı reddetti. Hiçbir şey ayrılamaz veya gönderilemez.',
   confirmCommand: (what: string): string => `Bu Taply ödeme güvenliği adımını cüzdanınızla yetkilendirmek istiyor musunuz?\n\n${what}\n\nBu tek başına para göndermez.`,
+  authorityDevice: 'Bu cihazın ödeme kaydıyla kontrol edildi: sonucu bilinmeyen bir ödeme yeni ödemeleri engeller ve gönderilen bir ödeme buradan bir daha gönderilemez. Başka bir cihazda başlatılan ödemeler burada görünmez.',
+  ledgerDevice: 'Bu cihazdaki ödeme kaydı (diğer cihazlarınızla paylaşılmaz).',
+  sending: 'Cüzdanınız bekleniyor…',
+  finalSent: (ok: boolean) => ok ? 'KESİN blokta yürütüldü (başarılı).' : 'KESİN blokta yürütüldü, ancak zincirde başarısız oldu. Bu işlemle paranız aktarılmadı.',
+  sentUnknown: 'Gönderildi — sonuç henüz doğrulanmadı. Tekrar ödemeyin. Ödeme güvenliği bölümünden kontrol edin.',
+  viewTx: 'Gezginde görüntüle',
+  reviewConfirm: (to: string, what: string) => `NEAR Mainnet üzerinde gönderilsin mi (gerçek para)?\n\nAlıcı: ${to}\n${what}\n\nBu geri alınamaz.`,
   confirm: 'Onayla ve gönder',
   gate: 'Sahibin onaylayacağı sürüm incelemesine ve incelenmiş bir ödeme yetkilisine kadar gerçek para göndermek kapalı. Hiçbir şey imzalanmadı.',
   pickSigner: 'Ödeyen', taplyWallet: 'Taply Cüzdan', external: 'Bağlı cüzdan',
@@ -155,6 +176,12 @@ const tr: Copy = {
     ALREADY_REGISTERED: 'Bu hesap zaten USDC\'ye kayıtlı.',
     ARCHIVE_REQUIRED: 'Bu hesabın ödeme kaydı dolu ve incelenmiş bir arşiv gerektiriyor. Gönderme engellendi.',
     INVALID_ARGUMENT: 'İncelenmiş oluşturucu bu işlemi mevcut durumda reddetti. Hiçbir şey hazırlanmadı.',
+    MAINNET_SIGNING_DISABLED: 'Bu sürümde gerçek para göndermek kapalı. Hiçbir şey imzalanmadı.',
+    USER_REJECTED_BEFORE_HANDOFF: 'İptal edildi. Hiçbir şey imzalanmadı veya gönderilmedi.',
+    REVIEW_EXPIRED: 'Bu inceleme sona erdi. Tekrar inceleyin. Hiçbir şey imzalanmadı.',
+    REVIEW_CHANGED: 'Bu incelemeden sonra hesap veya zincir değişti. Tekrar inceleyin. Hiçbir şey imzalanmadı.',
+    STALE_ATTEMPT: 'Başka bir sekme bu hesabın ödeme kaydını değiştirdi. Tekrar inceleyin. Hiçbir şey imzalanmadı.',
+    STALE_NONCE: 'Bu incelemeden sonra hesap değişti. Tekrar inceleyin. Hiçbir şey imzalanmadı.',
     UNKNOWN: 'Bir şeyler ters gitti. Hiçbir şey imzalanmadı veya gönderilmedi.',
   },
 };
@@ -288,7 +315,7 @@ export function OperationReview({ prepared, title, children }: { readonly prepar
           <Row label={c.reserved}>{formatMainnetAmount((BigInt(r.gasReserveYocto) + BigInt(r.storageReserveYocto)).toString(), MAINNET_ASSETS.NEAR, locale)}</Row>
           <Row label={c.opId} mono><span data-testid="op-hash">{r.operationHash}</span></Row>
           <Row label={c.network}>NEAR Mainnet</Row>
-          <Row label={c.authority}><span data-testid="op-authority" className="text-[var(--tone-caution-fg)]">{prepared.authority === 'simulated' ? c.authoritySimulated : prepared.authority === 'http' ? c.authorityHttp : prepared.authority === 'http-gated' ? c.authorityHttpGated : prepared.authority === 'http-unavailable' ? c.authorityHttpUnavailable : c.authorityUnavailable}</span></Row>
+          <Row label={c.authority}><span data-testid="op-authority" className="text-[var(--tone-caution-fg)]">{prepared.authority === 'simulated' ? c.authoritySimulated : prepared.authority === 'device' ? c.authorityDevice : prepared.authority === 'http' ? c.authorityHttp : prepared.authority === 'http-gated' ? c.authorityHttpGated : prepared.authority === 'http-unavailable' ? c.authorityHttpUnavailable : c.authorityUnavailable}</span></Row>
         </dl>
         {a.kind === 'call' && (
           <details className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] p-3 text-[12px]">
@@ -297,10 +324,61 @@ export function OperationReview({ prepared, title, children }: { readonly prepar
           </details>
         )}
         <p className="text-[12px] text-[var(--text-muted)]" data-testid="op-expiry">{remaining > 0 ? `${c.expires} ${Math.ceil(remaining / 1000)} s` : c.expired}</p>
-        <Button variant="primary" size="lg" disabled data-testid="op-confirm">{c.confirm}</Button>
-        <p className="text-[13px] text-[var(--tone-caution-fg)]">{MAINNET_SIGNING_RELEASE_APPROVED ? '' : c.gate}</p>
+        <SubmitControl prepared={prepared} expired={remaining <= 0} />
       </div>
     </Card>
+  );
+}
+
+/** Enabled only when the build allows signing (gate + flag) AND a ledger produced this review. */
+export function submitAllowed(prepared: PreparedOperation, signingEnabled: boolean): boolean {
+  return signingEnabled && MAINNET_SIGNING_RELEASE_APPROVED && prepared.submit !== undefined && (prepared.authority === 'device' || prepared.authority === 'simulated');
+}
+
+function SubmitControl({ prepared, expired }: { readonly prepared: PreparedOperation; readonly expired: boolean }) {
+  const c = useOperationCopy();
+  const { locale } = useMainnetLocale();
+  const [state, setState] = useState<{ id: string; v: 'sending' | SubmitOutcome | { error: string } } | null>(null);
+  const signing = MAINNET_CONFIG.ok && MAINNET_CONFIG.signingEnabled;
+  const allowed = submitAllowed(prepared, signing);
+  const s = state?.id === prepared.review.id ? state.v : null;
+  async function send() {
+    const submit = prepared.submit;
+    if (!allowed || !submit || s !== null) return;
+    const r = prepared.review, a = r.action;
+    const what = a.kind === 'transfer' ? formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)
+      : `${a.methodName} · ${a.depositYocto === '1' ? '1 yoctoNEAR' : formatMainnetAmount(a.depositYocto, MAINNET_ASSETS.NEAR, locale)}`;
+    setState({ id: r.id, v: 'sending' });
+    try {
+      const out = await submit(async (rv) => rv.id === r.id && window.confirm(c.reviewConfirm(rv.receiverId, what)));
+      setState({ id: r.id, v: out });
+    } catch (e) {
+      setState({ id: r.id, v: { error: operationErrorCode(e) } });
+    }
+  }
+  const done = s !== null && s !== 'sending' && !('error' in s);
+  return (
+    <>
+      <Button variant="primary" size="lg" disabled={!allowed || expired || s !== null} onClick={() => void send()} data-testid="op-confirm" data-allowed={allowed ? 'yes' : 'no'}>
+        {s === 'sending' ? c.sending : c.confirm}
+      </Button>
+      {!allowed && <p className="text-[13px] text-[var(--tone-caution-fg)]">{c.gate}</p>}
+      {s !== null && s !== 'sending' && 'error' in s && <OperationError code={s.error} />}
+      {done && (
+        <Notice tone={s.kind === 'FINAL_EXECUTION' && s.execution === 'SUCCESS' ? 'muted' : 'caution'} live testId="op-sent">
+          <span data-kind={s.kind} data-execution={s.kind === 'FINAL_EXECUTION' ? s.execution : 'unknown'}>
+            {s.kind === 'FINAL_EXECUTION' ? c.finalSent(s.execution === 'SUCCESS') : c.sentUnknown}
+          </span>
+          {s.transactionHash !== null && (
+            <span className="mt-1 block break-all font-mono text-[11px]" data-testid="op-tx">
+              {s.transactionHash}{' '}
+              <a className="underline" target="_blank" rel="noreferrer" href={`${MAINNET_CONFIG.ok ? MAINNET_CONFIG.explorerBaseUrl : ''}/txns/${s.transactionHash}`}>{c.viewTx}</a>
+            </span>
+          )}
+          {s.kind === 'FINAL_EXECUTION' && <span className="block text-[12px]">{c.settlementNote}</span>}
+        </Notice>
+      )}
+    </>
   );
 }
 
@@ -341,7 +419,7 @@ export function LedgerPanel() {
     <Card>
       <div className="flex flex-col gap-2" data-testid="ledger" data-pending={l && l !== 'error' && l.pending ? l.pending.state : 'none'}>
         <h2 className="font-semibold">{c.ledgerTitle}</h2>
-        <p className="text-[12px] font-semibold text-[var(--tone-caution-fg)]">{c.ledgerSimulated}</p>
+        <p className="text-[12px] font-semibold text-[var(--tone-caution-fg)]">{env.authority.kind === 'device' ? c.ledgerDevice : c.ledgerSimulated}</p>
         {l === 'error' && <Notice tone="danger">{c.errors['UNKNOWN']}</Notice>}
         {l && l !== 'error' && (
           <p data-testid="ledger-owner" data-owner={l.ownerDeviceId === env.device ? 'this' : 'other'} className="text-[13px]">{l.ownerDeviceId === env.device ? c.ownerThis : c.ownerOther}</p>

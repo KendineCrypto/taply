@@ -80,6 +80,8 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY?: string;
     /** TEST ONLY: single-browser simulated wallet authority (requires fixtures). Refused on Production. */
     readonly NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION?: string;
+    /** Release ledger: 'device' = Codex's coordinator on this browser's IndexedDB (no cross-device duplicate prevention). */
+    readonly NEXT_PUBLIC_TAPLY_MAINNET_LEDGER?: string;
     /** Mainnet Protected Pay escrow (account + pinned code hash). Not deployed/approved: refused on Production. */
     readonly NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CONTRACT_ID?: string;
     readonly NEXT_PUBLIC_TAPLY_MAINNET_ESCROW_CODE_HASH?: string;

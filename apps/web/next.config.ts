@@ -73,6 +73,7 @@ export default function config(phase: string): NextConfig {
   if (process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet') {
     (process.env as Record<string, string | undefined>)['NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION'] ??= 'off';
     (process.env as Record<string, string | undefined>)['NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY'] ??= 'off';
+    (process.env as Record<string, string | undefined>)['NEXT_PUBLIC_TAPLY_MAINNET_LEDGER'] ??= 'off';
   }
   if (phase === PHASE_PRODUCTION_BUILD && process.env.NEXT_PUBLIC_TAPLY_NETWORK === 'near-mainnet') {
     const { checks } = evaluateMainnetEnv({ env: process.env, vercelEnv: process.env['VERCEL_ENV'], requireMainnet: true });

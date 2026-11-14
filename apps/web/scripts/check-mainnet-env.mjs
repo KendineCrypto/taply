@@ -210,6 +210,9 @@ export function evaluateMainnetEnv({ env, source = {}, vercelEnv, requireMainnet
   //     quotes and signing are NO-GO (also hard-gated in lib/mainnet/release-gates.ts).
   const oneClickMode = env.TAPLY_ONECLICK_MODE ?? 'off';
   add('TAPLY_ONECLICK_MODE is off, fixture or dry', ['off', 'fixture', 'dry'].includes(oneClickMode), `TAPLY_ONECLICK_MODE=${JSON.stringify(oneClickMode)}; funded quotes are not approved`);
+  const ledger = env.NEXT_PUBLIC_TAPLY_MAINNET_LEDGER ?? 'off';
+  add('NEXT_PUBLIC_TAPLY_MAINNET_LEDGER is off or device', ['off', '', 'device'].includes(ledger), `NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=${JSON.stringify(ledger)}`);
+  add('device ledger not combined with a test authority', ledger !== 'device' || (!on(env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION) && (env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY ?? 'off') === 'off'), 'NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device is exclusive with the simulated and isolated-http authorities');
   add('signing flag off (NO-GO for mainnet funds)', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_SIGNING), 'NEXT_PUBLIC_TAPLY_MAINNET_SIGNING must stay off until the owner-approved release review');
   if (production) {
     add('fixtures off on Production', !on(env.NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES), 'NEXT_PUBLIC_TAPLY_MAINNET_FIXTURES must not be on in Production');
