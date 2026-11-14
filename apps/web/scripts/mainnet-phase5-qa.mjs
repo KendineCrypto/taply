@@ -127,6 +127,7 @@ check('FINAL reconciliation (Codex verifyMainnetTransactionExecution): executed,
   (await w.locator('[data-testid=ledger-result] [data-kind]').getAttribute('data-kind')) === 'FINAL_EXECUTION' && /not that the payment settled/.test(await text(w, 'ledger-result')));
 await w.waitForFunction(() => document.querySelector('[data-testid=ledger]')?.getAttribute('data-pending') === 'none', null, { timeout: 20000 }).catch(() => {});
 check('pending attempt retired; permanent record lists the execution', (await w.getByTestId('ledger').getAttribute('data-pending')) === 'none' && (await w.locator('[data-testid=ledger-history] li[data-execution=SUCCESS]').count()) === 1);
+await w.locator('details').filter({ has: w.getByTestId('ledger-history') }).locator('summary').click();
 await w.getByTestId('direct-check').first().click();
 await waitFor(w, 'direct-result');
 check('own executed send checked with verifyMainnetDirectTransfer → matches exactly (pre-release wording)', (await w.getByTestId('direct-result').getAttribute('data-kind')) === 'VERIFIED' && !/Verified Paid/i.test(await text(w, 'direct-result')));
