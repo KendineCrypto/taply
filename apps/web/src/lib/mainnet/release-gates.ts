@@ -16,7 +16,9 @@ export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = false as const;
 
 /**
  * Independent mainnet receipt verification (receipt graph, merchant transfer,
- * callback, code hash at every block). Not implemented: "Verified Paid" is
- * unavailable on mainnet and the best possible state is "Payment recorded".
+ * callback, code hash at every block). Blanket availability across all assets
+ * and retry histories remains off. First-attempt native receipts may display
+ * "Verified Paid" only from their own successful independent settlement proof;
+ * this flag never turns contract state or a candidate hash into verification.
  */
 export const MAINNET_INDEPENDENT_VERIFIER_AVAILABLE = false as const;

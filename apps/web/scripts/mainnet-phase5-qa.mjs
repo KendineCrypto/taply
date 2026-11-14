@@ -25,6 +25,7 @@ const ONE_NEAR = '1000000000000000000000000';
 const LEAKS = ['taply-e2e-ce38a238', 'taply-pay-pilot-1.testnet', 'rpc.testnet.near.org', 'taply.testnet-vault.v1', 'taply-gift-claim:near-testnet'];
 const SIM_KEY = 'taply.mainnet.sim-authority.v2:';
 let ME = 'pending.near';
+let txAvailable = false;
 let MY_KEY = 'ed25519:11111111111111111111111111111111';
 
 const out = (id, executor, status, receiptIds = []) => ({ id, block_hash: HASH, outcome: { executor_id: executor, status, receipt_ids: receiptIds, logs: [], gas_burnt: 100, tokens_burnt: '1' } });
@@ -45,7 +46,7 @@ async function rpc(route) {
   } else if (r.method === 'gas_price') result = { gas_price: '100000000' };
   else if (r.method === 'EXPERIMENTAL_protocol_config') result = { runtime_config: { storage_amount_per_byte: '10000000000000000000' } };
   else if (r.method === 'tx_status' || r.method === 'EXPERIMENTAL_tx_status') {
-    if (p.tx_hash === TX) result = executedTx();
+    if (p.tx_hash === TX && txAvailable) result = executedTx();
     else error = { code: -32000, name: 'HANDLER_ERROR', cause: { name: 'UNKNOWN_TRANSACTION', info: {} }, message: 'unknown tx' };
   } else if (p.request_type === 'view_access_key') result = { nonce: 7, permission: 'FullAccess', block_hash: HASH, block_height: 200000000 };
   else if (p.request_type === 'view_account') result = { amount: '3000000000000000000000000', locked: '0', storage_usage: 182, code_hash: 'GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf', block_hash: HASH, block_height: 200000000 };
@@ -119,12 +120,14 @@ check('unknown outcome shown: state UNCERTAIN, its transaction hash, "do not pay
 await sendReview('0.3');
 check('a different new payment is refused while the outcome is unknown', (await code(w)) === 'OUTCOME_UNRESOLVED');
 await w.screenshot({ path: `${OUT}/p5-02-unknown-outcome.png`, fullPage: true });
-await w.getByTestId('ledger-check').click();
-await waitFor(w, 'ledger-result');
+txAvailable = true;
+// The retained transaction becomes FINAL; read-only polling must recover it without a click.
+await w.waitForSelector('[data-testid=ledger-result] [data-kind=FINAL_EXECUTION]', { timeout: 20000 });
 check('FINAL reconciliation (Codex verifyMainnetTransactionExecution): executed, settlement NOT established',
   (await w.locator('[data-testid=ledger-result] [data-kind]').getAttribute('data-kind')) === 'FINAL_EXECUTION' && /not that the payment settled/.test(await text(w, 'ledger-result')));
 await w.waitForFunction(() => document.querySelector('[data-testid=ledger]')?.getAttribute('data-pending') === 'none', null, { timeout: 20000 }).catch(() => {});
 check('pending attempt retired; permanent record lists the execution', (await w.getByTestId('ledger').getAttribute('data-pending')) === 'none' && (await w.locator('[data-testid=ledger-history] li[data-execution=SUCCESS]').count()) === 1);
+await w.locator('details').filter({ has: w.getByTestId('ledger-history') }).locator('summary').click();
 await w.getByTestId('direct-check').first().click();
 await waitFor(w, 'direct-result');
 check('own executed send checked with verifyMainnetDirectTransfer → matches exactly (pre-release wording)', (await w.getByTestId('direct-result').getAttribute('data-kind')) === 'VERIFIED' && !/Verified Paid/i.test(await text(w, 'direct-result')));

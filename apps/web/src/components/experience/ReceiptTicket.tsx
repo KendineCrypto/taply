@@ -47,7 +47,11 @@ export function ReceiptTicket({
   mode = 'instant',
   extraRows = [],
   asset,
+  compact = false,
+  statusNote,
 }: {
+  readonly compact?: boolean;
+  readonly statusNote?: string;
   readonly asset?: { readonly decimals: number; readonly symbol: string };
   readonly status: ReceiptStatus;
   readonly amountBaseUnits: string;
@@ -85,6 +89,7 @@ export function ReceiptTicket({
     refunded: { title: r.refunded, sub: r.refundedSub },
   }[status];
   const refunded = status === 'refunded';
+  const accountLabel = (id: string) => compact && id.length > 32 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id;
 
   return (
     <section aria-labelledby="receipt-title" className="animate-rise flex flex-col gap-4" data-receipt-status={status}>
@@ -100,7 +105,7 @@ export function ReceiptTicket({
           <h2 id="receipt-title" className="mt-3 text-xl font-semibold tracking-tight">
             {seal.title}
           </h2>
-          <p className="mt-0.5 text-sm text-[var(--ink-muted)]">{seal.sub}</p>
+          <p className="mt-0.5 text-sm text-[var(--ink-muted)]">{statusNote ?? seal.sub}</p>
           <AmountHero {...(asset ? { asset } : {})} baseUnits={amountBaseUnits} tone="paper" className="mt-5 justify-center" />
           {memo !== '' && <p className="mt-2 whitespace-pre-wrap break-words text-[var(--ink-secondary)]">“{memo}”</p>}
         </div>
@@ -110,13 +115,13 @@ export function ReceiptTicket({
         <dl>
           <PaperRow label={refunded ? r.recipientNotPaid : r.paidTo}>
             <span className="flex items-center justify-end gap-2">
-              <span className="chain-id">{recipientAccountId}</span>
+              <span className="chain-id" title={recipientAccountId}>{accountLabel(recipientAccountId)}</span>
               <Monogram accountId={recipientAccountId} tone="paper" size={26} />
             </span>
           </PaperRow>
           {payerAccountId !== null && (
             <PaperRow label={refunded ? r.refundedTo : r.paidBy}>
-              <span className="chain-id">{payerAccountId}</span>
+              <span className="chain-id" title={payerAccountId}>{accountLabel(payerAccountId)}</span>
             </PaperRow>
           )}
           {extraRows.map((row) => (
@@ -125,7 +130,7 @@ export function ReceiptTicket({
             </PaperRow>
           ))}
           {settledAtNs !== null && <PaperRow label={r.settledAt}>{shortDate(settledAtNs)}</PaperRow>}
-          <PaperRow label={t.common.mode}>{mode === 'protected' ? t.protectedFlow.title : t.experience.instantPay}</PaperRow>
+          {!compact && <PaperRow label={t.common.mode}>{mode === 'protected' ? t.protectedFlow.title : t.experience.instantPay}</PaperRow>}
           {code !== null && (
             <PaperRow label={t.commerce.journey.saleCode}>
               <span className="font-mono tracking-[0.14em]">{groupCode(code)}</span>
@@ -139,6 +144,7 @@ export function ReceiptTicket({
               {t.oneTap.receipt.technicalProof}
               <Icon name="chevron" size={16} className="disclosure-chevron shrink-0" />
             </summary>
+            {compact && <dl><PaperRow label={r.paidTo}><span className="chain-id break-all">{recipientAccountId}</span></PaperRow>{payerAccountId && <PaperRow label={r.paidBy}><span className="chain-id break-all">{payerAccountId}</span></PaperRow>}</dl>}
             {checkedVia !== undefined && (
               <dl className="mb-2">
                 <PaperRow label={r.checkedBy}>

@@ -25,7 +25,7 @@ import { MAINNET_INDEPENDENT_VERIFIER_AVAILABLE } from '@/lib/mainnet/release-ga
 import { stableBusinessId } from '@/lib/mainnet/wallet-ops';
 import { Notice, Row } from './bits';
 import { newLinkKey } from './GiftMainnet';
-import { OperationError, OperationReview, useOperation } from './Operation';
+import { LedgerPanel, OperationError, OperationReview, useOperation } from './Operation';
 import { ExternalWalletVerification } from './ExternalWalletVerification';
 import { SettlementCheck, rememberSettlementTransaction } from './Settlement';
 import { readProfile } from './Wallet';
@@ -64,7 +64,6 @@ const en = {
   lifetimeHours: 'Claimable for (hours, 1–720)', prepareGift: 'Review gift', fee: 'Gift fee', total: 'You pay (amount + fee)',
   linkTitle: 'Claim link — contains the one-use key. Share it only with the recipient, and only after the gift is funded.',
   createInvalid: 'Check the amount (within the Gift contract limits), the note and the hours.',
-  submitOff: 'Gift transactions are disabled until the Gift contract, fee and limits are approved and released. Nothing was signed.',
 };
 type C = typeof en;
 const tr: C = {
@@ -90,7 +89,6 @@ const tr: C = {
   lifetimeHours: 'Talep süresi (saat, 1–720)', prepareGift: 'Hediyeyi incele', fee: 'Hediye ücreti', total: 'Ödeyeceğiniz (tutar + ücret)',
   linkTitle: 'Talep bağlantısı — tek kullanımlık anahtarı içerir. Yalnızca alıcıyla ve yalnızca hediye fonlandıktan sonra paylaşın.',
   createInvalid: 'Tutarı (Hediye sözleşmesi sınırları içinde), notu ve saati kontrol edin.',
-  submitOff: 'Hediye sözleşmesi, ücret ve limitler onaylanıp yayınlanana kadar hediye işlemleri kapalı. Hiçbir şey imzalanmadı.',
 };
 export const GIFT_PAGES_COPY = { en, tr };
 const useC = (): C => (useMainnetLocale().locale === 'tr' ? tr : en);
@@ -131,6 +129,7 @@ export function PersonalGiftCompose() {
         <Button type="submit" data-testid="pg-review" disabled={op.busy}>{c.review}</Button>
         {error && <Notice tone="danger" live testId="pg-error">{error}</Notice>}
         <OperationError code={op.error} />
+        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel onResolved={op.reset} />}
       </form>
       {op.prepared !== null && (
         <div className="mt-3" data-testid="pg-review-card">
@@ -281,6 +280,7 @@ function OpenGiftContent({ id }: { readonly id: string }) {
           </div>}
         </>}
         <OperationError code={op.error} />
+        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel onResolved={op.reset} />}
         {!submitted && !settled && op.prepared !== null && pending !== null && <div data-testid={pending === 'claim' ? 'og-claim-ready' : `og-${pending}-ready`}>
           <OperationReview prepared={op.prepared} title={pending === 'claim' ? c.claim : pending === 'refund' ? c.refund : c.retry} onDone={done} />
         </div>}
@@ -379,6 +379,7 @@ export function OpenGiftCreate() {
         <Button type="submit" data-testid="ogc-review" disabled={op.busy}>{c.prepareGift}</Button>
         {error && <Notice tone="danger" live testId="ogc-error">{error}</Notice>}
         <OperationError code={op.error} />
+        {op.error === 'OUTCOME_UNRESOLVED' && <LedgerPanel onResolved={op.reset} />}
       </form>
       {op.prepared !== null && link !== null && (
         <div className="mt-3 flex flex-col gap-2" data-testid="ogc-ready">

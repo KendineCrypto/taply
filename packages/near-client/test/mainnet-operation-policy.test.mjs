@@ -108,3 +108,31 @@ test('instant and Protected USDC funding preserve exact recipient message, amoun
       await assert.rejects(createMainnetOperationPlanner(profiles,fetcher({...options,...bad})).prepare(op,{...snapshot,accountId:'bob.near'}));
   }
 });
+
+test('preparing a new payment reconciles a retained FINAL hash before applying the unresolved fence',async()=>{
+  const deviceId=crypto.randomUUID();let pending={transactionHash:H(3)},reconciles=0,signs=0;
+  const authority={read:async()=>({ownerDeviceId:deviceId,pending,completed:[]}),reconcile:async()=>{reconciles++;pending=null;return {kind:'FINAL_EXECUTION'};}};
+  const wallet={getAccounts:async()=>[{accountId:'alice.near',publicKey:key}],signAndSendTransaction:async()=>{signs++;throw Error('NO_SEND');}};
+  const backend=createMainnetWalletBackend({profiles,deviceId,authority,signer:{kind:'near-connect',wallet,accountId:'alice.near',publicKey:key}},fetcher());
+  const review=await backend.prepare({kind:'nativeSend',receiverId:'bob.near',amountNear:'0.01',businessId:'e'.repeat(64)});
+  assert.equal(review.accountId,'alice.near');assert.equal(reconciles,1);assert.equal(signs,0);
+});
+test('an unavailable proof or missing hash still blocks the next payment; no fence is cleared',async()=>{
+  for(const transactionHash of [H(3),null]){
+    const deviceId=crypto.randomUUID();const pending={transactionHash};let reconciles=0;
+    const authority={read:async()=>({ownerDeviceId:deviceId,pending,completed:[]}),reconcile:async()=>{reconciles++;return {kind:'OUTCOME_UNRESOLVED'};}};
+    const wallet={getAccounts:async()=>[{accountId:'alice.near',publicKey:key}],signAndSendTransaction:async()=>{throw Error('NO_SEND');}};
+    const backend=createMainnetWalletBackend({profiles,deviceId,authority,signer:{kind:'near-connect',wallet,accountId:'alice.near',publicKey:key}},fetcher());
+    await assert.rejects(backend.prepare({kind:'nativeSend',receiverId:'bob.near',amountNear:'0.01',businessId:'f'.repeat(64)}),/OUTCOME_UNRESOLVED/);
+    assert.equal(reconciles,transactionHash?1:0);assert.equal(pending.transactionHash,transactionHash);
+  }
+});
+test('automatic FINAL recovery does not permit replaying the completed business operation',async()=>{
+  const deviceId=crypto.randomUUID(),operation={kind:'nativeSend',receiverId:'bob.near',amountNear:'0.01',businessId:'d'.repeat(64)};
+  const plan=await createMainnetOperationPlanner(profiles,fetcher()).prepare(operation,snapshot);
+  let pending={transactionHash:H(3)},completed=[];
+  const authority={read:async()=>({ownerDeviceId:deviceId,pending,completed}),reconcile:async()=>{pending=null;completed=[{attempt:{operationHash:plan.operationHash}}];return {kind:'FINAL_EXECUTION'};}};
+  const wallet={getAccounts:async()=>[{accountId:'alice.near',publicKey:key}],signAndSendTransaction:async()=>{throw Error('NO_SEND');}};
+  const backend=createMainnetWalletBackend({profiles,deviceId,authority,signer:{kind:'near-connect',wallet,accountId:'alice.near',publicKey:key}},fetcher());
+  await assert.rejects(backend.prepare(operation),/OPERATION_ALREADY_CONSUMED/);
+});
