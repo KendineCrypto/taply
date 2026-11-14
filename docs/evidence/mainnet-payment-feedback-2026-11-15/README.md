@@ -42,3 +42,9 @@ closed protocol gate. The test now verifies refusal before signing for either
 release state (closed gate or absent wallet identity/locked vault). The workflow
 selects the existing open/closed adversarial release-browser suite from the actual
 checked-out protocol gate; no signing gate or money limit is changed.
+
+Phase 6 is explicitly a CLOSED-gate authority test. On the signing Preview the
+workflow creates a temporary closed protocol build for that phase, restores the
+source on exit, and retains all 18 assertions. The actual release state is tested
+by the existing open/closed release-browser suite before that isolated variant.
+No committed or live signing constant is changed by this test setup.
