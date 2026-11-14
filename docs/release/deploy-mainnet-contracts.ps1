@@ -20,10 +20,10 @@ $Contracts = @(
   [ordered]@{ Key = 'pay'; Account = 'taply-pay.kendinecrypto.near'; File = 'payments-mainnet.wasm.oz'; Balance = '2.75 NEAR'
     Sha = '7e3f8ef126bf8142348384ce93c3f4ef93058082adfc328c5a50db4716c4d671'; CodeHash = '9VpaiMp3Hoq8pVVvCW6oSZrvzBdZoNNgUmLCXrm32wX6'; Usdc = $true
     Init = '{"tokens":[{"accountId":"' + $Usdc + '","decimals":6,"symbol":"USDC"}],"routerAccountId":"intents.near","recoveryAccountId":"kendinecrypto.near","nativeCapYocto":"1000000000000000000000000","usdcCapBaseUnits":"25000000"}' },
-  [ordered]@{ Key = 'gift'; Account = 'taply-gift.kendinecrypto.near'; File = 'taply-gift.wasm.oz'; Balance = '1.65 NEAR'
+  [ordered]@{ Key = 'gift'; Account = 'taply-gift.kendinecrypto.near'; File = 'taply-gift.wasm.oz'; Balance = '1.75 NEAR'
     Sha = '33942d3045d1d9f544ded28aa5dfd9c5272e86d2dc391cf81af24cf38fbf686e'; CodeHash = '4ULqkwn73pc7W9K9ohr4TDvZm6NDLUc8SJo8gJP4S3ob'; Usdc = $false
     Init = '{"network":"near-mainnet","contract_id":"taply-gift.kendinecrypto.near","min_amount":"10000000000000000000000","max_amount":"2000000000000000000000000","fee":"10000000000000000000000"}' },
-  [ordered]@{ Key = 'escrow'; Account = 'taply-escrow.kendinecrypto.near'; File = 'payments-protected.wasm.oz'; Balance = '2.60 NEAR'
+  [ordered]@{ Key = 'escrow'; Account = 'taply-escrow.kendinecrypto.near'; File = 'payments-protected.wasm.oz'; Balance = '2.70 NEAR'
     Sha = 'ef2c7f4430fff904d8c527ce651b821d5ea84d1c87b17c0be34079324b927333'; CodeHash = 'H6do1Wn1UK2dnPkeW5nRcYkwtXj2UkdCRei8smuaZ6JN'; Usdc = $true
     Init = '{"network":"near-mainnet","contractId":"taply-escrow.kendinecrypto.near","tokens":[{"accountId":"' + $Usdc + '","decimals":6,"symbol":"USDC"}]}' }
 )
@@ -73,6 +73,14 @@ foreach ($c in $Contracts) {
     Near @('account', 'create-account', 'fund-myself', $acc, $c.Balance, 'autogenerate-new-keypair', 'save-to-keychain', 'sign-as', $Owner, 'network-config', 'mainnet', 'sign-with-keychain', 'send')
   }
   $state = View-Account $acc
+  # Storage for the code + 0.15 NEAR margin (init state, deploy gas). Top up if the account is short.
+  $need = [decimal](Get-Item $c.Path).Length * [decimal]1e19 + [decimal]0.15e24
+  if ($state.code_hash -ne $c.CodeHash -and [decimal]$state.amount -lt $need) {
+    $top = [math]::Ceiling(($need - [decimal]$state.amount) / [decimal]1e22) / 100
+    Confirm-Step ("Top up {0} with {1} NEAR from {2} (storage for the contract code)" -f $acc, $top, $Owner)
+    Near @('tokens', $Owner, 'send-near', $acc, ("{0} NEAR" -f $top.ToString([Globalization.CultureInfo]::InvariantCulture)), 'network-config', 'mainnet', 'sign-with-keychain', 'send')
+    $state = View-Account $acc
+  }
   if ($state.code_hash -eq $c.CodeHash) { Write-Host "$acc already deployed." -ForegroundColor Green }
   else {
     if ($state.code_hash -ne '11111111111111111111111111111111') { throw "$acc has unexpected code $($state.code_hash). Stop." }
