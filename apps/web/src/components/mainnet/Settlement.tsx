@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   verifyMainnetDirectTransfer, verifyMainnetGiftSettlement, verifyMainnetSettlement, verifyMainnetUsdcTransfer,
 } from '@taply/near-client';
@@ -78,7 +78,19 @@ export function parseSettlementLines(text: string): MainnetSettlementTransaction
 
 type Result = { ok: true; status: 'PAID' | 'REFUNDED' | 'CLAIMED'; router: boolean; detail: string } | { ok: false; reason: string };
 
-export function SettlementCheck({ kind, id, fixture = false }: { readonly kind: 'instant' | 'escrow' | 'gift'; readonly id: string; readonly fixture?: boolean }) {
+/** Public transaction references only, never the gift link key or a wallet secret. */
+export function rememberSettlementTransaction(kind: 'instant' | 'escrow' | 'gift', id: string, hash: string, signer: string) {
+  const line = `${hash} ${signer}`;
+  if (!/^[a-f0-9]{32,64}$/.test(id) || parseSettlementLines(line) === null) return;
+  try {
+    const key = `taply.mainnet.receipt:${kind}:${id}`;
+    const previous = parseSettlementLines(sessionStorage.getItem(key) ?? '') ?? [];
+    if (!previous.some(t => t.transactionHash === hash) && previous.length < 32) previous.push({ transactionHash: hash, signerAccountId: signer });
+    sessionStorage.setItem(key, previous.map(t => `${t.transactionHash} ${t.signerAccountId}`).join('\n'));
+  } catch { /* Verification can still be run manually when browser storage is unavailable. */ }
+}
+
+export function SettlementCheck({ kind, id, fixture = false, automatic = false }: { readonly kind: 'instant' | 'escrow' | 'gift'; readonly id: string; readonly fixture?: boolean; readonly automatic?: boolean }) {
   const { locale } = useMainnetLocale();
   const c = COPY[locale];
   const [text, setText] = useState('');
@@ -87,9 +99,9 @@ export function SettlementCheck({ kind, id, fixture = false }: { readonly kind: 
   const [result, setResult] = useState<Result | null>(null);
   const instant = MAINNET_CONFIG.ok ? MAINNET_CONFIG.profile : null;
   const available = kind === 'instant' ? instant !== null : kind === 'escrow' ? ESCROW_PROFILE !== null : GIFT_PROFILE !== null;
-  async function run() {
+  async function run(input = text) {
     setError(''); setResult(null);
-    const txs = parseSettlementLines(text);
+    const txs = parseSettlementLines(input);
     if (txs === null || (kind !== 'gift' && txs.length < 1) || (kind === 'escrow' && txs.length < 2)) { setError(c.bad); return; }
     setBusy(true);
     try {
@@ -108,16 +120,31 @@ export function SettlementCheck({ kind, id, fixture = false }: { readonly kind: 
     } catch { setResult({ ok: false, reason: 'EVIDENCE_UNAVAILABLE_OR_MISMATCH' }); }
     finally { setBusy(false); }
   }
+  useEffect(() => {
+    if (!automatic || fixture || !available) return;
+    let saved = '';
+    try { saved = sessionStorage.getItem(`taply.mainnet.receipt:${kind}:${id}`) ?? ''; } catch { return; }
+    if (parseSettlementLines(saved) === null) return;
+    let live = true;
+    queueMicrotask(() => { if (live) { setText(saved); void run(saved); } });
+    return () => { live = false; };
+    // One check per receipt identity, never a signing or payout retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [automatic, fixture, available, kind, id]);
   return (
     <Card>
       <div className="flex flex-col gap-2" data-testid="settlement-check" data-kind={kind}>
         <h2 className="font-semibold">{c.title}</h2>
         {fixture ? <Notice tone="muted" testId="settlement-fixture">{c.fixture}</Notice> : !available ? <Notice tone="muted" testId="settlement-unavailable">{c.unavailable}</Notice> : (
           <>
+            <details open={automatic ? undefined : true}>
+            <summary className="tap-target flex cursor-pointer items-center text-sm">{locale === 'tr' ? 'İşlem ayrıntılarıyla kontrol et' : 'Check transaction details'}</summary>
             <p className="text-[13px] text-[var(--text-secondary)]">{c.lead} {kind === 'instant' ? c.leadInstant : kind === 'escrow' ? c.leadEscrow : c.leadGift}</p>
             <textarea aria-label={c.title} data-testid="settlement-input" rows={3} spellCheck={false} autoCapitalize="none"
               className="w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] p-2 font-mono text-[12px]" value={text} onChange={(e) => setText(e.target.value)} />
             <Button data-testid="settlement-run" disabled={busy} onClick={() => void run()}>{busy ? c.checking : c.check}</Button>
+            </details>
+            {busy && <p role="status" className="text-sm text-[var(--text-secondary)]">{c.checking}</p>}
             {error && <Notice tone="danger" live testId="settlement-error">{error}</Notice>}
             {result !== null && (result.ok
               ? <Notice tone="muted" live testId="settlement-result"><span data-kind="VERIFIED" data-status={result.status} className="font-semibold">{result.status === 'PAID' ? c.paid : result.status === 'REFUNDED' ? c.refunded : c.claimed}</span>
