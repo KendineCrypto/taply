@@ -8,6 +8,7 @@ export const mainnetTr: MainnetCopy = {
     banner: 'NEAR Mainnet · gerçek para · denetlenmemiş aday',
     capLine: 'Sözleşme her talebi en fazla 1 NEAR veya 25 USDC ile sınırlar.',
     noGo: 'Gerçek parayla ödeme henüz açık değil. Her adımı inceleyebilirsiniz; hiçbir şey imzalanamaz veya fonlanamaz.',
+    signingOn: 'Gönderme açık (Taply Cüzdan). Bu tarayıcının verilerini silme.',
     fixtureBanner: 'FİKSTÜR VERİSİ — zincirde değil. Yalnızca ekranları test etmek için.',
   },
   home: {

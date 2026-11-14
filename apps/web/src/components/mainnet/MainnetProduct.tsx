@@ -3,14 +3,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { MainnetAccountSchema } from '@taply/shared';
 import { createMainnetAccountReader } from '@taply/near-client';
 import { Card, ScreenHeader } from '@/components/primitives/Surface';
 import { Button } from '@/components/primitives/Button';
 import { QrCode } from '@/components/payments/QrCode';
 import { Envelope } from '@/components/gift/Envelope';
-import { Icon, type IconName } from '@/components/shell/Icons';
 import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
@@ -46,15 +45,6 @@ export function ProductLinks({ compact = false }: { compact?: boolean }) {
   ];
   return <div className="grid grid-cols-2 gap-2">{links.map(([path, title]) => <Link key={path} href={`/m/${path}` as Route} className="pressable flex min-h-12 items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-3 text-sm font-semibold">{title}</Link>)}</div>;
 }
-export function ProductNav() {
-  const c = useProductCopy(); const pathname = usePathname();
-  const tabs: [string, string, IconName][] = [['wallet', c.wallet, 'wallet'], ['activity', c.activity, 'activity'], ['tools', 'Tap', 'pay'], ['contacts', c.contacts, 'contacts'], ['settings', c.settings, 'settings']];
-  return <nav aria-label={c.tools} className="sticky bottom-0 z-20 grid grid-cols-5 border-t border-[var(--border-subtle)] bg-[var(--surface-0)] pb-[env(safe-area-inset-bottom)]">
-    {tabs.map(([path, title, icon]) =>
-      <Link key={path} href={`/m/${path}` as Route} aria-current={pathname === `/m/${path}` ? 'page' : undefined} className="tap-target flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-xs font-semibold aria-[current=page]:text-[var(--taply-lime)]"><Icon name={icon} />{title}</Link>)}
-  </nav>;
-}
-
 export function MainnetProduct({ path }: { path: string }) {
   const c = useProductCopy();
   const section = path.split('/')[0];
@@ -62,14 +52,14 @@ export function MainnetProduct({ path }: { path: string }) {
     contacts: c.contacts, split: c.split, recurring: c.recurring, gift: c.gift, merchant: c.merchant,
     checkout: c.pay, protected: c.protected, receipt: c.receipt, handshake: c.handshake, s: c.handshake,
     tools: c.tools, settings: c.settings } as Record<string, string>)[section ?? ''] ?? c.tools;
-  return <div className="flex flex-col gap-4" data-testid="mainnet-product"><ScreenHeader title={title} description={c.readOnly} />
+  return <div className="flex flex-col gap-4" data-testid="mainnet-product"><ScreenHeader title={title} description={MAINNET_CONFIG.ok && MAINNET_CONFIG.signingEnabled ? c.liveFunds : c.readOnly} />
     {path === 'wallet/create' && <WalletCreate />}
     {path === 'wallet/restore' && <WalletRestore />}
     {path === 'wallet' && <TaplyWalletHome />}
     {section === 'wallet' && <><Card><p>{path === 'wallet' ? c.walletHelp : c.vaultHelp}</p><WalletPanel />
-      <div className="mt-3 flex flex-wrap gap-4"><Link href="/m/wallet/create">{c.create}</Link><Link href="/m/wallet/restore">{c.restore}</Link></div></Card><Balances /><ProductLinks compact /></>}
+      <div className="mt-3 flex flex-wrap gap-4"><Link href="/m/wallet/create">{c.create}</Link><Link href="/m/wallet/restore">{c.restore}</Link></div></Card><Balances /></>}
     {section === 'tools' && <ProductLinks />}
-    {section === 'send' && <><WalletSend /><PaymentNetworks /></>}
+    {section === 'send' && <WalletSend />}
     {section === 'receive' && <Receive />}
     {(section === 'pay' || section === 'scan') && <><Scan withCamera={section === 'scan'} /><PaymentNetworks /></>}
     {section === 'contacts' && <Contacts />}
