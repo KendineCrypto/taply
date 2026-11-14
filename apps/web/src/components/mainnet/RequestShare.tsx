@@ -31,9 +31,9 @@ export function RequestShare({ id, link, amount }: { readonly id: string; readon
       status={verification?.kind === 'verified' ? 'verified' : 'contract_paid'}
       {...(verification?.kind === 'verified' ? { celebrateKey: `mainnet:${id}:${verification.proof.transferReceiptId}` } : {})} asset={receiptAsset} amountBaseUnits={request.terms.amountBaseUnits}
       recipientAccountId={request.recipientAccountId} payerAccountId={request.payerAccountId} memo={displayMemo(request.terms.memo)}
-      settledAtNs={request.latestOperation?.resolvedAtNs ?? request.fundedAtNs} references={[{ label: tr ? 'Talep' : 'Request', value: id }]}
+      settledAtNs={request.latestOperation?.resolvedAtNs ?? request.fundedAtNs} references={[{ label: tr ? 'Talep' : 'Request', value: id }, ...(verification?.kind === 'verified' ? [{ label: tr ? 'İşlem' : 'Transaction', value: verification.proof.fundingTransactionHash, transaction: true }] : [])]}
       explorerBaseUrl={MAINNET_CONFIG.ok ? MAINNET_CONFIG.explorerBaseUrl : null} checkedVia={request.terms.contractId}
-      proofActions={<SettlementCheck key={id} kind="instant" id={id} fixture={read.kind === 'ok' && read.fixture} automatic />}
+      proofActions={verification?.kind === 'verified' ? undefined : <SettlementCheck key={id} kind="instant" id={id} fixture={read.kind === 'ok' && read.fixture} automatic />}
       actions={<Link href="/m" className="tap-target inline-flex items-center justify-center font-semibold">{tr ? 'Cüzdana dön' : 'Back to wallet'}</Link>} />
   </div>;
   const waiting = request === null || request.status === 'OPEN';

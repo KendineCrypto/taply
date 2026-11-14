@@ -133,7 +133,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
             ]}
             explorerBaseUrl={MAINNET_CONFIG.ok ? MAINNET_CONFIG.explorerBaseUrl : null}
             checkedVia={r.terms.contractId}
-            proofActions={<SettlementCheck key={id} kind="instant" id={id} fixture={read.fixture} automatic={asset.symbol !== 'NEAR'} />}
+            proofActions={verification?.kind === 'verified' ? undefined : <SettlementCheck key={id} kind="instant" id={id} fixture={read.fixture} automatic={asset.symbol !== 'NEAR'} />}
             actions={receipt === 'paid' ? <p className="text-center text-sm font-medium text-[var(--tone-caution-fg)]" data-testid="do-not-repay">{c.status.doNotRepay}</p> : undefined}
           />
         </div>
@@ -185,7 +185,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
         fixtures ? <IntentsCheckout request={r} onPrepared={() => setQuotePrepared(true)} /> : <Notice tone="caution" testId="router-disabled">{c.pay.routerDisabled}</Notice>
       )}
       {open && asset.symbol === 'USDC' && method === 'wallet' && <WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) { setPaidTx(o.transactionHash); if (payer) rememberSettlementTransaction('instant', id, o.transactionHash, payer); } refresh(); }} />}
-      {receipt === null ? <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /> : (
+      {receipt === null ? <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /> : verification?.kind === 'verified' ? null : (
         <details className="rounded-[var(--radius-card)] bg-[var(--surface-1)] p-4 text-sm">
           <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{locale === 'tr' ? 'Ödeme durumu' : 'Payment status'}</summary>
           <div className="mt-3"><PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} folded /></div>
