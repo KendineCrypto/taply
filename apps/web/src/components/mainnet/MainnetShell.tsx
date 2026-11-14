@@ -11,7 +11,7 @@ import { LocaleSwitch, ShellFrame } from '@/components/shell/ShellParts';
 import type { ShellRoutes } from '@/components/shell/ShellParts';
 import { useT } from '@/lib/i18n/provider';
 import { MAINNET_CONFIG } from '@/lib/mainnet/config';
-import { useMainnetCopy } from '@/lib/mainnet/copy';
+import { useMainnetCopy, useMainnetLocale } from '@/lib/mainnet/copy';
 import { mainnetScanInput } from '@/lib/mainnet/product';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { useMainnetVault } from './Wallet';
@@ -40,7 +40,7 @@ export function mainnetSigningOn(): boolean {
 
 export function MainnetShell({ children }: { readonly children: ReactNode }) {
   return (
-    <ShellFrame routes={MAINNET_ROUTES} accountMenu={<AccountMenu />} notice={<SafetyLine />}>
+    <ShellFrame networkLabel="Demo" routes={MAINNET_ROUTES} accountMenu={<AccountMenu />} notice={<SafetyLine />}>
       {children}
     </ShellFrame>
   );
@@ -49,17 +49,18 @@ export function MainnetShell({ children }: { readonly children: ReactNode }) {
 /** Material safety information on every screen, compact (real funds, unaudited, cap, signing status). */
 function SafetyLine() {
   const c = useMainnetCopy();
+  const tr = useMainnetLocale().locale === 'tr';
   return (
     <>
       <details role="note" className="group px-4 pb-2 text-[11px] leading-snug text-[var(--text-muted)] sm:px-5" data-testid="safety-line">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
           <Icon name="alert" size={13} className="shrink-0 text-[var(--tone-caution-fg)]" />
           <span className="min-w-0 truncate">
-            <span className="font-medium text-[var(--tone-caution-fg)]">{c.network.banner}</span> · {c.network.capShort}
+            <span className="font-medium text-[var(--tone-caution-fg)]">{tr ? 'Gerçek para · denetlenmemiş' : 'Real funds · unaudited'}</span>
           </span>
           <Icon name="chevron" size={12} className="ml-auto shrink-0 rotate-90 transition-transform group-open:-rotate-90" />
         </summary>
-        <p className="mt-1 pl-[19px]">{c.network.capLine} {mainnetSigningOn() ? c.network.signingOn : c.network.noGo}</p>
+        <p className="mt-1 pl-[19px]">{c.network.banner} {c.network.capLine} {mainnetSigningOn() ? c.network.signingOn : c.network.noGo}</p>
       </details>
       {MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures && (
         <p role="note" data-testid="fixture-banner" className="bg-[var(--surface-2)] px-4 py-1.5 text-center text-[12px] font-semibold tracking-wide text-[var(--taply-cream)] sm:px-5">
