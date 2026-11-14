@@ -60,8 +60,60 @@ try {
   assert.equal(await a.evaluate(() => T.store.compareAndSwap('cas.near', 'stale', 'x')), false);
   ok('ledger survives reload; stale expected value refused');
 
+  const durability = await a.evaluate(async () => {
+    const original = IDBDatabase.prototype.transaction;
+    const seen = [];
+    let mode = 'observe';
+    IDBDatabase.prototype.transaction = function (...args) {
+      const tx = original.apply(this, args);
+      if (args[1] === 'readwrite') {
+        seen.push(tx.durability);
+        if (mode === 'unsupported') Object.defineProperty(tx, 'durability', { value: 'default' });
+        if (mode === 'abort') {
+          // Abort after the successful put request, before transaction completion.
+          const objectStore = tx.objectStore.bind(tx);
+          tx.objectStore = (...names) => {
+            const os = objectStore(...names), put = os.put.bind(os);
+            os.put = (...values) => {
+              const req = put(...values);
+              req.addEventListener('success', () => tx.abort());
+              return req;
+            };
+            return os;
+          };
+        }
+      }
+      return tx;
+    };
+    const rejects = async (f) => { try { await f(); return false; } catch { return true; } };
+    try {
+      await T.store.compareAndSwap('durable.near', null, 'retained');
+      mode = 'unsupported';
+      const unsupported = await rejects(() => T.store.compareAndSwap('unsupported.near', null, 'unsafe'));
+      mode = 'abort';
+      const aborted = await rejects(() => T.store.compareAndSwap('durable.near', 'retained', 'unsafe'));
+      mode = 'observe';
+      return { seen, unsupported, aborted, retained: await T.store.read('durable.near'), absent: await T.store.read('unsupported.near') };
+    } finally { IDBDatabase.prototype.transaction = original; }
+  });
+  assert.ok(durability.seen.every((x) => x === 'strict'));
+  assert.equal(durability.unsupported, true);
+  assert.equal(durability.aborted, true);
+  assert.equal(durability.retained, 'retained');
+  assert.equal(durability.absent, null);
+  ok('strict durability required; ignored durability refused; put success followed by abort never acknowledges CAS');
+
+  await context.close();
+  context = await chromium.launchPersistentContext(userData, { headless: true });
+  const restarted = await open(context);
+  assert.equal(await restarted.evaluate(() => T.store.read('cas.near')), winner);
+  assert.equal(await restarted.evaluate(() => T.store.read('durable.near')), 'retained');
+  ok('committed records survive browser process restart');
+  // Continue the signer checks in the restarted browser.
+  const signingPage = restarted;
+
   // 2. Full release path through Codex's backend.
-  const result = await a.evaluate(async () => {
+  const result = await signingPage.evaluate(async () => {
     const nc = await import('/packages/near-client/src/index.ts');
     const { MAINNET_PROTOCOL_SIGNING_RELEASED } = await import('/packages/near-client/src/mainnet-vault.ts');
     // No bundler in the page: decode the signed transaction by hand (borsh tx || 0x00 || 64-byte ed25519 signature).

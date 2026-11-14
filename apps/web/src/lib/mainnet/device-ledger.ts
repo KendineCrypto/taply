@@ -47,7 +47,13 @@ export function deviceLedgerStore(idb: IdbFactory): MainnetGlobalAttemptStore {
     async compareAndSwap(accountId, expected, next) {
       // One readwrite transaction: IndexedDB serializes overlapping readwrite scopes, so
       // concurrent tabs cannot both see `expected` and both write.
-      const tx = (await conn()).transaction(STORE, 'readwrite');
+      const tx = (await conn()).transaction(STORE, 'readwrite', { durability: 'strict' });
+      // A browser that ignores the durability option cannot acknowledge a
+      // pre-signing fence safely. Never downgrade to default/relaxed writes.
+      if (tx.durability !== 'strict') {
+        tx.abort();
+        throw new Error('JOURNAL_UNAVAILABLE');
+      }
       const os = tx.objectStore(STORE);
       let swapped = false;
       const get = os.get(accountId);
