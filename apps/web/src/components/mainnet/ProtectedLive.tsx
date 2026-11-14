@@ -1,5 +1,7 @@
 'use client';
 
+import { ExternalWalletVerification } from './ExternalWalletVerification';
+
 import { useEffect, useState } from 'react';
 import {
   createMainnetEscrowReader,
@@ -19,7 +21,7 @@ import { useMainnetLocale } from '@/lib/mainnet/copy';
 import { CANCEL_MINUTES, ESCROW_PROFILE, FUNDING_MINUTES, minutesToNs, randomCreationNonce } from '@/lib/mainnet/escrow-profile';
 import { availableActions, PROTECTED_COPY } from './Protected';
 import { Notice, Row } from './bits';
-import { OperationError, OperationReview, OPERATION_COPY, useOperation } from './Operation';
+import { OperationError, OperationReview, useOperation } from './Operation';
 import { SettlementCheck } from './Settlement';
 
 /**
@@ -118,7 +120,7 @@ export function ProtectedCreate() {
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [consent, setConsent] = useState(false);
   if (ESCROW_PROFILE === null) return <Notice tone="caution" testId="pc-not-configured">{c.notConfigured}</Notice>;
-  if (op.signer.kind === 'external-no-key') return <Notice tone="caution" testId="pc-no-account">{OPERATION_COPY[locale].externalNoKey}</Notice>;
+  if (op.signer.kind === 'external-no-key') return <ExternalWalletVerification testId="pc-no-account" />;
   if (creator === null) return <Notice tone="muted" testId="pc-no-account">{c.noAccount}</Notice>;
   const profile = ESCROW_PROFILE;
   const me = creator;
