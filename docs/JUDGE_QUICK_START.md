@@ -11,41 +11,42 @@ Open the [Mainnet proof](evidence/mainnet-live-settlement-2026-11-14/README.md):
 verified. The public input/output JSON and a read-only replay script are included.
 No wallet, recovery phrase or signature is needed.
 
-For the earlier Testnet flow, open the
-[pilot receipt](https://taplyapp.xyz/receipt/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502?ftx=CrzQ57JxC6ZtGWBYcYFq5Y92J3V6dgf2jKC64AnyQ9Su).
-An RPC outage can prevent a fresh check. An archived result is labelled as an
-archived result; it is not a new live verification.
+The [archived Testnet pilot verifier result](evidence/instant-pay-2026-11-01-receipt.json)
+provides the earlier network's evidence. It is labelled as an archive, not a new
+live verification. The public domain now serves Mainnet.
 
-## 2. Try the product with Testnet funds
+## 2. Open the live Mainnet app
 
-Use [taplyapp.xyz](https://taplyapp.xyz) in two browsers or on two devices.
-Test tokens have no monetary value. Faucet availability is external to Taply.
+[Open taplyapp.xyz](https://taplyapp.xyz). The root redirects to `/m`; the welcome
+screen identifies NEAR Mainnet. You can inspect onboarding, navigation and
+request screens without signing. Mainnet uses real funds, not faucet tokens.
 
-| Step | Action | Observe |
-| --- | --- | --- |
-| 1 | Create a Taply Wallet, or connect an existing NEAR Testnet wallet | Real account, recovery-phrase backup for Taply Wallet, chain balance |
-| 2 | Create a small payment request, e.g. 0.05 test NEAR | Exact amount, recipient and expiry before signature; a QR/link after creation |
-| 3 | Open the link in the second browser | Request terms read from the contract; Live Handshake presence/sale code when available |
-| 4 | Review and approve in the payer wallet | Separate user confirmation; submitted is not yet paid |
-| 5 | Follow the receipt on both screens | Contract payout state, then independent receipt verification when RPC evidence is available |
-| 6 | Create a new Protected request with a 60-second window | LOCKED — NOT PAID; cancel before cutoff for refund, or release after cutoff in a separate run |
+The current public domain serves `fa4235f`, the same Ready Mainnet artifact used
+for the owner's payment. The newer QR-to-receipt, compact Gift/result and
+automatic receipt/recovery changes at `f88bc3f` passed CI but are not deployed.
+Vercel's daily deployment limit blocked the new build. The actual 0.1 NEAR request
+is readable at the [live payment page](https://taplyapp.xyz/m/pay/a035569dc9662a19a7cd077606150e1f443673cef6823fe766ac4c73db852d16);
+the older UI says Payment recorded. The independent proof in section 1 is the
+separate verification of that payment.
 
-Optional: try the Testnet other-asset flow, contacts, Split and Recurring templates.
-A template prepares a request; it does not schedule an unattended debit.
-The [synthetic demo](https://taplyapp.xyz/demo) is explicitly labelled DEMO.
+[Launch evidence](evidence/mainnet-domain-launch-2026-11-14/README.md) ·
+[Source/deployment table](RELEASE_STATUS.md#source-and-deployment-identity).
+The former public Testnet domain has moved; dated Testnet browser reports retain
+their original URL and date as historical evidence.
 
-## 3. Inspect Mainnet with the correct release expectations
+## 3. Reproduce the Testnet product flow
 
-[Mainnet Preview](https://taply-mainnet-git-staging-mainnet-kendinecryptos-projects.vercel.app/m)
-uses real funds. The native payment above was performed by the owner and then
-independently verified by read-only RPC. Owner-reported Gift acceptance is a
-separate claim, not established by that native proof.
+Use `main` locally (setup below) and two browser sessions. The documented Testnet
+flow covers wallet creation, a small request, QR/link review, explicit wallet
+approval, both-device receipt verification, and separate Protected Pay refund
+and release runs. Faucet/RPC availability is external to Taply.
 
-The latest Mainnet receipt/recovery source is
-[`f88bc3f`](https://github.com/KendineCrypto/taply/tree/f88bc3fdd1d7b9cfabf95f73a3b48baf376968eb).
-Its CI is green, but Vercel rejected the new deployment with `build-rate-limit`.
-The Preview can still show the older QR/receipt behavior. `taplyapp.xyz` remains
-Testnet. [Deployment table](RELEASE_STATUS.md#source-and-deployment-identity).
+The original public-site results are archived for [native/token payment and
+checkout](evidence/production-regression-2026-11-11/),
+[Protected refund/release](evidence/production-protected-pay-2026-11-11/result.json)
+and [14 adversarial refusals](evidence/protected-adversarial-2026-11-11/result.json).
+They establish real Testnet behavior at their dates, not current Testnet hosting.
+Do not use the now-Mainnet domain for an old Testnet transaction or recovery flow.
 
 ## 4. Follow a claim into code
 

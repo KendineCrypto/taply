@@ -1,0 +1,46 @@
+{
+  "observedAtUtc": "2026-11-14T23:31:09.037050+00:00",
+  "method": "Unauthenticated HTTP GET, no wallet or cookies",
+  "checks": [
+    {
+      "requestedUrl": "https://taplyapp.xyz",
+      "finalUrl": "https://taplyapp.xyz/m",
+      "status": 200,
+      "mainnetBuildMarker": true,
+      "testnetMarker": false,
+      "authenticationWall": false
+    },
+    {
+      "requestedUrl": "https://www.taplyapp.xyz",
+      "finalUrl": "https://taplyapp.xyz/m",
+      "status": 200,
+      "mainnetBuildMarker": true,
+      "testnetMarker": false,
+      "authenticationWall": false
+    },
+    {
+      "requestedUrl": "https://taplyapp.xyz/m/request/new",
+      "finalUrl": "https://taplyapp.xyz/m/request/new",
+      "status": 200,
+      "mainnetBuildMarker": true,
+      "testnetMarker": false,
+      "authenticationWall": false
+    },
+    {
+      "requestedUrl": "https://taplyapp.xyz/m/gift/new",
+      "finalUrl": "https://taplyapp.xyz/m/gift/new",
+      "status": 200,
+      "mainnetBuildMarker": true,
+      "testnetMarker": false,
+      "authenticationWall": false
+    },
+    {
+      "requestedUrl": "https://taplyapp.xyz/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502",
+      "finalUrl": "https://taplyapp.xyz/m/pay/9b9a572416f7480cddb3f8936ef2f3c77196c4157c5cb35e2830e1769b7c4502",
+      "status": 200,
+      "mainnetBuildMarker": true,
+      "testnetMarker": false,
+      "authenticationWall": false
+    }
+  ]
+}

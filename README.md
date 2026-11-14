@@ -1,7 +1,7 @@
 <p align="center"><img src="brand/assets/wordmark-dark.svg" alt="taply." width="260"></p>
 <h3 align="center">A wallet that turns a payment into a shared, verifiable receipt.</h3>
 <p align="center">
-  <a href="https://taplyapp.xyz">Try Testnet</a> ·
+  <a href="https://taplyapp.xyz">Live Mainnet</a> ·
   <a href="https://taply-mainnet-git-staging-mainnet-kendinecryptos-projects.vercel.app/m">Mainnet Preview</a> ·
   <a href="docs/JUDGE_QUICK_START.md">Judge quick start</a> ·
   <a href="docs/RELEASE_STATUS.md">Release & evidence</a>
@@ -25,18 +25,25 @@ verifying a receipt are different states. Taply makes that difference visible.
 | You want to… | Open |
 | --- | --- |
 | Understand and evaluate Taply in five minutes | [Judge quick start](docs/JUDGE_QUICK_START.md) |
-| Try the wallet and payments without real money | [taplyapp.xyz — NEAR Testnet](https://taplyapp.xyz) |
+| Open the public Mainnet wallet | [taplyapp.xyz — NEAR Mainnet](https://taplyapp.xyz) |
 | Inspect a real 0.1 NEAR Mainnet settlement without signing | [Public proof and replay instructions](docs/evidence/mainnet-live-settlement-2026-11-14/README.md) |
 | Match source, tests and deployed behavior | [Release status](docs/RELEASE_STATUS.md) |
 | Trace the trust boundaries and source files | [System overview](docs/SYSTEM_OVERVIEW.md) |
 
-**Release snapshot — 14 November 2026 UTC:** `main` contains the Testnet release.
-The separate Mainnet source is on `staging/mainnet`, validated at
-[`f88bc3f`](https://github.com/KendineCrypto/taply/tree/f88bc3fdd1d7b9cfabf95f73a3b48baf376968eb).
-A real Mainnet payment has been independently verified. The latest receipt/UX
-fixes are merged there but **are not yet live**: Vercel rejected their deployment
-with `build-rate-limit`. The Preview link can therefore show older behavior.
-The Testnet domain has not been switched to Mainnet. [Exact status and CI](docs/RELEASE_STATUS.md).
+**Live Mainnet — 14 November 2026 UTC:** [taplyapp.xyz](https://taplyapp.xyz)
+now serves the existing, working Mainnet deployment
+[`fa4235f`](https://github.com/KendineCrypto/taply/commit/fa4235f8122b5d0bdcafa9082d24f6fc30e5d578).
+The domain is assigned to the `staging/mainnet` Preview environment in Vercel;
+this reused a Ready deployment without a new build. `www` redirects to the apex.
+Anonymous HTTP access was verified; a wallet signature is not needed to open it.
+
+The newer receipt/recovery source at
+[`f88bc3f`](https://github.com/KendineCrypto/taply/tree/f88bc3fdd1d7b9cfabf95f73a3b48baf376968eb)
+has passed CI but is **not deployed**: Vercel's 100-deployments/day Hobby limit
+blocks new builds. The live UI therefore retains the older receipt/Gift behavior.
+`main` still holds the Testnet application source and review documentation; the
+public domain has moved to Mainnet. [Launch evidence](docs/evidence/mainnet-domain-launch-2026-11-14/README.md)
+· [Exact release status](docs/RELEASE_STATUS.md).
 
 ## The payment experience
 
@@ -64,7 +71,7 @@ The Testnet domain has not been switched to Mainnet. [Exact status and CI](docs/
 | Capability | Testnet evidence | Mainnet scope |
 | --- | --- | --- |
 | **Taply Wallet** — create/restore, encrypted local vault, send/receive, QR | [Real browser onboarding and restore](docs/evidence/production-2026-11-09-onboarding/phrase-result.json) | Separate Mainnet vault and wallet protocol; [browser CI](https://github.com/KendineCrypto/taply/actions/runs/43650817835) |
-| **Request → QR → pay → receipt** | [Production browser regression](docs/evidence/production-regression-2026-11-11/) | [Real 0.1 NEAR settlement, independently verified](docs/evidence/mainnet-live-settlement-2026-11-14/README.md) |
+| **Request → QR → pay → receipt** | [Historical public Testnet browser regression](docs/evidence/production-regression-2026-11-11/) | [Real 0.1 NEAR settlement, independently verified](docs/evidence/mainnet-live-settlement-2026-11-14/README.md) |
 | **Both devices follow the payment** | [Cashier automatic verification](docs/evidence/cashier-auto-verify-2026-11-12/result.json) | Automatic QR-to-receipt and first-attempt native verification merged in [PR #38](https://github.com/KendineCrypto/taply/pull/38); deployment pending |
 | **Protected Pay** — explicit lock, refund before cutoff, release afterwards | [Real refund/release](docs/evidence/production-protected-pay-2026-11-11/result.json) · [14 adversarial refusals](docs/evidence/protected-adversarial-2026-11-11/result.json) | Separate contract/integration; a Mainnet refund/release is not established by the native-payment proof |
 | **Gift** — personal transfer or claimable Open Gift | [Design and sandbox evidence](https://github.com/KendineCrypto/taply/blob/f88bc3fdd1d7b9cfabf95f73a3b48baf376968eb/docs/GIFT.md) | Owner reports successful funding/claim; compact claim/result UI passes CI. No independent Gift transaction proof is archived in this snapshot |
