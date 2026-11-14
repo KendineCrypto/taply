@@ -213,7 +213,7 @@ jobs:
           # Build this one isolated variant without changing any committed gate.
           cp ../../packages/near-client/src/mainnet-vault.ts "$RUNNER_TEMP/mainnet-vault-phase6.ts"
           trap 'cp "$RUNNER_TEMP/mainnet-vault-phase6.ts" ../../packages/near-client/src/mainnet-vault.ts' EXIT
-          node --input-type=module -e 'import fs from "node:fs"; const p="../../packages/near-client/src/mainnet-vault.ts"; const s=fs.readFileSync(p,"utf8"); const re=/export const MAINNET_PROTOCOL_SIGNING_RELEASED = (?:true|false) as const;/; if(!re.test(s)) throw Error("Protocol gate declaration missing"); fs.writeFileSync(p,s.replace(re,"export const MAINNET_PROTOCOL_SIGNING_RELEASED = false as const;"));'
+          node --input-type=module -e 'import fs from "node:fs"; const p="../../packages/near-client/src/mainnet-vault.ts"; const s=fs.readFileSync(p,"utf8"); const re=/export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = (?:true|false);/; if(!re.test(s)) throw Error("Protocol gate declaration missing"); fs.writeFileSync(p,s.replace(re,"export const MAINNET_PROTOCOL_SIGNING_RELEASED: boolean = false;"));'
           pnpm --filter @taply/near-client run build
           KV_REST_API_URL=https://build-placeholder.invalid KV_REST_API_TOKEN=placeholder pnpm run build:mainnet
           if grep -rl 'taply.mainnet.sim-authority' .next/static; then
