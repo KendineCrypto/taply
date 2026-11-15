@@ -35,10 +35,8 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
 
     await page.goto(`${BASE}/`);
     check(`${label}: / redirects to /m`, new URL(page.url()).pathname === '/m');
-    const pill = await page.getByTestId('network-pill').textContent();
-    check(`${label}: network pill`, pill.includes('NEAR Mainnet'), pill);
-    const banner = await page.locator('header [role=note]').first().textContent();
-    check(`${label}: real funds / unaudited / cap banner`, locale === 'tr' ? /gerçek para/.test(banner) && /25 USDC/.test(banner) : /real funds/.test(banner) && /unaudited/.test(banner) && /25 USDC/.test(banner), banner);
+    check(`${label}: Mainnet header has no network/demo pill`, await page.locator('header [data-testid=network-pill]').count() === 0);
+    check(`${label}: Mainnet header has no repeated safety prose`, await page.getByTestId('safety-line').count() === 0);
     check(`${label}: fixture banner`, await page.getByTestId('fixture-banner').isVisible());
     await page.screenshot({ path: `${OUT}/${label}-01-home.png`, fullPage: true });
 

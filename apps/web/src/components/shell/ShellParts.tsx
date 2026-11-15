@@ -37,7 +37,7 @@ export interface ShellRoutes {
   readonly parse?: (text: string) => ScanInput;
 }
 
-export function ShellFrame({ routes, accountMenu, notice, children, networkLabel }: { readonly routes: ShellRoutes; readonly accountMenu: ReactNode; readonly notice?: ReactNode; readonly children: ReactNode; readonly networkLabel?: string }) {
+export function ShellFrame({ routes, accountMenu, notice, children, networkLabel, showNetworkBadge = true }: { readonly routes: ShellRoutes; readonly accountMenu: ReactNode; readonly notice?: ReactNode; readonly children: ReactNode; readonly networkLabel?: string; readonly showNetworkBadge?: boolean }) {
   const t = useT();
   const pathname = usePathname();
   return (
@@ -46,7 +46,7 @@ export function ShellFrame({ routes, accountMenu, notice, children, networkLabel
         {t.app.skipToContent}
       </a>
 
-      <TopBar home={routes.home} accountMenu={accountMenu} notice={notice} {...(networkLabel ? {networkLabel} : {})} />
+      <TopBar showNetworkBadge={showNetworkBadge} home={routes.home} accountMenu={accountMenu} notice={notice} {...(networkLabel ? {networkLabel} : {})} />
       <OfflineBanner />
 
       <main id="main" className="flex-1 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-5">
@@ -61,7 +61,7 @@ export function ShellFrame({ routes, accountMenu, notice, children, networkLabel
   );
 }
 
-function TopBar({ home, accountMenu, notice, networkLabel }: { readonly home: string; readonly accountMenu: ReactNode; readonly notice?: ReactNode; readonly networkLabel?: string }) {
+function TopBar({ home, accountMenu, notice, networkLabel, showNetworkBadge }: { readonly home: string; readonly accountMenu: ReactNode; readonly notice?: ReactNode; readonly networkLabel?: string; readonly showNetworkBadge: boolean }) {
   const t = useT();
 
   return (
@@ -71,7 +71,7 @@ function TopBar({ home, accountMenu, notice, networkLabel }: { readonly home: st
           <TaplyWordmark width={76} />
         </Link>
         <div className="flex items-center gap-2">
-          <NetworkBadge {...(networkLabel ? {label: networkLabel} : {})} />
+          {showNetworkBadge && <NetworkBadge {...(networkLabel ? {label: networkLabel} : {})} />}
           {accountMenu}
         </div>
       </div>
