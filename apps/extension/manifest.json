@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Taply for X — Testnet Alpha",
+  "version": "0.3.0",
+  "description": "User-initiated NEAR Testnet tips and verified Taply request links on X. No X affiliation.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "shared.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Taply for X",
+    "default_popup": "popup.html"
+  }
+}
