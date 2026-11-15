@@ -1,5 +1,23 @@
 # Release status and evidence map
 
+## Latest live UI/balance update — 15 November UTC
+
+Public Mainnet now serves **fa421573e6f95c9364da2bc696d91db4ae0b12b4**,
+Vercel deployment **C9dLkiTcJbdaDJEanzWjRfvojEYz**, Ready with taplyapp.xyz listed.
+The repeated header badge/warning is gone; connected-account native/USDC balance
+reads succeeded. The exact source passed [workspace-check 43658449595](https://github.com/KendineCrypto/taply/actions/runs/43658449595):
+web 1606 passed / 7 skipped and all browser phases passed. Tested source edd9fb0
+and squash fa42157 share tree fdc433653098954277443e69776de34a7167dfba.
+The signer/planner RPC and transaction controls are unchanged.
+
+[Latest live observations and screenshot](evidence/mainnet-header-balance-2026-11-15/README.md).
+The initial automatic attempt was quota-blocked; a manual deployment succeeded.
+
+## Earlier wallet/receipt release snapshot
+
+The dated tables below document the preceding 7c0eac8 release and remain its
+historical source/CI/deployment record, not the current served UI commit.
+
 Updated: **15 November 2026 UTC**; original domain launch was 14 November. This is a source/deployment/evidence map,
 not external security approval. Historical reports below keep their original scope.
 
