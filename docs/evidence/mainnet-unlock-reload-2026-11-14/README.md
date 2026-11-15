@@ -21,3 +21,9 @@ an unfunded disposable local vault. No real wallet or on-chain signature is used
 
 This is source/test evidence. A deployment must succeed before the live site
 can be claimed fixed; the existing Vercel daily quota is a separate blocker.
+
+Follow-up, 15 November UTC: activation reads are keyed to account, public key and
+explicit refresh, rather than the identity object's reference. Unlock/resume
+notifications must update the lock UI without retriggering a chain activation
+read or removing Check again mid-click. The first CI run caught this regression;
+a dedicated hook regression test covers cloned identities, refresh and key change.
