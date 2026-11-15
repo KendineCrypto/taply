@@ -1,22 +1,24 @@
 # Release status and evidence map
 
-Snapshot: **14 November 2026 UTC**. This is a source/deployment/evidence map,
+Updated: **15 November 2026 UTC**; original domain launch was 14 November. This is a source/deployment/evidence map,
 not external security approval. Historical reports below keep their original scope.
 
 ## Source and deployment identity
 
 | Surface | Source | Observed status |
 | --- | --- | --- |
-| Default repository / Testnet source | `main`, application baseline `6a47a4c1db09d1dce23041d758a41e55147ffd5c` before documentation updates | Testnet source and dated browser evidence remain; taplyapp.xyz no longer serves this build |
-| **Public Mainnet** | [`fa4235f`](https://github.com/KendineCrypto/taply/commit/fa4235f8122b5d0bdcafa9082d24f6fc30e5d578), deployment `6DgFjUsspqv8SnFHLVjb3Z37FxBY` | **Live at [taplyapp.xyz](https://taplyapp.xyz)**; www redirects there; anonymous HTTP 200 at /m |
-| Vercel domain target | Project `taply-mainnet`, Preview environment, branch `staging/mainnet` | Existing Ready artifact reused via domain assignment; no new Production-environment build was made |
-| Newer Mainnet source | [`staging/mainnet` at `f88bc3f`](https://github.com/KendineCrypto/taply/tree/f88bc3fdd1d7b9cfabf95f73a3b48baf376968eb) | Receipt/recovery fixes merged through [PR #38](https://github.com/KendineCrypto/taply/pull/38), not deployed |
-| Tested newer Mainnet head | [`d984206`](https://github.com/KendineCrypto/taply/commit/d984206ed5ae46e81b18227c52bdf96a1375be49) | All three workflows below passed. Source tree equals squash f88bc3f: `255986cdfad11e1a5dc206e0949de4f0e46ee683` |
-| New-deployment blocker | Vercel Hobby quota | Manual deployment of f88bc3f was rejected: `api-deployments-free-per-day`, more than 100, retry in 1 day |
+| **Public Mainnet** | [`7c0eac8`](https://github.com/KendineCrypto/taply/commit/7c0eac8b9b27cf0b6938010de6c9ca321c447e94), deployment `CK8EfUJPnsS39FNeqivQeByXTigH` | **Ready, live at [taplyapp.xyz](https://taplyapp.xyz)**; real native receipt shows Verified Paid |
+| Vercel domain target | Project taply-mainnet, Preview environment, branch staging/mainnet | New deployment Ready at 2026-11-15 00:09:33 UTC; custom domain is explicitly listed |
+| Tested source | [`673a4dc`](https://github.com/KendineCrypto/taply/commit/673a4dc7aa896b9942822fc662ae7944f9df9551) | Three CI workflows passed; tree equals squash 7c0eac8: `cc72f5cfd6e9008f315ee52496b071d984103bed` |
+| Default repository / Testnet source | main, application baseline 6a47a4c before documentation updates | Dated Testnet source/evidence remains; public domain now serves Mainnet |
+| Original domain launch | fa4235f, deployment 6DgFjUsspqv8SnFHLVjb3Z37FxBY | Served initially on 14 November while newer builds were quota-blocked; superseded by 7c0eac8 |
+| Earlier quota failure | api-deployments-free-per-day | Earlier attempts failed. The new Mainnet build subsequently succeeded; no claim that every team's/project's quota is now clear |
 
-[Domain launch record, screenshot and anonymous HTTP checks](evidence/mainnet-domain-launch-2026-11-14/README.md).
-This public-domain launch does not mean the newer source is live. The old UI can
-still show Payment recorded and its earlier Gift/pending-outcome behavior.
+[Current live check and screenshot](evidence/mainnet-unlock-live-2026-11-15/README.md)
+· [Original domain launch record](evidence/mainnet-domain-launch-2026-11-14/README.md).
+The initial deployment of fa4235f and the later successful fix deployment are
+distinct observations. No payment, signature or plan purchase was performed by
+the agent during publication checks.
 
 ## From Testnet to Mainnet
 
@@ -27,25 +29,25 @@ still show Payment recorded and its earlier Gift/pending-outcome behavior.
 | Mainnet implementation | Separate network config, pinned contract, wallet/reconciliation and verifier | [Pinned source](https://github.com/KendineCrypto/taply/tree/f88bc3fdd1d7b9cfabf95f73a3b48baf376968eb) |
 | Real Mainnet settlement | A user-created request paid 0.1 native NEAR; independent verifier returned PAID for the exact beneficiary | [Public proof, inputs and replay](evidence/mainnet-live-settlement-2026-11-14/README.md) |
 | Mainnet Gift | Owner reports successful funding/claim | User acceptance report; no independently archived Gift hash/proof in this snapshot |
-| Mainnet UI/recovery follow-up | Both-device native receipt verification, QR-to-receipt, compact Gift/result UI, retained-hash FINAL recovery | [PR #37](https://github.com/KendineCrypto/taply/pull/37) · [PR #38](https://github.com/KendineCrypto/taply/pull/38); not included in the currently served fa4235f build |
+| Mainnet UI/recovery follow-up | Both-device native receipt verification, QR-to-receipt, compact Gift/result UI, retained-hash FINAL recovery | [PR #37](https://github.com/KendineCrypto/taply/pull/37) · [PR #38](https://github.com/KendineCrypto/taply/pull/38); included in the current 7c0eac8 build |
 
 ## Exact CI snapshot
 
-All links refer to tested head `d984206`, not an unspecified “latest” run.
+All links refer to tested head `673a4dc`, not an unspecified “latest” run.
 
 | Workflow | Result | What it establishes |
 | --- | --- | --- |
-| [workspace-check · 43650817911](https://github.com/KendineCrypto/taply/actions/runs/43650817911) | PASS | Frozen install; brand, types, lint; shared 93, near-client 347, web 1,598 passed / 7 skipped, API 85; Testnet/Mainnet builds and leak guard; browser suites |
-| [wallet-browser-check · 43650817835](https://github.com/KendineCrypto/taply/actions/runs/43650817835) | PASS | Offline browser crypto/SDK desktop and mobile-emulation matrix |
-| [mainnet-core-candidate · 43650817864](https://github.com/KendineCrypto/taply/actions/runs/43650817864) | PASS | Rust format/unit/Clippy, WASM candidate, real local NEAR sandbox, wire integration and planner checks |
+| [workspace-check · 43656108715](https://github.com/KendineCrypto/taply/actions/runs/43656108715) | PASS | Frozen install; brand, types, lint; shared 93, near-client 350, web 1,603 passed / 7 skipped, API 85; Testnet/Mainnet builds and leak guard; browser suites |
+| [wallet-browser-check · 43656108784](https://github.com/KendineCrypto/taply/actions/runs/43656108784) | PASS | Offline browser crypto/SDK desktop and mobile-emulation matrix |
+| [mainnet-core-candidate · 43656108705](https://github.com/KendineCrypto/taply/actions/runs/43656108705) | PASS | Rust format/unit/Clippy, WASM candidate, real local NEAR sandbox, wire integration and planner checks |
 
-Workspace browser subchecks include the gate-open release path (10 checks),
+Workspace browser subchecks include the gate-open release path (12 checks),
 Phase 4 (68/68), Phase 5 (31/31), authority integration (6/6), Phase 6 (18/18).
 The workflow steps also show Phase 2–3 and the other product/browser checks.
 Synthetic RPC fixtures, real Redis and local sandbox execution are labelled as
 such. They are not real Mainnet spending evidence.
 
-## What the newer, not-yet-deployed receipt/recovery code does
+## What the current receipt/recovery code does
 
 - The creator follows finalized contract state and replaces the QR with a receipt.
 - For first-attempt native NEAR payments, either device can locate funding and
@@ -56,6 +58,15 @@ such. They are not real Mainnet spending evidence.
   and unavailable/mismatched proof remain blocked; operation replay stays refused.
 - Mainnet receipts and review screens fold technical details instead of changing
   transaction builders. Testnet presentation defaults are preserved.
+
+## Wallet reload fix
+
+The current source also restores a valid Mainnet unlock session across same-tab
+reload without extending its original five-minute expiry. Explicit lock revokes
+the tab row before asynchronous deletion; new tabs stay locked. The wallet key
+remains nonextractable, and passwords/recovery words are not session-stored.
+Real Chromium reload/lock tests passed; browser-restored or duplicated tabs can
+retain browser sessionStorage. [PR #41](https://github.com/KendineCrypto/taply/pull/41).
 
 ## Remaining boundaries
 

@@ -21,15 +21,18 @@ live verification. The public domain now serves Mainnet.
 screen identifies NEAR Mainnet. You can inspect onboarding, navigation and
 request screens without signing. Mainnet uses real funds, not faucet tokens.
 
-The current public domain serves `fa4235f`, the same Ready Mainnet artifact used
-for the owner's payment. The newer QR-to-receipt, compact Gift/result and
-automatic receipt/recovery changes at `f88bc3f` passed CI but are not deployed.
-Vercel's daily deployment limit blocked the new build. The actual 0.1 NEAR request
-is readable at the [live payment page](https://taplyapp.xyz/m/pay/a035569dc9662a19a7cd077606150e1f443673cef6823fe766ac4c73db852d16);
-the older UI says Payment recorded. The independent proof in section 1 is the
-separate verification of that payment.
+The current public domain serves **7c0eac8**, with the QR-to-receipt, compact
+Gift/result and same-tab wallet reload fixes. Its three CI workflows passed;
+Vercel lists the exact commit and the domain on a Ready deployment. The actual
+0.1 NEAR request shows [Verified Paid on the live payment page](https://taplyapp.xyz/m/pay/a035569dc9662a19a7cd077606150e1f443673cef6823fe766ac4c73db852d16)
+after independent verification. The public inputs/output in section 1 let you
+check that claim separately.
 
-[Launch evidence](evidence/mainnet-domain-launch-2026-11-14/README.md) ·
+The new build became Ready on **15 November at 00:09:33 UTC**. The earlier
+14 November domain launch served fa4235f while deployment quota was exhausted;
+that historical launch is not relabelled as the newer build.
+
+[Current live evidence](evidence/mainnet-unlock-live-2026-11-15/README.md) ·
 [Source/deployment table](RELEASE_STATUS.md#source-and-deployment-identity).
 The former public Testnet domain has moved; dated Testnet browser reports retain
 their original URL and date as historical evidence.
