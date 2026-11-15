@@ -33,6 +33,7 @@ try {
     check(`${locale} split: Testnet no-wallet state, no calculator`, await page.getByTestId('split-no-wallet').isVisible() && await page.getByRole('button', { name: locale === 'tr' ? 'Kesin payları hesapla' : 'Calculate exact shares' }).count() === 0);
     await page.goto(`${base}/m/gift/new`);
     // Testnet gift wizard: step 1 offers both gift types; without a wallet it asks to connect first.
+    await page.getByTestId('gift-wizard').or(page.getByRole('button', { name: locale === 'tr' ? 'Cüzdan bağla' : 'Connect wallet', exact: true })).first().waitFor({ state: 'visible', timeout: 10000 });
     check(`${locale} Gift: wizard or connect state, nothing funded`, (await page.getByTestId('gift-wizard').count()) === 1 || (await page.getByRole('button', { name: locale === 'tr' ? 'Cüzdan bağla' : 'Connect wallet' }).count()) > 0);
     check(`${locale} Gift: no funded link`, await page.locator('a[href*="#k="]').count() === 0);
     await page.evaluate(() => window.scrollTo(0, 0));
