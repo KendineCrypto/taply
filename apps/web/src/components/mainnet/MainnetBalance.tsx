@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { createMainnetAccountReader } from '@taply/near-client';
+import { readMainnetDisplayBalances } from '@/lib/mainnet/balance-read';
 import { Button } from '@/components/primitives/Button';
 import { InlineNotice } from '@/components/feedback/InlineNotice';
 import { Icon } from '@/components/shell/Icons';
@@ -27,8 +27,7 @@ export function useMainnetBalance(accountId: string | null, tick: number): Mainn
     const profile = MAINNET_CONFIG.ok ? { network: 'near-mainnet' as const, rpcUrl: MAINNET_CONFIG.rpcUrl, rpcProviderId: MAINNET_CONFIG.rpcProviderId } : null;
     if (accountId === null || profile === null) return;
     let live = true;
-    createMainnetAccountReader(profile)
-      .readBalances(accountId)
+    readMainnetDisplayBalances(accountId, profile)
       .then((r) => { if (live) setState({ key, value: { kind: 'ok', native: r.native, locked: r.locked, usdc: r.usdc, blockHash: r.blockHash, timestampNs: r.timestampNs } }); })
       .catch(() => { if (live) setState({ key, value: { kind: 'error' } }); });
     return () => { live = false; };
