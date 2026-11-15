@@ -1,6 +1,7 @@
 'use client';
 
 import { ExternalWalletVerification } from './ExternalWalletVerification';
+import { createMainnetVaultSessionStore } from '@/lib/mainnet/vault-session';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
@@ -50,25 +51,32 @@ export function useWalletCopy(): WalletCopy {
 }
 
 let vaultSingleton: EncryptedMainnetVault | null = null;
+let vaultResume: Promise<boolean> | null = null;
 export function vault(): EncryptedMainnetVault {
-  vaultSingleton ??= new EncryptedMainnetVault(window.localStorage);
+  if (vaultSingleton === null) {
+    const session = createMainnetVaultSessionStore();
+    vaultSingleton = new EncryptedMainnetVault(window.localStorage, session === null ? {} : { session });
+    window.addEventListener('pagehide', () => vaultSingleton?.release());
+    window.addEventListener('pageshow', (event) => { if (event.persisted) void vaultSingleton?.resume().catch(() => false); });
+  }
   return vaultSingleton;
 }
 const subscribe = (cb: () => void) => vault().subscribe(cb);
 /** Identity + unlocked state, re-rendered on vault changes. */
 export function useMainnetVault(): { identity: MainnetWalletIdentity | null; unlocked: boolean } {
+  useEffect(() => { vaultResume ??= vault().resume().catch(() => false); }, []);
   const snap = useSyncExternalStore(
     subscribe,
     () => {
       const v = vault();
       const id = v.getIdentity();
-      return `${id?.accountId ?? ''}|${id?.provisioning ?? ''}|${v.unlocked ? 1 : 0}`;
+      return `${id?.accountId ?? ''}|${id?.publicKeyHex ?? ''}|${id?.provisioning ?? ''}|${v.unlocked ? 1 : 0}`;
     },
-    () => '||0',
+    () => '|||0',
   );
   // Derived from the store snapshot only, so the hydration render matches the server render.
   return useMemo(() => {
-    const [accountId, , unlocked] = snap.split('|');
+    const [accountId, , , unlocked] = snap.split('|');
     if (!accountId) return { identity: null, unlocked: false };
     return { identity: vault().getIdentity(), unlocked: unlocked === '1' };
   }, [snap]);
@@ -203,29 +211,27 @@ function ExistingWallet({ c }: { c: WalletCopy }) {
 
 type Activation = { kind: 'checking' } | { kind: 'not_activated' } | { kind: 'active'; snapshot: MainnetWalletSnapshot; usdc: string | null } | { kind: 'unreadable' };
 
-function publicKeyOf(identity: MainnetWalletIdentity): string {
-  return ed25519PublicKeyFromHex(identity.publicKeyHex);
-}
-
 /** Final-block activation evidence: the account exists AND holds this FullAccess key. */
 export function useActivation(identity: MainnetWalletIdentity | null, tick: number): Activation {
   const [state, setState] = useState<{ key: string; value: Activation } | null>(null);
-  const key = identity === null ? '' : `${identity.accountId}|${tick}`;
+  const accountId = identity?.accountId ?? null;
+  const publicKeyHex = identity?.publicKeyHex ?? null;
+  const key = accountId === null ? '' : `${accountId}|${publicKeyHex}|${tick}`;
   useEffect(() => {
     const profile = readProfile();
-    if (identity === null || profile === null) return;
+    if (accountId === null || publicKeyHex === null || profile === null) return;
     let live = true;
     (async () => {
       try {
-        const snapshot = await createMainnetWalletChain(profile).snapshot(identity.accountId, publicKeyOf(identity));
+        const snapshot = await createMainnetWalletChain(profile).snapshot(accountId, ed25519PublicKeyFromHex(publicKeyHex));
         if (snapshot === null) { if (live) setState({ key, value: { kind: 'not_activated' } }); return; }
         let usdc: string | null = null;
-        try { usdc = (await createMainnetAccountReader(profile).readBalances(identity.accountId)).usdc; } catch { usdc = null; }
+        try { usdc = (await createMainnetAccountReader(profile).readBalances(accountId)).usdc; } catch { usdc = null; }
         if (live) setState({ key, value: { kind: 'active', snapshot, usdc } });
       } catch { if (live) setState({ key, value: { kind: 'unreadable' } }); }
     })();
     return () => { live = false; };
-  }, [identity, key]);
+  }, [accountId, publicKeyHex, key]);
   return state?.key === key ? state.value : { kind: 'checking' };
 }
 

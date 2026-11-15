@@ -12,17 +12,17 @@ const DB = 'taply.wallet-session.v1';
 const STORE = 'session';
 const KEY = 'current';
 
-function open(): Promise<IDBDatabase> {
+function open(databaseName: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB, 1);
+    const request = indexedDB.open(databaseName, 1);
     request.onupgradeneeded = () => request.result.createObjectStore(STORE);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error('indexeddb'));
   });
 }
 
-async function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  const db = await open();
+async function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) => IDBRequest<T>, databaseName: string): Promise<T> {
+  const db = await open(databaseName);
   try {
     return await new Promise<T>((resolve, reject) => {
       const tx = db.transaction(STORE, mode);
@@ -36,21 +36,21 @@ async function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) =>
   }
 }
 
-export function createIndexedDbSessionStore(): VaultSessionStore | null {
+export function createIndexedDbSessionStore({ databaseName = DB, sessionKey = KEY }: { databaseName?: string; sessionKey?: string } = {}): VaultSessionStore | null {
   if (typeof indexedDB === 'undefined') return null;
   return {
     async save(session) {
-      await run('readwrite', (store) => store.put({ key: session.key, record: session.record, expiresAt: session.expiresAt }, KEY));
+      await run('readwrite', (store) => store.put({ key: session.key, record: session.record, expiresAt: session.expiresAt }, sessionKey), databaseName);
     },
     async load() {
-      const value: unknown = await run('readonly', (store) => store.get(KEY));
+      const value: unknown = await run('readonly', (store) => store.get(sessionKey), databaseName);
       if (typeof value !== 'object' || value === null) return null;
       const v = value as { key?: unknown; record?: unknown; expiresAt?: unknown };
       if (!(v.key instanceof CryptoKey) || typeof v.record !== 'string' || typeof v.expiresAt !== 'number') return null;
       return { key: v.key, record: v.record, expiresAt: v.expiresAt };
     },
     async clear() {
-      await run('readwrite', (store) => store.delete(KEY));
+      await run('readwrite', (store) => store.delete(sessionKey), databaseName);
     },
   };
 }

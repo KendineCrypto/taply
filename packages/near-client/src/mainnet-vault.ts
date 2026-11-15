@@ -117,7 +117,7 @@ async function encryptionKey(crypto: Crypto, password: string, salt: Uint8Array<
 }
 
 /** Web Crypto primitives only. Storage receives ciphertext and public metadata.
- * Reload starts locked. New vaults hold a 12-word recovery phrase (BIP-39, NEAR
+ * Reload starts locked unless a valid optional session is resumed. New vaults hold a 12-word recovery phrase (BIP-39, NEAR
  * path m/44'/397'/0'); only its entropy is stored, encrypted. The phrase can be
  * revealed with the password or imported. No raw private-key import and no
  * account-creation API: a named account ID is only a binding until a chain read proves it.
@@ -208,6 +208,7 @@ export class EncryptedMainnetVault {
       // Do not keep Node test processes alive; browsers simply have no unref.
       const timer = this.#timer as unknown as { unref?: () => void }; timer.unref?.();
     }
+    for (const listener of this.#listeners) listener();
   }
   /**
    * Restores a persisted unlocked session after a page load. Accepted only if it
