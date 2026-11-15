@@ -8,7 +8,7 @@
 </p>
 <p align="center">
   <a href="https://github.com/KendineCrypto/taply/actions/workflows/workspace-check.yml"><img alt="Testnet workspace CI" src="https://github.com/KendineCrypto/taply/actions/workflows/workspace-check.yml/badge.svg?branch=main"></a>
-  <a href="https://github.com/KendineCrypto/taply/actions/runs/43656108715"><img alt="Mainnet validated source" src="https://img.shields.io/badge/Mainnet-source%20validated-C7FC75?labelColor=0B120E"></a>
+  <a href="https://github.com/KendineCrypto/taply/actions/runs/43658449595"><img alt="Mainnet validated source" src="https://img.shields.io/badge/Mainnet-source%20validated-C7FC75?labelColor=0B120E"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-F4F3E8?labelColor=0B120E"></a>
 </p>
 
@@ -31,15 +31,16 @@ verifying a receipt are different states. Taply makes that difference visible.
 | Trace the trust boundaries and source files | [System overview](docs/SYSTEM_OVERVIEW.md) |
 
 **Live Mainnet — updated 15 November 2026 UTC:** [taplyapp.xyz](https://taplyapp.xyz)
-serves [`7c0eac8`](https://github.com/KendineCrypto/taply/commit/7c0eac8b9b27cf0b6938010de6c9ca321c447e94).
-Vercel deployment `CK8EfUJPnsS39FNeqivQeByXTigH` reached Ready at **00:09:33 UTC**
-and lists the custom domain. The latest receipt/Gift improvements and same-tab
-wallet reload fix are included. The real 0.1 NEAR request now shows **Verified
-Paid on the public domain**, checked without signing.
+serves [`fa42157`](https://github.com/KendineCrypto/taply/commit/fa421573e6f95c9364da2bc696d91db4ae0b12b4).
+Vercel deployment `C9dLkiTcJbdaDJEanzWjRfvojEYz` is Ready and lists the custom
+domain. The header is reduced to logo/account controls; display balances have
+bounded approved-Mainnet RPC fallback. The receipt/Gift improvements and same-tab
+wallet reload fix are included. The real 0.1 NEAR request shows Verified Paid.
 
 The public domain follows the `staging/mainnet` Preview environment; `www`
 redirects to the apex. `main` contains Testnet source and review documentation.
-[Current live evidence](docs/evidence/mainnet-unlock-live-2026-11-15/README.md) ·
+[Latest live evidence](docs/evidence/mainnet-header-balance-2026-11-15/README.md) ·
+[Wallet/receipt release evidence](docs/evidence/mainnet-unlock-live-2026-11-15/README.md) ·
 [Source and release history](docs/RELEASE_STATUS.md).
 
 ## The payment experience
@@ -99,7 +100,7 @@ flows. The wallet uses a standard BIP-39 phrase and NEAR derivation path
 | Evidence | Result | Scope |
 | --- | --- | --- |
 | [Mainnet verifier output](docs/evidence/mainnet-live-settlement-2026-11-14/proof.json) | `VERIFIED_SETTLEMENT`, `PAID`, exact **0.1 NEAR** | Live Mainnet, read-only observation; configured-RPC trust |
-| [Mainnet workspace CI](https://github.com/KendineCrypto/taply/actions/runs/43656108715) | Shared **93**, near-client **350**, web **1,603 passed / 7 skipped**, API **85**; browser phases and builds passed | Tested source `673a4dc`; source-equivalent squash `7c0eac8` |
+| [Mainnet workspace CI](https://github.com/KendineCrypto/taply/actions/runs/43658449595) | Shared **93**, near-client **350**, web **1,606 passed / 7 skipped**, API **85**; browser phases and builds passed | Tested source `edd9fb0`; source-equivalent squash `fa42157` |
 | [Mainnet contract CI](https://github.com/KendineCrypto/taply/actions/runs/43656108705) | Rust checks, candidate WASM and real local NEAR sandbox passed | Synthetic/local chain; not a real-funds payment or an audit |
 | [Wallet browser CI](https://github.com/KendineCrypto/taply/actions/runs/43656108784) | Desktop/mobile-emulation crypto compatibility passed | Browser compatibility, not physical-device certification |
 | [Testnet proof ledger](docs/EVIDENCE.md) | Public accounts, transaction hashes and receipt observations | Real Testnet with original dates preserved |

@@ -21,14 +21,16 @@ live verification. The public domain now serves Mainnet.
 screen identifies NEAR Mainnet. You can inspect onboarding, navigation and
 request screens without signing. Mainnet uses real funds, not faucet tokens.
 
-The current public domain serves **7c0eac8**, with the QR-to-receipt, compact
+The current public domain serves **fa42157**, with the clean header, resilient
+display balance reads, QR-to-receipt, compact
 Gift/result and same-tab wallet reload fixes. Its three CI workflows passed;
 Vercel lists the exact commit and the domain on a Ready deployment. The actual
 0.1 NEAR request shows [Verified Paid on the live payment page](https://taplyapp.xyz/m/pay/a035569dc9662a19a7cd077606150e1f443673cef6823fe766ac4c73db852d16)
 after independent verification. The public inputs/output in section 1 let you
 check that claim separately.
 
-The new build became Ready on **15 November at 00:09:33 UTC**. The earlier
+The earlier wallet/receipt build 7c0eac8 became Ready on **15 November at 00:09:33 UTC**.
+The subsequent header/balance release is recorded in the [latest live check](evidence/mainnet-header-balance-2026-11-15/README.md). The earlier
 14 November domain launch served fa4235f while deployment quota was exhausted;
 that historical launch is not relabelled as the newer build.
 
