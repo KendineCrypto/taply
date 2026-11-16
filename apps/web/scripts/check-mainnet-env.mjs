@@ -57,6 +57,11 @@ const TESTNET_MARKERS = [/testnet/i, /(^|[/.])test\.rpc\./i, /\.test(?=$|[/:])/i
 const SECRET_KEY = /TOKEN|SECRET|PASSWORD|PRIVATE|API_KEY|_URL$/;
 
 /** Next.js production env file precedence, highest first. */
+/** Reads the compile-time 1Click funded-quote gate from source (the same constant the server enforces). */
+export function fundedQuotesGateOpen(source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/lib/mainnet/release-gates.ts'), 'utf8')) {
+  return /export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED(?:: boolean)? = true(?: as const)?;/.test(source);
+}
+
 export const ENV_FILES = Object.freeze(['.env.production.local', '.env.local', '.env.production', '.env']);
 
 /**
@@ -208,8 +213,17 @@ export function evaluateMainnetEnv({ env, source = {}, vercelEnv, requireMainnet
   // 5b. Mainnet integration switches (docs/MAINNET_1CLICK_INTEGRATION.md).
   //     Fixtures and fixture-signed 1Click quotes never reach Production; funded
   //     quotes and signing are NO-GO (also hard-gated in lib/mainnet/release-gates.ts).
+  //     `funded` is accepted only while the reviewed code gate
+  //     ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED is true, never on Production
+  //     (separate approval), and only with the durable attempt store.
   const oneClickMode = env.TAPLY_ONECLICK_MODE ?? 'off';
-  add('TAPLY_ONECLICK_MODE is off, fixture or dry', ['off', 'fixture', 'dry'].includes(oneClickMode), `TAPLY_ONECLICK_MODE=${JSON.stringify(oneClickMode)}; funded quotes are not approved`);
+  const fundedGate = fundedQuotesGateOpen();
+  add('TAPLY_ONECLICK_MODE is off, fixture, dry, or funded behind the open code gate (not Production)',
+    ['off', 'fixture', 'dry'].includes(oneClickMode) || (oneClickMode === 'funded' && fundedGate && !production),
+    `TAPLY_ONECLICK_MODE=${JSON.stringify(oneClickMode)}; funded quotes need ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED=true in release-gates.ts and a non-Production deployment`);
+  if (oneClickMode === 'funded') {
+    add('funded 1Click quotes have the durable attempt store', set(env.KV_REST_API_URL) && set(env.KV_REST_API_TOKEN), 'TAPLY_ONECLICK_MODE=funded needs KV_REST_API_URL and KV_REST_API_TOKEN (the mainnet project\'s own Upstash database)');
+  }
   const ledger = env.NEXT_PUBLIC_TAPLY_MAINNET_LEDGER ?? 'off';
   add('NEXT_PUBLIC_TAPLY_MAINNET_LEDGER is off or device', ['off', '', 'device'].includes(ledger), `NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=${JSON.stringify(ledger)}`);
   add('device ledger not combined with a test authority', ledger !== 'device' || (!on(env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY_SIMULATION) && (env.NEXT_PUBLIC_TAPLY_MAINNET_AUTHORITY ?? 'off') === 'off'), 'NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device is exclusive with the simulated and isolated-http authorities');
