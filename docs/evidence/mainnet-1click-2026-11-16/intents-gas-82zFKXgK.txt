@@ -1,0 +1,8 @@
+          intents.near -> zec.omft.near                  ft_transfer_call       attached=  278.4T burnt=   2.7T ['SuccessReceiptId']
+         zec.omft.near -> v2.ref-finance.near            ft_on_transfer         attached=  269.8T burnt=   7.0T ['SuccessValue']
+   v2.ref-finance.near -> wrap.near                      ft_transfer_call       attached=   45.0T burnt=   2.6T ['SuccessReceiptId']
+             wrap.near -> intents.near                   ft_on_transfer         attached=   15.0T burnt=   3.6T ['SuccessValue']
+             wrap.near -> wrap.near                      ft_resolve_transfer    attached=    5.0T burnt=   1.4T ['SuccessValue']
+   v2.ref-finance.near -> v2.ref-finance.near            exchange_callback_post_ft_transfer_call_withdraw attached=    5.0T burnt=   2.2T ['SuccessValue']
+         zec.omft.near -> zec.omft.near                  ft_resolve_transfer    attached=    5.0T burnt=   1.4T ['SuccessValue']
+          intents.near -> intents.near                   ft_resolve_withdraw    attached=   15.0T burnt=   2.5T ['SuccessValue']

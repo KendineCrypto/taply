@@ -31,7 +31,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
         try { scripts.set(r.url(), await r.text()); } catch {}
       }
     });
-    page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(`${label}: ${m.text()}`); });
+    page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(`${label}: ${m.text()} @ ${m.location()?.url ?? ''}`); });
 
     await page.goto(`${BASE}/`);
     check(`${label}: / redirects to /m`, new URL(page.url()).pathname === '/m');
@@ -62,12 +62,29 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
     check(`${label}: no 0x deposit address rendered`, !/0x[0-9a-fA-F]{40}/.test(review.replace(/0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed/gi, '')), review);
     await page.screenshot({ path: `${OUT}/${label}-03-quote-review.png`, fullPage: true });
 
-    // Duplicate active quote with a different refund address is refused by the server.
+    // The attempt secret stays in this browser's storage, never in a URL.
+    const requestId = page.url().split('/').pop();
+    const secret = await page.evaluate((id) => localStorage.getItem(`taply.mainnet.1click.attempt:${id}`), requestId);
+    check(`${label}: attempt secret kept in this browser only`, /^[A-Za-z0-9_-]{43}$/.test(secret ?? '') && !page.url().includes(secret ?? '-'), String(secret).length);
+    // Another browser (another secret) cannot take over or duplicate the active quote.
     const dup = await page.evaluate(async (id) => {
-      const r = await fetch('/api/mainnet/oneclick/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ requestId: id, originAsset: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', refundTo: '0x3333333333333333333333333333333333333333' }) });
+      const r = await fetch('/api/mainnet/oneclick/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ requestId: id, originAsset: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', refundTo: '0x3333333333333333333333333333333333333333', attemptSecret: 'Z'.repeat(43) }) });
       return { status: r.status, body: await r.json() };
-    }, page.url().split('/').pop());
-    check(`${label}: duplicate active quote refused`, dup.status === 409 && dup.body.error === 'ACTIVE_QUOTE_EXISTS', JSON.stringify(dup));
+    }, requestId);
+    check(`${label}: another browser's quote is refused`, dup.status === 409 && dup.body.error === 'ACTIVE_QUOTE_EXISTS', JSON.stringify(dup));
+    const stranger = await page.evaluate(async (id) => {
+      const r = await fetch('/api/mainnet/oneclick/attempt', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ requestId: id, attemptSecret: 'Z'.repeat(43) }) });
+      return { status: r.status, body: await r.json() };
+    }, requestId);
+    check(`${label}: another browser cannot open this attempt`, stranger.status === 404 && stranger.body.error === 'NO_QUOTE', JSON.stringify(stranger));
+    // The browser that created the attempt gets it back after a refresh (no second quote).
+    // Later viewports are fresh browsers shown the same unowned dry quote; they have nothing to resume.
+    if (label === 'mobile-390') {
+      await page.reload();
+      await page.getByTestId('method-base').click().catch(() => {});
+      await page.waitForSelector('[data-testid=quote-review]', { timeout: 15000 });
+      check(`${label}: quote resumes after refresh`, (await page.getByTestId('quote-review').textContent()).includes('12.628863'));
+    }
 
     for (const [name, state] of [['usdc-recorded', 'PAYMENT_RECORDED'], ['usdc-refunded', 'REFUNDED'], ['usdc-r2-unknown', 'UNKNOWN'], ['usdc-deposit-seen', 'DEPOSIT_OBSERVED'], ['usdc-failed', 'FAILED']]) {
       await page.goto(`${BASE}/m`);
@@ -130,8 +147,9 @@ const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail
   console.log(`INFO  external hosts contacted by the browser: ${external.join(', ') || 'none'}`);
   check('browser never contacts 1Click or an RPC (quotes are server-side; fixture mode reads no chain)', !external.some((h) => /chaindefuser|rpc|fastnear|near\.org/.test(h)), external.join(', '));
   check('only external host is the near-connect wallet manifest (raw.githubusercontent.com) or none', external.every((h) => h === 'raw.githubusercontent.com'), external.join(', '));
-  const unexpected = consoleErrors.filter((e) => !e.includes('409'));
-  check('no console errors except the deliberate 409 duplicate-quote probe', unexpected.length === 0, unexpected.slice(0, 5).join(' | '));
+  // Deliberate probes: the 409 duplicate quote and the 404 stranger-resume (another browser's secret).
+  const unexpected = consoleErrors.filter((e) => !e.includes('409') && !(e.includes('404') && e.includes('/api/mainnet/oneclick/attempt')));
+  check('no console errors except the deliberate 409 duplicate-quote and 404 stranger-resume probes', unexpected.length === 0, unexpected.slice(0, 5).join(' | '));
   fs.writeFileSync(`${OUT}/qa-results.json`, JSON.stringify({ base: BASE, results, scripts: scripts.size, hosts: [...hosts], consoleErrors, residual }, null, 2));
   await browser.close();
   process.exit(results.every((r) => r.ok) ? 0 : 1);

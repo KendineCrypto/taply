@@ -4,7 +4,13 @@ import type { Result } from './service';
 import { boundedText } from './bounded-body';
 import { ingress } from './rate-limit';
 
-type Service = { prepareQuote(raw: unknown): Promise<Result<unknown>>; status(raw: unknown): Promise<Result<unknown>>; origins?: () => Promise<Result<unknown>> };
+type Service = {
+  prepareQuote(raw: unknown): Promise<Result<unknown>>;
+  status(raw: unknown): Promise<Result<unknown>>;
+  resume?: (raw: unknown) => Promise<Result<unknown>>;
+  origins?: () => Promise<Result<unknown>>;
+  fundingEnabled?: () => boolean;
+};
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -30,7 +36,8 @@ function sameOrigin(request: Request): boolean {
   }
 }
 
-export async function handleQuote(request: Request, service: () => Service, mainnet = IS_MAINNET_BUILD, admit = ingress): Promise<Response> {
+/** Same-origin JSON POST with a small, time-bounded body; then `run` with the parsed value. */
+async function postJson(request: Request, mainnet: boolean, admit: (r: Request) => Promise<boolean>, run: (body: unknown) => Promise<Result<unknown>>): Promise<Response> {
   if (!mainnet) return json(404, { error: 'NOT_FOUND' });
   if (!sameOrigin(request)) return json(403, { error: 'FORBIDDEN' });
   if (!(request.headers.get('content-type') ?? '').startsWith('application/json')) return json(415, { error: 'INVALID_INPUT' });
@@ -55,7 +62,19 @@ export async function handleQuote(request: Request, service: () => Service, main
   } catch {
     return json(400, { error: 'INVALID_INPUT' });
   }
-  return toResponse(await service().prepareQuote(body));
+  return toResponse(await run(body));
+}
+
+export function handleQuote(request: Request, service: () => Service, mainnet = IS_MAINNET_BUILD, admit = ingress): Promise<Response> {
+  return postJson(request, mainnet, admit, (body) => service().prepareQuote(body));
+}
+
+/** Owner-only resume: the attempt secret travels in the POST body, never in a URL. */
+export function handleResume(request: Request, service: () => Service, mainnet = IS_MAINNET_BUILD, admit = ingress): Promise<Response> {
+  return postJson(request, mainnet, admit, async (body) => {
+    const svc = service();
+    return svc.resume ? svc.resume(body) : { ok: false, code: 'ONECLICK_DISABLED' };
+  });
 }
 
 export async function handleStatus(request: Request, service: () => Service, mainnet = IS_MAINNET_BUILD, admit = ingress): Promise<Response> {
@@ -74,5 +93,5 @@ export async function handleOrigins(request: Request, service: () => Service, ma
   const svc = service();
   if (svc.origins === undefined) return json(503, { error: 'ONECLICK_DISABLED' });
   const result = await svc.origins();
-  return result.ok ? json(200, { origins: result.value }) : toResponse(result);
+  return result.ok ? json(200, { origins: result.value, funding: svc.fundingEnabled?.() === true }) : toResponse(result);
 }

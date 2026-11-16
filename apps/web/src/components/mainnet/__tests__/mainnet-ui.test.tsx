@@ -36,6 +36,7 @@ const byName = (name: string) => fixtureRequests(NOW).find((e) => e.scenario.nam
 const wrap = (ui: ReactNode, locale: 'en' | 'tr' = 'en') => render(<MainnetLocaleProvider locale={locale}>{ui}</MainnetLocaleProvider>);
 
 afterEach(() => {
+  localStorage.clear();
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -84,7 +85,7 @@ describe('PaymentStatusPanel', () => {
       <PaymentStatusPanel
         request={request}
         readAtMs={NOW}
-        hint={status === null ? null : { status: status as never, sinceMs: NOW, refundTo: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null }}
+        hint={status === null ? null : { status: status as never, sinceMs: NOW, refundTo: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null, source: 'current' }}
         onRefresh={() => {}}
       />,
       locale,
@@ -131,10 +132,10 @@ const quoteCalls = (f: ReturnType<typeof routed>) => f.mock.calls.filter((c) => 
 describe('IntentsCheckout (Base USDC)', () => {
   const request = byName('usdc-awaiting');
   const goodQuote = {
-    mode: 'fixture', fundingEnabled: false, requestId: request.terms.id, correlationId: 'c', originAssetId: 'x',
+    mode: 'fixture', fundingEnabled: false, requestId: request.terms.id, attemptId: 'attempt-1', correlationId: 'c', originAssetId: 'x',
     amountIn: '12628863', amountInFormatted: '12.628863', minAmountIn: '12628863', amountOut: request.terms.amountBaseUnits,
     deadline: new Date(NOW + 15 * 60_000).toISOString(), timeEstimateSec: 35, refundTo: '0x1111111111111111111111111111111111111111',
-    recipient: request.terms.contractId, destinationAsset: 'nep141:x', deposit: null, depositWithheldReason: 'DRY_QUOTE', signatureVerified: true, reused: false,
+    recipient: request.terms.contractId, destinationAsset: 'nep141:x', deposit: null, depositWithheldReason: 'DRY_QUOTE', signatureVerified: true, reused: false, released: null,
   };
 
   it('validates the refund address before asking the server', () => {
@@ -158,7 +159,11 @@ describe('IntentsCheckout (Base USDC)', () => {
     await waitFor(() => expect(screen.getByTestId('quote-review')).toBeTruthy());
     const [url, init] = quoteCalls(fetcher)[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/mainnet/oneclick/quote');
-    expect(JSON.parse(String(init.body))).toEqual({ requestId: request.terms.id, originAsset: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', refundTo: goodQuote.refundTo });
+    const sent = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(sent).toEqual({ requestId: request.terms.id, originAsset: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', refundTo: goodQuote.refundTo, attemptSecret: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) });
+    // The secret lives in this browser only (per request), never in a URL.
+    expect(localStorage.getItem(`taply.mainnet.1click.attempt:${request.terms.id}`)).toBe(sent['attemptSecret']);
+    expect(url).not.toContain(String(sent['attemptSecret']));
     expect(screen.getByText('12.5 USDC')).toBeTruthy();
     expect(screen.getByText('12.628863 USDC · Base')).toBeTruthy();
     expect(screen.getByTestId('deposit-withheld').textContent).toContain(mainnetEn.intents.depositHidden);

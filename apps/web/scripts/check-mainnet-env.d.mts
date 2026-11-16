@@ -37,3 +37,4 @@ export function main(
   dir?: string,
   log?: { log: (...a: unknown[]) => void; error: (...a: unknown[]) => void },
 ): number;
+export function fundedQuotesGateOpen(source?: string): boolean;

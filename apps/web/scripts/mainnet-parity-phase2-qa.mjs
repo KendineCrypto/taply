@@ -99,7 +99,12 @@ const review = (await solPage.getByTestId('quote-review').textContent().catch(()
 check('Solana quote review: send on Solana, merchant receives exact USDC, deposit withheld', /USDC · Solana/.test(review) && /12[.,]5 USDC/.test(review) && (await solPage.getByTestId('deposit-withheld').isVisible()), review.slice(0, 300));
 await solPage.screenshot({ path: `${OUT}/origin-01-solana-review.png`, fullPage: true });
 const tronPage = (await ctx('tron', { viewport: { width: 430, height: 900 } })).page;
-const id2 = await fixtureId(tronPage, 'usdc-deposit-seen');
+// A request whose cross-chain deposit 1Click has already seen offers no second payment method.
+const seen = await fixtureId(tronPage, 'usdc-deposit-seen');
+await tronPage.goto(`${BASE}/m/pay/${seen}`);
+await tronPage.waitForSelector('[data-testid=crosschain-moving]', { timeout: 15000 }).catch(() => {});
+check('deposit already seen: no payment method offered, do-not-pay-twice notice', await tronPage.getByTestId('crosschain-moving').isVisible() && !(await tronPage.getByTestId('method-wallet').isVisible().catch(() => false)) && !(await tronPage.getByTestId('method-base').isVisible().catch(() => false)));
+const id2 = await fixtureId(tronPage, 'usdc-refunded');
 await tronPage.goto(`${BASE}/m/pay/${id2}`);
 await tronPage.getByTestId('method-base').click();
 await tronPage.locator('[data-testid=origin-picker] input[data-chain=tron]').check();

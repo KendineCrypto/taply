@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   MAINNET,
+  fundedQuotesGateOpen,
   evaluateMainnetEnv,
   main,
   parseEnvFile,
@@ -203,10 +204,17 @@ describe('mainnet integration switches', () => {
     expect(run(preview).failed).toEqual([]);
   });
 
-  it('funded 1Click quotes and the signing flag are refused on every scope', () => {
+  it('funded 1Click quotes are refused while the code gate is closed; never on Production; need the durable store', () => {
+    const FUNDED = 'TAPLY_ONECLICK_MODE is off, fixture, dry, or funded behind the open code gate (not Production)';
+    // The committed gate is closed on this branch: refused on every scope.
+    expect(fundedQuotesGateOpen()).toBe(false);
+    expect(fundedQuotesGateOpen('export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = true as const;')).toBe(true);
+    expect(fundedQuotesGateOpen('export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = false as const;')).toBe(false);
+    expect(fundedQuotesGateOpen('// ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = true')).toBe(false);
     for (const scope of ['production', 'preview']) {
       const base = { ...PRODUCTION, VERCEL_ENV: scope, NEXT_PUBLIC_TAPLY_SHARE_ORIGIN: scope === 'production' ? PRODUCTION['NEXT_PUBLIC_TAPLY_SHARE_ORIGIN'] : undefined };
-      expect(run({ ...base, TAPLY_ONECLICK_MODE: 'funded' }).failed).toEqual(['TAPLY_ONECLICK_MODE is off, fixture or dry']);
+      expect(run({ ...base, TAPLY_ONECLICK_MODE: 'funded' }).failed).toEqual([FUNDED, 'funded 1Click quotes have the durable attempt store']);
+      expect(run({ ...base, TAPLY_ONECLICK_MODE: 'funded', KV_REST_API_URL: 'https://x.upstash.io', KV_REST_API_TOKEN: 't' }).failed).toEqual([FUNDED]);
       expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on' }).failed).toEqual(['signing only with the device ledger']);
       expect(run({ ...base, NEXT_PUBLIC_TAPLY_MAINNET_SIGNING: 'on', NEXT_PUBLIC_TAPLY_MAINNET_LEDGER: 'device' }).failed).toEqual([]);
     }

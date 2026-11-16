@@ -29,11 +29,15 @@ import { MANAGER_PUBLIC_KEY, verifyQuoteResponse } from '../verify';
 const NOW = Date.UTC(2026, 10, 13, 12, 20, 0);
 const handleQuote = (r: Request, s: Parameters<typeof guardedQuote>[1], m: boolean) => guardedQuote(r, s, m, async () => true);
 const handleStatus = (r: Request, s: Parameters<typeof guardedStatus>[1], m: boolean) => guardedStatus(r, s, m, async () => true);
-async function seed(store: QuoteStore, record: QuoteRecord) {
-  const a = await store.reserve({ id: crypto.randomUUID(), requestId: record.requestId, mode: record.mode, payload: '{}', createdAtMs: NOW }, null);
-  if (typeof a === 'string') throw new Error(a);
+const SECRET = 'A'.repeat(43);
+const OTHER_SECRET = 'B'.repeat(43);
+async function seed(store: QuoteStore, record: QuoteRecord, ownerHash = 'other-owner') {
+  const r = await store.reserve({ id: crypto.randomUUID(), requestId: record.requestId, mode: record.mode, payload: '{}', createdAtMs: record.createdAtMs, deadlineMs: record.deadlineMs, ownerHash }, record.createdAtMs);
+  if (r.kind !== 'RESERVED') throw new Error(r.kind);
+  const a = r.attempt;
   expect(await store.transition(a, 'DISPATCHING')).toBe(true);
   expect(await store.transition({ ...a, state: 'DISPATCHING' }, 'READY', record)).toBe(true);
+  return a;
 }
 const REFUND = '0x1111111111111111111111111111111111111111';
 const signer = createFixtureSigner();
@@ -67,6 +71,7 @@ const input = (request: MainnetRequest = AWAITING, extra: Record<string, unknown
   requestId: request.terms.id,
   originAsset: BASE_USDC.assetId,
   refundTo: REFUND,
+  attemptSecret: SECRET,
   ...extra,
 });
 
@@ -258,14 +263,22 @@ describe('quote service', () => {
     expect(await createOneClickService(deps({ chain: merchantOff })).prepareQuote(input())).toEqual({ ok: false, code: 'MERCHANT_NOT_REGISTERED' });
   });
 
-  it('one active quote per request: same inputs reuse it, different inputs are refused, no second upstream call', async () => {
+  it('one live quote per request: its owner gets the same attempt back, another browser only an identical dry quote, no second upstream call', async () => {
     const client: OneClickClient = { ...createFixtureClient(signer, () => NOW) };
     const spy = vi.spyOn(client, 'quote');
     const service = createOneClickService(deps({ client }));
     const first = await service.prepareQuote(input());
     const again = await service.prepareQuote(input());
-    expect(first.ok && again.ok && again.value.reused && again.value.correlationId === first.value.correlationId).toBe(true);
-    expect(await service.prepareQuote(input(AWAITING, { refundTo: '0x3333333333333333333333333333333333333333' }))).toEqual({ ok: false, code: 'ACTIVE_QUOTE_EXISTS' });
+    expect(first.ok && again.ok && again.value.reused && again.value.correlationId === first.value.correlationId && again.value.attemptId === first.value.attemptId).toBe(true);
+    // Even with other inputs, the owner is shown its own attempt (never a second address).
+    const changed = await service.prepareQuote(input(AWAITING, { refundTo: '0x3333333333333333333333333333333333333333' }));
+    expect(changed.ok && changed.value.attemptId === (first.ok && first.value.attemptId) && changed.value.refundTo === REFUND).toBe(true);
+    // A dry/fixture quote has no deposit address: another browser with identical inputs sees the same quote,
+    // with other inputs it is refused. (Funded attempts are owner-only: funded.test.ts.)
+    const shared = await service.prepareQuote(input(AWAITING, { attemptSecret: OTHER_SECRET }));
+    expect(shared.ok && shared.value.reused && shared.value.deposit === null && shared.value.correlationId === (first.ok && first.value.correlationId)).toBe(true);
+    expect(await service.prepareQuote(input(AWAITING, { attemptSecret: OTHER_SECRET, refundTo: '0x3333333333333333333333333333333333333333' }))).toEqual({ ok: false, code: 'ACTIVE_QUOTE_EXISTS' });
+    expect(await service.prepareQuote(input(AWAITING, { attemptSecret: 'short' }))).toEqual({ ok: false, code: 'INVALID_INPUT' });
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
@@ -293,20 +306,47 @@ describe('quote service', () => {
     expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'QUOTE_LIMIT_REACHED' });
   });
 
-  it('an expired funded quote whose deposit may be moving blocks a new quote (no double delivery)', async () => {
-    const now = NOW;
+  it('an expired funded quote is never released by the 1Click status alone (no Base evidence configured here)', async () => {
+    let now = NOW;
     const store = memoryQuoteStore(() => now);
     await seed(store, {
       requestId: AWAITING.terms.id, correlationId: 'c1', mode: 'funded', originAssetId: BASE_USDC.assetId, refundTo: REFUND,
       depositAddress: '0x9999999999999999999999999999999999999999', depositMemo: null, deadlineMs: NOW - 1, createdAtMs: NOW - 1_000_000,
       amountIn: '1', amountInFormatted: '1', minAmountIn: '1', amountOut: AWAITING.terms.amountBaseUnits, timeEstimateSec: 35, signedResponse: '{}',
     });
-    const quoteResponse = { quote: { depositAddress: '0x9999999999999999999999999999999999999999' } };
-    const status = vi.fn(async () => ({ status: 'PROCESSING', correlationId: 'c1', quoteResponse }));
-    const service = createOneClickService(deps({ store, client: { ...createFixtureClient(signer, () => now), status } }));
-    expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PREVIOUS_QUOTE_IN_PROGRESS' });
-    status.mockResolvedValueOnce({ status: 'REFUNDED', correlationId: 'c1', quoteResponse });
-    expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PREVIOUS_QUOTE_IN_PROGRESS' });
+    const quoteResponse = { correlationId: 'c1', quote: { depositAddress: '0x9999999999999999999999999999999999999999' } };
+    const status = vi.fn(async (): Promise<unknown> => ({ status: 'PROCESSING', correlationId: 'c1', quoteResponse }));
+    const service = createOneClickService(deps({ store, now: () => now, client: { ...createFixtureClient(signer, () => now), status } }));
+    const expectBlocked = async (s: string, reason: string) => {
+      status.mockResolvedValueOnce({ status: s, correlationId: 'c1', quoteResponse });
+      expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason });
+    };
+    for (const s of ['PROCESSING', 'KNOWN_DEPOSIT_TX', 'INCOMPLETE_DEPOSIT', 'SUCCESS']) await expectBlocked(s, 'DEPOSIT_IN_PROGRESS');
+    await expectBlocked('FAILED', 'UPSTREAM_FAILED');
+    await expectBlocked('PENDING_DEPOSIT', 'AWAITING_FINALITY');
+    now = NOW + 61 * 60_000;
+    // Long after the deadline, PENDING_DEPOSIT / REFUNDED are still claims: without Base evidence nothing is released.
+    await expectBlocked('PENDING_DEPOSIT', 'EVIDENCE_UNAVAILABLE');
+    await expectBlocked('REFUNDED', 'EVIDENCE_UNAVAILABLE');
+    status.mockRejectedValueOnce(new Error('down'));
+    expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'EVIDENCE_UNAVAILABLE' });
+    expect((await store.attempts(AWAITING.terms.id)).every(a => a.released === null)).toBe(true);
+  });
+
+  it('the public status of a funded attempt never shows the deposit or refund address', async () => {
+    const store = memoryQuoteStore(() => NOW);
+    const deposit = '0x9999999999999999999999999999999999999999';
+    await seed(store, {
+      requestId: AWAITING.terms.id, correlationId: 'c1', mode: 'funded', originAssetId: BASE_USDC.assetId, refundTo: REFUND,
+      depositAddress: deposit, depositMemo: null, deadlineMs: NOW - 1, createdAtMs: NOW - 1_000_000,
+      amountIn: '1', amountInFormatted: '1', minAmountIn: '1', amountOut: AWAITING.terms.amountBaseUnits, timeEstimateSec: 35, signedResponse: '{}',
+    });
+    const body = { status: 'REFUNDED', correlationId: 'c1', quoteResponse: { correlationId: 'c1', quote: { depositAddress: deposit } } };
+    const service = createOneClickService(deps({ store, client: { ...createFixtureClient(signer, () => NOW), status: async () => body } }));
+    const pub = await service.status(AWAITING.terms.id);
+    expect(pub.ok && pub.value).toMatchObject({ hint: 'REFUNDED', source: 'current' });
+    expect(JSON.stringify(pub)).not.toContain(deposit);
+    expect(JSON.stringify(pub)).not.toContain(REFUND);
   });
 
   it('a quote that fails verification is refused with its reason and not stored', async () => {
@@ -314,7 +354,7 @@ describe('quote service', () => {
     const forged: OneClickClient = { ...createFixtureClient(createFixtureSigner(), () => NOW) };
     const r = await createOneClickService(deps({ client: forged, store })).prepareQuote(input());
     expect(r).toEqual({ ok: false, code: 'QUOTE_REJECTED', reason: 'SIGNATURE_INVALID' });
-    expect(await store.latest(AWAITING.terms.id)).toBeNull();
+    expect((await store.attempts(AWAITING.terms.id)).every(a => a.record === null)).toBe(true);
   });
 
   it('quote errors are conservatively uncertain; HTTP classification remains available for preflight', async () => {
@@ -414,11 +454,13 @@ describe('HTTP client', () => {
 describe('Redis quote store', () => {
   it('uses a durable mainnet ledger and atomic reservation rather than an expiring lock', async () => {
     const calls: Array<ReadonlyArray<string | number>> = [];
-    const redis = vi.fn(async (args: ReadonlyArray<string | number>) => { calls.push(args); return 'BUSY'; });
+    const redis = vi.fn(async (args: ReadonlyArray<string | number>) => { calls.push(args); return '{"kind":"BUSY"}'; });
     const store = redisQuoteStore(redis);
-    expect(await store.reserve({ id: 'attempt', requestId: 'e'.repeat(64), mode: 'dry', payload: '{}', createdAtMs: NOW }, null)).toBe('BUSY');
+    expect(await store.reserve({ id: 'attempt', requestId: 'e'.repeat(64), mode: 'dry', payload: '{}', createdAtMs: NOW, deadlineMs: NOW + 1, ownerHash: 'h' }, NOW)).toEqual({ kind: 'BUSY' });
     expect(calls[0]?.[0]).toBe('EVAL');
+    expect(calls[0]).toContain(`taply:mainnet:1click:ledger:v2:${'e'.repeat(64)}`);
     expect(calls[0]).toContain(`taply:mainnet:1click:ledger:v1:${'e'.repeat(64)}`);
+    expect(JSON.stringify(calls[0])).not.toContain(SECRET);
     expect(calls[0]?.[1]).not.toContain('PEXPIRE');
   });
 });
