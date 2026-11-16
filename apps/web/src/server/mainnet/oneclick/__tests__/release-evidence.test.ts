@@ -45,6 +45,7 @@ class FakeBase implements BaseRpc {
   block(ms: number) { return BigInt(Math.floor((ms - (T0 - 365 * 86_400_000)) / 2000)); }
   async call(method: string, params: ReadonlyArray<unknown>) {
     this.calls.push(method);
+    if (method === 'eth_chainId') return '0x2105';
     if (this.failNext === method) { this.failNext = null; throw new OriginRpcError('UNAVAILABLE'); }
     const fin = this.block(this.finalizedAtMs);
     if (method === 'eth_getBlockByNumber') return { number: `0x${fin.toString(16)}`, timestamp: `0x${Math.floor(this.finalizedAtMs / 1000).toString(16)}`, hash: `0x${'f'.repeat(64)}` };
@@ -139,19 +140,19 @@ describe('releasing an expired payable attempt needs Base chain evidence', () =>
     h.chain.transfers.push({ to: DEP_A, amount: 505155n, atMs: T0 - 20 * 60_000, tx: tx(1) });
     h.now.v = T0; h.chain.finalizedAtMs = T0;
     // Claimed refund, no refund transaction on Base.
-    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }], refundedAmount: '505000' }));
+    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }], refundedAmount: '505155' }));
     expect(await ask(h)).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'REFUND_NOT_VERIFIED' });
     // Refund to another address.
-    h.chain.transfers.push({ to: '0x9999999999999999999999999999999999999999', amount: 505000n, atMs: T0 - 15 * 60_000, tx: tx(2) });
-    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(2) }], refundedAmount: '505000' }));
+    h.chain.transfers.push({ to: '0x9999999999999999999999999999999999999999', amount: 505155n, atMs: T0 - 15 * 60_000, tx: tx(2) });
+    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(2) }], refundedAmount: '505155' }));
     expect(await ask(h)).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'REFUND_NOT_VERIFIED' });
     // Refund to the right address but a different amount than reported.
     h.chain.transfers.push({ to: REFUND, amount: 400000n, atMs: T0 - 15 * 60_000, tx: tx(3) });
-    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(3) }], refundedAmount: '505000' }));
+    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(3) }], refundedAmount: '505155' }));
     expect(await ask(h)).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'REFUND_NOT_VERIFIED' });
     // Refund not final yet.
-    h.chain.transfers.push({ to: REFUND, amount: 505000n, atMs: T0 + 60_000, tx: tx(4) });
-    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(4) }], refundedAmount: '505000' }));
+    h.chain.transfers.push({ to: REFUND, amount: 505155n, atMs: T0 + 60_000, tx: tx(4) });
+    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(4) }], refundedAmount: '505155' }));
     expect(await ask(h)).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'REFUND_NOT_VERIFIED' });
     // Final, exact, to the refund address, after the only deposit: released.
     h.now.v = T0 + 5 * 60_000; h.chain.finalizedAtMs = T0 + 2 * 60_000;
@@ -162,8 +163,8 @@ describe('releasing an expired payable attempt needs Base chain evidence', () =>
 
   it('a second deposit after the refund keeps it blocked', async () => {
     await seedA(h);
-    h.chain.transfers.push({ to: DEP_A, amount: 505155n, atMs: T0 - 20 * 60_000, tx: tx(1) }, { to: REFUND, amount: 505000n, atMs: T0 - 15 * 60_000, tx: tx(2) }, { to: DEP_A, amount: 505155n, atMs: T0 - 5 * 60_000, tx: tx(3) });
-    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(2) }], refundedAmount: '505000' }));
+    h.chain.transfers.push({ to: DEP_A, amount: 505155n, atMs: T0 - 20 * 60_000, tx: tx(1) }, { to: REFUND, amount: 505155n, atMs: T0 - 15 * 60_000, tx: tx(2) }, { to: DEP_A, amount: 505155n, atMs: T0 - 5 * 60_000, tx: tx(3) });
+    h.statuses.set(DEP_A, statusA('REFUNDED', { originChainTxHashes: [{ hash: tx(1) }, { hash: tx(2) }], refundedAmount: '505155' }));
     expect(await ask(h)).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'REFUND_NOT_VERIFIED' });
   });
 
@@ -237,23 +238,32 @@ describe('late deposits into a released address and two quotes funded later', ()
     const corr = b.ok ? b.value.correlationId : '';
     const st = (extra: Record<string, unknown>) => ({ status: 'REFUNDED', correlationId: corr, quoteResponse: { correlationId: corr, quote: { depositAddress: DEP_B } }, swapDetails: extra });
     h.chain.transfers.push({ to: DEP_B, amount: 505155n, atMs: T0 + 60_000, tx: tx(11) });
-    h.statuses.set(DEP_B, st({ originChainTxHashes: [{ hash: tx(11) }, { hash: tx(12) }], refundedAmount: '505000', refundedAmountFormatted: '0.505' }));
+    h.statuses.set(DEP_B, st({ originChainTxHashes: [{ hash: tx(11) }, { hash: tx(12) }], refundedAmount: '505155', refundedAmountFormatted: '0.505' }));
     h.now.v = T0 + 30 * 60_000; h.chain.finalizedAtMs = T0 + 25 * 60_000;
     // Claimed and reported, not on Base: blocked, chain null.
     let r = await h.service.resume({ requestId: request.terms.id, attemptSecret: SECRET });
     expect(r.ok && r.value.evidence).toEqual({ upstream: 'REFUNDED', refundReported: { amountFormatted: '0.505', txCount: 2 }, chain: null, verdict: { blocked: 'REFUND_NOT_VERIFIED' } });
     // The refund appears on Base and is final: chain proof, released verdict.
-    h.chain.transfers.push({ to: OWN_REFUND, amount: 505000n, atMs: T0 + 20 * 60_000, tx: tx(12) });
+    h.chain.transfers.push({ to: OWN_REFUND, amount: 505155n, atMs: T0 + 20 * 60_000, tx: tx(12) });
     r = await h.service.resume({ requestId: request.terms.id, attemptSecret: SECRET });
-    expect(r.ok && r.value.evidence).toMatchObject({ upstream: 'REFUNDED', chain: { kind: 'REFUND', refunded: '505000', refundTxs: [tx(12)] }, verdict: { released: 'ORIGIN_REFUND_VERIFIED' } });
+    expect(r.ok && r.value.evidence).toMatchObject({ upstream: 'REFUNDED', chain: { kind: 'REFUND', refunded: '505155', refundTxs: [tx(12)] }, verdict: { released: 'ORIGIN_REFUND_VERIFIED' } });
   });
 });
 
 describe('origin-evidence primitives', () => {
   it('a provider that returns logs outside the requested window is not trusted', async () => {
-    const rpc: BaseRpc = { call: async (m) => (m === 'eth_getBlockByNumber' ? { number: '0x100000', timestamp: `0x${Math.floor(T0 / 1000).toString(16)}`, hash: `0x${'f'.repeat(64)}` }
+    const rpc: BaseRpc = { call: async (m) => (m === 'eth_chainId' ? '0x2105' : m === 'eth_getBlockByNumber' ? { number: '0x100000', timestamp: `0x${Math.floor(T0 / 1000).toString(16)}`, hash: `0x${'f'.repeat(64)}` }
       : [{ address: BASE_USDC_CONTRACT, topics: [TRANSFER_TOPIC, `0x${'0'.repeat(64)}`, `0x${'0'.repeat(24)}${DEP_A.slice(2)}`], data: '0x1', blockNumber: '0x1', transactionHash: tx(9) }]) };
     await expect(proveNoDeposit(rpc, { depositAddress: DEP_A, createdAtMs: T0 - 60_000, mustCoverUntilMs: T0 - 1 })).rejects.toBeInstanceOf(OriginRpcError);
+  });
+  it('rejects an origin provider on another network', async () => {
+    const rpc: BaseRpc = { call: async () => '0x1' };
+    await expect(proveNoDeposit(rpc, { depositAddress: DEP_A, createdAtMs: T0, mustCoverUntilMs: T0 })).rejects.toMatchObject({ code: 'MALFORMED' });
+  });
+  it('does not release a partially refunded deposit even if upstream claims REFUNDED', async () => {
+    const chain = new FakeBase(); chain.finalizedAtMs = T0;
+    chain.transfers.push({ to: DEP_A, amount: 505155n, atMs: T0 - 20 * 60_000, tx: tx(1) }, { to: REFUND, amount: 1n, atMs: T0 - 10 * 60_000, tx: tx(2) });
+    expect(await proveRefund(chain, { depositAddress: DEP_A, refundTo: REFUND, createdAtMs: T0 - 30 * 60_000, reportedTxHashes: [tx(2)], reportedRefundedAmount: '1' })).toEqual({ ok: false, reason: 'REFUND_INCOMPLETE' });
   });
   it('a failed refund transaction is not a refund', async () => {
     const chain = new FakeBase(); chain.finalizedAtMs = T0;

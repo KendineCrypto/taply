@@ -81,6 +81,8 @@ const isAddress = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a);
 
 export interface FinalBlock { readonly number: bigint; readonly timestampMs: bigint }
 export async function finalizedBlock(rpc: BaseRpc): Promise<FinalBlock> {
+  // A configured URL is not proof that the provider serves Base Mainnet.
+  if (await rpc.call('eth_chainId', []) !== '0x2105') throw new OriginRpcError('MALFORMED');
   const parsed = Block.safeParse(await rpc.call('eth_getBlockByNumber', ['finalized', false]));
   if (!parsed.success) throw new OriginRpcError('MALFORMED');
   return { number: big(parsed.data.number), timestampMs: big(parsed.data.timestamp) * 1000n };
@@ -137,7 +139,7 @@ export async function proveNoDeposit(rpc: BaseRpc, input: { readonly depositAddr
 
 export type RefundProof =
   | { readonly ok: true; readonly deposited: string; readonly refunded: string; readonly refundTxs: ReadonlyArray<string>; readonly finalizedBlock: string }
-  | { readonly ok: false; readonly reason: 'NO_DEPOSIT_FOUND' | 'REFUND_NOT_FOUND' | 'REFUND_NOT_FINAL' | 'REFUND_AMOUNT_MISMATCH' | 'REFUND_EXCEEDS_DEPOSIT' | 'DEPOSIT_AFTER_REFUND' };
+  | { readonly ok: false; readonly reason: 'NO_DEPOSIT_FOUND' | 'REFUND_NOT_FOUND' | 'REFUND_NOT_FINAL' | 'REFUND_AMOUNT_MISMATCH' | 'REFUND_EXCEEDS_DEPOSIT' | 'REFUND_INCOMPLETE' | 'DEPOSIT_AFTER_REFUND' };
 export async function proveRefund(rpc: BaseRpc, input: {
   readonly depositAddress: string; readonly refundTo: string; readonly createdAtMs: number;
   readonly reportedTxHashes: ReadonlyArray<string>; readonly reportedRefundedAmount: string | null;
@@ -171,6 +173,9 @@ export async function proveRefund(rpc: BaseRpc, input: {
   }
   const deposited = deposits.reduce((s, d) => s + d.amount, 0n);
   if (refunded > deposited) return { ok: false, reason: 'REFUND_EXCEEDS_DEPOSIT' };
+  // A reported partial refund cannot discharge the remaining deposit. Any
+  // legitimate fee deduction needs separate evidence before a new payment.
+  if (refunded < deposited) return { ok: false, reason: 'REFUND_INCOMPLETE' };
   // A deposit at or after the refund block would not be covered by this refund.
   if (deposits.some(d => d.block >= firstRefundBlock)) return { ok: false, reason: 'DEPOSIT_AFTER_REFUND' };
   return { ok: true, deposited: deposited.toString(), refunded: refunded.toString(), refundTxs, finalizedBlock: final.number.toString() };
