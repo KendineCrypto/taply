@@ -2,9 +2,10 @@
 
 Status 2026-11-16 (branch `claude/mainnet-intents-1click`, based on
 `staging/mainnet` `fa42157`). The implementation is complete behind a **closed**
-release gate. The live Preview is unchanged until the owner approves the gate
-flip and the first real test (`docs/MAINNET_1CLICK_RUNBOOK.md` §5–6). The
-2026-11-13 candidate notes are in `docs/history/`.
+release gate. `taplyapp.xyz` serves the `staging/mainnet` Preview, so the gate is
+never opened there for testing: the first funded test runs only in the isolated,
+access-protected `taply-mainnet-1click-test` project (`docs/MAINNET_1CLICK_RUNBOOK.md`
+§2, §5–6). The 2026-11-13 candidate notes are in `docs/history/`.
 
 ## 1. What the payer and the requester see
 
@@ -24,7 +25,7 @@ progress). Long technical data (attempt id, 1Click reference, contract,
 signature line) is folded under "Technical details". English and Turkish have
 identical keys (tested).
 
-## 2. Money path and why funds cannot get stuck in `intents.near`
+## 2. Money path, and where funds can end up
 
 ```
 Base wallet ──USDC──▶ 1Click deposit address (Base)
@@ -36,27 +37,29 @@ Base wallet ──USDC──▶ 1Click deposit address (Base)
                └─ anything else ─▶ amount held as `unclaimed_held` (event router_unclaimed{id, reason, amount}); returns U128(0)
 ```
 
-* `customRecipientMsg` = `{"id","expectedTermsHash","action":"pay_instant"}` from
-  the same builder as the wallet path (`buildInstantRecipientMessage`).
-* The deployed contract (`taply-pay.kendinecrypto.near`, code `9VpaiMp3…2wX6`,
-  v0.6.0-mainnet) already implements router delivery; **no contract change**.
-  `router_delivery` never panics on bad input and always returns `0` (keeps the
-  tokens), so a mismatch can never bounce funds back into a state 1Click does not
-  refund. Surplus over the principal is held, not paid.
-* Gas: the contract needs ≥ 40 Tgas left inside `ft_on_transfer` to start the
-  payout, else it records `LOW_GAS` and holds the funds. Observed on mainnet:
-  `intents.near` attaches ~278 Tgas to `ft_transfer_call` and USDC forwards
-  ~222 Tgas to `ft_on_transfer` (evidence folder). The verifier's floor is
-  50 Tgas default / 30 Tgas hard minimum plus a share of unused gas.
-* If `ft_on_transfer` ever failed outright, USDC's `ft_resolve_transfer` returns
-  the tokens to `intents.near` and the Intents `ft_resolve_withdraw` credits them
-  back to the 1Click account (near/intents `dbad9c8`, `Ok(Ok(used))` branch),
-  i.e. 1Click's refund path. The only no-refund case in that code is a resolver
-  that cannot read the result; with ≥ 15 Tgas reserved for the resolver this was
-  not observed.
-* Held (`unclaimed_held`) funds are recoverable only by the recovery account
-  (`kendinecrypto.near`) through `withdraw_unclaimed` — manual, see the runbook
-  §4. This is the price of never refunding inside `ft_on_transfer`.
+`customRecipientMsg` = `{"id","expectedTermsHash","action":"pay_instant"}` from the
+same builder as the wallet path. The deployed contract (`taply-pay.kendinecrypto.near`,
+code `9VpaiMp3…2wX6`, v0.6.0-mainnet) already implements router delivery; **no
+contract change**.
+
+**What this design does and does not guarantee** (precise version of the earlier
+"funds cannot get stuck" wording):
+
+| Situation | Where the USDC is | Who can move it | Guarantee |
+| --- | --- | --- | --- |
+| Deposit below `minAmountIn`, after the deadline, or swap failure before delivery | 1Click / Intents | 1Click (refund to `refundTo` on Base) | **Upstream policy only**; Taply can observe it on Base, not enforce it. |
+| Delivered, request OPEN and everything matches | Paid to the merchant | — | Contract-enforced; the request is paid at most once. |
+| Delivered but not payable: request already paid (late/second deposit), expired, cancelled, wrong hash/asset/payer, underpaid, surplus over the principal, `LOW_GAS` (< 40 Tgas left), `LOW_LIQUIDITY` | Held in the contract's pooled `unclaimed_held` bucket | **Only** the recovery account `kendinecrypto.near` via `withdraw_unclaimed` (manual, §4 of the runbook) | Not lost and never paid twice, **but not returned automatically**. Return depends on the owner acting. |
+| `ft_on_transfer` itself fails (e.g. out of gas before it can record anything) | Returned by USDC's `ft_resolve_transfer` to `intents.near`, then credited by Intents `ft_resolve_withdraw` to the 1Click account (near/intents `dbad9c8`, `Ok(Ok(used))` branch) | 1Click | Depends on the Intents contract version and on 1Click then refunding the payer. |
+| Intents' resolver cannot read the result | Stays with `intents.near`, not credited back | Intents operators | Not refunded by code (the only no-refund branch in that source). |
+
+Gas: the contract needs ≥ 40 Tgas left inside `ft_on_transfer` to start the
+payout. On 2026-11-16 two single-intent mainnet withdrawals gave the receiver
+222 and 270 Tgas. That is an **observation of two transactions, not a guarantee**:
+1Click/Intents choose `min_gas` (default 50 Tgas, hard minimum 30 Tgas for
+`ft_transfer_call`, plus a weighted share of unused gas that shrinks when one
+transaction carries several withdrawals). A delivery with too little gas
+ends as `LOW_GAS` (held, manual recovery), not as a payout.
 
 ## 3. Server (Next.js route handlers, Node runtime, server-only)
 
@@ -95,11 +98,30 @@ origin, refund address and the attempt secret.
 * Owner = SHA-256 of a 256-bit secret generated **in the payer's browser** and
   kept in `localStorage` per request. The server stores only the hash.
 * At most **one payable deposit address per request**. A READY funded attempt
-  blocks new ones until it is **released**, and release happens only after its
-  deadline **and** 1Click reports `REFUNDED`/`FAILED`, or still
-  `PENDING_DEPOSIT` 60 min after the deadline (1Click refunds late deposits).
-  Elapsed time alone never releases it. A status for another quote, or an
-  unreachable 1Click, never releases it.
+  blocks new ones until it is **released**, and it is released only on **Base
+  chain evidence at a finalized block** (`server/mainnet/oneclick/origin-evidence.ts`):
+  - `ORIGIN_NO_DEPOSIT_VERIFIED`: 1Click says `PENDING_DEPOSIT`, deadline + 60 min
+    has passed, Base finality has passed it too, and there is **no** USDC Transfer
+    to the deposit address from 20 min before the quote up to that finalized block;
+  - `ORIGIN_REFUND_VERIFIED`: 1Click says `REFUNDED`, the reported refund
+    transaction(s) are successful and finalized and transfer USDC to the quote's
+    `refundTo`, their total equals the reported `refundedAmount`, it does not
+    exceed what was deposited, and no deposit happened at or after the refund.
+  1Click's status alone never releases: `FAILED` is never released
+  automatically; `REFUNDED` without the Base refund, `PENDING_DEPOSIT` with a
+  deposit on Base that 1Click has not reported, an unreadable or rate-limited
+  Base RPC, a status for another quote, or a search range over ~66 h all keep
+  it blocked. The block reason is shown to the payer with a recovery path.
+* Three kinds of knowledge are kept apart in the owner view: what 1Click
+  **claims** (status), what 1Click **reports** as refunded (amount, tx count),
+  and what **Base proves** (refund or no deposit, at a finalized block).
+* Released attempts are **watched for 30 days**: if 1Click later reports a deposit
+  for one (late deposit), the public status shows it to both phones as
+  "a payment from an earlier attempt is arriving", the pay page offers no
+  payment method, and new attempts are refused (`EARLIER_ATTEMPT_ACTIVITY`).
+  If it is delivered anyway, the contract pays the request at most once and
+  holds the rest (contract test
+  `router_late_open_overpayment_exact_payout_duplicate_and_conservation`).
 * A RESERVED/DISPATCHING/UNCERTAIN attempt never showed its address to anyone;
   it still blocks until its own deadline + 60 min.
 * Another browser gets `PAYMENT_IN_PROGRESS` for a payable attempt and can
@@ -164,6 +186,7 @@ code pin `NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH`):
 | `TAPLY_ONECLICK_MODE` | Vercel env, server | `funded` (Preview). The build guard refuses it while the code gate is closed and on Production |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Vercel env, server | the mainnet project's own Upstash database (required for funded) |
 | `TAPLY_ONECLICK_API_KEY` | Vercel env, server | optional |
+| `TAPLY_BASE_RPC_URL` | Vercel env, server (may contain a provider key) | Base JSON-RPC with `eth_getLogs`; default `https://mainnet.base.org`, which rate-limits `eth_getLogs` ("request limit reached" observed). Without a working endpoint nothing is ever released: expired attempts stay blocked (safe, but a new request is then needed). |
 | `NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH` | Vercel env | `DVJx7F3dHEHJYwpYPwXHu8K9Uo7h4kXFcALucY5oNX8q` (observed live 2026-11-16; needed for USDC "Verified") |
 
 `apps/web/env/mainnet.env.example` documents these without values.
