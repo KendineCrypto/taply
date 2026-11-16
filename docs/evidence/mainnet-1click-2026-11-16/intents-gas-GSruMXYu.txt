@@ -1,0 +1,8 @@
+          intents.near -> prl.omft.near                  ft_transfer_call       attached=  278.4T burnt=   2.6T ['SuccessReceiptId']
+         prl.omft.near -> dclv2.ref-labs.near            ft_on_transfer         attached=  259.2T burnt=   7.0T ['SuccessValue']
+   dclv2.ref-labs.near -> 17208628f84f5d6ad33f0da3bbbeb2 ft_transfer_call       attached=  241.2T burnt=   3.1T ['SuccessReceiptId']
+17208628f84f5d6ad33f0d -> intents.near                   ft_on_transfer         attached=  221.7T burnt=   3.7T ['SuccessValue']
+17208628f84f5d6ad33f0d -> 17208628f84f5d6ad33f0da3bbbeb2 ft_resolve_transfer    attached=   15.5T burnt=   1.8T ['SuccessValue']
+   dclv2.ref-labs.near -> dclv2.ref-labs.near            exchange_callback_post_ft_transfer_call_withdraw attached=   10.0T burnt=   2.5T ['SuccessValue']
+         prl.omft.near -> prl.omft.near                  ft_resolve_transfer    attached=   15.7T burnt=   1.4T ['SuccessValue']
+          intents.near -> intents.near                   ft_resolve_withdraw    attached=   15.0T burnt=   2.5T ['SuccessValue']

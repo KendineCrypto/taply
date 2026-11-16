@@ -1,3 +1,5 @@
+> **HISTORICAL (superseded 2026-11-16).** Candidate notes from 2026-11-13. Current design: `docs/MAINNET_1CLICK_INTEGRATION.md`; operations: `docs/MAINNET_1CLICK_RUNBOOK.md`.
+
 # Mainnet frontend + 1Click integration (candidate, NO-GO for funds)
 
 2026-11-13, Claude Code. Integration branch `claude/mainnet-1click-integration`

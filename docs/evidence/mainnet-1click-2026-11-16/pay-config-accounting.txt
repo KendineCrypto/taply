@@ -1,0 +1,57 @@
+block 224774074
+{
+ "schemaVersion": "taply.contract-config.v1",
+ "contractVersion": "0.6.0-mainnet",
+ "network": "near-mainnet",
+ "contractId": "taply-pay.kendinecrypto.near",
+ "routerAccountId": "intents.near",
+ "recoveryAccountId": "kendinecrypto.near",
+ "nativeCapYocto": "1000000000000000000000000",
+ "usdcCapBaseUnits": "25000000",
+ "intentVersion": "taply.intent.v1",
+ "eventVersion": "0.4.0",
+ "capabilities": {
+  "instantNative": true,
+  "protectedPay": false,
+  "intentsRouter": false,
+  "handshake": false,
+  "merchantProfiles": false,
+  "nep141": true,
+  "sponsoredGas": false
+ },
+ "tokens": [
+  {
+   "assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+   "accountId": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+   "decimals": 6,
+   "symbol": "USDC"
+  }
+ ],
+ "quoteVersion": "1",
+ "storageByteCostYocto": "10000000000000000000",
+ "gas": {
+  "createRequest": "30000000000000",
+  "payInstantNative": "50000000000000",
+  "retryNativeTransfer": "50000000000000",
+  "cancelUnfunded": "15000000000000",
+  "callback": "15000000000000",
+  "withdrawUnclaimed": "50000000000000",
+  "recoveryCallback": "15000000000000",
+  "fundProtectedNative": "20000000000000",
+  "cancelProtected": "50000000000000",
+  "releaseProtected": "50000000000000",
+  "ftOnTransfer": "40000000000000",
+  "ftTransfer": "15000000000000"
+ },
+ "protected": {
+  "consentVersion": "taply.protected-consent.v1",
+  "minCancelDurationNs": "60000000000",
+  "maxCancelDurationNs": "3600000000000",
+  "cutoffRule": "CANCEL_IF_BLOCK_TIME_LT_CUTOFF_RELEASE_IF_GTE",
+  "reviewStatus": "UNREVIEWED_OWNER_ACCEPTED_CAPPED"
+ },
+ "storageRefundPolicy": "PERMANENT_RECORD_NO_WITHDRAWAL",
+ "unknownCallbackPolicy": "IN_FLIGHT_NO_RETRY_NO_ADMIN_OVERRIDE",
+ "testFaultBuild": false
+}
+accounting block 224774074 {"receivedPrincipalYocto": "210000000000000000000000", "confirmedPaidYocto": "210000000000000000000000", "inFlightPrincipalYocto": "0", "failedHeldPrincipalYocto": "0", "lockedPrincipalYocto": "0", "refundedPrincipalYocto": "0", "permanentStorageBondsYocto": "17990000000000000000000", "authenticationDepositsYocto": "0", "requestCount": "3", "runtimeStorageBytes": "270159", "tokens": [{"assetId": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1", "received": "0", "confirmedPaid": "0", "inFlight": "0", "failedHeld": "0", "locked": "0", "refunded": "0", "unclaimedHeld": "0", "unclaimedInFlight": "0", "unclaimedWithdrawn": "0", "routerReceived": "0"}], "runtimeStorageCostYocto": "2701590000000000000000000", "runtimeAccountBalanceYocto": "2851611825516539800000000", "recovery": {"operationNonce": "0", "amount": "0", "receiver": "", "inFlight": false}, "inFlightMayAlreadyHaveTransferred": true}
