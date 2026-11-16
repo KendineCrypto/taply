@@ -11,6 +11,8 @@ import type { OneClickMode } from './service';
 import { memoryQuoteStore, redisQuoteStore } from './store';
 import type { QuoteStore } from './store';
 import { MANAGER_PUBLIC_KEY } from './verify';
+import { createBaseRpc } from './origin-evidence';
+import type { RedisCommand } from '@/server/handshake/redis';
 import { limiterFromEnv } from './rate-limit';
 
 /**
@@ -19,6 +21,9 @@ import { limiterFromEnv } from './rate-limit';
  *                         ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED)
  *   TAPLY_ONECLICK_API_KEY optional, Bearer, server only
  *   KV_REST_API_URL/TOKEN  mainnet project's own Upstash database (dry/funded)
+ *   TAPLY_BASE_RPC_URL     server only, may carry a provider key; Base JSON-RPC with eth_getLogs.
+ *                          Default https://mainnet.base.org. Used only for release evidence;
+ *                          if it cannot be read, expired attempts simply stay blocked.
  *
  * A Testnet build always resolves to `off`. Fixture mode is refused on Vercel
  * Production here and in scripts/check-mainnet-env.mjs.
@@ -59,5 +64,22 @@ export function serviceFromEnv(env: Readonly<Record<string, string | undefined>>
     managerPublicKey: MANAGER_PUBLIC_KEY,
     now: Date.now,
     rateLimit: (id, kind = 'quote') => limiterFromEnv(env)([{ key: `request:${kind}:${id}`, limit: kind === 'status' ? 40 : 10 }]),
+    originRpc: createBaseRpc({ url: baseRpcUrl(env) }),
+    ...(redis === null ? {} : { statusCache: redisStatusCache(redis) }),
   });
+}
+
+/** https only; anything else falls back to the public endpoint (which may rate-limit, so attempts stay blocked). */
+export function baseRpcUrl(env: Readonly<Record<string, string | undefined>>): string {
+  const raw = env['TAPLY_BASE_RPC_URL'];
+  try { if (raw && new URL(raw).protocol === 'https:') return raw; } catch { /* ignored */ }
+  return 'https://mainnet.base.org';
+}
+
+function redisStatusCache(redis: RedisCommand) {
+  const key = (k: string) => `taply:mainnet:1click:status-cache:${k}`;
+  return {
+    async get(k: string) { const v = await redis(['GET', key(k)]); return typeof v === 'string' ? v : null; },
+    async set(k: string, v: string, ttlMs: number) { await redis(['SET', key(k), v, 'PX', ttlMs]); },
+  };
 }

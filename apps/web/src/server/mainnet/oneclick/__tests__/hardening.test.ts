@@ -91,24 +91,24 @@ function storeCases(create: () => Promise<{ store: QuoteStore; restart: () => Qu
     try {
       const a = await ready(f.store, await reserve(f.store, 'funded'));
       expect((await f.store.reserve(input('funded', id, 'owner-b'), now + 365 * 86_400_000)).kind).toBe('ACTIVE');
-      expect(await f.store.release(a, a.record.deadlineMs, 'UPSTREAM_REFUNDED')).toBe(false);
-      expect(await f.store.release({ ...a, fence: 9 }, a.record.deadlineMs + 1, 'UPSTREAM_REFUNDED')).toBe(false);
-      expect(await f.store.release(a, a.record.deadlineMs + 1, 'UPSTREAM_REFUNDED')).toBe(true);
-      expect(await f.store.release(a, a.record.deadlineMs + 2, 'UPSTREAM_FAILED')).toBe(false);
+      expect(await f.store.release(a, a.record.deadlineMs, 'ORIGIN_REFUND_VERIFIED')).toBe(false);
+      expect(await f.store.release({ ...a, fence: 9 }, a.record.deadlineMs + 1, 'ORIGIN_REFUND_VERIFIED')).toBe(false);
+      expect(await f.store.release(a, a.record.deadlineMs + 1, 'ORIGIN_REFUND_VERIFIED')).toBe(true);
+      expect(await f.store.release(a, a.record.deadlineMs + 2, 'ORIGIN_NO_DEPOSIT_VERIFIED')).toBe(false);
       const b = await f.restart().reserve(input('funded', id, 'owner-b'), a.record.deadlineMs + 2);
       expect(b.kind).toBe('RESERVED');
       if (b.kind !== 'RESERVED') return;
       // The released attempt cannot come back to life.
       expect(await f.store.transition(a, 'UNCERTAIN')).toBe(false);
       const list = await f.restart().attempts(id);
-      expect(list.map(x => [x.fence, x.released?.reason ?? null])).toEqual([[1, 'UPSTREAM_REFUNDED'], [2, null]]);
+      expect(list.map(x => [x.fence, x.released?.reason ?? null])).toEqual([[1, 'ORIGIN_REFUND_VERIFIED'], [2, null]]);
     } finally { await f.stop(); }
   });
   it('two payable deposit addresses can never be READY at once (defence in depth)', async () => {
     const f = await create();
     try {
       const a = await ready(f.store, await reserve(f.store, 'funded'));
-      await f.store.release(a, a.record.deadlineMs + 1, 'EXPIRED_NO_DEPOSIT');
+      await f.store.release(a, a.record.deadlineMs + 1, 'ORIGIN_NO_DEPOSIT_VERIFIED');
       const r = await f.store.reserve(input('funded', id, 'owner-b'), a.record.deadlineMs + 2);
       if (r.kind !== 'RESERVED') throw new Error(r.kind);
       expect(await f.store.transition(r.attempt, 'DISPATCHING')).toBe(true);

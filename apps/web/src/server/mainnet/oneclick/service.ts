@@ -14,9 +14,11 @@ import type { ChainView } from '../chain';
 import { OneClickHttpError } from './client';
 import type { OneClickClient, OneClickErrorCode } from './client';
 import { buildQuoteRequest } from './quote-request';
-import type { Attempt, QuoteRecord, QuoteStore, ReleaseReason } from './store';
+import type { Attempt, QuoteRecord, QuoteStore, ReleaseReason, ReserveResult } from './store';
 import { MAX_ATTEMPTS, RELEASE_GRACE_MS } from './store';
 import { EXPIRY_MARGIN_MS, verifyQuoteResponse } from './verify';
+import { OriginRpcError, proveNoDeposit, proveRefund } from './origin-evidence';
+import type { BaseRpc } from './origin-evidence';
 import type { QuoteRejection } from './verify';
 
 /**
@@ -99,7 +101,32 @@ export const HTTP_STATUS: Readonly<Record<string, number>> = {
 };
 export const httpStatusOf = (code: ServiceError): number => HTTP_STATUS[code] ?? 409;
 
-export type Result<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: ServiceError; readonly reason?: QuoteRejection };
+/**
+ * Why an existing payable attempt still blocks a new deposit address. Each one
+ * maps to a plain-language recovery path in the UI.
+ *  - ATTEMPT_OPEN: its deadline has not passed (someone may be paying now).
+ *  - DEPOSIT_IN_PROGRESS: 1Click reports a deposit or processing for it.
+ *  - AWAITING_FINALITY: deadline + grace or Base finality not reached yet.
+ *  - DEPOSIT_UNSEEN_BY_1CLICK: Base shows a deposit 1Click has not reported.
+ *  - REFUND_NOT_VERIFIED: 1Click reports a refund that Base does not (yet) prove.
+ *  - UPSTREAM_FAILED: 1Click reports FAILED; never released automatically.
+ *  - EARLIER_ATTEMPT_ACTIVITY: an attempt released earlier now shows a deposit.
+ *  - EVIDENCE_UNAVAILABLE: 1Click or the Base RPC could not be read/trusted.
+ */
+export type BlockReason = 'ATTEMPT_OPEN' | 'DEPOSIT_IN_PROGRESS' | 'AWAITING_FINALITY' | 'DEPOSIT_UNSEEN_BY_1CLICK' | 'REFUND_NOT_VERIFIED' | 'UPSTREAM_FAILED' | 'EARLIER_ATTEMPT_ACTIVITY' | 'EVIDENCE_UNAVAILABLE';
+export type Result<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: ServiceError; readonly reason?: QuoteRejection | BlockReason };
+
+/** Three separate kinds of knowledge about an expired attempt (never merged into one "refunded"). */
+export interface AttemptEvidence {
+  /** What 1Click says (a claim). */
+  readonly upstream: OneClickStatus | null;
+  /** 1Click reports a refund amount / refund transaction (still a claim). */
+  readonly refundReported: { readonly amountFormatted: string | null; readonly txCount: number } | null;
+  /** What the Base chain proves at a finalized block (null = not checked / not applicable). */
+  readonly chain: { readonly kind: 'NO_DEPOSIT' | 'REFUND'; readonly refunded?: string; readonly refundTxs?: ReadonlyArray<string>; readonly finalizedBlock: string } | null;
+  /** The release verdict for a new deposit address. */
+  readonly verdict: { readonly released: ReleaseReason } | { readonly blocked: BlockReason };
+}
 
 /** What the attempt's owner receives. A deposit address only for an approved funded quote. */
 export interface PublicQuote {
@@ -124,7 +151,7 @@ export interface PublicQuote {
   readonly depositWithheldReason: 'FUNDING_NOT_APPROVED' | 'DRY_QUOTE' | null;
   readonly signatureVerified: true;
   readonly reused: boolean;
-  /** Set when Taply stopped tracking this attempt as payable (1Click refunded/failed it, or it expired unpaid). */
+  /** Set when Taply stopped tracking this attempt as payable, only on Base chain evidence. */
   readonly released: ReleaseReason | null;
 }
 
@@ -140,6 +167,8 @@ export interface PublicStatus {
   readonly originTxs: ReadonlyArray<{ readonly hash: string; readonly url: string | null }>;
   readonly nearTxs: ReadonlyArray<{ readonly hash: string; readonly url: string | null }>;
   readonly refundedAmountFormatted: string | null;
+  /** Which attempt the hint describes: the newest one, or an earlier released attempt that now shows a deposit. */
+  readonly source: 'current' | 'earlier';
 }
 
 export const LIMITS = Object.freeze({
@@ -187,6 +216,7 @@ const StatusSchema = z.object({
       destinationChainTxHashes: z.array(TxSchema).max(20).optional(),
       nearTxHashes: z.array(z.string().max(128)).max(20).optional(),
       refundedAmountFormatted: z.string().max(64).optional(),
+      refundedAmount: z.string().max(80).optional(),
     })
     .passthrough()
     .optional(),
@@ -205,7 +235,15 @@ export interface ServiceDeps {
   readonly fixtureTokens?: () => ReadonlyArray<ListedToken>;
   /** Per-request budgets: 'quote' (creating/resuming attempts) and 'status' (progress polling from both phones). */
   readonly rateLimit?: (requestId: string, kind?: 'quote' | 'status') => Promise<boolean>;
+  /** Base RPC for origin-chain evidence. Null: nothing can be proven, so expired attempts stay blocked. */
+  readonly originRpc?: BaseRpc | null;
+  /** Short shared cache of 1Click statuses (both phones poll; serverless instances do not share memory). */
+  readonly statusCache?: { get(key: string): Promise<string | null>; set(key: string, value: string, ttlMs: number): Promise<void> };
 }
+
+const MOVING: ReadonlySet<OneClickStatus> = new Set(['KNOWN_DEPOSIT_TX', 'INCOMPLETE_DEPOSIT', 'PROCESSING', 'SUCCESS']);
+/** Released attempts are re-checked for late deposits for this long. */
+export const EARLIER_ATTEMPT_WATCH_MS = 30 * 86_400_000;
 
 function publicQuote(attempt: Attempt, contractId: string, reused: boolean, fundingApproved: boolean): PublicQuote {
   const record = attempt.record!;
@@ -259,7 +297,7 @@ function publicOrigin(o: OriginAsset, source: PublicOrigin['source']): PublicOri
 /** Longer than the 15 s upstream timeout plus durable writes; older unfinished attempts are uncertain. */
 const IN_PROGRESS_MS = 60_000;
 
-const fail = (code: ServiceError, reason?: QuoteRejection): Result<never> =>
+const fail = (code: ServiceError, reason?: QuoteRejection | BlockReason): Result<never> =>
   reason === undefined ? { ok: false, code } : { ok: false, code, reason };
 
 export function createOneClickService(deps: ServiceDeps) {
@@ -295,18 +333,77 @@ export function createOneClickService(deps: ServiceDeps) {
     return { ok: true, value: out };
   }
 
-  /** Whether 1Click may still deliver from this attempt's deposit address. Null = it may. */
-  async function releasable(attempt: Attempt, nowMs: number): Promise<ReleaseReason | null> {
-    const record = attempt.record;
-    if (record === null || record.depositAddress === null || nowMs <= record.deadlineMs) return null;
-    const parsed = StatusSchema.parse(await deps.client.status(record.depositAddress, record.depositMemo));
+  type Upstream = z.infer<typeof StatusSchema>;
+  /** 1Click status for OUR deposit address and correlation id, through the short shared cache. */
+  async function upstreamStatus(record: QuoteRecord): Promise<Upstream> {
+    const key = `${record.depositAddress}|${record.depositMemo ?? ''}`;
+    let raw: unknown;
+    const cached = await deps.statusCache?.get(key).catch(() => null);
+    if (cached) raw = JSON.parse(cached);
+    else {
+      raw = await deps.client.status(record.depositAddress!, record.depositMemo);
+      await deps.statusCache?.set(key, JSON.stringify(raw), 5_000).catch(() => undefined);
+    }
+    const parsed = StatusSchema.parse(raw);
     const echoedDeposit = parsed.quoteResponse?.quote.depositAddress;
     const echoedCorrelation = parsed.quoteResponse?.correlationId ?? parsed.correlationId;
-    if (echoedDeposit !== record.depositAddress || echoedCorrelation !== record.correlationId) return null;
-    if (parsed.status === 'REFUNDED') return 'UPSTREAM_REFUNDED';
-    if (parsed.status === 'FAILED') return 'UPSTREAM_FAILED';
-    if (parsed.status === 'PENDING_DEPOSIT' && nowMs > record.deadlineMs + RELEASE_GRACE_MS) return 'EXPIRED_NO_DEPOSIT';
-    return null;
+    if (echoedDeposit !== record.depositAddress || echoedCorrelation !== record.correlationId) throw new Error('STATUS_MISMATCH');
+    return parsed;
+  }
+
+  /**
+   * Evidence for an expired payable attempt. A new deposit address is allowed
+   * only when the Base chain itself proves, at a finalized block, that the old
+   * address was never funded (and the grace period is over) or that every
+   * deposit into it was refunded to the quote's refund address. 1Click's
+   * status alone (FAILED, REFUNDED, PENDING_DEPOSIT) never releases it.
+   */
+  async function evaluate(attempt: Attempt, nowMs: number): Promise<AttemptEvidence> {
+    const record = attempt.record;
+    const blocked = (reason: BlockReason, extra: Partial<AttemptEvidence> = {}): AttemptEvidence => ({ upstream: null, refundReported: null, chain: null, ...extra, verdict: { blocked: reason } });
+    if (record === null || record.depositAddress === null) return blocked('EVIDENCE_UNAVAILABLE');
+    if (attempt.released !== null) return { upstream: null, refundReported: null, chain: null, verdict: { released: attempt.released.reason } };
+    if (nowMs <= record.deadlineMs) return blocked('ATTEMPT_OPEN');
+    let up: Upstream;
+    try { up = await upstreamStatus(record); } catch { return blocked('EVIDENCE_UNAVAILABLE'); }
+    const s = up.swapDetails;
+    const reportedTxs = (s?.originChainTxHashes ?? []).map(t => t.hash);
+    const refundReported = up.status === 'REFUNDED' || s?.refundedAmountFormatted || s?.refundedAmount
+      ? { amountFormatted: s?.refundedAmountFormatted ?? null, txCount: reportedTxs.length } : null;
+    const base = { upstream: up.status, refundReported };
+    if (MOVING.has(up.status)) return blocked('DEPOSIT_IN_PROGRESS', base);
+    if (up.status === 'FAILED') return blocked('UPSTREAM_FAILED', base);
+    if (up.status === 'PENDING_DEPOSIT' && nowMs <= record.deadlineMs + RELEASE_GRACE_MS) return blocked('AWAITING_FINALITY', base);
+    const rpc = deps.originRpc ?? null;
+    if (rpc === null) return blocked('EVIDENCE_UNAVAILABLE', base);
+    try {
+      if (up.status === 'REFUNDED') {
+        const proof = await proveRefund(rpc, { depositAddress: record.depositAddress, refundTo: record.refundTo, createdAtMs: record.createdAtMs, reportedTxHashes: reportedTxs, reportedRefundedAmount: s?.refundedAmount ?? null });
+        return proof.ok
+          ? { ...base, chain: { kind: 'REFUND', refunded: proof.refunded, refundTxs: proof.refundTxs, finalizedBlock: proof.finalizedBlock }, verdict: { released: 'ORIGIN_REFUND_VERIFIED' } }
+          : blocked('REFUND_NOT_VERIFIED', base);
+      }
+      // PENDING_DEPOSIT after deadline + grace: the chain must show that nothing arrived.
+      const proof = await proveNoDeposit(rpc, { depositAddress: record.depositAddress, createdAtMs: record.createdAtMs, mustCoverUntilMs: record.deadlineMs + RELEASE_GRACE_MS });
+      if (proof.ok) return { ...base, chain: { kind: 'NO_DEPOSIT', finalizedBlock: proof.finalizedBlock }, verdict: { released: 'ORIGIN_NO_DEPOSIT_VERIFIED' } };
+      return blocked(proof.reason === 'NOT_FINAL_YET' ? 'AWAITING_FINALITY' : 'DEPOSIT_UNSEEN_BY_1CLICK', base);
+    } catch (error) {
+      void (error instanceof OriginRpcError);
+      return blocked('EVIDENCE_UNAVAILABLE', base);
+    }
+  }
+
+  /** Released attempts that now show a deposit (or cannot be read) block the request again. */
+  async function earlierActivity(attempts: ReadonlyArray<Attempt>, nowMs: number): Promise<{ status: OneClickStatus; record: QuoteRecord } | 'UNKNOWN' | null> {
+    let unknown = false;
+    for (const a of attempts) {
+      if (a.released === null || a.record === null || a.record.depositAddress === null || nowMs - a.released.atMs > EARLIER_ATTEMPT_WATCH_MS) continue;
+      try {
+        const up = await upstreamStatus(a.record);
+        if (MOVING.has(up.status)) return { status: up.status, record: a.record };
+      } catch { unknown = true; }
+    }
+    return unknown ? 'UNKNOWN' : null;
   }
 
   async function prepareQuote(raw: unknown): Promise<Result<PublicQuote>> {
@@ -400,7 +497,12 @@ export function createOneClickService(deps: ServiceDeps) {
         mode: deps.mode === 'fixture' ? 'fixture' as const : dry ? 'dry' as const : 'funded' as const,
         payload: JSON.stringify(sent), createdAtMs: nowMs,
       };
-      let reserved;
+      // A late deposit into an address released earlier blocks again, before anything is reserved.
+      if (deps.mode === 'funded') {
+        const earlier = await earlierActivity(await store.attempts(requestId), nowMs).catch(() => 'UNKNOWN' as const);
+        if (earlier !== null) return fail('PAYMENT_IN_PROGRESS', earlier === 'UNKNOWN' ? 'EVIDENCE_UNAVAILABLE' : 'EARLIER_ATTEMPT_ACTIVITY');
+      }
+      let reserved: ReserveResult;
       try {
         reserved = await store.reserve(reservation, nowMs);
         if (reserved.kind === 'ACTIVE' && reserved.attempt.record !== null && reserved.attempt.record.depositAddress === null) {
@@ -411,15 +513,15 @@ export function createOneClickService(deps: ServiceDeps) {
             : fail('ACTIVE_QUOTE_EXISTS');
         }
         if (reserved.kind === 'ACTIVE') {
-          // Another owner's payable attempt. Released only when 1Click says it can no longer deliver.
-          const reason = await releasable(reserved.attempt, nowMs).catch(() => null);
-          if (reason === null) return fail('PAYMENT_IN_PROGRESS');
-          if (!await store.release(reserved.attempt, nowMs, reason)) return fail('BUSY');
+          // Another owner's payable attempt. Released only on Base chain evidence.
+          const evidence = await evaluate(reserved.attempt, nowMs);
+          if ('blocked' in evidence.verdict) return fail('PAYMENT_IN_PROGRESS', evidence.verdict.blocked);
+          if (!await store.release(reserved.attempt, nowMs, evidence.verdict.released)) return fail('BUSY');
           reserved = await store.reserve({ ...reservation, id: crypto.randomUUID() }, nowMs);
         }
       } catch { return fail('ATTEMPT_UNCERTAIN'); }
       if (reserved.kind === 'OWNED') return { ok: true, value: publicQuote(reserved.attempt, chain.contractId, true, fundingApproved) };
-      if (reserved.kind === 'ACTIVE') return fail('PAYMENT_IN_PROGRESS');
+      if (reserved.kind === 'ACTIVE') return fail('PAYMENT_IN_PROGRESS', 'ATTEMPT_OPEN');
       if (reserved.kind === 'BUSY') {
         // A fresh in-progress reservation is a concurrent tab; an older one is an unresolved attempt.
         const a = reserved.attempt;
@@ -469,22 +571,17 @@ export function createOneClickService(deps: ServiceDeps) {
     } catch { return fail('STORE_UNAVAILABLE'); }
   }
 
-  async function statusFor(record: QuoteRecord, owner: boolean): Promise<PublicStatus> {
+  async function statusFor(record: QuoteRecord, owner: boolean, source: PublicStatus['source'] = 'current'): Promise<PublicStatus> {
     const base = {
       mode: record.mode,
       requestId: record.requestId,
       refundTo: owner ? record.refundTo : '',
     } as const;
     if (record.depositAddress === null) {
-      return { ...base, hint: deps.fixtureHint?.(record.requestId) ?? null, hintReason: deps.fixtureHint ? 'NONE' : 'DRY_QUOTE_NO_DEPOSIT', updatedAt: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null };
+      return { ...base, hint: deps.fixtureHint?.(record.requestId) ?? null, hintReason: deps.fixtureHint ? 'NONE' : 'DRY_QUOTE_NO_DEPOSIT', updatedAt: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null, source };
     }
-    const parsed = StatusSchema.parse(await deps.client.status(record.depositAddress, record.depositMemo));
-    // The status must describe OUR quote, not another deposit address's.
-    const echoedDeposit = parsed.quoteResponse?.quote.depositAddress;
-    const echoedCorrelation = parsed.quoteResponse?.correlationId ?? parsed.correlationId;
-    if (echoedDeposit !== record.depositAddress || echoedCorrelation !== record.correlationId) {
-      throw new Error('STATUS_MISMATCH');
-    }
+    // The status must describe OUR quote, not another deposit address's (checked in upstreamStatus).
+    const parsed = await upstreamStatus(record);
     const s = parsed.swapDetails;
     return {
       ...base,
@@ -496,6 +593,7 @@ export function createOneClickService(deps: ServiceDeps) {
         .filter((h, i, all) => all.indexOf(h) === i)
         .map((hash) => ({ hash, url: nearTxUrl(hash) })),
       refundedAmountFormatted: s?.refundedAmountFormatted ?? null,
+      source,
     };
   }
 
@@ -507,17 +605,23 @@ export function createOneClickService(deps: ServiceDeps) {
     if (!id.success) return fail('INVALID_INPUT');
     // Lookup by request id only: the browser cannot point this proxy at an arbitrary deposit address.
     let record: QuoteRecord | null;
+    let attempts: ReadonlyArray<Attempt>;
     try {
       if (deps.rateLimit && !await deps.rateLimit(id.data, 'status')) return fail('RATE_LIMITED');
-      const attempts = await deps.store!.attempts(id.data);
+      attempts = await deps.store!.attempts(id.data);
       const ready = latestReady(attempts);
       if (ready === null && attempts.length > 0) return fail('ATTEMPT_UNCERTAIN');
       record = ready?.record ?? null;
     } catch { return fail('STORE_UNAVAILABLE'); }
+    // A late deposit into an earlier, released address is the most important thing to show both phones.
+    const earlier = record !== null && record.depositAddress !== null ? await earlierActivity(attempts, deps.now()) : null;
+    if (earlier !== null && earlier !== 'UNKNOWN' && earlier.record !== record) {
+      try { return { ok: true, value: await statusFor(earlier.record, false, 'earlier') }; } catch { /* fall back to the newest attempt */ }
+    }
     if (record === null) {
       if (deps.mode === 'fixture' && deps.fixtureHint) {
         const hint = deps.fixtureHint(id.data);
-        return { ok: true, value: { mode: 'fixture', requestId: id.data, hint, hintReason: 'NONE', updatedAt: null, refundTo: '', originTxs: [], nearTxs: [], refundedAmountFormatted: null } };
+        return { ok: true, value: { mode: 'fixture', requestId: id.data, hint, hintReason: 'NONE', updatedAt: null, refundTo: '', originTxs: [], nearTxs: [], refundedAmountFormatted: null, source: 'current' } };
       }
       return fail('NO_QUOTE');
     }
@@ -530,7 +634,7 @@ export function createOneClickService(deps: ServiceDeps) {
   }
 
   /** Owner only: the payer's own latest attempt (after a refresh, on the same device). */
-  async function resume(raw: unknown): Promise<Result<{ readonly quote: PublicQuote; readonly status: PublicStatus | null }>> {
+  async function resume(raw: unknown): Promise<Result<{ readonly quote: PublicQuote; readonly status: PublicStatus | null; readonly evidence: AttemptEvidence | null }>> {
     const closed = gate();
     if (closed) return closed;
     const input = ResumeInputSchema.safeParse(raw);
@@ -543,11 +647,14 @@ export function createOneClickService(deps: ServiceDeps) {
     } catch { return fail('STORE_UNAVAILABLE'); }
     if (attempt === null) return fail('NO_QUOTE');
     const quote = publicQuote(attempt, deps.chain!.contractId, true, fundingApproved);
+    const nowMs = deps.now();
+    // After the deadline the owner sees the three kinds of evidence separately (claim, reported refund, chain proof).
+    const evidence = attempt.record!.depositAddress !== null && (nowMs > attempt.record!.deadlineMs || attempt.released !== null) ? await evaluate(attempt, nowMs) : null;
     try {
-      return { ok: true, value: { quote, status: await statusFor(attempt.record!, true) } };
+      return { ok: true, value: { quote, status: await statusFor(attempt.record!, true), evidence } };
     } catch {
       // The quote is still the owner's; progress is unknown right now, never "nothing happened".
-      return { ok: true, value: { quote, status: null } };
+      return { ok: true, value: { quote, status: null, evidence } };
     }
   }
 

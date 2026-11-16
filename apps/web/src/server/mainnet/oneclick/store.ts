@@ -15,10 +15,11 @@ import type { RedisCommand } from '@/server/handshake/redis';
  * Blocking rules (why a second payer cannot double-pay a request):
  *  - A READY funded attempt with a deposit address blocks new attempts until it
  *    is RELEASED. Only the service releases it, only after its deadline, and
- *    only when 1Click reports that the address can no longer deliver
- *    (REFUNDED/FAILED, or still PENDING_DEPOSIT a grace period after the
- *    deadline: 1Click refunds deposits that arrive after the deadline).
- *    Elapsed time alone never releases a fundable attempt.
+ *    only on Base chain evidence at a finalized block: the address was never
+ *    funded (through deadline + grace), or every deposit into it was refunded
+ *    to the quote's refund address. 1Click's status alone (FAILED, REFUNDED,
+ *    PENDING_DEPOSIT) and elapsed time never release a fundable attempt.
+ *    Released attempts are still watched for late deposits by the service.
  *  - A RESERVED/DISPATCHING/UNCERTAIN attempt never had its deposit address
  *    shown to anyone (an address leaves the server only from a READY record).
  *    It still blocks until its own quote deadline plus the grace period, after
@@ -55,7 +56,8 @@ export interface QuoteRecord {
 }
 
 export type AttemptState = 'RESERVED' | 'DISPATCHING' | 'READY' | 'UNCERTAIN';
-export type ReleaseReason = 'UPSTREAM_REFUNDED' | 'UPSTREAM_FAILED' | 'EXPIRED_NO_DEPOSIT';
+/** Only Base chain evidence releases a payable attempt (see origin-evidence.ts). */
+export type ReleaseReason = 'ORIGIN_NO_DEPOSIT_VERIFIED' | 'ORIGIN_REFUND_VERIFIED';
 export interface Attempt {
   readonly id: string;
   readonly requestId: string;

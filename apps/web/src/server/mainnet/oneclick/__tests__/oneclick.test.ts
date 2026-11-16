@@ -306,7 +306,7 @@ describe('quote service', () => {
     expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'QUOTE_LIMIT_REACHED' });
   });
 
-  it('an expired funded quote blocks a new quote until 1Click says it can no longer deliver (no double delivery)', async () => {
+  it('an expired funded quote is never released by the 1Click status alone (no Base evidence configured here)', async () => {
     let now = NOW;
     const store = memoryQuoteStore(() => now);
     await seed(store, {
@@ -314,28 +314,26 @@ describe('quote service', () => {
       depositAddress: '0x9999999999999999999999999999999999999999', depositMemo: null, deadlineMs: NOW - 1, createdAtMs: NOW - 1_000_000,
       amountIn: '1', amountInFormatted: '1', minAmountIn: '1', amountOut: AWAITING.terms.amountBaseUnits, timeEstimateSec: 35, signedResponse: '{}',
     });
-    const quoteResponse = { quote: { depositAddress: '0x9999999999999999999999999999999999999999' } };
+    const quoteResponse = { correlationId: 'c1', quote: { depositAddress: '0x9999999999999999999999999999999999999999' } };
     const status = vi.fn(async (): Promise<unknown> => ({ status: 'PROCESSING', correlationId: 'c1', quoteResponse }));
     const service = createOneClickService(deps({ store, now: () => now, client: { ...createFixtureClient(signer, () => now), status } }));
-    for (const s of ['PROCESSING', 'KNOWN_DEPOSIT_TX', 'INCOMPLETE_DEPOSIT', 'SUCCESS', 'PENDING_DEPOSIT']) {
+    const expectBlocked = async (s: string, reason: string) => {
       status.mockResolvedValueOnce({ status: s, correlationId: 'c1', quoteResponse });
-      expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS' });
-    }
-    // A status for another quote, or an unreachable 1Click, never releases it.
-    status.mockResolvedValueOnce({ status: 'REFUNDED', correlationId: 'other', quoteResponse });
-    expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS' });
-    status.mockRejectedValueOnce(new Error('down'));
-    expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS' });
-    // Still PENDING_DEPOSIT long after the deadline: 1Click refunds late deposits, so it is released.
+      expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason });
+    };
+    for (const s of ['PROCESSING', 'KNOWN_DEPOSIT_TX', 'INCOMPLETE_DEPOSIT', 'SUCCESS']) await expectBlocked(s, 'DEPOSIT_IN_PROGRESS');
+    await expectBlocked('FAILED', 'UPSTREAM_FAILED');
+    await expectBlocked('PENDING_DEPOSIT', 'AWAITING_FINALITY');
     now = NOW + 61 * 60_000;
-    status.mockResolvedValueOnce({ status: 'PENDING_DEPOSIT', correlationId: 'c1', quoteResponse });
-    const next = await service.prepareQuote(input());
-    expect(next.ok).toBe(true);
-    const attempts = await store.attempts(AWAITING.terms.id);
-    expect(attempts.map(a => a.released?.reason ?? null)).toEqual(['EXPIRED_NO_DEPOSIT', null]);
+    // Long after the deadline, PENDING_DEPOSIT / REFUNDED are still claims: without Base evidence nothing is released.
+    await expectBlocked('PENDING_DEPOSIT', 'EVIDENCE_UNAVAILABLE');
+    await expectBlocked('REFUNDED', 'EVIDENCE_UNAVAILABLE');
+    status.mockRejectedValueOnce(new Error('down'));
+    expect(await service.prepareQuote(input())).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'EVIDENCE_UNAVAILABLE' });
+    expect((await store.attempts(AWAITING.terms.id)).every(a => a.released === null)).toBe(true);
   });
 
-  it('a REFUNDED expired attempt is released for a new one; the public status never shows deposit or refund address', async () => {
+  it('the public status of a funded attempt never shows the deposit or refund address', async () => {
     const store = memoryQuoteStore(() => NOW);
     const deposit = '0x9999999999999999999999999999999999999999';
     await seed(store, {
@@ -346,11 +344,9 @@ describe('quote service', () => {
     const body = { status: 'REFUNDED', correlationId: 'c1', quoteResponse: { correlationId: 'c1', quote: { depositAddress: deposit } } };
     const service = createOneClickService(deps({ store, client: { ...createFixtureClient(signer, () => NOW), status: async () => body } }));
     const pub = await service.status(AWAITING.terms.id);
-    expect(pub.ok && pub.value.hint).toBe('REFUNDED');
+    expect(pub.ok && pub.value).toMatchObject({ hint: 'REFUNDED', source: 'current' });
     expect(JSON.stringify(pub)).not.toContain(deposit);
     expect(JSON.stringify(pub)).not.toContain(REFUND);
-    expect((await service.prepareQuote(input())).ok).toBe(true);
-    expect((await store.attempts(AWAITING.terms.id))[0]!.released?.reason).toBe('UPSTREAM_REFUNDED');
   });
 
   it('a quote that fails verification is refused with its reason and not stored', async () => {

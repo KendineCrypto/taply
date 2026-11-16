@@ -71,7 +71,7 @@ describe('funded 1Click quotes (gate opened only in this test module)', () => {
   it('another browser cannot see, replace or duplicate the active attempt; the owner resumes it after a refresh', async () => {
     const s = setup();
     const first = await s.service.prepareQuote(input());
-    expect(await s.service.prepareQuote(input({ attemptSecret: OTHER, refundTo: '0x2222222222222222222222222222222222222222' }))).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS' });
+    expect(await s.service.prepareQuote(input({ attemptSecret: OTHER, refundTo: '0x2222222222222222222222222222222222222222' }))).toEqual({ ok: false, code: 'PAYMENT_IN_PROGRESS', reason: 'ATTEMPT_OPEN' });
     expect(await s.service.resume({ requestId: request.terms.id, attemptSecret: OTHER })).toEqual({ ok: false, code: 'NO_QUOTE' });
     const resumed = await s.service.resume({ requestId: request.terms.id, attemptSecret: SECRET });
     expect(resumed.ok && resumed.value.quote.deposit?.address).toBe(DEPOSIT);
