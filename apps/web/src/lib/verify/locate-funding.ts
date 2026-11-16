@@ -21,9 +21,11 @@ export type FundingRequest = Pick<ContractRequest, 'status' | 'payerAccountId' |
  *   1. read the latest final block;
  *   2. interpolation-search block heights for the block whose timestamp equals
  *      `fundedAtNs` exactly;
- *   3. scan the new chunks of that block and of up to three blocks before it
- *      for a transaction signed by the recorded payer, sent to the contract,
- *      with ONE `pay_instant_native` call whose `id` is this request.
+ *   3. scan the new chunks of that block and of a few blocks before it for a
+ *      transaction of the expected FundingShape: the payer's own
+ *      `pay_instant_native` / USDC `ft_transfer_call` for this request, or a
+ *      NEAR Intents `execute_intents` signed by the router whose `ft_withdraw`
+ *      names this request in its `msg`.
  *
  * What it is NOT: proof. A located hash is a CANDIDATE, exactly like the hash in
  * a verification link (`?ftx=`). It only tells the verifier where to look; the
@@ -51,17 +53,34 @@ export type LocateResult =
       readonly reason: 'not_final_paid' | 'needs_retry_references' | 'missing_funding_facts';
     };
 
+/**
+ * Which transaction funded the request:
+ *  - native: the payer's own `pay_instant_native` call to the contract;
+ *  - token:  the payer's own `ft_transfer_call` on the token contract (USDC);
+ *  - router: a NEAR Intents delivery — a transaction signed by the router
+ *    account itself (`intents.near`, observed on mainnet) calling
+ *    `execute_intents` with an `ft_withdraw` of the token to this contract whose
+ *    `msg` names this request. The token's `ft_on_transfer` runs a few blocks
+ *    after that transaction, so the search looks further back.
+ */
+export type FundingShape =
+  | { readonly kind: 'native' }
+  | { readonly kind: 'token'; readonly tokenContract: string }
+  | { readonly kind: 'router'; readonly tokenContract: string; readonly router: string };
+
 export interface LocateInput {
   readonly rpc: LocatorRpc;
   readonly contractId: string;
   readonly request: FundingRequest;
+  /** Default: native. */
+  readonly funding?: FundingShape;
   readonly maxCalls?: number;
   /** Blocks before the funding block to scan for the transaction (default 3). */
   readonly blocksBack?: number;
 }
 
 export const DEFAULT_MAX_LOCATOR_CALLS = 48;
-const DEFAULT_BLOCKS_BACK = 3;
+const DEFAULT_BLOCKS_BACK: Readonly<Record<FundingShape['kind'], number>> = { native: 3, token: 4, router: 8 };
 const MAX_CANDIDATES = 3;
 /** Testnet/Mainnet block production is at least this fast on average (0.6 s target today). */
 const MIN_BLOCK_NS = 400_000_000n;
@@ -90,7 +109,7 @@ const ChunkSchema = z.object({
         actions: z.array(z.unknown()).max(128),
       }),
     )
-    .max(4096),
+    .max(8192),
 });
 
 class Exhausted extends Error {}
@@ -104,7 +123,8 @@ export async function locateFundingTransaction(input: LocateInput): Promise<Loca
   if (request.latestOperation.nonce !== '1') return { kind: 'not_applicable', reason: 'needs_retry_references' };
 
   const maxCalls = input.maxCalls ?? DEFAULT_MAX_LOCATOR_CALLS;
-  const blocksBack = input.blocksBack ?? DEFAULT_BLOCKS_BACK;
+  const funding: FundingShape = input.funding ?? { kind: 'native' };
+  const blocksBack = input.blocksBack ?? DEFAULT_BLOCKS_BACK[funding.kind];
   const target = BigInt(request.fundedAtNs);
   const payer = request.payerAccountId;
   const requestId = request.terms.id;
@@ -200,7 +220,7 @@ export async function locateFundingTransaction(input: LocateInput): Promise<Loca
         const parsed = ChunkSchema.safeParse(await call('chunk', { chunk_id: chunk.hash }));
         if (!parsed.success) continue;
         for (const tx of parsed.data.transactions) {
-          if (isFundingCandidate(tx, { payer, contractId, requestId }) && !candidates.includes(tx.hash)) candidates.push(tx.hash);
+          if (isFundingCandidate(tx, { payer, contractId, requestId, funding }) && !candidates.includes(tx.hash)) candidates.push(tx.hash);
         }
       }
       if (candidates.length > 0) {
@@ -239,25 +259,70 @@ function parseBlock(raw: unknown): Block {
   };
 }
 
-/** Signed by the payer, sent to the contract, exactly ONE pay_instant_native call for this ID. */
-export function isFundingCandidate(
-  tx: { readonly hash: string; readonly signer_id: string; readonly receiver_id: string; readonly actions: ReadonlyArray<unknown> },
-  expected: { readonly payer: string; readonly contractId: string; readonly requestId: string },
-): boolean {
-  if (!TX_HASH.test(tx.hash) || tx.signer_id !== expected.payer || tx.receiver_id !== expected.contractId) return false;
-  if (tx.actions.length !== 1) return false;
-  const action = tx.actions[0];
-  if (typeof action !== 'object' || action === null || !('FunctionCall' in action)) return false;
+type Tx = { readonly hash: string; readonly signer_id: string; readonly receiver_id: string; readonly actions: ReadonlyArray<unknown> };
+
+function functionCall(action: unknown): { method: string; args: string } | null {
+  if (typeof action !== 'object' || action === null || !('FunctionCall' in action)) return null;
   const fc = (action as { FunctionCall: unknown }).FunctionCall;
-  if (typeof fc !== 'object' || fc === null) return false;
+  if (typeof fc !== 'object' || fc === null) return null;
   const { method_name: method, args } = fc as { method_name?: unknown; args?: unknown };
-  if (method !== 'pay_instant_native' || typeof args !== 'string' || args.length > 4096) return false;
-  try {
-    const decoded: unknown = JSON.parse(atob(args));
-    return typeof decoded === 'object' && decoded !== null && (decoded as { id?: unknown }).id === expected.requestId;
-  } catch {
-    return false;
+  return typeof method === 'string' && typeof args === 'string' ? { method, args } : null;
+}
+function decodeJson(base64: string): unknown {
+  try { return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0)))); } catch { return undefined; }
+}
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+function msgNames(msg: unknown, requestId: string): boolean {
+  if (typeof msg !== 'string' || msg.length > 1024) return false;
+  try { const m: unknown = JSON.parse(msg); return isObject(m) && m['id'] === requestId; } catch { return false; }
+}
+/** Bounded walk over signed intent payloads (JSON objects, and JSON nested in strings, e.g. NEP-413 `message`). */
+function hasWithdrawal(value: unknown, match: (intent: Record<string, unknown>) => boolean, depth = 0, budget = { nodes: 4000 }): boolean {
+  if (depth > 8 || --budget.nodes < 0) return false;
+  if (typeof value === 'string') {
+    if (value.length < 2 || value.length > 65_536 || value[0] !== '{') return false;
+    try { return hasWithdrawal(JSON.parse(value), match, depth + 1, budget); } catch { return false; }
   }
+  if (Array.isArray(value)) return value.some(v => hasWithdrawal(v, match, depth + 1, budget));
+  if (!isObject(value)) return false;
+  if (value['intent'] === 'ft_withdraw' && match(value)) return true;
+  return Object.values(value).some(v => hasWithdrawal(v, match, depth + 1, budget));
+}
+
+/**
+ * A CANDIDATE funding transaction for this request (see FundingShape). Only a
+ * hint for the verifier: a false positive can only lead to "not verified".
+ */
+export function isFundingCandidate(
+  tx: Tx,
+  expected: { readonly payer: string; readonly contractId: string; readonly requestId: string; readonly funding?: FundingShape },
+): boolean {
+  const funding = expected.funding ?? { kind: 'native' };
+  if (!TX_HASH.test(tx.hash) || tx.signer_id !== expected.payer) return false;
+  if (funding.kind === 'native') {
+    if (tx.receiver_id !== expected.contractId || tx.actions.length !== 1) return false;
+    const fc = functionCall(tx.actions[0]);
+    if (fc === null || fc.method !== 'pay_instant_native' || fc.args.length > 4096) return false;
+    const decoded = decodeJson(fc.args);
+    return isObject(decoded) && decoded['id'] === expected.requestId;
+  }
+  if (funding.kind === 'token') {
+    if (tx.receiver_id !== funding.tokenContract || tx.actions.length !== 1) return false;
+    const fc = functionCall(tx.actions[0]);
+    if (fc === null || fc.method !== 'ft_transfer_call' || fc.args.length > 4096) return false;
+    const decoded = decodeJson(fc.args);
+    return isObject(decoded) && decoded['receiver_id'] === expected.contractId && msgNames(decoded['msg'], expected.requestId);
+  }
+  // Router: signed by the router account itself, sent to itself.
+  if (expected.payer !== funding.router || tx.receiver_id !== funding.router || tx.actions.length > 8) return false;
+  return tx.actions.some(action => {
+    const fc = functionCall(action);
+    // Cheap pre-filter on the encoded size, then the request id must appear in the decoded arguments.
+    if (fc === null || fc.method !== 'execute_intents' || fc.args.length > 1_048_576) return false;
+    const decoded = decodeJson(fc.args);
+    if (decoded === undefined || !JSON.stringify(decoded).includes(expected.requestId)) return false;
+    return hasWithdrawal(decoded, i => i['token'] === funding.tokenContract && i['receiver_id'] === expected.contractId && msgNames(i['msg'], expected.requestId));
+  });
 }
 
 /** Results that say nothing about the chain (provider trouble), so another provider may be asked. */

@@ -10,7 +10,7 @@ const { useVerifiedMainnetReceipt } = await import('../use-verified-receipt');
 const base = fixtureRequests(Date.now()).find(e => e.scenario.name === 'usdc-recorded')!.request;
 const request = { ...base, terms: { ...base.terms, assetId: 'near:native' as const, amountBaseUnits: '100000000000000000000000' } };
 const hash = '1'.repeat(32);
-const proof = { kind: 'VERIFIED_SETTLEMENT', status: 'PAID', network: 'near-mainnet', beneficiary: request.recipientAccountId, amountBaseUnits: request.terms.amountBaseUnits, assetId: request.terms.assetId, transferReceiptId: '2'.repeat(32) };
+const proof = { kind: 'VERIFIED_SETTLEMENT', status: 'PAID', network: 'near-mainnet', routerDelivery: false, beneficiary: request.recipientAccountId, amountBaseUnits: request.terms.amountBaseUnits, assetId: request.terms.assetId, transferReceiptId: '2'.repeat(32) };
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.clearAllMocks(); });
 const found = () => api.locate.mockResolvedValue({ kind: 'found', candidates: [hash] });
 it('a located transaction is only a candidate: it must pass the independent payout verifier', async () => {
