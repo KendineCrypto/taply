@@ -110,15 +110,15 @@ describe('quote service with Solana and Tron', () => {
   });
   it('prepares a verified Solana quote with a Solana refund address; EVM refund refused', async () => {
     const svc = createOneClickService(deps());
-    const ok = await svc.prepareQuote({ requestId: AWAITING.terms.id, originAsset: SOL, refundTo: SOLANA_WALLET });
+    const ok = await svc.prepareQuote({ requestId: AWAITING.terms.id, originAsset: SOL, refundTo: SOLANA_WALLET, attemptSecret: 'S'.repeat(43) });
     expect(ok.ok && ok.value).toMatchObject({ originAssetId: SOL, refundTo: SOLANA_WALLET, amountOut: AWAITING.terms.amountBaseUnits, deposit: null });
     const svc2 = createOneClickService(deps());
-    expect(await svc2.prepareQuote({ requestId: AWAITING.terms.id, originAsset: SOL, refundTo: '0x1111111111111111111111111111111111111111' })).toEqual({ ok: false, code: 'REFUND_ADDRESS_INVALID' });
+    expect(await svc2.prepareQuote({ requestId: AWAITING.terms.id, originAsset: SOL, refundTo: '0x1111111111111111111111111111111111111111', attemptSecret: 'S'.repeat(43) })).toEqual({ ok: false, code: 'REFUND_ADDRESS_INVALID' });
   });
   it('prepares a Tron USDT quote; an asset ID not on the token list is refused', async () => {
-    const ok = await createOneClickService(deps()).prepareQuote({ requestId: AWAITING.terms.id, originAsset: TRON, refundTo: TRON_WALLET });
+    const ok = await createOneClickService(deps()).prepareQuote({ requestId: AWAITING.terms.id, originAsset: TRON, refundTo: TRON_WALLET, attemptSecret: 'S'.repeat(43) });
     expect(ok.ok).toBe(true);
-    expect(await createOneClickService(deps({ fixtureTokens: () => [] })).prepareQuote({ requestId: AWAITING.terms.id, originAsset: TRON, refundTo: TRON_WALLET })).toEqual({ ok: false, code: 'ORIGIN_NOT_ALLOWED' });
+    expect(await createOneClickService(deps({ fixtureTokens: () => [] })).prepareQuote({ requestId: AWAITING.terms.id, originAsset: TRON, refundTo: TRON_WALLET, attemptSecret: 'S'.repeat(43) })).toEqual({ ok: false, code: 'ORIGIN_NOT_ALLOWED' });
   });
 });
 

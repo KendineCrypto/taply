@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { memoryQuoteStore, redisQuoteStore, type Attempt, type QuoteStore, type QuoteRecord } from '../store';
+import { memoryQuoteStore, redisQuoteStore, RELEASE_GRACE_MS, type Attempt, type QuoteStore, type QuoteRecord } from '../store';
 import { hasRedis, startRedis } from '../../../handshake/__tests__/redis-fixture';
 import { createOneClickService } from '../service';
 import { createFixtureClient, createFixtureSigner } from '../fixture-client';
@@ -12,53 +12,107 @@ import { clientBucket, memoryRateLimit, redisRateLimit } from '../rate-limit';
 
 const now = Date.UTC(2026, 10, 13, 12);
 const id = 'a'.repeat(64);
-const input = (mode: 'dry' | 'funded' = 'dry', requestId = id) => ({ id: crypto.randomUUID(), requestId, mode, payload: '{"dry":true}', createdAtMs: now });
-async function reserve(store: QuoteStore, mode: 'dry' | 'funded' = 'dry') {
-  const a = await store.reserve(input(mode), null);
-  if (typeof a === 'string') throw new Error(a);
-  return a;
+const input = (mode: 'dry' | 'funded' = 'dry', requestId = id, ownerHash = 'owner-a') => ({ id: crypto.randomUUID(), requestId, mode, payload: '{"dry":true}', createdAtMs: now, deadlineMs: now + 20 * 60_000, ownerHash });
+async function reserve(store: QuoteStore, mode: 'dry' | 'funded' = 'dry', ownerHash = 'owner-a') {
+  const r = await store.reserve(input(mode, id, ownerHash), now);
+  if (r.kind !== 'RESERVED') throw new Error(r.kind);
+  return r.attempt;
 }
-const record = (a: Attempt): QuoteRecord => ({ requestId: a.requestId, mode: a.mode,
+const record = (a: Attempt, deadlineMs = now + 10 * 60_000): QuoteRecord => ({ requestId: a.requestId, mode: a.mode,
   correlationId: 'signed-id', originAssetId: BASE_USDC.assetId, refundTo: '0x1111111111111111111111111111111111111111',
   depositAddress: a.mode === 'funded' ? '0x2222222222222222222222222222222222222222' : null,
-  depositMemo: null, deadlineMs: now - 1, createdAtMs: now, amountIn: '1000001', amountInFormatted: '1.000001', minAmountIn: '1000000', amountOut: '1000000', timeEstimateSec: null, signedResponse: '{}' });
+  depositMemo: null, deadlineMs, createdAtMs: now, amountIn: '1000001', amountInFormatted: '1.000001', minAmountIn: '1000000', amountOut: '1000000', timeEstimateSec: null, signedResponse: '{}' });
+async function ready(store: QuoteStore, a: Attempt, deadlineMs?: number) {
+  expect(await store.transition(a, 'DISPATCHING')).toBe(true);
+  expect(await store.transition({ ...a, state: 'DISPATCHING' }, 'READY', record(a, deadlineMs))).toBe(true);
+  return { ...a, state: 'READY' as const, record: record(a, deadlineMs) };
+}
+const LATER = 3 * 60 * 60_000;
 
 function storeCases(create: () => Promise<{ store: QuoteStore; restart: () => QuoteStore; stop: () => Promise<void> }>) {
-  it('admits exactly one of 20 concurrent reservations, with no timed takeover', async () => {
+  it('admits exactly one of 20 concurrent reservations from 20 owners', async () => {
     const f = await create();
     try {
-      const all = await Promise.all(Array.from({ length: 20 }, () => f.store.reserve(input(), null)));
-      const winners = all.filter(a => typeof a !== 'string');
-      expect(winners).toHaveLength(1);
-      const active = winners[0]!;
-      expect(await f.restart().reserve({ ...input(), createdAtMs: now + 100 * 86_400_000 }, active.id)).toBe('BUSY');
-      expect((await f.restart().current(id))?.state).toBe('RESERVED');
+      const all = await Promise.all(Array.from({ length: 20 }, (_, i) => f.store.reserve(input('funded', id, `owner-${i}`), now)));
+      expect(all.filter(r => r.kind === 'RESERVED')).toHaveLength(1);
+      expect(all.filter(r => r.kind === 'BUSY')).toHaveLength(19);
+      expect((await f.restart().attempts(id)).map(a => a.state)).toEqual(['RESERVED']);
     } finally { await f.stop(); }
   });
-  it('fences stale writes, rejects replay, and archives a completed dry attempt on replacement', async () => {
+  it('fences stale writes and replays; the owner of a READY funded attempt gets it back, others are blocked', async () => {
     const f = await create();
     try {
-      const a = await reserve(f.store);
+      const a = await reserve(f.store, 'funded');
       expect(await f.store.transition(a, 'DISPATCHING')).toBe(true);
       expect(await f.store.transition(a, 'DISPATCHING')).toBe(false);
       const d = { ...a, state: 'DISPATCHING' as const };
       expect(await f.store.transition({ ...d, fence: 500 }, 'READY', record(a))).toBe(false);
+      expect(await f.store.transition(d, 'READY', { ...record(a), deadlineMs: a.deadlineMs + 1 })).toBe(false);
+      expect(await f.store.transition(d, 'READY', { ...record(a), requestId: 'b'.repeat(64) })).toBe(false);
       expect(await f.store.transition(d, 'READY', record(a))).toBe(true);
-      const b = await f.restart().reserve(input(), a.id);
-      expect(typeof b).toBe('object');
-      expect(typeof b !== 'string' && b.fence).toBe(2);
       expect(await f.store.transition(d, 'UNCERTAIN')).toBe(false);
-      expect(await f.store.reserve(input(), a.id)).toBe('BUSY');
+      const mine = await f.restart().reserve({ ...input('funded'), createdAtMs: now + LATER }, now + LATER);
+      expect(mine.kind === 'OWNED' && mine.attempt.id).toBe(a.id);
+      const other = await f.restart().reserve(input('funded', id, 'owner-b'), now + 100 * 86_400_000);
+      expect(other.kind === 'ACTIVE' && other.attempt.id).toBe(a.id);
     } finally { await f.stop(); }
   });
-  it.each(['DISPATCHING', 'UNCERTAIN', 'READY'] as const)('funded %s survives a worker restart and never expires into another quote', async state => {
+  it('a dry READY quote blocks only until its deadline; the lifetime cap holds', async () => {
+    const f = await create();
+    try {
+      const a = await reserve(f.store);
+      await ready(f.store, a);
+      expect((await f.store.reserve(input('dry', id, 'owner-b'), now + 1)).kind).toBe('ACTIVE');
+      const b = await f.store.reserve(input('dry', id, 'owner-b'), now + 11 * 60_000);
+      expect(b.kind).toBe('RESERVED');
+      if (b.kind !== 'RESERVED') return;
+      expect(b.attempt.fence).toBe(2);
+      await ready(f.store, b.attempt, now + 20 * 60_000);
+      const c = await f.store.reserve({ ...input('dry', id, 'owner-c'), deadlineMs: now + 41 * 60_000 }, now + 21 * 60_000);
+      if (c.kind !== 'RESERVED') throw new Error(c.kind);
+      await ready(f.store, c.attempt, now + 22 * 60_000);
+      expect((await f.store.reserve(input('dry', id, 'owner-d'), now + 23 * 60_000)).kind).toBe('LIMIT');
+    } finally { await f.stop(); }
+  });
+  it.each(['RESERVED', 'DISPATCHING', 'UNCERTAIN'] as const)('a funded %s attempt (address never shown) survives restart and blocks until deadline + grace', async state => {
     const f = await create();
     try {
       const a = await reserve(f.store, 'funded');
-      await f.store.transition(a, 'DISPATCHING');
-      if (state !== 'DISPATCHING') await f.store.transition({ ...a, state: 'DISPATCHING' }, state, state === 'READY' ? record(a) : undefined);
-      expect((await f.restart().current(id))?.state).toBe(state);
-      expect(await f.restart().reserve({ ...input('funded'), createdAtMs: now + 999_999_999 }, a.id)).toBe('BUSY');
+      if (state !== 'RESERVED') await f.store.transition(a, 'DISPATCHING');
+      if (state === 'UNCERTAIN') await f.store.transition({ ...a, state: 'DISPATCHING' }, 'UNCERTAIN');
+      expect((await f.restart().attempts(id))[0]?.state).toBe(state);
+      expect((await f.restart().reserve(input('funded', id, 'owner-b'), a.deadlineMs + RELEASE_GRACE_MS)).kind).toBe('BUSY');
+      expect((await f.restart().reserve(input('funded', id, 'owner-a'), a.deadlineMs)).kind).toBe('BUSY');
+      expect((await f.restart().reserve(input('funded', id, 'owner-b'), a.deadlineMs + RELEASE_GRACE_MS + 1)).kind).toBe('RESERVED');
+    } finally { await f.stop(); }
+  });
+  it('a READY funded attempt never expires by time; release only after its deadline, once, then a new attempt', async () => {
+    const f = await create();
+    try {
+      const a = await ready(f.store, await reserve(f.store, 'funded'));
+      expect((await f.store.reserve(input('funded', id, 'owner-b'), now + 365 * 86_400_000)).kind).toBe('ACTIVE');
+      expect(await f.store.release(a, a.record.deadlineMs, 'UPSTREAM_REFUNDED')).toBe(false);
+      expect(await f.store.release({ ...a, fence: 9 }, a.record.deadlineMs + 1, 'UPSTREAM_REFUNDED')).toBe(false);
+      expect(await f.store.release(a, a.record.deadlineMs + 1, 'UPSTREAM_REFUNDED')).toBe(true);
+      expect(await f.store.release(a, a.record.deadlineMs + 2, 'UPSTREAM_FAILED')).toBe(false);
+      const b = await f.restart().reserve(input('funded', id, 'owner-b'), a.record.deadlineMs + 2);
+      expect(b.kind).toBe('RESERVED');
+      if (b.kind !== 'RESERVED') return;
+      // The released attempt cannot come back to life.
+      expect(await f.store.transition(a, 'UNCERTAIN')).toBe(false);
+      const list = await f.restart().attempts(id);
+      expect(list.map(x => [x.fence, x.released?.reason ?? null])).toEqual([[1, 'UPSTREAM_REFUNDED'], [2, null]]);
+    } finally { await f.stop(); }
+  });
+  it('two payable deposit addresses can never be READY at once (defence in depth)', async () => {
+    const f = await create();
+    try {
+      const a = await ready(f.store, await reserve(f.store, 'funded'));
+      await f.store.release(a, a.record.deadlineMs + 1, 'EXPIRED_NO_DEPOSIT');
+      const r = await f.store.reserve(input('funded', id, 'owner-b'), a.record.deadlineMs + 2);
+      if (r.kind !== 'RESERVED') throw new Error(r.kind);
+      expect(await f.store.transition(r.attempt, 'DISPATCHING')).toBe(true);
+      expect(await f.store.transition({ ...r.attempt, state: 'DISPATCHING' }, 'READY', record(r.attempt))).toBe(true);
     } finally { await f.stop(); }
   });
 }
@@ -74,7 +128,7 @@ function serviceSetup(store = memoryQuoteStore(), quote?: () => Promise<unknown>
   const signer = createFixtureSigner();
   const client = createFixtureClient(signer, () => now);
   const request = fixtureRequests(now).find(e => e.scenario.name === 'usdc-awaiting')!.request;
-  const args = { requestId: request.terms.id, originAsset: BASE_USDC.assetId, refundTo: '0x1111111111111111111111111111111111111111' };
+  const args = { requestId: request.terms.id, originAsset: BASE_USDC.assetId, refundTo: '0x1111111111111111111111111111111111111111', attemptSecret: 'S'.repeat(43) };
   const call = vi.fn(quote ?? (body => client.quote(body)));
   const deps = { mode: 'fixture' as const, chain: fixtureChain(() => now), store, client: { ...client, quote: call }, managerPublicKey: signer.publicKey, now: () => now };
   return { store, args, call, deps, service: createOneClickService(deps) };
@@ -82,11 +136,11 @@ function serviceSetup(store = memoryQuoteStore(), quote?: () => Promise<unknown>
 it('persists dispatch before upstream; lost response is uncertain across service restart', async () => {
   const s = serviceSetup();
   s.call.mockImplementationOnce(async () => {
-    expect((await s.store.current(s.args.requestId))?.state).toBe('DISPATCHING');
+    expect((await s.store.attempts(s.args.requestId)).at(-1)?.state).toBe('DISPATCHING');
     throw new Error('connection lost after upstream accepted');
   });
   expect(await s.service.prepareQuote(s.args)).toEqual({ ok: false, code: 'ATTEMPT_UNCERTAIN' });
-  expect((await s.store.current(s.args.requestId))?.state).toBe('UNCERTAIN');
+  expect((await s.store.attempts(s.args.requestId)).at(-1)?.state).toBe('UNCERTAIN');
   expect(await createOneClickService(s.deps).prepareQuote(s.args)).toEqual({ ok: false, code: 'ATTEMPT_UNCERTAIN' });
   expect(s.call).toHaveBeenCalledTimes(1);
 });

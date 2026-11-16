@@ -15,7 +15,8 @@ import { limiterFromEnv } from './rate-limit';
 
 /**
  * Composition root for the 1Click service from server-only env:
- *   TAPLY_ONECLICK_MODE   off (default) | fixture | dry | funded (refused in code)
+ *   TAPLY_ONECLICK_MODE   off (default) | fixture | dry | funded (refused in code until
+ *                         ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED)
  *   TAPLY_ONECLICK_API_KEY optional, Bearer, server only
  *   KV_REST_API_URL/TOKEN  mainnet project's own Upstash database (dry/funded)
  *
@@ -44,7 +45,7 @@ export function serviceFromEnv(env: Readonly<Record<string, string | undefined>>
       store: fixtureStore,
       managerPublicKey: fixtureSigner.publicKey,
       now: Date.now,
-      rateLimit: id => limiterFromEnv(env)([{ key: `request:${id}`, limit: 30 }]),
+      rateLimit: (id, kind = 'quote') => limiterFromEnv(env)([{ key: `request:${kind}:${id}`, limit: kind === 'status' ? 40 : 10 }]),
       fixtureHint: (id) => fixtureById(id, Date.now())?.scenario.oneClick ?? null,
       fixtureTokens: () => FIXTURE_TOKENS,
     });
@@ -57,6 +58,6 @@ export function serviceFromEnv(env: Readonly<Record<string, string | undefined>>
     store: redis === null ? null : redisQuoteStore(redis),
     managerPublicKey: MANAGER_PUBLIC_KEY,
     now: Date.now,
-    rateLimit: id => limiterFromEnv(env)([{ key: `request:${id}`, limit: 30 }]),
+    rateLimit: (id, kind = 'quote') => limiterFromEnv(env)([{ key: `request:${kind}:${id}`, limit: kind === 'status' ? 40 : 10 }]),
   });
 }

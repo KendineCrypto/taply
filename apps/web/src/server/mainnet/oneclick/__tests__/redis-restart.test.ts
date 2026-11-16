@@ -38,23 +38,31 @@ it.skipIf(!hasRedis)('real Redis AOF survives SIGKILL/restart with a dispatched 
   try {
     expect(await cmd(['PING'])).toBe('PONG');
     const store = redisQuoteStore(cmd); const requestId = 'a'.repeat(64);
-    const a = await store.reserve({ id: 'before-crash', requestId, mode: 'funded', payload: '{"dry":false}', createdAtMs: 1 }, null);
-    if (typeof a === 'string') throw new Error(a);
+    const r = await store.reserve({ id: 'before-crash', requestId, mode: 'funded', payload: '{"dry":false}', createdAtMs: 1, deadlineMs: 1_000, ownerHash: 'owner' }, 1);
+    if (r.kind !== 'RESERVED') throw new Error(r.kind);
+    const a = r.attempt;
     expect(await store.transition(a, 'DISPATCHING')).toBe(true);
-    expect(await cmd(['PTTL', `${KEY_PREFIX}ledger:v1:${requestId}`])).toBe(-1);
+    expect(await cmd(['PTTL', `${KEY_PREFIX}ledger:v2:${requestId}`])).toBe(-1);
     // The development bridge deliberately has no reconnect implementation.
     // Recreate it, like a restarted worker, after the database's forced crash.
     await shim.stop(); await kill(); process = launch(); await readyPort();
     shim = await startRestShim({ redisPort: port, token: 'local-only' });
     cmd = restRedis({ url: shim.url, token: 'local-only' });
     const restarted = redisQuoteStore(cmd);
-    expect((await restarted.current(requestId))?.state).toBe('DISPATCHING');
-    expect(await restarted.reserve({ id: 'after-crash', requestId, mode: 'funded', payload: '{}', createdAtMs: 99999999 }, a.id)).toBe('BUSY');
+    expect((await restarted.attempts(requestId))[0]?.state).toBe('DISPATCHING');
+    expect((await restarted.reserve({ id: 'after-crash', requestId, mode: 'funded', payload: '{}', createdAtMs: 2_000, deadlineMs: 3_000, ownerHash: 'other' }, 2_000)).kind).toBe('BUSY');
     expect(await restarted.transition({ ...a, fence: 2 }, 'DISPATCHING')).toBe(false);
     // Existing legacy records are quarantined, never silently bypassed.
     const legacy = 'b'.repeat(64);
     await cmd(['SET', `${KEY_PREFIX}quote:${legacy}`, '{}']);
-    expect(await restarted.reserve({ id: 'legacy', requestId: legacy, mode: 'dry', payload: '{}', createdAtMs: 1 }, null)).toBe('LEGACY_BLOCKED');
+    expect((await restarted.reserve({ id: 'legacy', requestId: legacy, mode: 'dry', payload: '{}', createdAtMs: 1, deadlineMs: 2, ownerHash: 'o' }, 1)).kind).toBe('LEGACY_BLOCKED');
+    // A v1 ledger holding a funded attempt quarantines the request; a dry-only v1 ledger cannot be funded and is ignored.
+    const v1 = 'c'.repeat(64);
+    await cmd(['SET', `${KEY_PREFIX}ledger:v1:${v1}`, JSON.stringify({ version: 1, fence: 1, active: 'x', attempts: { x: { mode: 'funded' } } })]);
+    expect((await restarted.reserve({ id: 'v1', requestId: v1, mode: 'dry', payload: '{}', createdAtMs: 1, deadlineMs: 2, ownerHash: 'o' }, 1)).kind).toBe('LEGACY_BLOCKED');
+    const v1dry = 'd'.repeat(64);
+    await cmd(['SET', `${KEY_PREFIX}ledger:v1:${v1dry}`, JSON.stringify({ version: 1, fence: 1, active: 'x', attempts: { x: { mode: 'dry' } } })]);
+    expect((await restarted.reserve({ id: 'v1d', requestId: v1dry, mode: 'dry', payload: '{}', createdAtMs: 1, deadlineMs: 2, ownerHash: 'o' }, 1)).kind).toBe('RESERVED');
   } finally {
     await shim.stop(); await kill();
     await rm(dir, { recursive: true, force: true }); // only the unique test-owned temporary directory

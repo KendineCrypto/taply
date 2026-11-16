@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { HashHexSchema, MAINNET_USDC_ASSET } from '@taply/shared';
 import { z } from 'zod';
 import { BASE_USDC, isStillListed, originAssetById, originFromTokens, resolveDynamicOrigins } from '@/lib/mainnet/oneclick/allowlist';
@@ -13,8 +14,8 @@ import type { ChainView } from '../chain';
 import { OneClickHttpError } from './client';
 import type { OneClickClient, OneClickErrorCode } from './client';
 import { buildQuoteRequest } from './quote-request';
-import type { QuoteRecord, QuoteStore } from './store';
-import { MAX_ATTEMPTS } from './store';
+import type { Attempt, QuoteRecord, QuoteStore, ReleaseReason } from './store';
+import { MAX_ATTEMPTS, RELEASE_GRACE_MS } from './store';
 import { EXPIRY_MARGIN_MS, verifyQuoteResponse } from './verify';
 import type { QuoteRejection } from './verify';
 
@@ -25,11 +26,13 @@ import type { QuoteRejection } from './verify';
  *  - off     — every call answers ONECLICK_DISABLED (default).
  *  - fixture — FIXTURE chain + synthetic signed responses; dry quotes only.
  *  - dry     — real chain reads + real 1Click DRY quotes (no deposit address).
- *  - funded  — refused in code until ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED.
+ *  - funded  — refused in code until ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED;
+ *              then real quotes with a deposit address, Base USDC only.
  *
- * The browser never receives a deposit address while funding is not approved,
- * and never receives the API key, the raw upstream error or 1Click's own
- * explorer URLs.
+ * A deposit address is returned only to the attempt's owner (the browser that
+ * holds the attempt secret), never while funding is not approved, and never in
+ * the public request-level status. The browser never receives the API key, the
+ * raw upstream error or 1Click's own explorer URLs.
  */
 export type OneClickMode = 'off' | 'fixture' | 'dry' | 'funded';
 
@@ -61,6 +64,7 @@ export type ServiceError =
   | 'ORIGIN_NOT_LISTED'
   | 'ACTIVE_QUOTE_EXISTS'
   | 'PREVIOUS_QUOTE_IN_PROGRESS'
+  | 'PAYMENT_IN_PROGRESS'
   | 'QUOTE_LIMIT_REACHED'
   | 'BUSY'
   | 'QUOTE_REJECTED'
@@ -82,6 +86,7 @@ export const HTTP_STATUS: Readonly<Record<string, number>> = {
   CHAIN_UNAVAILABLE: 503,
   REQUEST_NOT_FOUND: 404,
   NO_QUOTE: 404,
+  PAYMENT_IN_PROGRESS: 409,
   QUOTE_LIMIT_REACHED: 429,
   QUOTE_REJECTED: 502,
   STATUS_MISMATCH: 502,
@@ -96,11 +101,12 @@ export const httpStatusOf = (code: ServiceError): number => HTTP_STATUS[code] ??
 
 export type Result<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: ServiceError; readonly reason?: QuoteRejection };
 
-/** What the browser receives for a prepared quote. No deposit address while funding is not approved. */
+/** What the attempt's owner receives. A deposit address only for an approved funded quote. */
 export interface PublicQuote {
   readonly mode: 'fixture' | 'dry' | 'funded';
-  readonly fundingEnabled: false;
+  readonly fundingEnabled: boolean;
   readonly requestId: string;
+  readonly attemptId: string;
   readonly correlationId: string;
   readonly originAssetId: string;
   readonly amountIn: string;
@@ -113,10 +119,13 @@ export interface PublicQuote {
   readonly refundTo: string;
   readonly recipient: string;
   readonly destinationAsset: typeof MAINNET_USDC_ASSET;
-  readonly deposit: null;
-  readonly depositWithheldReason: 'FUNDING_NOT_APPROVED' | 'DRY_QUOTE';
+  /** Owner only. `memo` must be included with the deposit whenever it is not null. */
+  readonly deposit: { readonly address: string; readonly memo: string | null } | null;
+  readonly depositWithheldReason: 'FUNDING_NOT_APPROVED' | 'DRY_QUOTE' | null;
   readonly signatureVerified: true;
   readonly reused: boolean;
+  /** Set when Taply stopped tracking this attempt as payable (1Click refunded/failed it, or it expired unpaid). */
+  readonly released: ReleaseReason | null;
 }
 
 export interface PublicStatus {
@@ -126,6 +135,7 @@ export interface PublicStatus {
   readonly hint: OneClickStatus | null;
   readonly hintReason: 'NONE' | 'DRY_QUOTE_NO_DEPOSIT';
   readonly updatedAt: string | null;
+  /** Owner view only; '' in the public request-level status. */
   readonly refundTo: string;
   readonly originTxs: ReadonlyArray<{ readonly hash: string; readonly url: string | null }>;
   readonly nearTxs: ReadonlyArray<{ readonly hash: string; readonly url: string | null }>;
@@ -140,11 +150,20 @@ export const LIMITS = Object.freeze({
   minQuoteWindowMs: 10 * 60_000,
 });
 
+/** 32 random bytes, base64url without padding, generated and kept by the payer's browser. */
+export const AttemptSecretSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const QuoteInputSchema = z.strictObject({
   requestId: HashHexSchema,
   originAsset: z.string().min(1).max(160),
   refundTo: z.string().min(1).max(128),
+  attemptSecret: AttemptSecretSchema,
 });
+const ResumeInputSchema = z.strictObject({ requestId: HashHexSchema, attemptSecret: AttemptSecretSchema });
+
+/** SHA-256 of the domain-separated secret. Synchronous, so concurrent calls keep their arrival order. */
+export function ownerHashOf(secret: string): string {
+  return createHash('sha256').update(`taply.1click.attempt.v1:${secret}`).digest('hex');
+}
 
 const TokenListSchema = z.array(
   z.object({
@@ -184,14 +203,20 @@ export interface ServiceDeps {
   readonly fixtureHint?: (requestId: string) => OneClickStatus | null;
   /** Fixture mode only: the labelled fixture token list used to resolve Solana/Tron. */
   readonly fixtureTokens?: () => ReadonlyArray<ListedToken>;
-  readonly rateLimit?: (requestId: string) => Promise<boolean>;
+  /** Per-request budgets: 'quote' (creating/resuming attempts) and 'status' (progress polling from both phones). */
+  readonly rateLimit?: (requestId: string, kind?: 'quote' | 'status') => Promise<boolean>;
 }
 
-function publicQuote(record: QuoteRecord, contractId: string, reused: boolean): PublicQuote {
+function publicQuote(attempt: Attempt, contractId: string, reused: boolean, fundingApproved: boolean): PublicQuote {
+  const record = attempt.record!;
+  const deposit = record.mode === 'funded' && fundingApproved && record.depositAddress !== null
+    ? { address: record.depositAddress, memo: record.depositMemo }
+    : null;
   return {
     mode: record.mode,
-    fundingEnabled: false,
+    fundingEnabled: deposit !== null,
     requestId: record.requestId,
+    attemptId: attempt.id,
     correlationId: record.correlationId,
     originAssetId: record.originAssetId,
     amountIn: record.amountIn,
@@ -203,11 +228,18 @@ function publicQuote(record: QuoteRecord, contractId: string, reused: boolean): 
     refundTo: record.refundTo,
     recipient: contractId,
     destinationAsset: MAINNET_USDC_ASSET,
-    deposit: null,
-    depositWithheldReason: record.mode === 'funded' ? 'FUNDING_NOT_APPROVED' : 'DRY_QUOTE',
+    deposit,
+    depositWithheldReason: deposit !== null ? null : record.mode === 'funded' ? 'FUNDING_NOT_APPROVED' : 'DRY_QUOTE',
     signatureVerified: true,
     reused,
+    released: attempt.released?.reason ?? null,
   };
+}
+
+/** The attempt a progress display should follow: the newest one with a signed record. */
+function latestReady(attempts: ReadonlyArray<Attempt>): Attempt | null {
+  for (let i = attempts.length - 1; i >= 0; i--) if (attempts[i]!.state === 'READY' && attempts[i]!.record !== null) return attempts[i]!;
+  return null;
 }
 
 export interface PublicOrigin {
@@ -224,10 +256,14 @@ function publicOrigin(o: OriginAsset, source: PublicOrigin['source']): PublicOri
   return { assetId: o.assetId, chain: o.chain, symbol: o.symbol, decimals: o.decimals, contractAddress: o.contractAddress, refundAddressFormat: o.refundAddressFormat, source };
 }
 
+/** Longer than the 15 s upstream timeout plus durable writes; older unfinished attempts are uncertain. */
+const IN_PROGRESS_MS = 60_000;
+
 const fail = (code: ServiceError, reason?: QuoteRejection): Result<never> =>
   reason === undefined ? { ok: false, code } : { ok: false, code, reason };
 
 export function createOneClickService(deps: ServiceDeps) {
+  const fundingApproved = deps.mode === 'funded' && ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED;
   function gate(): Result<never> | null {
     if (deps.mode === 'off') return fail('ONECLICK_DISABLED');
     if (deps.mode === 'funded' && !ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED) return fail('FUNDED_QUOTES_NOT_APPROVED');
@@ -254,8 +290,23 @@ export function createOneClickService(deps: ServiceDeps) {
     const source: PublicOrigin['source'] = deps.mode === 'fixture' ? 'fixture' : 'live-token-list';
     const out: PublicOrigin[] = [];
     if (deps.mode === 'fixture' || isStillListed(BASE_USDC, tokens)) out.push(publicOrigin(BASE_USDC, deps.mode === 'fixture' ? 'fixture' : 'recorded-live-quote'));
-    for (const o of resolveDynamicOrigins(tokens)) out.push(publicOrigin(o, source));
+    // Real money only on the verified route (Base USDC). Other origins stay quote-only.
+    if (deps.mode !== 'funded') for (const o of resolveDynamicOrigins(tokens)) out.push(publicOrigin(o, source));
     return { ok: true, value: out };
+  }
+
+  /** Whether 1Click may still deliver from this attempt's deposit address. Null = it may. */
+  async function releasable(attempt: Attempt, nowMs: number): Promise<ReleaseReason | null> {
+    const record = attempt.record;
+    if (record === null || record.depositAddress === null || nowMs <= record.deadlineMs) return null;
+    const parsed = StatusSchema.parse(await deps.client.status(record.depositAddress, record.depositMemo));
+    const echoedDeposit = parsed.quoteResponse?.quote.depositAddress;
+    const echoedCorrelation = parsed.quoteResponse?.correlationId ?? parsed.correlationId;
+    if (echoedDeposit !== record.depositAddress || echoedCorrelation !== record.correlationId) return null;
+    if (parsed.status === 'REFUNDED') return 'UPSTREAM_REFUNDED';
+    if (parsed.status === 'FAILED') return 'UPSTREAM_FAILED';
+    if (parsed.status === 'PENDING_DEPOSIT' && nowMs > record.deadlineMs + RELEASE_GRACE_MS) return 'EXPIRED_NO_DEPOSIT';
+    return null;
   }
 
   async function prepareQuote(raw: unknown): Promise<Result<PublicQuote>> {
@@ -267,23 +318,26 @@ export function createOneClickService(deps: ServiceDeps) {
     const input = QuoteInputSchema.safeParse(raw);
     if (!input.success) return fail('INVALID_INPUT');
     // Base: static allowlist. Solana/Tron: asset ID resolved from 1Click's token
-    // list (fixture list in a fixture Preview), exact unique match only.
+    // list (fixture list in a fixture Preview), exact unique match only, and
+    // never for funded quotes until that route has its own verified evidence.
     let origin: OriginAsset | null = originAssetById(input.data.originAsset);
-    if (origin === null) {
+    if (origin === null && deps.mode !== 'funded') {
       const tokens = await listedTokens().catch(() => null);
       origin = tokens === null ? null : originFromTokens(input.data.originAsset, tokens);
     }
-    if (origin === null) return fail('ORIGIN_NOT_ALLOWED');
+    if (origin === null || (deps.mode === 'funded' && origin.assetId !== BASE_USDC.assetId)) return fail('ORIGIN_NOT_ALLOWED');
     const refund = validateRefundAddress(origin, input.data.refundTo);
     if (!refund.ok) return fail('REFUND_ADDRESS_INVALID');
     const requestId = input.data.requestId;
+    const ownerHash = ownerHashOf(input.data.attemptSecret);
 
     try {
-      if (deps.rateLimit && !await deps.rateLimit(requestId)) return fail('RATE_LIMITED');
-      const previousAttempt = await store.current(requestId);
-      if (previousAttempt && previousAttempt.state !== 'READY') return fail('ATTEMPT_UNCERTAIN');
-      // Expiry or an upstream hint can NEVER release a potentially fundable attempt.
-      if (previousAttempt?.mode === 'funded') return fail('PREVIOUS_QUOTE_IN_PROGRESS');
+      if (deps.rateLimit && !await deps.rateLimit(requestId, 'quote')) return fail('RATE_LIMITED');
+      // The owner of a still-payable attempt always gets the same attempt back: no second deposit address.
+      const mine = (await store.attempts(requestId)).filter(a => a.ownerHash === ownerHash && a.released === null && a.state === 'READY' && a.record !== null)
+        .filter(a => a.record!.depositAddress !== null || a.record!.deadlineMs > deps.now()).at(-1);
+      if (mine) return { ok: true, value: publicQuote(mine, chain.contractId, true, fundingApproved) };
+
       // 1. Contract and request at a final block.
       let problems: ReadonlyArray<string>;
       let read: Awaited<ReturnType<ChainView['readRequest']>>;
@@ -318,18 +372,7 @@ export function createOneClickService(deps: ServiceDeps) {
         return fail('CHAIN_UNAVAILABLE');
       }
 
-      // 3. One live quote per request; never a second quote while one may be funded.
-      const previous = previousAttempt?.record ?? null;
-      if (previous !== null) {
-        if (previous.deadlineMs > nowMs) {
-          return previous.refundTo === refund.address && previous.originAssetId === origin.assetId
-            ? { ok: true, value: publicQuote(previous, chain.contractId, true) }
-            : fail('ACTIVE_QUOTE_EXISTS');
-        }
-        if (previous.depositAddress !== null) return fail('PREVIOUS_QUOTE_IN_PROGRESS');
-      }
-
-      // 4. In dry/funded mode the asset must still be listed by 1Click, identically.
+      // 3. In dry/funded mode the asset must still be listed by 1Click, identically.
       if (deps.mode !== 'fixture') {
         try {
           const tokens = TokenListSchema.parse(await deps.client.tokens()) as ReadonlyArray<ListedToken>;
@@ -339,8 +382,9 @@ export function createOneClickService(deps: ServiceDeps) {
         }
       }
 
-      // 5. Ask 1Click with Taply's fixed body, then accept only a verified response.
+      // 4. Reserve durably. At most one payable deposit address per request.
       const dry = deps.mode !== 'funded';
+      const deadlineMs = Math.min(nowMs + LIMITS.quoteTtlMs, latestUsable);
       const sent = buildQuoteRequest({
         dry,
         origin,
@@ -349,37 +393,62 @@ export function createOneClickService(deps: ServiceDeps) {
         requestId,
         termsHash: request.termsHash,
         amountBaseUnits: t.amountBaseUnits,
-        deadlineMs: Math.min(nowMs + LIMITS.quoteTtlMs, latestUsable),
+        deadlineMs,
       });
-      let reservation;
+      const reservation = {
+        id: crypto.randomUUID(), requestId, ownerHash, deadlineMs,
+        mode: deps.mode === 'fixture' ? 'fixture' as const : dry ? 'dry' as const : 'funded' as const,
+        payload: JSON.stringify(sent), createdAtMs: nowMs,
+      };
+      let reserved;
       try {
-        reservation = await store.reserve({ id: crypto.randomUUID(), requestId,
-          mode: deps.mode === 'fixture' ? 'fixture' : dry ? 'dry' : 'funded',
-          payload: JSON.stringify(sent), createdAtMs: deps.now() }, previousAttempt?.id ?? null);
+        reserved = await store.reserve(reservation, nowMs);
+        if (reserved.kind === 'ACTIVE' && reserved.attempt.record !== null && reserved.attempt.record.depositAddress === null) {
+          // A live dry/fixture quote has no deposit address, so it is not owned: identical inputs reuse it.
+          const live = reserved.attempt.record;
+          return live.refundTo === refund.address && live.originAssetId === origin.assetId
+            ? { ok: true, value: publicQuote(reserved.attempt, chain.contractId, true, fundingApproved) }
+            : fail('ACTIVE_QUOTE_EXISTS');
+        }
+        if (reserved.kind === 'ACTIVE') {
+          // Another owner's payable attempt. Released only when 1Click says it can no longer deliver.
+          const reason = await releasable(reserved.attempt, nowMs).catch(() => null);
+          if (reason === null) return fail('PAYMENT_IN_PROGRESS');
+          if (!await store.release(reserved.attempt, nowMs, reason)) return fail('BUSY');
+          reserved = await store.reserve({ ...reservation, id: crypto.randomUUID() }, nowMs);
+        }
       } catch { return fail('ATTEMPT_UNCERTAIN'); }
-      if (typeof reservation === 'string') return fail(reservation === 'LIMIT' ? 'QUOTE_LIMIT_REACHED' : reservation === 'LEGACY_BLOCKED' ? 'ATTEMPT_UNCERTAIN' : 'BUSY');
+      if (reserved.kind === 'OWNED') return { ok: true, value: publicQuote(reserved.attempt, chain.contractId, true, fundingApproved) };
+      if (reserved.kind === 'ACTIVE') return fail('PAYMENT_IN_PROGRESS');
+      if (reserved.kind === 'BUSY') {
+        // A fresh in-progress reservation is a concurrent tab; an older one is an unresolved attempt.
+        const a = reserved.attempt;
+        return fail(a && a.state !== 'UNCERTAIN' && nowMs - a.createdAtMs < IN_PROGRESS_MS ? 'BUSY' : 'ATTEMPT_UNCERTAIN');
+      }
+      if (reserved.kind !== 'RESERVED') return fail(reserved.kind === 'LIMIT' ? 'QUOTE_LIMIT_REACHED' : 'ATTEMPT_UNCERTAIN');
+      const reservedAttempt = reserved.attempt;
       // No external quote call until BOTH durable writes have acknowledged.
       // Lost acknowledgements leave RESERVED/DISPATCHING blocked across restart.
       try {
-        if (!await store.transition(reservation, 'DISPATCHING')) return fail('ATTEMPT_UNCERTAIN');
+        if (!await store.transition(reservedAttempt, 'DISPATCHING')) return fail('ATTEMPT_UNCERTAIN');
       } catch { return fail('ATTEMPT_UNCERTAIN'); }
-      const dispatch = { ...reservation, state: 'DISPATCHING' as const };
+      const dispatch = { ...reservedAttempt, state: 'DISPATCHING' as const };
       const uncertain = async () => { await store.transition(dispatch, 'UNCERTAIN').catch(() => false); };
-      let raw: unknown;
+      let rawQuote: unknown;
       try {
-        raw = await deps.client.quote(sent);
+        rawQuote = await deps.client.quote(sent);
       } catch {
         await uncertain();
         return fail('ATTEMPT_UNCERTAIN');
       }
-      const checked = verifyQuoteResponse(raw, sent, { nowMs: deps.now(), requestExpiresAtMs: expiresAtMs, managerPublicKey: deps.managerPublicKey });
+      const checked = verifyQuoteResponse(rawQuote, sent, { nowMs: deps.now(), requestExpiresAtMs: expiresAtMs, managerPublicKey: deps.managerPublicKey });
       if (!checked.ok) { await uncertain(); return fail('QUOTE_REJECTED', checked.code); }
       const q = checked.quote;
 
       const record: QuoteRecord = {
         requestId,
         correlationId: q.correlationId,
-        mode: deps.mode === 'fixture' ? 'fixture' : deps.mode === 'dry' ? 'dry' : 'funded',
+        mode: reservation.mode,
         originAssetId: origin.assetId,
         refundTo: refund.address,
         depositAddress: q.depositAddress,
@@ -396,15 +465,15 @@ export function createOneClickService(deps: ServiceDeps) {
       try {
         if (!await store.transition(dispatch, 'READY', record)) { await uncertain(); return fail('ATTEMPT_UNCERTAIN'); }
       } catch { await uncertain(); return fail('ATTEMPT_UNCERTAIN'); }
-      return { ok: true, value: publicQuote(record, chain.contractId, false) };
+      return { ok: true, value: publicQuote({ ...dispatch, state: 'READY', record }, chain.contractId, false, fundingApproved) };
     } catch { return fail('STORE_UNAVAILABLE'); }
   }
 
-  async function statusFor(record: QuoteRecord): Promise<PublicStatus> {
+  async function statusFor(record: QuoteRecord, owner: boolean): Promise<PublicStatus> {
     const base = {
       mode: record.mode,
       requestId: record.requestId,
-      refundTo: record.refundTo,
+      refundTo: owner ? record.refundTo : '',
     } as const;
     if (record.depositAddress === null) {
       return { ...base, hint: deps.fixtureHint?.(record.requestId) ?? null, hintReason: deps.fixtureHint ? 'NONE' : 'DRY_QUOTE_NO_DEPOSIT', updatedAt: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null };
@@ -430,6 +499,7 @@ export function createOneClickService(deps: ServiceDeps) {
     };
   }
 
+  /** Public, by request id: a redacted progress hint for both phones. Never a deposit or refund address. */
   async function status(raw: unknown): Promise<Result<PublicStatus>> {
     const closed = gate();
     if (closed) return closed;
@@ -438,10 +508,11 @@ export function createOneClickService(deps: ServiceDeps) {
     // Lookup by request id only: the browser cannot point this proxy at an arbitrary deposit address.
     let record: QuoteRecord | null;
     try {
-      if (deps.rateLimit && !await deps.rateLimit(id.data)) return fail('RATE_LIMITED');
-      const attempt = await deps.store!.current(id.data);
-      if (attempt && attempt.state !== 'READY') return fail('ATTEMPT_UNCERTAIN');
-      record = attempt?.record ?? null;
+      if (deps.rateLimit && !await deps.rateLimit(id.data, 'status')) return fail('RATE_LIMITED');
+      const attempts = await deps.store!.attempts(id.data);
+      const ready = latestReady(attempts);
+      if (ready === null && attempts.length > 0) return fail('ATTEMPT_UNCERTAIN');
+      record = ready?.record ?? null;
     } catch { return fail('STORE_UNAVAILABLE'); }
     if (record === null) {
       if (deps.mode === 'fixture' && deps.fixtureHint) {
@@ -451,14 +522,36 @@ export function createOneClickService(deps: ServiceDeps) {
       return fail('NO_QUOTE');
     }
     try {
-      return { ok: true, value: await statusFor(record) };
+      return { ok: true, value: await statusFor(record, false) };
     } catch (error) {
       if (error instanceof OneClickHttpError) return fail(`UPSTREAM_${error.code}`);
       return fail('STATUS_MISMATCH');
     }
   }
 
-  return { prepareQuote, status, origins };
+  /** Owner only: the payer's own latest attempt (after a refresh, on the same device). */
+  async function resume(raw: unknown): Promise<Result<{ readonly quote: PublicQuote; readonly status: PublicStatus | null }>> {
+    const closed = gate();
+    if (closed) return closed;
+    const input = ResumeInputSchema.safeParse(raw);
+    if (!input.success) return fail('INVALID_INPUT');
+    const ownerHash = ownerHashOf(input.data.attemptSecret);
+    let attempt: Attempt | null;
+    try {
+      if (deps.rateLimit && !await deps.rateLimit(input.data.requestId, 'quote')) return fail('RATE_LIMITED');
+      attempt = latestReady((await deps.store!.attempts(input.data.requestId)).filter(a => a.ownerHash === ownerHash));
+    } catch { return fail('STORE_UNAVAILABLE'); }
+    if (attempt === null) return fail('NO_QUOTE');
+    const quote = publicQuote(attempt, deps.chain!.contractId, true, fundingApproved);
+    try {
+      return { ok: true, value: { quote, status: await statusFor(attempt.record!, true) } };
+    } catch {
+      // The quote is still the owner's; progress is unknown right now, never "nothing happened".
+      return { ok: true, value: { quote, status: null } };
+    }
+  }
+
+  return { prepareQuote, status, origins, resume, fundingEnabled: () => fundingApproved };
 }
 
 export { BASE_USDC };
