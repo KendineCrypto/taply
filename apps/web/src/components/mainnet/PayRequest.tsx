@@ -183,7 +183,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {expectedMerchant !== null && (wrongMerchant
         ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
         : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
-      {open && crossChainMoving && method !== 'base' ? <Notice tone="caution" live testId="crosschain-moving">{c.intents.requesterTracking.moving}</Notice> : open && asset.symbol === 'NEAR' ? null : open && !crossChainMoving ? (
+      {open && crossChainMoving && method !== 'base' ? <Notice tone="caution" live testId="crosschain-moving">{hint?.source === 'earlier' ? c.intents.earlierArriving : c.intents.requesterTracking.moving}</Notice> : open && asset.symbol === 'NEAR' ? null : open && !crossChainMoving ? (
         <Card>
           <h2 className="mb-2 text-[15px] font-semibold">{c.pay.methodTitle}</h2>
           {asset.symbol === 'NEAR' && <p className="mb-2 text-[13px] text-[var(--text-secondary)]">{c.pay.methodNativeOnly}</p>}
@@ -294,7 +294,16 @@ interface PreparedQuote {
   readonly deposit: { readonly address: string; readonly memo: string | null } | null;
   readonly signatureVerified: true;
   readonly reused: boolean;
-  readonly released: 'UPSTREAM_REFUNDED' | 'UPSTREAM_FAILED' | 'EXPIRED_NO_DEPOSIT' | null;
+  readonly released: 'ORIGIN_REFUND_VERIFIED' | 'ORIGIN_NO_DEPOSIT_VERIFIED' | null;
+}
+
+type BlockReason = keyof ReturnType<typeof useMainnetCopy>['intents']['blocked'];
+/** Server evidence for the owner's expired attempt: claim, reported refund and chain proof, kept apart. */
+interface AttemptEvidence {
+  readonly upstream: string | null;
+  readonly refundReported: { readonly amountFormatted: string | null; readonly txCount: number } | null;
+  readonly chain: { readonly kind: 'NO_DEPOSIT' | 'REFUND'; readonly refunded?: string; readonly refundTxs?: ReadonlyArray<string>; readonly finalizedBlock: string } | null;
+  readonly verdict: { readonly released: string } | { readonly blocked: BlockReason };
 }
 
 const EVM = /^0x[0-9a-fA-F]{40}$/;
@@ -338,6 +347,8 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
   const [touched, setTouched] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blockReason, setBlockReason] = useState<BlockReason | null>(null);
+  const [evidence, setEvidence] = useState<AttemptEvidence | null>(null);
   const [quote, setQuote] = useState<PreparedQuote | null>(null);
   const [resuming, setResuming] = useState(() => storedAttemptSecret(request.terms.id) !== null);
   const [memoOk, setMemoOk] = useState(false);
@@ -351,17 +362,23 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
   const requestId = request.terms.id;
 
   // Resume this browser's own attempt (same device, any tab, after refresh).
-  useEffect(() => {
+  async function resume(isLive: () => boolean = () => true) {
     const secret = storedAttemptSecret(requestId);
     if (secret === null) return;
+    try {
+      const res = await fetch('/api/mainnet/oneclick/attempt', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
+        body: JSON.stringify({ requestId, attemptSecret: secret }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { quote?: Partial<PreparedQuote>; evidence?: AttemptEvidence | null };
+      if (isLive() && res.ok && body.quote && acceptableQuote(body.quote, request, null)) { setQuote(body.quote); setEvidence(body.evidence ?? null); onPrepared(); }
+    } catch { /* progress below still comes from the contract and the public status */ }
+  }
+  useEffect(() => {
+    if (storedAttemptSecret(requestId) === null) return;
     let live = true;
-    void fetch('/api/mainnet/oneclick/attempt', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
-      body: JSON.stringify({ requestId, attemptSecret: secret }),
-    }).then(async res => {
-      const body = (await res.json().catch(() => ({}))) as { quote?: Partial<PreparedQuote> };
-      if (live && res.ok && body.quote && acceptableQuote(body.quote, request, null)) { setQuote(body.quote); onPrepared(); }
-    }).catch(() => undefined).finally(() => { if (live) setResuming(false); });
+    // Deferred so no state is set synchronously inside the effect.
+    queueMicrotask(() => { void resume(() => live).finally(() => { if (live) setResuming(false); }); });
     return () => { live = false; };
     // Resume once per request id.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -370,6 +387,7 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
   async function prepare() {
     setPending(true);
     setError(null);
+    setBlockReason(null);
     try {
       const res = await fetch('/api/mainnet/oneclick/quote', {
         method: 'POST',
@@ -377,9 +395,10 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
         body: JSON.stringify({ requestId, originAsset: origin.assetId, refundTo: refund.trim(), attemptSecret: attemptSecretFor(requestId) }),
         cache: 'no-store',
       });
-      const body = (await res.json().catch(() => ({}))) as Partial<PreparedQuote> & { error?: string };
+      const body = (await res.json().catch(() => ({}))) as Partial<PreparedQuote> & { error?: string; reason?: string };
       if (!res.ok || body.error !== undefined) {
         setError(body.error ?? 'UNKNOWN');
+        if (body.reason !== undefined && body.reason in c.intents.blocked) setBlockReason(body.reason as BlockReason);
         return;
       }
       if (!acceptableQuote(body, request, origin)) {
@@ -457,6 +476,7 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
           {error !== null && (
             <Notice tone="danger" live testId="quote-error">
               {c.intents.errors[error] ?? c.intents.errorFallback}
+              {blockReason !== null && <span className="mt-1 block text-[13px]" data-testid="quote-recovery" data-reason={blockReason}>{c.intents.blocked[blockReason]}</span>}
             </Notice>
           )}
         </form>
@@ -500,6 +520,23 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
             </div>
           )}
           {moving && <Notice tone="neutral" live testId="deposit-seen">{c.intents.received}</Notice>}
+          {evidence !== null && (
+            <div className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] p-3 text-[13px]" data-testid="attempt-evidence">
+              <p className="font-semibold">{c.intents.evidence.title}</p>
+              <dl className="mt-1">
+                <Row label={c.intents.evidence.upstream} mono>{evidence.upstream ?? '—'}</Row>
+                {evidence.refundReported !== null && <Row label={c.intents.evidence.refundReported}>{evidence.refundReported.amountFormatted ?? '—'} USDC</Row>}
+                <Row label="Base">
+                  <span data-testid="evidence-chain" data-kind={evidence.chain?.kind ?? 'NONE'}>
+                    {evidence.chain?.kind === 'REFUND' ? `${c.intents.evidence.chainRefund}: ${fmtUsdc(evidence.chain.refunded ?? '0')}` : evidence.chain?.kind === 'NO_DEPOSIT' ? c.intents.evidence.chainNoDeposit : c.intents.evidence.chainNone}
+                  </span>
+                </Row>
+                <Row label={c.intents.evidence.reference} mono>{quote.attemptId}</Row>
+              </dl>
+              {'blocked' in evidence.verdict && <p className="mt-1 text-[var(--tone-caution-fg)]" data-testid="evidence-blocked" data-reason={evidence.verdict.blocked}>{c.intents.blocked[evidence.verdict.blocked]}</p>}
+              <Button variant="ghost" onClick={() => void resume()} data-testid="evidence-recheck">{c.intents.evidence.checkAgain}</Button>
+            </div>
+          )}
           {expiredUnpaid && (
             <div className="flex flex-col gap-2" data-testid="quote-expired">
               <Notice tone="caution" live>{c.intents.expiredUnpaid}</Notice>

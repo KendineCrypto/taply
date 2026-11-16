@@ -62,7 +62,7 @@ export function RequestShare({ id, link, amount }: { readonly id: string; readon
     <p role="status" className="text-sm font-medium text-[var(--text-secondary)]">{waiting ? (tr ? 'Ödeme bekleniyor' : 'Waiting for payment') : request?.status === 'PAYOUT_IN_FLIGHT' ? (tr ? 'Ödeme tamamlanıyor…' : 'Completing payment…') : (tr ? 'Ödeme durumunu kontrol et' : 'Check payment status')}</p>
     <p className="display-amount text-[2rem] leading-none">{amount}</p>
     {waiting && <QrCode value={link} label={tr ? 'Ödeme isteği' : 'Payment request'} />}
-    {tracking !== null && <Notice tone={tracking === 'moving' ? 'neutral' : 'caution'} live testId="request-crosschain">{c.intents.requesterTracking[tracking]}</Notice>}
+    {tracking !== null && <Notice tone={tracking === 'moving' ? 'neutral' : 'caution'} live testId="request-crosschain">{tracking === 'moving' && hint?.source === 'earlier' ? c.intents.earlierArriving : c.intents.requesterTracking[tracking]}</Notice>}
     {read.kind === 'error' && <Notice tone="caution" live>{tr ? 'Bağlantı kurulamadı. Ödeme henüz doğrulanmadı; tekrar ödeme istemeyin.' : 'Connection unavailable. Payment is not confirmed yet; do not request another payment.'}</Notice>}
     <details className="w-full text-xs text-[var(--text-muted)]"><summary className="cursor-pointer">{tr ? 'Bağlantı ayrıntıları' : 'Link details'}</summary><p className="mt-2 break-all font-mono" data-testid="request-link">{link}</p></details>
     {waiting && <Button variant="secondary" onClick={async () => { try { await navigator.clipboard.writeText(link); setCopied(true); } catch { setCopied(false); } }}>{copied ? (tr ? 'Kopyalandı' : 'Copied') : (tr ? 'Bağlantıyı kopyala' : 'Copy link')}</Button>}

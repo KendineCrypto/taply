@@ -82,6 +82,8 @@ export interface HintState {
   readonly originTxs: ReadonlyArray<{ readonly hash: string; readonly url: string | null }>;
   readonly nearTxs: ReadonlyArray<{ readonly hash: string; readonly url: string | null }>;
   readonly refundedAmountFormatted: string | null;
+  /** 'earlier': a late deposit into an attempt Taply had released. Never a paid signal. */
+  readonly source: 'current' | 'earlier';
 }
 
 /** Polls the server status endpoint. A hint only: it never sets a paid state by itself. */
@@ -102,6 +104,7 @@ export function useOneClickHint(requestId: string, enabled: boolean): HintState 
           originTxs: HintState['originTxs'];
           nearTxs: HintState['nearTxs'];
           refundedAmountFormatted: string | null;
+          source?: 'current' | 'earlier';
         };
         if (!live) return;
         if (firstSeen.current?.id !== requestId || firstSeen.current.status !== body.hint) firstSeen.current = { id: requestId, status: body.hint, at: Date.now() };
@@ -112,6 +115,7 @@ export function useOneClickHint(requestId: string, enabled: boolean): HintState 
           originTxs: body.originTxs,
           nearTxs: body.nearTxs,
           refundedAmountFormatted: body.refundedAmountFormatted,
+          source: body.source === 'earlier' ? 'earlier' : 'current',
         } });
       } catch {
         // offline or service down: keep the last hint; the contract read is what matters

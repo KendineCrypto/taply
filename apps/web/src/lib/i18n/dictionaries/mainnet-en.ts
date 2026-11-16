@@ -144,13 +144,16 @@ export interface MainnetCopy {
     readonly received: string;
     readonly expiredUnpaid: string;
     readonly newQuote: string;
-    readonly released: Readonly<Record<'UPSTREAM_REFUNDED' | 'UPSTREAM_FAILED' | 'EXPIRED_NO_DEPOSIT', string>>;
+    readonly released: Readonly<Record<'ORIGIN_REFUND_VERIFIED' | 'ORIGIN_NO_DEPOSIT_VERIFIED', string>>;
     readonly technical: string;
     readonly attemptLabel: string;
     readonly correlationLabel: string;
     readonly feeLine: string;
     readonly requesterTracking: Readonly<Record<'moving' | 'refunded' | 'incomplete' | 'failed', string>>;
     readonly routerReceipt: string;
+    readonly blocked: Readonly<Record<'ATTEMPT_OPEN' | 'DEPOSIT_IN_PROGRESS' | 'AWAITING_FINALITY' | 'DEPOSIT_UNSEEN_BY_1CLICK' | 'REFUND_NOT_VERIFIED' | 'UPSTREAM_FAILED' | 'EARLIER_ATTEMPT_ACTIVITY' | 'EVIDENCE_UNAVAILABLE', string>>;
+    readonly evidence: Readonly<Record<'title' | 'upstream' | 'refundReported' | 'chainRefund' | 'chainNoDeposit' | 'chainNone' | 'checkAgain' | 'reference', string>>;
+    readonly earlierArriving: string;
     readonly errors: Readonly<Record<string, string>>;
     readonly errorFallback: string;
   };
@@ -359,13 +362,34 @@ export const mainnetEn: MainnetCopy = {
     received: '1Click has seen your deposit. Follow the status below; do not send again.',
     expiredUnpaid: 'This quote has expired. If you sent nothing, you can ask for a new one. If you did send, wait: 1Click refunds late deposits to your address.',
     newQuote: 'Get a new quote',
-    released: { UPSTREAM_REFUNDED: '1Click refunded this attempt to your address.', UPSTREAM_FAILED: '1Click reported this attempt as failed.', EXPIRED_NO_DEPOSIT: 'This attempt expired without a deposit.' },
+    released: { ORIGIN_REFUND_VERIFIED: 'The refund of this attempt is confirmed on Base.', ORIGIN_NO_DEPOSIT_VERIFIED: 'Base confirms nothing was sent to this attempt; it is closed.' },
     technical: 'Technical details',
     attemptLabel: 'Attempt',
     correlationLabel: '1Click reference',
     feeLine: 'Cost of the cross-chain route (fees + slippage buffer)',
     requesterTracking: { moving: 'A payment is on its way from Base. Do not ask for another payment.', refunded: 'The Base payment was refunded to the payer. This request is still open.', incomplete: 'The payer sent less than needed. It is refunded unless they send the rest before the deadline.', failed: 'The cross-chain payment failed. This request is still open.' },
     routerReceipt: 'Paid from Base through NEAR Intents. Taply verifies the NEAR delivery and payout; the Base leg is reported by 1Click.',
+    blocked: {
+      ATTEMPT_OPEN: 'Someone already has an open Base payment for this request. If that is you on another device, finish it there.',
+      DEPOSIT_IN_PROGRESS: '1Click reports a deposit for this request that is still being processed. Do not pay again; follow the status.',
+      AWAITING_FINALITY: 'The earlier Base payment window has just closed. Taply waits until Base confirms that nothing arrived (about an hour) before it shows a new deposit address.',
+      DEPOSIT_UNSEEN_BY_1CLICK: 'Base shows a deposit for the earlier attempt that 1Click has not reported yet. Do not pay again. 1Click refunds it to the refund address, or it reaches this request.',
+      REFUND_NOT_VERIFIED: '1Click reports a refund for the earlier attempt, but it is not visible on Base yet. Taply opens a new deposit address only after the refund is confirmed on Base.',
+      UPSTREAM_FAILED: '1Click reported the earlier attempt as failed. Taply will not open a new deposit address for this request until a refund is confirmed on Base. If you sent USDC, keep the reference and contact the requester. You can also ask them for a new request.',
+      EARLIER_ATTEMPT_ACTIVITY: 'A late deposit for an earlier attempt is arriving. Do not pay again. If it reaches the request, it is paid; if not, it is refunded or held for return.',
+      EVIDENCE_UNAVAILABLE: 'Taply cannot confirm right now whether the earlier attempt can still deliver (1Click or Base could not be read). Nothing new is opened. Try again later, or ask the requester for a new request.',
+    },
+    evidence: {
+      title: 'What is known about this attempt',
+      upstream: '1Click says',
+      refundReported: 'Refund reported by 1Click',
+      chainRefund: 'Refund confirmed on Base',
+      chainNoDeposit: 'Base confirms nothing arrived',
+      chainNone: 'Not confirmed on Base',
+      checkAgain: 'Check again',
+      reference: 'Reference for support',
+    },
+    earlierArriving: 'A payment from an earlier Base attempt is arriving for this request. Do not pay again.',
     errorFallback: 'The quote could not be prepared.',
   },
   status: {

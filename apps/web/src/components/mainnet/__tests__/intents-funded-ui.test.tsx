@@ -66,7 +66,7 @@ describe('funded Base USDC deposit screen', () => {
   });
 
   it('removes the QR and address once 1Click has seen a deposit', async () => {
-    await getQuote(funded, { hint: { status: 'KNOWN_DEPOSIT_TX', sinceMs: NOW, refundTo: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null } });
+    await getQuote(funded, { hint: { status: 'KNOWN_DEPOSIT_TX', sinceMs: NOW, refundTo: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null, source: 'current' } });
     expect(screen.queryByTestId('deposit-instructions')).toBeNull();
     expect(screen.getByTestId('deposit-seen').textContent).toBe(mainnetEn.intents.received);
   });
@@ -112,11 +112,38 @@ describe('funded Base USDC deposit screen', () => {
     expect(JSON.parse(String(init.body))).toEqual({ requestId: request.terms.id, attemptSecret: 'S'.repeat(43) });
   });
 
+  it.each(['UPSTREAM_FAILED', 'REFUND_NOT_VERIFIED', 'AWAITING_FINALITY', 'EVIDENCE_UNAVAILABLE', 'EARLIER_ATTEMPT_ACTIVITY', 'DEPOSIT_UNSEEN_BY_1CLICK'] as const)('a blocked request explains %s with a recovery path and shows no address', async (reason) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'PAYMENT_IN_PROGRESS', reason }), { status: 409 })));
+    wrap(<IntentsCheckout request={request} availability={availability} onPrepared={() => {}} />);
+    fireEvent.change(document.getElementById('refund')!, { target: { value: REFUND } });
+    fireEvent.click(screen.getByTestId('get-quote'));
+    await waitFor(() => expect(screen.getByTestId('quote-recovery').getAttribute('data-reason')).toBe(reason));
+    expect(screen.getByTestId('quote-recovery').textContent).toBe(mainnetEn.intents.blocked[reason]);
+    expect(screen.queryByTestId('deposit-address')).toBeNull();
+  });
+
+  it('after a refresh the owner sees claim, reported refund and Base proof separately, with the block reason', async () => {
+    localStorage.setItem(`taply.mainnet.1click.attempt:${request.terms.id}`, 'S'.repeat(43));
+    const expired = { ...funded, deadline: new Date(NOW - 60_000).toISOString() };
+    const evidence = { upstream: 'REFUNDED', refundReported: { amountFormatted: '0.505', txCount: 2 }, chain: null, verdict: { blocked: 'REFUND_NOT_VERIFIED' } };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ quote: expired, status: null, evidence }), { status: 200 })));
+    wrap(<IntentsCheckout request={request} availability={availability} onPrepared={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId('attempt-evidence')).toBeTruthy());
+    expect(screen.getByTestId('attempt-evidence').textContent).toContain('REFUNDED');
+    expect(screen.getByTestId('attempt-evidence').textContent).toContain('0.505 USDC');
+    expect(screen.getByTestId('evidence-chain').getAttribute('data-kind')).toBe('NONE');
+    expect(screen.getByTestId('evidence-chain').textContent).toBe(mainnetEn.intents.evidence.chainNone);
+    expect(screen.getByTestId('evidence-blocked').textContent).toBe(mainnetEn.intents.blocked.REFUND_NOT_VERIFIED);
+    expect(screen.queryByTestId('deposit-address')).toBeNull();
+  });
+
   it('Turkish copy has the same structure', async () => {
     await getQuote(funded, { locale: 'tr' });
     expect(screen.getByTestId('send-exactly').textContent).toBe('Base üzerinde 12.628863 USDC gönderin');
     expect(screen.getByTestId('network-only').textContent).toBe(mainnetTr.intents.networkOnly);
     expect(Object.keys(mainnetTr.intents).sort()).toEqual(Object.keys(mainnetEn.intents).sort());
     expect(Object.keys(mainnetTr.intents.errors).sort()).toEqual(Object.keys(mainnetEn.intents.errors).sort());
+    expect(Object.keys(mainnetTr.intents.blocked).sort()).toEqual(Object.keys(mainnetEn.intents.blocked).sort());
+    expect(Object.keys(mainnetTr.intents.evidence).sort()).toEqual(Object.keys(mainnetEn.intents.evidence).sort());
   });
 });

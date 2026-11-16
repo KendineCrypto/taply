@@ -85,7 +85,7 @@ describe('PaymentStatusPanel', () => {
       <PaymentStatusPanel
         request={request}
         readAtMs={NOW}
-        hint={status === null ? null : { status: status as never, sinceMs: NOW, refundTo: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null }}
+        hint={status === null ? null : { status: status as never, sinceMs: NOW, refundTo: null, originTxs: [], nearTxs: [], refundedAmountFormatted: null, source: 'current' }}
         onRefresh={() => {}}
       />,
       locale,
