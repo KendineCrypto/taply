@@ -127,6 +127,30 @@ export interface MainnetCopy {
     readonly remaining: string;
     readonly feeNote: string;
     readonly originNotVerified: string;
+    readonly depositTitle: string;
+    readonly sendExactly: string;
+    readonly networkOnly: string;
+    readonly depositAddress: string;
+    readonly qrLabel: string;
+    readonly qrNote: string;
+    readonly copyAddress: string;
+    readonly copyAmount: string;
+    readonly copied: string;
+    readonly memo: string;
+    readonly memoConfirm: string;
+    readonly underOver: string;
+    readonly afterSend: string;
+    readonly resuming: string;
+    readonly received: string;
+    readonly expiredUnpaid: string;
+    readonly newQuote: string;
+    readonly released: Readonly<Record<'UPSTREAM_REFUNDED' | 'UPSTREAM_FAILED' | 'EXPIRED_NO_DEPOSIT', string>>;
+    readonly technical: string;
+    readonly attemptLabel: string;
+    readonly correlationLabel: string;
+    readonly feeLine: string;
+    readonly requesterTracking: Readonly<Record<'moving' | 'refunded' | 'incomplete' | 'failed', string>>;
+    readonly routerReceipt: string;
     readonly errors: Readonly<Record<string, string>>;
     readonly errorFallback: string;
   };
@@ -288,6 +312,7 @@ export const mainnetEn: MainnetCopy = {
       STORE_UNAVAILABLE: 'The quote service is unavailable.',
       INVALID_INPUT: 'Something in the request was not valid.',
       ORIGIN_NOT_ALLOWED: 'Only USDC on Base is accepted.',
+      RATE_LIMITED: 'Too many tries in a short time. Wait a minute.',
       REFUND_ADDRESS_INVALID: 'The refund address is not valid.',
       CONTRACT_CONFIG_REJECTED: 'The contract configuration did not pass Taply checks. No quote was requested.',
       CHAIN_UNAVAILABLE: 'Could not read NEAR right now. No quote was requested.',
@@ -301,7 +326,9 @@ export const mainnetEn: MainnetCopy = {
       CONTRACT_NOT_REGISTERED: 'The Taply contract is not registered on USDC.',
       MERCHANT_NOT_REGISTERED: 'The merchant is not registered on USDC, so the payout would fail.',
       ORIGIN_NOT_LISTED: '1Click no longer lists USDC on Base the way Taply expects.',
-      ACTIVE_QUOTE_EXISTS: 'A quote with a different refund address is already active for this request.',
+      ACTIVE_QUOTE_EXISTS: 'Another price check is active for this request. Try again in a few minutes.',
+      PAYMENT_IN_PROGRESS: 'A cross-chain payment for this request was already started. If that was you on another device, finish it there. Do not pay twice.',
+      ATTEMPT_UNCERTAIN: 'The last quote request did not finish cleanly. Taply will not show a new deposit address yet; pay with a NEAR wallet or try again later.',
       PREVIOUS_QUOTE_IN_PROGRESS: 'An earlier payment for this request may still be in progress. Do not pay again.',
       QUOTE_LIMIT_REACHED: 'Too many quotes for this request.',
       BUSY: 'A quote is being prepared already. Wait a moment.',
@@ -315,6 +342,30 @@ export const mainnetEn: MainnetCopy = {
       UPSTREAM_UNAUTHORIZED: 'The quote service is misconfigured.',
       UPSTREAM_BAD_REQUEST: '1Click refused the quote request.',
     },
+    depositTitle: 'Send to finish the payment',
+    sendExactly: 'Send {amount} USDC on Base',
+    networkOnly: 'Only USDC on the Base network. Another token or network can be lost.',
+    depositAddress: 'Base deposit address',
+    qrLabel: 'Base USDC deposit address',
+    qrNote: 'The QR holds the address only. Enter the amount yourself and choose the Base network.',
+    copyAddress: 'Copy address',
+    copyAmount: 'Copy amount',
+    copied: 'Copied',
+    memo: 'Memo (required)',
+    memoConfirm: 'I will include this memo. Without it the deposit cannot be matched.',
+    underOver: 'Less than {min} USDC is refunded after the deadline. Anything above what the swap needs is refunded to your address.',
+    afterSend: 'After you send, this page updates by itself, also after a refresh. Do not send a second time.',
+    resuming: 'Checking the payment you started on this device…',
+    received: '1Click has seen your deposit. Follow the status below; do not send again.',
+    expiredUnpaid: 'This quote has expired. If you sent nothing, you can ask for a new one. If you did send, wait: 1Click refunds late deposits to your address.',
+    newQuote: 'Get a new quote',
+    released: { UPSTREAM_REFUNDED: '1Click refunded this attempt to your address.', UPSTREAM_FAILED: '1Click reported this attempt as failed.', EXPIRED_NO_DEPOSIT: 'This attempt expired without a deposit.' },
+    technical: 'Technical details',
+    attemptLabel: 'Attempt',
+    correlationLabel: '1Click reference',
+    feeLine: 'Cost of the cross-chain route (fees + slippage buffer)',
+    requesterTracking: { moving: 'A payment is on its way from Base. Do not ask for another payment.', refunded: 'The Base payment was refunded to the payer. This request is still open.', incomplete: 'The payer sent less than needed. It is refunded unless they send the rest before the deadline.', failed: 'The cross-chain payment failed. This request is still open.' },
+    routerReceipt: 'Paid from Base through NEAR Intents. Taply verifies the NEAR delivery and payout; the Base leg is reported by 1Click.',
     errorFallback: 'The quote could not be prepared.',
   },
   status: {

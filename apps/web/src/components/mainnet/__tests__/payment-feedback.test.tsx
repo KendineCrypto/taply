@@ -2,9 +2,12 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { fixtureRequests } from '@/lib/mainnet/fixtures';
 const state = vi.hoisted(() => ({ read: {} as Record<string, unknown>, gift: {} as Record<string, unknown>, refresh: vi.fn(), run: vi.fn(), direct: vi.fn(), allowRetry: false, prepared: null as unknown }));
-vi.mock('@/lib/mainnet/hooks', () => ({ useMainnetRequest: () => ({ read: state.read, refresh: state.refresh }) }));
+vi.mock('@/lib/mainnet/hooks', () => ({ useMainnetRequest: () => ({ read: state.read, refresh: state.refresh }), useOneClickHint: () => null }));
 vi.mock('@/lib/mainnet/use-gift', () => ({ useMainnetGift: () => ({ read: state.gift, refresh: state.refresh }) }));
-vi.mock('@/lib/mainnet/copy', () => ({ useMainnetLocale: () => ({ locale: 'en' }) }));
+vi.mock('@/lib/mainnet/copy', async () => {
+  const { mainnetEn } = await import('@/lib/i18n/dictionaries/mainnet-en');
+  return { useMainnetLocale: () => ({ locale: 'en' }), useMainnetCopy: () => mainnetEn };
+});
 vi.mock('@/lib/mainnet/config', () => ({ MAINNET_CONFIG: { ok: true, explorerBaseUrl: 'https://nearblocks.io' } }));
 vi.mock('@/lib/mainnet/gift-profile', () => ({ GIFT_PROFILE: {} }));
 vi.mock('../Wallet', () => ({ readProfile: () => ({ network: 'near-mainnet' }) }));

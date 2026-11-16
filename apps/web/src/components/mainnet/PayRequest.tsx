@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MainnetAccountSchema } from '@taply/shared';
 import { displayMemo, saleFromHash, saleMatches } from '@/lib/mainnet/commerce';
@@ -16,7 +16,9 @@ import type { MainnetRequest } from '@/lib/mainnet/fixtures';
 import { useMainnetRequest, useOneClickHint } from '@/lib/mainnet/hooks';
 import type { HintState } from '@/lib/mainnet/hooks';
 import { BASE_USDC } from '@/lib/mainnet/oneclick/allowlist';
-import type { OriginChain, RefundFormat } from '@/lib/mainnet/oneclick/allowlist';
+import { attemptSecretFor, storedAttemptSecret, useOneClickAvailability } from '@/lib/mainnet/oneclick/client-attempt';
+import type { OneClickAvailability, PublicOrigin } from '@/lib/mainnet/oneclick/client-attempt';
+import { QrCode } from '@/components/payments/QrCode';
 import { ORIGIN_COPY } from '@/lib/mainnet/origin-copy';
 import { OperationError, OperationReview, useOperation } from './Operation';
 import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
@@ -67,7 +69,6 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const { read, refresh } = useMainnetRequest(id, true);
-  const verification = useVerifiedMainnetReceipt(read.kind === 'ok' ? read.request : null);
   const [method, setMethod] = useState<'base' | 'wallet' | null>(null);
   const [quotePrepared, setQuotePrepared] = useState(false);
   const [paidTx, setPaidTx] = useState<string | null>(null);
@@ -77,7 +78,18 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const now = useNow(5000);
   const fixtures = MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures;
   const isUsdc = read.kind === 'ok' && read.request.terms.assetId === MAINNET_ASSETS.USDC.id;
-  const hint = useOneClickHint(id, isUsdc && (fixtures || quotePrepared));
+  // Cross-chain is offered only by fixture builds (labelled) or a deployment serving approved funded quotes.
+  const availability = useOneClickAvailability(isUsdc);
+  const crossChain = fixtures || availability?.funding === true;
+  // Both phones follow the cross-chain hint while funded quotes exist; it is never proof of payment.
+  const hint = useOneClickHint(id, isUsdc && (fixtures || quotePrepared || availability?.funding === true));
+  const nearTxKey = (hint?.nearTxs ?? []).map(t => t.hash).join(',');
+  const hintTxs = useMemo(() => (nearTxKey === '' ? [] : nearTxKey.split(',')), [nearTxKey]);
+  const verification = useVerifiedMainnetReceipt(read.kind === 'ok' ? read.request : null, hintTxs);
+  // A payer who already started a Base payment in this browser lands back on it after a refresh.
+  useEffect(() => {
+    if (crossChain && storedAttemptSecret(id) !== null) queueMicrotask(() => setMethod(m => m ?? 'base'));
+  }, [crossChain, id]);
   // Store binding from a checkout (`?m=<store>`): a sale request for another account is refused.
   const [expectedMerchant, setExpectedMerchant] = useState<string | null>(null);
   useEffect(() => {
@@ -103,6 +115,8 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const asset = assetById(r.terms.assetId)!;
   const wrongMerchant = expectedMerchant !== null && r.recipientAccountId !== expectedMerchant;
   const saleOk = sale === null ? null : sale !== 'invalid' && sale.session.merchantAccountId === r.recipientAccountId && saleMatches(r.terms, sale);
+  // A cross-chain deposit already seen by 1Click: no second payment method is offered (do not pay twice).
+  const crossChainMoving = isUsdc && hint?.status != null && ['KNOWN_DEPOSIT_TX', 'INCOMPLETE_DEPOSIT', 'PROCESSING', 'SUCCESS'].includes(hint.status);
   const open = r.status === 'OPEN' && nsToMs(r.terms.fundingExpiresAtNs) > now && !wrongMerchant && saleOk !== false;
   const bind = locale === 'tr' ? BIND_TR : BIND_EN;
   // The receipt replaces the status card only for unambiguous FINAL contract states.
@@ -134,7 +148,10 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
             explorerBaseUrl={MAINNET_CONFIG.ok ? MAINNET_CONFIG.explorerBaseUrl : null}
             checkedVia={r.terms.contractId}
             proofActions={verification?.kind === 'verified' ? undefined : <SettlementCheck key={id} kind="instant" id={id} fixture={read.fixture} automatic={asset.symbol !== 'NEAR'} />}
-            actions={receipt === 'paid' ? <p className="text-center text-sm font-medium text-[var(--tone-caution-fg)]" data-testid="do-not-repay">{c.status.doNotRepay}</p> : undefined}
+            actions={receipt === 'paid' ? <>
+              {r.payerAccountId === 'intents.near' && <p className="text-center text-[12px] text-[var(--text-secondary)]" data-testid="router-receipt-note">{c.intents.routerReceipt}</p>}
+              <p className="text-center text-sm font-medium text-[var(--tone-caution-fg)]" data-testid="do-not-repay">{c.status.doNotRepay}</p>
+            </> : undefined}
           />
         </div>
       ) : (
@@ -166,7 +183,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {expectedMerchant !== null && (wrongMerchant
         ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
         : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
-      {open && asset.symbol === 'NEAR' ? null : open ? (
+      {open && crossChainMoving && method !== 'base' ? <Notice tone="caution" live testId="crosschain-moving">{c.intents.requesterTracking.moving}</Notice> : open && asset.symbol === 'NEAR' ? null : open && !crossChainMoving ? (
         <Card>
           <h2 className="mb-2 text-[15px] font-semibold">{c.pay.methodTitle}</h2>
           {asset.symbol === 'NEAR' && <p className="mb-2 text-[13px] text-[var(--text-secondary)]">{c.pay.methodNativeOnly}</p>}
@@ -177,14 +194,14 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
             <MethodButton active={method === 'wallet'} onClick={() => setMethod('wallet')} title={c.pay.methodWallet} hint={c.pay.methodWalletHint} testId="method-wallet" />
           </div>
         </Card>
-      ) : receipt === null ? (
+      ) : receipt === null && !open ? (
         <Notice tone="muted">{c.pay.notPayable}</Notice>
       ) : null}
 
       {open && method === 'base' && asset.symbol === 'USDC' && (
-        fixtures ? <IntentsCheckout request={r} onPrepared={() => setQuotePrepared(true)} /> : <Notice tone="caution" testId="router-disabled">{c.pay.routerDisabled}</Notice>
+        crossChain ? <IntentsCheckout request={r} availability={availability} hint={hint} onPrepared={() => setQuotePrepared(true)} /> : <Notice tone="caution" testId="router-disabled">{c.pay.routerDisabled}</Notice>
       )}
-      {open && asset.symbol === 'USDC' && method === 'wallet' && <WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) { setPaidTx(o.transactionHash); if (payer) rememberSettlementTransaction('instant', id, o.transactionHash, payer); } refresh(); }} />}
+      {open && !crossChainMoving && asset.symbol === 'USDC' && method === 'wallet' && <WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) { setPaidTx(o.transactionHash); if (payer) rememberSettlementTransaction('instant', id, o.transactionHash, payer); } refresh(); }} />}
       {receipt === null ? <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /> : verification?.kind === 'verified' ? null : (
         <details className="rounded-[var(--radius-card)] bg-[var(--surface-1)] p-4 text-sm">
           <summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{locale === 'tr' ? 'Ödeme durumu' : 'Payment status'}</summary>
@@ -262,44 +279,59 @@ function WalletPayReview({ request, asset, onPaid }: { request: MainnetRequest; 
 
 interface PreparedQuote {
   readonly mode: 'fixture' | 'dry' | 'funded';
+  readonly fundingEnabled: boolean;
+  readonly attemptId: string;
+  readonly correlationId: string;
+  readonly originAssetId: string;
+  readonly amountIn: string;
   readonly amountInFormatted: string;
+  readonly minAmountIn: string;
   readonly amountOut: string;
   readonly deadline: string;
   readonly timeEstimateSec: number | null;
   readonly refundTo: string;
   readonly recipient: string;
-  readonly deposit: null;
+  readonly deposit: { readonly address: string; readonly memo: string | null } | null;
   readonly signatureVerified: true;
   readonly reused: boolean;
+  readonly released: 'UPSTREAM_REFUNDED' | 'UPSTREAM_FAILED' | 'EXPIRED_NO_DEPOSIT' | null;
 }
 
-interface PublicOrigin {
-  readonly assetId: string;
-  readonly chain: OriginChain;
-  readonly symbol: 'USDC' | 'USDT';
-  readonly contractAddress: string;
-  readonly refundAddressFormat: RefundFormat;
-  readonly source: 'recorded-live-quote' | 'live-token-list' | 'fixture';
+const EVM = /^0x[0-9a-fA-F]{40}$/;
+/** Defence in depth: the browser also refuses anything that is not the exact principal to the pinned contract. */
+function acceptableQuote(body: Partial<PreparedQuote>, request: MainnetRequest, origin: PublicOrigin | null): body is PreparedQuote {
+  if (body.amountOut !== request.terms.amountBaseUnits || body.recipient !== request.terms.contractId || typeof body.attemptId !== 'string') return false;
+  if (body.deposit === null || body.deposit === undefined) return body.fundingEnabled !== true;
+  if (body.fundingEnabled !== true || body.mode !== 'funded' || typeof body.refundTo !== 'string') return false;
+  // Funded quotes are Base USDC only; the address must be an EVM address that is not the refund address.
+  if (body.originAssetId !== BASE_USDC.assetId || (origin !== null && origin.assetId !== BASE_USDC.assetId)) return false;
+  return EVM.test(body.deposit.address) && body.deposit.address.toLowerCase() !== body.refundTo.toLowerCase() && (body.deposit.memo === null || typeof body.deposit.memo === 'string');
 }
 
-/** Server-resolved origins (Base, plus Solana/Tron only when 1Click lists them identically). */
-function useOrigins(): ReadonlyArray<PublicOrigin> | null {
-  const [origins, setOrigins] = useState<ReadonlyArray<PublicOrigin> | null>(null);
-  useEffect(() => {
-    let live = true;
-    fetch('/api/mainnet/oneclick/origins', { cache: 'no-store' })
-      .then((r) => (r.ok ? (r.json() as Promise<{ origins: PublicOrigin[] }>) : { origins: [] }))
-      .then((b) => live && setOrigins(Array.isArray(b.origins) ? b.origins : []))
-      .catch(() => live && setOrigins([]));
-    return () => {
-      live = false;
-    };
-  }, []);
-  return origins;
+function CopyButton({ value, label, done, testId }: { value: string; label: string; done: string; testId: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button variant="secondary" data-testid={testId} onClick={async () => {
+      try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setCopied(false); }
+    }}>
+      <span aria-live="polite">{copied ? done : label}</span>
+    </Button>
+  );
 }
 
-/** Customer selects Base USDC, enters a refund address, gets a verified quote and reviews instructions. */
-export function IntentsCheckout({ request, onPrepared }: { request: MainnetRequest; onPrepared: () => void }) {
+/**
+ * Pay a USDC request from Base through NEAR Intents (1Click).
+ * Choose source → refund address → signed quote (verified on the server and
+ * re-checked here) → deposit address with QR/copy (owner only, funded builds
+ * only) → automatic tracking. Resumes the same attempt after a refresh; never
+ * opens a second deposit address by itself.
+ */
+export function IntentsCheckout({ request, onPrepared, availability, hint = null }: {
+  request: MainnetRequest;
+  onPrepared: () => void;
+  availability?: OneClickAvailability | null | undefined;
+  hint?: HintState | null;
+}) {
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const [refund, setRefund] = useState('');
@@ -307,12 +339,33 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<PreparedQuote | null>(null);
+  const [resuming, setResuming] = useState(() => storedAttemptSecret(request.terms.id) !== null);
+  const [memoOk, setMemoOk] = useState(false);
   const now = useNow(1000);
   const oc = ORIGIN_COPY[locale];
-  const origins = useOrigins();
+  const fetched = useOrigins(availability === undefined);
+  const origins = availability !== undefined ? availability?.origins ?? [] : fetched;
   const [picked, setPicked] = useState<string>(BASE_USDC.assetId);
   const origin: PublicOrigin = origins?.find((o) => o.assetId === picked) ?? { assetId: BASE_USDC.assetId, chain: 'base', symbol: 'USDC', refundAddressFormat: 'evm', contractAddress: BASE_USDC.contractAddress, source: 'recorded-live-quote' };
   const check = validateRefundAddress(origin, refund);
+  const requestId = request.terms.id;
+
+  // Resume this browser's own attempt (same device, any tab, after refresh).
+  useEffect(() => {
+    const secret = storedAttemptSecret(requestId);
+    if (secret === null) return;
+    let live = true;
+    void fetch('/api/mainnet/oneclick/attempt', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
+      body: JSON.stringify({ requestId, attemptSecret: secret }),
+    }).then(async res => {
+      const body = (await res.json().catch(() => ({}))) as { quote?: Partial<PreparedQuote> };
+      if (live && res.ok && body.quote && acceptableQuote(body.quote, request, null)) { setQuote(body.quote); onPrepared(); }
+    }).catch(() => undefined).finally(() => { if (live) setResuming(false); });
+    return () => { live = false; };
+    // Resume once per request id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestId]);
 
   async function prepare() {
     setPending(true);
@@ -321,7 +374,7 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
       const res = await fetch('/api/mainnet/oneclick/quote', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ requestId: request.terms.id, originAsset: origin.assetId, refundTo: refund.trim() }),
+        body: JSON.stringify({ requestId, originAsset: origin.assetId, refundTo: refund.trim(), attemptSecret: attemptSecretFor(requestId) }),
         cache: 'no-store',
       });
       const body = (await res.json().catch(() => ({}))) as Partial<PreparedQuote> & { error?: string };
@@ -329,12 +382,11 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
         setError(body.error ?? 'UNKNOWN');
         return;
       }
-      // Defence in depth: the browser also refuses anything that is not the exact principal to the pinned contract.
-      if (body.amountOut !== request.terms.amountBaseUnits || body.recipient !== request.terms.contractId || body.deposit !== null) {
+      if (!acceptableQuote(body, request, origin)) {
         setError('QUOTE_REJECTED');
         return;
       }
-      setQuote(body as PreparedQuote);
+      setQuote(body);
       onPrepared();
     } catch {
       setError('UPSTREAM_UNAVAILABLE');
@@ -344,13 +396,20 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
   }
 
   const remaining = quote === null ? 0 : Date.parse(quote.deadline) - now;
+  const fmtUsdc = (base: string) => formatMainnetAmount(base, MAINNET_ASSETS.USDC, locale);
+  const moving = hint?.status != null && hint.status !== 'PENDING_DEPOSIT';
+  const payable = quote?.deposit != null && quote.released === null && remaining > 0 && !moving && request.status === 'OPEN';
+  const expiredUnpaid = quote?.deposit != null && quote.released === null && remaining <= 0 && !moving;
+  const fee = quote === null ? null : (() => { try { const d = BigInt(quote.amountIn) - BigInt(quote.amountOut); return d >= 0n ? fmtUsdc(d.toString()) : null; } catch { return null; } })();
 
   return (
     <Card>
       <h2 className="text-[15px] font-semibold">{c.intents.title}</h2>
       <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.intents.lead}</p>
 
-      {quote === null ? (
+      {resuming && quote === null ? (
+        <p role="status" className="mt-3 text-[13px] text-[var(--text-secondary)]" data-testid="quote-resuming">{c.intents.resuming}</p>
+      ) : quote === null ? (
         <form
           className="mt-3 flex flex-col gap-3"
           onSubmit={(e) => {
@@ -402,15 +461,56 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
           )}
         </form>
       ) : (
-        <div className="mt-3 flex flex-col gap-3" data-testid="quote-review">
-          <h3 className="text-[14px] font-semibold">{c.intents.reviewTitle}</h3>
+        <div className="mt-3 flex flex-col gap-3" data-testid="quote-review" data-attempt-state={payable ? 'awaiting-deposit' : moving ? 'deposit-seen' : expiredUnpaid ? 'expired' : quote.released ?? (quote.deposit === null ? 'no-deposit' : 'closed')}>
+          <h3 className="text-[14px] font-semibold">{quote.deposit !== null ? c.intents.depositTitle : c.intents.reviewTitle}</h3>
           {quote.mode === 'fixture' && <Notice tone="muted">{c.intents.fixtureQuote}</Notice>}
           {quote.mode === 'dry' && <Notice tone="muted">{c.intents.dryQuote}</Notice>}
-          {quote.reused && <Notice tone="muted">{c.intents.reused}</Notice>}
+          {quote.released !== null && <Notice tone="caution" live testId="attempt-released">{c.intents.released[quote.released]}</Notice>}
+
+          {payable && quote.deposit !== null && (
+            <div data-testid="deposit-instructions" className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-[var(--taply-lime)] p-4">
+              <p className="text-[17px] font-semibold" data-testid="send-exactly">{fill(c.intents.sendExactly, { amount: quote.amountInFormatted })}</p>
+              <p role="note" className="text-[13px] font-medium text-[var(--tone-caution-fg)]" data-testid="network-only">{c.intents.networkOnly}</p>
+              <div className="flex flex-col items-center gap-2">
+                <div className="rounded-2xl bg-[var(--paper-shade,#F4F3E8)] p-2"><QrCode value={quote.deposit.address} label={c.intents.qrLabel} size={200} /></div>
+                <p className="text-center text-[12px] text-[var(--text-muted)]">{c.intents.qrNote}</p>
+              </div>
+              <div>
+                <p className="text-[12px] text-[var(--text-secondary)]">{c.intents.depositAddress}</p>
+                <p className="break-all font-mono text-[14px]" data-testid="deposit-address">{quote.deposit.address}</p>
+              </div>
+              {quote.deposit.memo !== null && (
+                <div data-testid="deposit-memo">
+                  <p className="text-[12px] text-[var(--text-secondary)]">{c.intents.memo}</p>
+                  <p className="break-all font-mono text-[14px]">{quote.deposit.memo}</p>
+                  <label className="mt-2 flex items-start gap-2 text-[13px]">
+                    <input type="checkbox" checked={memoOk} onChange={(e) => setMemoOk(e.target.checked)} className="mt-0.5 accent-[var(--taply-lime)]" data-testid="memo-confirm" />
+                    {c.intents.memoConfirm}
+                  </label>
+                </div>
+              )}
+              {(quote.deposit.memo === null || memoOk) && (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <CopyButton value={quote.deposit.address} label={c.intents.copyAddress} done={c.intents.copied} testId="copy-deposit" />
+                  <CopyButton value={quote.amountInFormatted} label={c.intents.copyAmount} done={c.intents.copied} testId="copy-amount" />
+                </div>
+              )}
+              <p className="text-[12px] text-[var(--text-muted)]">{fill(c.intents.underOver, { min: fmtUsdc(quote.minAmountIn).replace(/\s*USDC$/, '') })}</p>
+              <p className="text-[13px] font-medium">{c.intents.afterSend}</p>
+            </div>
+          )}
+          {moving && <Notice tone="neutral" live testId="deposit-seen">{c.intents.received}</Notice>}
+          {expiredUnpaid && (
+            <div className="flex flex-col gap-2" data-testid="quote-expired">
+              <Notice tone="caution" live>{c.intents.expiredUnpaid}</Notice>
+              <Button variant="secondary" data-testid="new-quote" disabled={pending} onClick={() => void (async () => { setRefund(quote.refundTo); setTouched(true); setQuote(null); })()}>{c.intents.newQuote}</Button>
+            </div>
+          )}
+
           <dl>
             <Row label={fill(oc.send, { chain: oc.chain[origin.chain] })}>{quote.amountInFormatted} {origin.symbol} · {oc.chain[origin.chain]}</Row>
-            <Row label={c.intents.merchantGets}>{formatMainnetAmount(quote.amountOut, MAINNET_ASSETS.USDC, locale)}</Row>
-            <Row label={c.intents.toContract} mono>{quote.recipient}</Row>
+            <Row label={c.intents.merchantGets}>{fmtUsdc(quote.amountOut)}</Row>
+            {fee !== null && <Row label={c.intents.feeLine}>{fee}</Row>}
             <Row label={c.intents.deadline}>
               {remaining > 0 ? `${formatTime(Date.parse(quote.deadline), locale)} · ${fill(c.intents.remaining, { time: `${Math.floor(remaining / 60_000)}:${String(Math.floor((remaining % 60_000) / 1000)).padStart(2, '0')}` })}` : c.intents.expired}
             </Row>
@@ -419,16 +519,32 @@ export function IntentsCheckout({ request, onPrepared }: { request: MainnetReque
               {baseAddressUrl(quote.refundTo) !== null ? <a className="underline" href={baseAddressUrl(quote.refundTo)!} target="_blank" rel="noreferrer noopener">{quote.refundTo}</a> : quote.refundTo}
             </Row>
           </dl>
-          <Notice tone="success">{c.intents.verifiedLine}</Notice>
-          <div data-testid="deposit-withheld" className="rounded-[var(--radius-control)] border border-dashed border-[var(--tone-caution-border)] p-4 text-center">
-            <p className="text-[14px] font-semibold text-[var(--tone-caution-fg)]">{c.intents.depositHidden}</p>
-            <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.intents.depositHiddenDetail}</p>
-          </div>
-          <p className="text-[12px] text-[var(--text-muted)]">{c.intents.feeNote} {c.intents.originNotVerified}</p>
+          {quote.deposit === null && (
+            <div data-testid="deposit-withheld" className="rounded-[var(--radius-control)] border border-dashed border-[var(--tone-caution-border)] p-4 text-center">
+              <p className="text-[14px] font-semibold text-[var(--tone-caution-fg)]">{c.intents.depositHidden}</p>
+              <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.intents.depositHiddenDetail}</p>
+            </div>
+          )}
+          <details className="text-[12px] text-[var(--text-muted)]">
+            <summary className="tap-target flex cursor-pointer items-center">{c.intents.technical}</summary>
+            <dl className="mt-1">
+              <Row label={c.intents.toContract} mono>{quote.recipient}</Row>
+              <Row label={c.intents.attemptLabel} mono>{quote.attemptId}</Row>
+              <Row label={c.intents.correlationLabel} mono>{quote.correlationId}</Row>
+            </dl>
+            <p className="mt-1">{c.intents.verifiedLine}</p>
+            <p className="mt-1">{c.intents.feeNote} {c.intents.originNotVerified}</p>
+          </details>
         </div>
       )}
     </Card>
   );
+}
+
+/** Server-resolved origins when the caller did not pass availability (tests, standalone use). */
+function useOrigins(enabled: boolean): ReadonlyArray<PublicOrigin> | null {
+  const availability = useOneClickAvailability(enabled);
+  return enabled ? (availability === undefined ? null : availability?.origins ?? []) : null;
 }
 
 const STATE_TONE: Readonly<Record<PaymentState, 'neutral' | 'caution' | 'danger' | 'success' | 'muted'>> = {
