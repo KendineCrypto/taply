@@ -16,7 +16,7 @@ export const MAINNET_SIGNING_RELEASE_APPROVED = true as const;
  * address (Base USDC only, owner-bound attempts). Also read from source by
  * scripts/check-mainnet-env.mjs. Go-live: docs/MAINNET_1CLICK_RUNBOOK.md §2.
  */
-export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = false as const;
+export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = true as const;
 
 /**
  * Independent mainnet receipt verification (receipt graph, merchant transfer,
