@@ -23,7 +23,7 @@ import { nearAccountUrl } from '@/lib/mainnet/explorer';
 import { useMainnetWallet } from '@/lib/mainnet/wallet';
 import { Notice, Row } from './bits';
 import { NoWalletCard } from './NoWalletCard';
-import { useActivation, useMainnetVault, useUnresolvedAttempt, useWalletCopy, vault, vaultError } from './Wallet';
+import { forgetTaplyWallet, useActivation, useMainnetVault, useUnresolvedAttempt, useWalletCopy, vault, vaultError } from './Wallet';
 
 /**
  * NEAR Mainnet wallet management in the Testnet layout (app/wallet + TaplyWalletPanel):
@@ -197,6 +197,7 @@ function TaplyPanel() {
         </ButtonLink>
       )}
       {identity.recovery === 'RECOVERY_PHRASE' && <MainnetShowPhrasePanel />}
+      <MainnetDisconnectPanel blocked={attempt === 'unresolved'} />
       <details className="disclosure rounded-[var(--radius-card)] bg-[var(--surface-1)] px-4 py-1">
         <summary className="flex min-h-[var(--tap-target)] cursor-pointer items-center text-sm text-[var(--text-secondary)]">{t.oneTap.payment.details}</summary>
         <dl className="pb-3">
@@ -273,6 +274,77 @@ function MainnetShowPhrasePanel() {
           <Button variant="ghost" block onClick={() => setWords(null)}>{p.hide}</Button>
         </>
       )}
+    </section>
+  );
+}
+
+/**
+ * Disconnect = remove the Taply Wallet from this browser (forgetTaplyWallet).
+ * Needs the recovery-phrase acknowledgement and the password; never touches the
+ * chain or the device payment ledger. A full reload afterwards starts every view clean.
+ */
+function MainnetDisconnectPanel({ blocked }: { readonly blocked: boolean }) {
+  const t = useT();
+  const c = useWalletCopy();
+  const d = c.disconnect;
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [ack, setAck] = useState(false);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  if (!open) {
+    return (
+      <Button variant="ghost" block onClick={() => setOpen(true)} data-testid="taply-disconnect-open">
+        <Icon name="logout" size={18} />
+        {d.open}
+      </Button>
+    );
+  }
+  return (
+    <section className="surface-card flex flex-col gap-3 p-5" aria-labelledby={`${id}-title`} data-testid="taply-disconnect">
+      <h3 id={`${id}-title`} className="font-semibold">{d.title}</h3>
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{d.body}</p>
+      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{d.keepsLedger}</p>
+      {blocked ? (
+        <p role="alert" className="text-sm text-[var(--tone-caution-fg)]" data-testid="taply-disconnect-blocked">{d.blocked}</p>
+      ) : (
+        <form
+          className="flex flex-col gap-3"
+          noValidate
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (busy || !ack || password === '') return;
+            setBusy(true);
+            setError('');
+            try {
+              await forgetTaplyWallet(password);
+              window.location.assign('/m/wallet');
+            } catch (err) {
+              setError(vaultError(c, err));
+              setBusy(false);
+            } finally { setPassword(''); }
+          }}
+        >
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 accent-[var(--taply-lime)]" data-testid="taply-disconnect-ack" />
+            {d.confirm}
+          </label>
+          <PassphraseField id={`${id}-pass`} label={d.password} value={password} onChange={setPassword} autoComplete="current-password" />
+          {error !== '' && (
+            <p role="alert" className="flex items-start gap-2 text-sm text-[var(--tone-danger-fg)]">
+              <Icon name="alert" size={16} className="mt-0.5 shrink-0" />
+              {error}
+            </p>
+          )}
+          <Button type="submit" variant="secondary" size="lg" block disabled={busy || !ack || password === ''} data-testid="taply-disconnect-confirm">
+            {busy ? <Spinner /> : <Icon name="logout" size={18} />}
+            {d.button}
+          </Button>
+        </form>
+      )}
+      <Button variant="ghost" block onClick={() => { setOpen(false); setAck(false); setPassword(''); setError(''); }}>{d.cancel}</Button>
+      <span className="sr-only">{t.wallet.disconnect}</span>
     </section>
   );
 }
