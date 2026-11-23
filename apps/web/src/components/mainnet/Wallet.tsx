@@ -83,7 +83,15 @@ export async function forgetTaplyWallet(password: string, storage: Pick<Storage,
 const subscribe = (cb: () => void) => vault().subscribe(cb);
 /** Identity + unlocked state, re-rendered on vault changes. */
 export function useMainnetVault(): { identity: MainnetWalletIdentity | null; unlocked: boolean } {
-  useEffect(() => { vaultResume ??= vault().resume().catch(() => false); }, []);
+  // The vault notifies on lock only: re-render once the session resume settles, so a page opened
+  // after a reload shows the restored unlock state without waiting for an unrelated render.
+  const [, setResumed] = useState(0);
+  useEffect(() => {
+    let live = true;
+    vaultResume ??= vault().resume().catch(() => false);
+    void vaultResume.then(() => { if (live) setResumed((n) => n + 1); });
+    return () => { live = false; };
+  }, []);
   const snap = useSyncExternalStore(
     subscribe,
     () => {

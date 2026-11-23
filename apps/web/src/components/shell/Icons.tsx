@@ -32,9 +32,11 @@ export type IconName =
   | 'arrow-right'
   | 'link'
   | 'gift'
+  | 'swap'
   | 'x';
 
 const PATHS: Readonly<Record<IconName, ReactNode>> = {
+  swap: <path d="M7 4v14m0 0-3.5-3.5M7 18l3.5-3.5M17 20V6m0 0-3.5 3.5M17 6l3.5 3.5" />,
   contacts: <><circle cx="9" cy="8" r="3" /><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 4v2" /></>,
   home: <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />,
   pay: (

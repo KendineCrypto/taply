@@ -28,6 +28,8 @@ const MAINNET_ROUTES: ShellRoutes = {
   send: '/m/send',
   protectedNew: '/m/protected/new',
   giftNew: '/m/gift/new',
+  swap: '/m/swap',
+  receive: '/m/receive',
   pay: (id) => `/m/pay/${id}`,
   checkout: (accountId) => `/m/checkout/${accountId}`,
   parse: (text) => mainnetScanInput(text, typeof window === 'undefined' ? 'https://invalid.local' : window.location.origin),

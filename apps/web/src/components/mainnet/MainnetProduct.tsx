@@ -33,6 +33,9 @@ import { ActivityEmptyView, MainnetSettingsView, MerchantHeader, RecurringPill, 
 import { useT } from '@/lib/i18n/provider';
 import { useCurrentMainnetAccount } from './MainnetShell';
 import { Notice } from './bits';
+import { SwapPage } from './swap/SwapPage';
+import { CrosschainActivity } from './swap/CrosschainActivity';
+import { SwapActivity } from './swap/SwapActivity';
 
 export function useProductCopy() { return useMainnetLocale().locale === 'tr' ? productTr : productEn; }
 const inputClass = 'min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 py-2';
@@ -57,6 +60,7 @@ export function MainnetProduct({ path }: { path: string }) {
     contacts: c.contacts, split: c.split, recurring: c.recurring, gift: c.gift, merchant: c.merchant,
     checkout: c.pay, protected: c.protected, receipt: c.receipt, handshake: c.handshake, s: c.handshake,
     tools: c.tools, settings: c.settings } as Record<string, string>)[section ?? ''] ?? c.tools;
+  if (section === 'swap') return <div data-testid="mainnet-product"><SwapPage /></div>;
   if (section === 'scan' || section === 'pay') {
     // The Testnet Pay entry + fullscreen QR scanner, with the Mainnet /m/ link parser.
     return <div data-testid="mainnet-product"><ScanEntry payPath={(id) => `/m/pay/${id}`} checkoutPath={(a) => `/m/checkout/${a}`} parse={(text) => mainnetScanInput(text, window.location.origin)} /></div>;
@@ -91,11 +95,13 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'gift' && (path === 'gift/new' ? <><MainnetGiftWizard />{MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures && <GiftMainnet />}</> : path === 'gift/p' ? <PersonalGiftOpen /> : <Notice tone="caution">{c.blocked}</Notice>)}
     {path === 'merchant/register' && <MerchantRegister />}
     {path === 'merchant/setup' && <Receive merchant />}
+    {section === 'activity' && <CrosschainActivity />}
     {section === 'activity' && noWallet && <ActivityEmptyView />}
     {path === 'merchant' && noWallet && <NoWalletCard text={t.commerce.merchant.connectFirst} />}
     {section === 'activity' && !noWallet && (
       <>
         <ActivityList />
+        <SwapActivity />
         <details className="disclosure px-1">
           <summary className="flex min-h-[var(--tap-target)] cursor-pointer items-center text-sm text-[var(--text-secondary)]">{t.oneTap.payment.details}</summary>
           <div className="flex flex-col gap-3 pb-2"><p className="text-sm text-[var(--text-secondary)]">{c.history}</p><TrackedRequests /><LedgerPanel /></div>

@@ -2780,7 +2780,9 @@
    "nav": {
     "wallet": "Wallet",
     "tap": "Tap",
-    "activity": "Activity"
+    "activity": "Activity",
+    "swap": "Swap",
+    "receive": "Receive"
    },
    "sheet": {
     "title": "What would you like to do?",
@@ -5719,7 +5721,9 @@
    "nav": {
     "wallet": "Cüzdan",
     "tap": "Tap",
-    "activity": "Geçmiş"
+    "activity": "Geçmiş",
+    "swap": "Takas",
+    "receive": "Al"
    },
    "sheet": {
     "title": "Ne yapmak istersin?",

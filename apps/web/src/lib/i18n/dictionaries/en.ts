@@ -1482,7 +1482,7 @@ export const en: Dictionary = {
   },
 
   oneTap: {
-    nav: { wallet: 'Wallet', tap: 'Tap', activity: 'Activity' },
+    nav: { wallet: 'Wallet', tap: 'Tap', activity: 'Activity', swap: 'Swap', receive: 'Receive' },
     sheet: {
       title: 'What would you like to do?',
       description: 'Every payment is reviewed in full and approved in your own wallet.',

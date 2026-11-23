@@ -33,6 +33,9 @@ export interface ShellRoutes {
   readonly giftNew: string | null;
   readonly pay: (id: string) => string;
   readonly checkout: (accountId: string) => string;
+  /** Mainnet only: direct Swap and Receive tabs (Wallet · Swap · Tap · Activity · Receive). Omitted = 3-tab Testnet nav. */
+  readonly swap?: string;
+  readonly receive?: string;
   /** Network-specific scan/paste parser; omitted = the Testnet parser. */
   readonly parse?: (text: string) => ScanInput;
 }
@@ -155,16 +158,22 @@ function BottomNav({ routes }: { readonly routes: ShellRoutes }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<TapView>('menu');
   const [scanning, setScanning] = useState(false);
+  const wide = routes.swap !== undefined && routes.receive !== undefined;
 
   return (
     <nav
       aria-label={t.nav.primaryLabel}
-      className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-[var(--border-subtle)] bg-[rgb(17_28_21/0.94)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:bottom-5 lg:max-w-[360px] lg:rounded-full lg:border lg:pb-0 lg:shadow-[var(--shadow-float)]"
+      className={`fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-[var(--border-subtle)] bg-[rgb(17_28_21/0.94)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:bottom-5 ${wide ? 'lg:max-w-[440px]' : 'lg:max-w-[360px]'} lg:rounded-full lg:border lg:pb-0 lg:shadow-[var(--shadow-float)]`}
     >
-      <ul className="grid grid-cols-3 items-end px-2">
+      <ul className={`grid items-end px-1 ${wide ? 'grid-cols-5' : 'grid-cols-3 px-2'}`}>
         <li>
           <NavLink href={routes.home} icon="wallet" label={t.oneTap.nav.wallet} active={pathname === routes.home || (routes.home !== '/' && pathname.startsWith(`${routes.home}/wallet`))} />
         </li>
+        {wide && routes.swap && (
+          <li>
+            <NavLink href={routes.swap} icon="swap" label={t.oneTap.nav.swap} active={pathname.startsWith(routes.swap)} />
+          </li>
+        )}
         <li className="flex justify-center">
           <button
             type="button"
@@ -185,6 +194,11 @@ function BottomNav({ routes }: { readonly routes: ShellRoutes }) {
         <li>
           <NavLink href={routes.activity} icon="activity" label={t.oneTap.nav.activity} active={pathname.startsWith(routes.activity)} />
         </li>
+        {wide && routes.receive && (
+          <li>
+            <NavLink href={routes.receive} icon="receive" label={t.oneTap.nav.receive} active={pathname.startsWith(routes.receive)} />
+          </li>
+        )}
       </ul>
       <TapSheet
         routes={routes}

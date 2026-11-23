@@ -1,0 +1,82 @@
+{
+  "readAt": "2026-11-23T09:18:06.663Z",
+  "rpc": "https://rpc.mainnet.fastnear.com",
+  "finalBlock": {
+    "height": "225834669",
+    "hash": "HV3rC6VrNahRzcMZHEieoK7DUGnJpzK2Kocjw9NK7hDX"
+  },
+  "pins": {
+    "exchange": {
+      "account": "v2.ref-finance.near",
+      "codeHash": "txLoEFi4RvYZ7wFNrqV61ggDdmrgHmatBkpXwtGN1FD"
+    },
+    "wrap": {
+      "account": "wrap.near",
+      "codeHash": "DL2f5xmZ44cQRP6vBMt94rvseH5d5KKnAGis2WkTAsh1"
+    },
+    "usdc": {
+      "account": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "codeHash": "DVJx7F3dHEHJYwpYPwXHu8K9Uo7h4kXFcALucY5oNX8q"
+    }
+  },
+  "pool": {
+    "id": 4512,
+    "kind": "SIMPLE_POOL",
+    "tokens": [
+      "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "wrap.near"
+    ],
+    "feeBps": 30,
+    "reserves": {
+      "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1": "879097740988",
+      "wrap.near": "293099471384224780756729854906"
+    }
+  },
+  "quotes": [
+    {
+      "tokenIn": "wrap.near",
+      "tokenOut": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "amountIn": "100000000000000000000000",
+      "expectedOut": "299031",
+      "priceImpactBps": 1,
+      "poolFeeIn": "300000000000000000000",
+      "feeBps": 30,
+      "minOutAt50bps": "297535",
+      "getReturnAgrees": true
+    },
+    {
+      "tokenIn": "wrap.near",
+      "tokenOut": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "amountIn": "50000000000000000000000",
+      "expectedOut": "149515",
+      "priceImpactBps": 1,
+      "poolFeeIn": "150000000000000000000",
+      "feeBps": 30,
+      "minOutAt50bps": "148767",
+      "getReturnAgrees": true
+    },
+    {
+      "tokenIn": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "tokenOut": "wrap.near",
+      "amountIn": "200000",
+      "expectedOut": "66481824048204996990652",
+      "priceImpactBps": 1,
+      "poolFeeIn": "600",
+      "feeBps": 30,
+      "minOutAt50bps": "66149414927963972005698",
+      "getReturnAgrees": true
+    },
+    {
+      "tokenIn": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "tokenOut": "wrap.near",
+      "amountIn": "1000000",
+      "expectedOut": "332408818648606696371167",
+      "priceImpactBps": 1,
+      "poolFeeIn": "3000",
+      "feeBps": 30,
+      "minOutAt50bps": "330746774555363662889311",
+      "getReturnAgrees": true
+    }
+  ],
+  "note": "Read-only. Every quote was checked against the exchange get_return view at the same final block (SWAP_MATH_MISMATCH otherwise). No transaction was signed or sent."
+}

@@ -1,0 +1,31 @@
+STATUS {'SuccessValue': 'IjEwMDAwMDAwMDAwMDAwMDAwMDAwMDAi'}
+-- tx-bench.near -> wrap.near ['near_deposit({}) dep=1000000000000000000000 gas=100000000000000', 'ft_transfer_call({"amount":"1000000000000000000000","msg":"{\\"actions\\":[{\\"pool_id\\":3879,\\"token_in\\":\\"wrap.near\\",\\"token_out\\":\\"usdt.tether-token.near\\",\\"amount_in\\":\\"1000000000000000000000\\",\\"min_amount_out\\) dep=1 gas=100000000000000'] | {"SuccessReceiptId": "98CquQKbYU2ZNUtvNFxD8Q5KRN7mzCgu8wJZ8E6wcvNV"}
+   LOG Deposit 1000000000000000000000 NEAR to tx-bench.near
+   LOG Transfer 1000000000000000000000 from tx-bench.near to v2.ref-finance.near
+-- wrap.near -> v2.ref-finance.near ['ft_on_transfer({"sender_id":"tx-bench.near","amount":"1000000000000000000000","msg":"{\\"actions\\":[{\\"pool_id\\":3879,\\"token_in\\":\\"wrap.near\\",\\"token_out\\":\\"usdt.tether-token.near\\",\\"amount_in\\":\\"10000000000000) dep=0 gas=70000000000000'] | {"SuccessValue": "IjAi"}
+   LOG Swapped 1000000000000000000000 wrap.near for 3002 usdt.tether-token.near
+   LOG Exchange v2.ref-finance.near got 421750224102394 shares, No referral fee
+-- v2.ref-finance.near -> usdt.tether-token.near ['ft_transfer({"receiver_id":"tx-bench.near","amount":"3002","memo":null}) dep=1 gas=20000000000000'] | {"SuccessValue": ""}
+   LOG EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"v2.ref-finance.near","new_owner_id":"tx-bench.near","amount":"3002"}]}
+-- system -> tx-bench.near ['Transfer 20684143357841400000000'] | {"SuccessValue": ""}
+-- v2.ref-finance.near -> v2.ref-finance.near ['exchange_callback_post_withdraw({"token_id":"usdt.tether-token.near","sender_id":"tx-bench.near","amount":"3002"}) dep=0 gas=5000000000000'] | {"SuccessValue": "IjMwMDIi"}
+-- system -> tx-bench.near ['Transfer 5671441693995600000000'] | {"SuccessValue": ""}
+-- system -> tx-bench.near ['Transfer 43429456526093200000000'] | {"SuccessValue": ""}
+-- wrap.near -> wrap.near ['ft_resolve_transfer({"sender_id":"tx-bench.near","receiver_id":"v2.ref-finance.near","amount":"1000000000000000000000"}) dep=0 gas=5000000000000'] | {"SuccessValue": "IjEwMDAwMDAwMDAwMDAwMDAwMDAwMDAi"}
+-- system -> tx-bench.near ['Transfer 5752361995181600000000'] | {"SuccessValue": ""}
+-- system -> tx-bench.near ['Transfer 124490898551117500000000'] | {"SuccessValue": ""}
+STATUS {'SuccessValue': 'IjAi'}
+-- 1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376 -> 17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1 ['ft_transfer_call({"receiver_id":"v2.ref-finance.near","amount":"1005957","msg":"{\\"actions\\":[{\\"token_in\\":\\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\\",\\"token_out\\":\\"438e48ed4ce6beecf503d43b) dep=1 gas=300000000000000'] | {"SuccessReceiptId": "Cb43ogWv271mEJLR2Qv23geM6Ri6UKrQRDqLSwyndmU7"}
+   LOG EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376","new_owner_id":"v2.ref-finance.near","amount":"1005957"}]}
+-- 17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1 -> v2.ref-finance.near ['ft_on_transfer({"sender_id":"1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376","amount":"1005957","msg":"{\\"actions\\":[{\\"token_in\\":\\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1) dep=0 gas=280427483440340'] | {"Failure": {"ActionError": {"index": 0, "kind": {"FunctionCallError": {"ExecutionError": "Smart contract panicked: pani
+   LOG Swapped 1005957 17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1 for 15314597884491767717 438e48ed4ce6beecf503d43b9dbd3c30d516e7fd.factory.bridge.near
+   LOG Exchange v2.ref-finance.near got 10058704507063734544 shares, No referral fee
+   LOG Swapped 15314597884491767717 438e48ed4ce6beecf503d43b9dbd3c30d516e7fd.factory.bridge.near for 334426875002440399286826 wrap.near
+   LOG Exchange v2.ref-finance.near got 146327385818999340 shares, No referral fee
+   LOG Swapped 334426875002440399286826 wrap.near for 2581264873652823603086700 darai.tkn.near
+   LOG Exchange v2.ref-finance.near got 43877211839834576439 shares, No referral fee
+-- system -> 1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376 ['Transfer 280234006858838400000000'] | {"SuccessValue": ""}
+-- 17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1 -> 17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1 ['ft_resolve_transfer({"sender_id":"1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376","receiver_id":"v2.ref-finance.near","amount":"1005957"}) dep=0 gas=15427483440340'] | {"SuccessValue": "IjAi"}
+   LOG EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"v2.ref-finance.near","new_owner_id":"1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376","amount":"1005957","memo":"refund"}]}
+-- system -> 1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376 ['Transfer 16078884982609100000000'] | {"SuccessValue": ""}
+-- system -> 1dc9e07bd1e04f153931358f4dca868428c93a4ecc033a1393b7404d72a31376 ['Transfer 2930883850971000000000'] | {"SuccessValue": ""}

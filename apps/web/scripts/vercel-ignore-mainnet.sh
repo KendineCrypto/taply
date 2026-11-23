@@ -19,5 +19,9 @@ fi
 if [ "$env" = "preview" ] && [ "$ref" = "staging/mainnet" ]; then
   echo "mainnet: building staging Preview from staging/mainnet"; exit 1
 fi
+# Release candidate: build only the integration branch as an isolated Preview.
+if [ "$env" = "preview" ] && [ "$ref" = "codex/swap-live-integration" ]; then
+  echo "mainnet: building swap release candidate"; exit 1
+fi
 echo "mainnet: skipping VERCEL_ENV=${env:-?} branch=${ref:-?} (only release/mainnet -> Production, staging/mainnet -> Preview)"
 exit 0
