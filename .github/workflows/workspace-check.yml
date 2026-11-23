@@ -191,6 +191,27 @@ jobs:
           node scripts/mainnet-phase5-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase5" http://127.0.0.1:3121
           test "$(redis-cli -p 6391 --scan | grep -vc '^taply:mainnet:')" = "0"
 
+      # Swap: real vault + IndexedDB device ledger, really signed transactions, SYNTHETIC RPC that applies
+      # wrap.near / Rhea pool 4512 / USDC effects with the real reserves and receipt shapes. No chain contact.
+      - name: Mainnet swap browser checks (device ledger, signing on, synthetic RPC)
+        working-directory: apps/web
+        timeout-minutes: 10
+        run: |
+          set -a; . ./env/mainnet.env.example; set +a
+          export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH=9VpaiMp3Hoq8pVVvCW6oSZrvzBdZoNNgUmLCXrm32wX6 \
+            NEXT_PUBLIC_TAPLY_MAINNET_SIGNING=on NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH=DVJx7F3dHEHJYwpYPwXHu8K9Uo7h4kXFcALucY5oNX8q
+          # Runs before the phase 6 step, which closes the protocol gate in its own checkout copy.
+          test "$(node --input-type=module -e 'import { MAINNET_PROTOCOL_SIGNING_RELEASED } from "../../packages/near-client/dist/mainnet-vault.js"; console.log(MAINNET_PROTOCOL_SIGNING_RELEASED)')" = "true"
+          pnpm run build:mainnet
+          pnpm exec next start -p 3123 --hostname 127.0.0.1 > "$RUNNER_TEMP/taply-browser-server-swap.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3123/m > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/mainnet-swap-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/swap" http://127.0.0.1:3123
+
       # Phase 6: the app's authority client against Codex's REAL authenticated authority (createMainnetAuthorityHttp +
       # createAuthenticatedMainnetAuthority + fenced Redis persistence) on real Redis with an IN-MEMORY TEST witness.
       - name: Mainnet authority integration (Codex HTTP authority, real Redis, test witness)
@@ -229,25 +250,6 @@ jobs:
           done
           node scripts/mainnet-phase6-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase6" http://127.0.0.1:3122 6392
           test "$(redis-cli -p 6392 -n 2 --scan | grep -vc '^taply:mainnet:authority:')" = "0"
-
-      # Swap: real vault + IndexedDB device ledger, really signed transactions, SYNTHETIC RPC that applies
-      # wrap.near / Rhea pool 4512 / USDC effects with the real reserves and receipt shapes. No chain contact.
-      - name: Mainnet swap browser checks (device ledger, signing on, synthetic RPC)
-        working-directory: apps/web
-        timeout-minutes: 10
-        run: |
-          set -a; . ./env/mainnet.env.example; set +a
-          export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH=9VpaiMp3Hoq8pVVvCW6oSZrvzBdZoNNgUmLCXrm32wX6 \
-            NEXT_PUBLIC_TAPLY_MAINNET_SIGNING=on NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH=DVJx7F3dHEHJYwpYPwXHu8K9Uo7h4kXFcALucY5oNX8q
-          pnpm run build:mainnet
-          pnpm exec next start -p 3123 --hostname 127.0.0.1 > "$RUNNER_TEMP/taply-browser-server-swap.log" 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:3123/m > /dev/null; then break; fi
-            sleep 1
-          done
-          node scripts/mainnet-swap-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/swap" http://127.0.0.1:3123
 
       - name: Preserve Mainnet browser evidence
         if: always()
