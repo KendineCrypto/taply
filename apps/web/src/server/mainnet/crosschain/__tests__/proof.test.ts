@@ -14,6 +14,7 @@ describe('final Base USDC delivery proof',()=>{
   it('verifies exact token, recipient, amount, network and canonical finalized block',async()=>expect(await deliveryVerifier({},fake())('base',recipient,'1000000',[hash],0)).toMatchObject({state:'verified',amount:'1000000'}));
   it.each([{chain:'0x1'},{status:'0x0'},{amount:'0x1'},{canonical:'0x'+'c'.repeat(64)},{to:'0x'+'2'.repeat(40)},{contract:'0x'+'3'.repeat(40)}])('never confirms mismatched evidence %j',async over=>expect(await deliveryVerifier({},fake(over))('base',recipient,'1000000',[hash],0)).toMatchObject({state:'pending'}));
   it('deduplicates transaction references',async()=>expect(await deliveryVerifier({},fake())('base',recipient,'1500000',[hash,hash],0)).toMatchObject({state:'pending'}));
+  it('deduplicates EVM hashes regardless of hex casing',async()=>expect(await deliveryVerifier({},fake())('base',recipient,'1500000',[hash,'0x'+hash.slice(2).toUpperCase()],0)).toMatchObject({state:'pending'}));
   it('rejects a transfer that predates the quote',async()=>expect(await deliveryVerifier({},fake())('base',recipient,'1',[hash],9999999999999)).toMatchObject({state:'pending'}));
   it('RPC outage never becomes successful delivery',async()=>expect(await deliveryVerifier({},async()=>{throw Error('timeout');})('base',recipient,'1',[hash],0)).toMatchObject({state:'pending'}));
   it('missing destination hash is pending, not success',async()=>expect(await deliveryVerifier({},fake())('base',recipient,'1',[],0)).toMatchObject({state:'pending'}));

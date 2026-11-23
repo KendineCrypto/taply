@@ -100,7 +100,7 @@ async function nearAmount(rpc: Rpc, recipient: string, hashes: string[], since: 
 }
 export function deliveryVerifier(env: Readonly<Record<string, string | undefined>>, fetcher: typeof fetch = fetch) {
   return async (chain: Chain, recipient: string, min: string, rawHashes: string[], since: number): Promise<Proof> => {
-    const hashes = [...new Set(rawHashes)]; const pending: Proof = { state: 'pending', amount: null, chain, txs: hashes.slice(0, 8), trust: 'configured-rpc' };
+    const hashes = [...new Set(rawHashes.map(h => chain === 'base' ? h.toLowerCase() : h))]; const pending: Proof = { state: 'pending', amount: null, chain, txs: hashes.slice(0, 8), trust: 'configured-rpc' };
     if (!hashes.length || hashes.length > 8) return pending;
     try {
       const url = chain === 'base' ? env['TAPLY_BASE_RPC_URL'] ?? 'https://mainnet.base.org' : chain === 'sol' ? env['TAPLY_SOLANA_RPC_URL'] ?? 'https://api.mainnet-beta.solana.com' : env['NEXT_PUBLIC_TAPLY_VERIFIER_RPC_URL'] ?? 'https://archival-rpc.mainnet.fastnear.com';

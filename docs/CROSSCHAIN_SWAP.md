@@ -34,7 +34,7 @@ Evidence RPCs: `TAPLY_BASE_RPC_URL`, `TAPLY_SOLANA_RPC_URL`, `NEXT_PUBLIC_TAPLY_
 
 ## Acceptance status (2026-11-23)
 
-Implemented and tested with synthetic adversarial chain/provider evidence. A real signed Base → Solana **dry** quote passed signature, token listing, echo and amount validation. No deposit address was requested for that check and no funds or wallet keys were used. Real funded cross-chain completion is **not yet demonstrated**.
+Implemented and tested with 77 targeted server, proof, HTTP boundary and UI checks. The repository-wide `pnpm check` and Mainnet build also passed. A browser visual/regression run could not start because this execution environment denied Chromium socket access and the connected-browser session was unavailable; do not treat browser screenshots or live UI QA as completed. A real signed Base → Solana **dry** quote passed signature, token listing, echo and amount validation. No deposit address was requested for that check and no funds or wallet keys were used. Real funded cross-chain completion is **not yet demonstrated**.
 
 Before enabling funded testing: deploy the exact reviewed commit to the isolated Preview, verify mode and Redis isolation, supply real controlled source/refund/recipient addresses, obtain a current quote, review the actual input/minimum/fees, and fund once from the source wallet. Verify both source transfer and destination finalized delivery; save public hashes and actual costs. Repeat the desired reverse route and refresh/resume. Do not promote this as fully funded-verified or deploy over the live application until this evidence exists.
 
