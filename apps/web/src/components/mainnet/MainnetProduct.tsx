@@ -34,6 +34,7 @@ import { useT } from '@/lib/i18n/provider';
 import { useCurrentMainnetAccount } from './MainnetShell';
 import { Notice } from './bits';
 import { SwapPage } from './swap/SwapPage';
+import { CrosschainActivity } from './swap/CrosschainActivity';
 import { SwapActivity } from './swap/SwapActivity';
 
 export function useProductCopy() { return useMainnetLocale().locale === 'tr' ? productTr : productEn; }
@@ -94,6 +95,7 @@ export function MainnetProduct({ path }: { path: string }) {
     {section === 'gift' && (path === 'gift/new' ? <><MainnetGiftWizard />{MAINNET_CONFIG.ok && MAINNET_CONFIG.fixtures && <GiftMainnet />}</> : path === 'gift/p' ? <PersonalGiftOpen /> : <Notice tone="caution">{c.blocked}</Notice>)}
     {path === 'merchant/register' && <MerchantRegister />}
     {path === 'merchant/setup' && <Receive merchant />}
+    {section === 'activity' && <CrosschainActivity />}
     {section === 'activity' && noWallet && <ActivityEmptyView />}
     {path === 'merchant' && noWallet && <NoWalletCard text={t.commerce.merchant.connectFirst} />}
     {section === 'activity' && !noWallet && (
