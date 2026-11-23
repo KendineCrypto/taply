@@ -12,6 +12,7 @@ import {MainnetEscrowProfileSchema,MainnetEscrowConfigSchema,prepareMainnetCreat
 import {prepareMainnetNativeTransfer,prepareMainnetUsdcTransfer,mainnetSpendingBudget,MainnetWalletSnapshotSchema,type MainnetWalletSnapshot} from './mainnet-wallet-transfer.js';
 import {MainnetReviewedActionSchema} from './mainnet-reconciliation.js';
 import type {Fetch} from './rpc.js';
+import {isMainnetSwapOperation,planMainnetSwapOperation,type MainnetSwapOperation} from './mainnet-swap.js';
 
 export type MainnetOperation=
  |{kind:'nativeSend';receiverId:string;amountNear:string;businessId:string}
@@ -24,7 +25,8 @@ export type MainnetOperation=
  |{kind:'escrowCancel'|'escrowRelease'|'escrowRetry';id:string}
  |{kind:'giftCreate';giftId:string;publicKeyHex:string;amountYocto:string;lifetimeS:number;message:string;design:number}
  |{kind:'giftClaim';giftId:string;signatureHex:string}
- |{kind:'giftRefund'|'giftRetry';giftId:string};
+ |{kind:'giftRefund'|'giftRetry';giftId:string}
+ |MainnetSwapOperation;
 export interface MainnetSigningProfiles {network:MainnetReadProfile;instant?:MainnetProfile;escrow?:MainnetEscrowProfile;gift?:MainnetGiftProfile;usdcCodeHash?:string}
 const storage=z.strictObject({total:U128Schema,available:U128Schema}).nullable();
 /** Reconstructs a single permitted action from fresh block-anchored chain data.
@@ -51,7 +53,10 @@ export function createMainnetOperationPlanner(inputProfiles:MainnetSigningProfil
       HashHexSchema.parse(op.businessId);const p=prepareMainnetNativeTransfer(s,op.receiverId,op.amountNear);await account(p.receiverId);
       receiverId=p.receiverId;action={kind:'transfer',depositYocto:p.depositYocto};
     }else{
-      if(op.kind==='usdcSend'){
+      if(isMainnetSwapOperation(op)){
+        // Swap policy: pinned exchange/wNEAR/USDC code, pool 4512, exact min_amount_out bounds (mainnet-swap.ts).
+        call=await planMainnetSwapOperation(op,s.accountId,{account,view},profiles.usdcCodeHash);
+      }else if(op.kind==='usdcSend'){
         HashHexSchema.parse(op.businessId);const evidence=await token(op.receiverId,op.amountBaseUnits);
         call=prepareMainnetUsdcTransfer({snapshot:s,receiverId:op.receiverId,amountBaseUnits:op.amountBaseUnits,tokenEvidence:evidence});
       }else if(op.kind==='registerUsdc'){
@@ -110,7 +115,7 @@ export function createMainnetOperationPlanner(inputProfiles:MainnetSigningProfil
     const budget=mainnetSpendingBudget(s,action.depositYocto);
     // Excludes chain nonce/reference block: a changed nonce cannot rename the same business operation.
     const operationHash=domainHash('taply.mainnet.operation.v2',canonicalJson({accountId:s.accountId,receiverId,action,
-      businessId:op.kind==='nativeSend'||op.kind==='usdcSend'?op.businessId:null,recoveryNonce}));
+      businessId:op.kind==='nativeSend'||op.kind==='usdcSend'?op.businessId:isMainnetSwapOperation(op)?op.swapId:null,recoveryNonce}));
     return Object.freeze({operationHash,receiverId,action:Object.freeze(action),...budget});
   }});
 }
