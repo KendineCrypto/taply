@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { HashHexSchema, MAINNET_USDC_ASSET } from '@taply/shared';
 import { z } from 'zod';
-import { BASE_USDC, isStillListed, originAssetById, originFromTokens, resolveDynamicOrigins } from '@/lib/mainnet/oneclick/allowlist';
+import { BASE_USDC, NATIVE_NEAR, isStillListed, originAssetById, originFromTokens, resolveDynamicOrigins } from '@/lib/mainnet/oneclick/allowlist';
 import type { OriginAsset } from '@/lib/mainnet/oneclick/allowlist';
 import type { ListedToken } from '@/lib/mainnet/oneclick/allowlist';
 import { validateRefundAddress } from '@/lib/mainnet/oneclick/refund-address';
@@ -29,7 +29,7 @@ import type { QuoteRejection } from './verify';
  *  - fixture — FIXTURE chain + synthetic signed responses; dry quotes only.
  *  - dry     — real chain reads + real 1Click DRY quotes (no deposit address).
  *  - funded  — refused in code until ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED;
- *              then real quotes with a deposit address, Base USDC only.
+ *              then real quotes with a deposit address for statically allowlisted origins.
  *
  * A deposit address is returned only to the attempt's owner (the browser that
  * holds the attempt secret), never while funding is not approved, and never in
@@ -328,7 +328,7 @@ export function createOneClickService(deps: ServiceDeps) {
     const source: PublicOrigin['source'] = deps.mode === 'fixture' ? 'fixture' : 'live-token-list';
     const out: PublicOrigin[] = [];
     if (deps.mode === 'fixture' || isStillListed(BASE_USDC, tokens)) out.push(publicOrigin(BASE_USDC, deps.mode === 'fixture' ? 'fixture' : 'recorded-live-quote'));
-    // Real money only on the verified route (Base USDC). Other origins stay quote-only.
+    if (isStillListed(NATIVE_NEAR, tokens)) out.push(publicOrigin(NATIVE_NEAR, source));
     if (deps.mode !== 'funded') for (const o of resolveDynamicOrigins(tokens)) out.push(publicOrigin(o, source));
     return { ok: true, value: out };
   }
@@ -374,6 +374,9 @@ export function createOneClickService(deps: ServiceDeps) {
     if (MOVING.has(up.status)) return blocked('DEPOSIT_IN_PROGRESS', base);
     if (up.status === 'FAILED') return blocked('UPSTREAM_FAILED', base);
     if (up.status === 'PENDING_DEPOSIT' && nowMs <= record.deadlineMs + RELEASE_GRACE_MS) return blocked('AWAITING_FINALITY', base);
+    // Base log coverage cannot establish native NEAR deposits or refunds.
+    // Until final NEAR history can prove release, retain attempt ownership.
+    if (record.originAssetId !== BASE_USDC.assetId) return blocked('EVIDENCE_UNAVAILABLE', base);
     const rpc = deps.originRpc ?? null;
     if (rpc === null) return blocked('EVIDENCE_UNAVAILABLE', base);
     try {
@@ -414,7 +417,7 @@ export function createOneClickService(deps: ServiceDeps) {
 
     const input = QuoteInputSchema.safeParse(raw);
     if (!input.success) return fail('INVALID_INPUT');
-    // Base: static allowlist. Solana/Tron: asset ID resolved from 1Click's token
+    // Base USDC/native NEAR: static allowlist. Solana/Tron: resolve from 1Click's token
     // list (fixture list in a fixture Preview), exact unique match only, and
     // never for funded quotes until that route has its own verified evidence.
     let origin: OriginAsset | null = originAssetById(input.data.originAsset);
@@ -422,9 +425,9 @@ export function createOneClickService(deps: ServiceDeps) {
       const tokens = await listedTokens().catch(() => null);
       origin = tokens === null ? null : originFromTokens(input.data.originAsset, tokens);
     }
-    if (origin === null || (deps.mode === 'funded' && origin.assetId !== BASE_USDC.assetId)) return fail('ORIGIN_NOT_ALLOWED');
+    if (origin === null) return fail('ORIGIN_NOT_ALLOWED');
     const refund = validateRefundAddress(origin, input.data.refundTo);
-    if (!refund.ok) return fail('REFUND_ADDRESS_INVALID');
+    if (!refund.ok || refund.address === chain.contractId) return fail('REFUND_ADDRESS_INVALID');
     const requestId = input.data.requestId;
     const ownerHash = ownerHashOf(input.data.attemptSecret);
 
@@ -546,6 +549,11 @@ export function createOneClickService(deps: ServiceDeps) {
       const checked = verifyQuoteResponse(rawQuote, sent, { nowMs: deps.now(), requestExpiresAtMs: expiresAtMs, managerPublicKey: deps.managerPublicKey });
       if (!checked.ok) { await uncertain(); return fail('QUOTE_REJECTED', checked.code); }
       const q = checked.quote;
+      if (q.depositAddress !== null && origin.chain === 'near'
+        && (!validateRefundAddress(origin, q.depositAddress).ok || q.depositAddress === chain.contractId || q.depositMemo !== null)) {
+        await uncertain();
+        return fail('QUOTE_REJECTED', 'DEPOSIT_ADDRESS_INVALID');
+      }
 
       const record: QuoteRecord = {
         requestId,
@@ -588,7 +596,7 @@ export function createOneClickService(deps: ServiceDeps) {
       hint: parsed.status,
       hintReason: 'NONE',
       updatedAt: parsed.updatedAt ?? null,
-      originTxs: (s?.originChainTxHashes ?? []).map((tx) => ({ hash: tx.hash, url: baseTxUrl(tx.hash) })),
+      originTxs: (s?.originChainTxHashes ?? []).map((tx) => ({ hash: tx.hash, url: record.originAssetId === NATIVE_NEAR.assetId ? nearTxUrl(tx.hash) : baseTxUrl(tx.hash) })),
       nearTxs: [...(s?.nearTxHashes ?? []), ...(s?.destinationChainTxHashes ?? []).map((tx) => tx.hash)]
         .filter((h, i, all) => all.indexOf(h) === i)
         .map((hash) => ({ hash, url: nearTxUrl(hash) })),

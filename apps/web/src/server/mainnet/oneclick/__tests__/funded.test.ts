@@ -9,7 +9,7 @@ vi.mock('@/lib/mainnet/release-gates', async (importOriginal) => ({
 }));
 
 import { fixtureRequests, FIXTURE_CONTRACT } from '@/lib/mainnet/fixtures';
-import { BASE_USDC } from '@/lib/mainnet/oneclick/allowlist';
+import { BASE_USDC, NATIVE_NEAR } from '@/lib/mainnet/oneclick/allowlist';
 import { fixtureChain } from '../../chain';
 import { createFixtureSigner, fixtureQuoteResponse } from '../fixture-client';
 import type { OneClickClient } from '../client';
@@ -88,6 +88,43 @@ describe('funded 1Click quotes (gate opened only in this test module)', () => {
     expect(origins.ok && origins.value.map(o => o.chain)).toEqual(['base']);
     const res = await handleOrigins(new Request('https://x/api/mainnet/oneclick/origins'), () => s.service, true, async () => true);
     expect(await res.json()).toMatchObject({ funding: true });
+  });
+
+  it('quotes native NEAR for exact USDC and never uses Base evidence to replace the attempt', async () => {
+    const depositAddress = 'a'.repeat(64);
+    const refundTo = 'payer.near';
+    let now = NOW;
+    let correlationId = '';
+    const quote = vi.fn(async (body: unknown) => {
+      const unsigned = fixtureQuoteResponse(body as Record<string, unknown>, NOW);
+      correlationId = unsigned.correlationId;
+      return signer.signResponse({ ...unsigned, quote: { ...unsigned.quote, depositAddress, deadline: new Date(NOW + 15 * 60_000).toISOString() } });
+    });
+    const originRpc = { call: vi.fn() };
+    const service = createOneClickService({
+      mode: 'funded', chain: fixtureChain(() => NOW), store: memoryQuoteStore(),
+      client: fundedClient({
+        quote,
+        tokens: async () => [...LISTED, { ...NATIVE_NEAR, blockchain: 'near', symbol: 'wNEAR' }],
+        status: async () => ({ status: 'REFUNDED', correlationId, quoteResponse: { correlationId, quote: { depositAddress } } }),
+      }),
+      now: () => now, managerPublicKey: signer.publicKey, originRpc,
+    });
+
+    const origins = await service.origins();
+    expect(origins.ok && origins.value.map(o => o.chain)).toEqual(['base', 'near']);
+    expect(await service.prepareQuote(input({ originAsset: NATIVE_NEAR.assetId, refundTo: 'payer.testnet' }))).toEqual({ ok: false, code: 'REFUND_ADDRESS_INVALID' });
+    const payment = await service.prepareQuote(input({ originAsset: NATIVE_NEAR.assetId, refundTo }));
+    expect(quote).toHaveBeenCalledWith(expect.objectContaining({
+      originAsset: NATIVE_NEAR.assetId, refundTo, swapType: 'EXACT_OUTPUT', amount: request.terms.amountBaseUnits,
+    }));
+    expect(payment.ok && payment.value.deposit?.address).toBe(depositAddress);
+
+    now += 16 * 60_000;
+    const resumed = await service.resume({ requestId: request.terms.id, attemptSecret: SECRET });
+    expect(resumed.ok && resumed.value.evidence?.verdict).toEqual({ blocked: 'EVIDENCE_UNAVAILABLE' });
+    expect(originRpc.call).not.toHaveBeenCalled();
+    expect(quote).toHaveBeenCalledTimes(1);
   });
 
   it('a signed funded quote without a deposit address, or with the refund address as deposit, is rejected and never shown', async () => {

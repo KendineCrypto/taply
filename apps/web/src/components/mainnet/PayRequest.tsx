@@ -15,7 +15,7 @@ import { baseAddressUrl, nearAccountUrl } from '@/lib/mainnet/explorer';
 import type { MainnetRequest } from '@/lib/mainnet/fixtures';
 import { useMainnetRequest, useOneClickHint } from '@/lib/mainnet/hooks';
 import type { HintState } from '@/lib/mainnet/hooks';
-import { BASE_USDC } from '@/lib/mainnet/oneclick/allowlist';
+import { BASE_USDC, NATIVE_NEAR, originAssetById } from '@/lib/mainnet/oneclick/allowlist';
 import { attemptSecretFor, storedAttemptSecret, useOneClickAvailability } from '@/lib/mainnet/oneclick/client-attempt';
 import type { OneClickAvailability, PublicOrigin } from '@/lib/mainnet/oneclick/client-attempt';
 import { QrCode } from '@/components/payments/QrCode';
@@ -69,7 +69,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const c = useMainnetCopy();
   const { locale } = useLocale();
   const { read, refresh } = useMainnetRequest(id, true);
-  const [method, setMethod] = useState<'base' | 'wallet' | null>(null);
+  const [method, setMethod] = useState<'base' | 'near' | 'wallet' | null>(null);
   const [quotePrepared, setQuotePrepared] = useState(false);
   const [paidTx, setPaidTx] = useState<string | null>(null);
   const t = useT();
@@ -86,7 +86,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
   const nearTxKey = (hint?.nearTxs ?? []).map(t => t.hash).join(',');
   const hintTxs = useMemo(() => (nearTxKey === '' ? [] : nearTxKey.split(',')), [nearTxKey]);
   const verification = useVerifiedMainnetReceipt(read.kind === 'ok' ? read.request : null, hintTxs);
-  // A payer who already started a Base payment in this browser lands back on it after a refresh.
+  // A payer who already started an Intents payment in this browser lands back on it after a refresh.
   useEffect(() => {
     if (crossChain && storedAttemptSecret(id) !== null) queueMicrotask(() => setMethod(m => m ?? 'base'));
   }, [crossChain, id]);
@@ -183,7 +183,7 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
       {expectedMerchant !== null && (wrongMerchant
         ? <Notice tone="danger" live testId="merchant-mismatch">{bind.mismatch.replace('{store}', expectedMerchant).replace('{recipient}', r.recipientAccountId)}</Notice>
         : <Notice tone="muted" testId="merchant-match">{bind.match.replace('{store}', expectedMerchant)}</Notice>)}
-      {open && crossChainMoving && method !== 'base' ? <Notice tone="caution" live testId="crosschain-moving">{hint?.source === 'earlier' ? c.intents.earlierArriving : c.intents.requesterTracking.moving}</Notice> : open && asset.symbol === 'NEAR' ? null : open && !crossChainMoving ? (
+      {open && crossChainMoving && method !== 'base' && method !== 'near' ? <Notice tone="caution" live testId="crosschain-moving">{hint?.source === 'earlier' ? c.intents.earlierArriving : c.intents.requesterTracking.moving}</Notice> : open && asset.symbol === 'NEAR' ? null : open && !crossChainMoving ? (
         <Card>
           <h2 className="mb-2 text-[15px] font-semibold">{c.pay.methodTitle}</h2>
           {asset.symbol === 'NEAR' && <p className="mb-2 text-[13px] text-[var(--text-secondary)]">{c.pay.methodNativeOnly}</p>}
@@ -191,15 +191,18 @@ export function PayRequest({ id, after }: { readonly id: string; readonly after?
             {asset.symbol === 'USDC' && (
               <MethodButton active={method === 'base'} onClick={() => setMethod('base')} title={c.pay.methodBase} hint={c.pay.methodBaseHint} testId="method-base" />
             )}
-            <MethodButton active={method === 'wallet'} onClick={() => setMethod('wallet')} title={c.pay.methodWallet} hint={c.pay.methodWalletHint} testId="method-wallet" />
+            {asset.symbol === 'USDC' && availability?.funding === true && availability.origins.some(o => o.assetId === NATIVE_NEAR.assetId) && (
+              <MethodButton active={method === 'near'} onClick={() => setMethod('near')} title={ORIGIN_COPY[locale].native.title} hint={ORIGIN_COPY[locale].native.hint} testId="method-near-intents" />
+            )}
+            <MethodButton active={method === 'wallet'} onClick={() => setMethod('wallet')} title={locale === 'tr' ? 'NEAR ağında USDC ile öde' : 'Pay with USDC on NEAR'} hint={c.pay.methodWalletHint} testId="method-wallet" />
           </div>
         </Card>
       ) : receipt === null && !open ? (
         <Notice tone="muted">{c.pay.notPayable}</Notice>
       ) : null}
 
-      {open && method === 'base' && asset.symbol === 'USDC' && (
-        crossChain ? <IntentsCheckout request={r} availability={availability} hint={hint} onPrepared={() => setQuotePrepared(true)} /> : <Notice tone="caution" testId="router-disabled">{c.pay.routerDisabled}</Notice>
+      {open && (method === 'base' || method === 'near') && asset.symbol === 'USDC' && (
+        crossChain ? <IntentsCheckout key={method} request={r} availability={availability} hint={hint} preferredOrigin={method === 'near' ? NATIVE_NEAR.assetId : BASE_USDC.assetId} onPrepared={() => setQuotePrepared(true)} /> : <Notice tone="caution" testId="router-disabled">{c.pay.routerDisabled}</Notice>
       )}
       {open && !crossChainMoving && asset.symbol === 'USDC' && method === 'wallet' && <WalletPayReview request={r} asset={asset} onPaid={(o) => { if (o.transactionHash) { setPaidTx(o.transactionHash); if (payer) rememberSettlementTransaction('instant', id, o.transactionHash, payer); } refresh(); }} />}
       {receipt === null ? <PaymentStatusPanel request={r} readAtMs={read.readAtMs} hint={hint} onRefresh={refresh} /> : verification?.kind === 'verified' ? null : (
@@ -283,6 +286,7 @@ interface PreparedQuote {
   readonly attemptId: string;
   readonly correlationId: string;
   readonly originAssetId: string;
+  readonly destinationAsset: string;
   readonly amountIn: string;
   readonly amountInFormatted: string;
   readonly minAmountIn: string;
@@ -311,10 +315,15 @@ const EVM = /^0x[0-9a-fA-F]{40}$/;
 function acceptableQuote(body: Partial<PreparedQuote>, request: MainnetRequest, origin: PublicOrigin | null): body is PreparedQuote {
   if (body.amountOut !== request.terms.amountBaseUnits || body.recipient !== request.terms.contractId || typeof body.attemptId !== 'string') return false;
   if (body.deposit === null || body.deposit === undefined) return body.fundingEnabled !== true;
-  if (body.fundingEnabled !== true || body.mode !== 'funded' || typeof body.refundTo !== 'string') return false;
-  // Funded quotes are Base USDC only; the address must be an EVM address that is not the refund address.
-  if (body.originAssetId !== BASE_USDC.assetId || (origin !== null && origin.assetId !== BASE_USDC.assetId)) return false;
-  return EVM.test(body.deposit.address) && body.deposit.address.toLowerCase() !== body.refundTo.toLowerCase() && (body.deposit.memo === null || typeof body.deposit.memo === 'string');
+  if (body.fundingEnabled !== true || body.mode !== 'funded' || typeof body.refundTo !== 'string' || typeof body.deposit.address !== 'string') return false;
+  const asset = originAssetById(body.originAssetId);
+  if (asset === null || (origin !== null && asset.assetId !== origin.assetId)) return false;
+  if (body.deposit.address.toLowerCase() === body.refundTo.toLowerCase()) return false;
+  if (asset.chain === 'near') {
+    if (body.destinationAsset !== request.terms.assetId || typeof body.amountIn !== 'string' || !/^[1-9][0-9]{0,38}$/.test(body.amountIn)) return false;
+    return validateRefundAddress(asset, body.deposit.address).ok && body.deposit.address !== request.terms.contractId && body.deposit.memo === null;
+  }
+  return EVM.test(body.deposit.address) && (body.deposit.memo === null || typeof body.deposit.memo === 'string');
 }
 
 function CopyButton({ value, label, done, testId }: { value: string; label: string; done: string; testId: string }) {
@@ -329,17 +338,18 @@ function CopyButton({ value, label, done, testId }: { value: string; label: stri
 }
 
 /**
- * Pay a USDC request from Base through NEAR Intents (1Click).
+ * Pay a USDC request through NEAR Intents (1Click).
  * Choose source → refund address → signed quote (verified on the server and
  * re-checked here) → deposit address with QR/copy (owner only, funded builds
  * only) → automatic tracking. Resumes the same attempt after a refresh; never
  * opens a second deposit address by itself.
  */
-export function IntentsCheckout({ request, onPrepared, availability, hint = null }: {
+export function IntentsCheckout({ request, onPrepared, availability, hint = null, preferredOrigin = BASE_USDC.assetId }: {
   request: MainnetRequest;
   onPrepared: () => void;
   availability?: OneClickAvailability | null | undefined;
   hint?: HintState | null;
+  preferredOrigin?: string;
 }) {
   const c = useMainnetCopy();
   const { locale } = useLocale();
@@ -356,8 +366,14 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
   const oc = ORIGIN_COPY[locale];
   const fetched = useOrigins(availability === undefined);
   const origins = availability !== undefined ? availability?.origins ?? [] : fetched;
-  const [picked, setPicked] = useState<string>(BASE_USDC.assetId);
-  const origin: PublicOrigin = origins?.find((o) => o.assetId === picked) ?? { assetId: BASE_USDC.assetId, chain: 'base', symbol: 'USDC', refundAddressFormat: 'evm', contractAddress: BASE_USDC.contractAddress, source: 'recorded-live-quote' };
+  const [picked, setPicked] = useState(preferredOrigin);
+  const originId = quote?.originAssetId ?? picked;
+  const fallbackOrigin = originAssetById(originId);
+  const origin: PublicOrigin = origins?.find(o => o.assetId === originId)
+    ?? (fallbackOrigin !== null ? { ...fallbackOrigin, source: 'live-token-list' } : null)
+    ?? origins?.[0]
+    ?? { ...BASE_USDC, source: 'recorded-live-quote' };
+  const native = origin.chain === 'near';
   const check = validateRefundAddress(origin, refund);
   const requestId = request.terms.id;
 
@@ -416,14 +432,16 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
 
   const remaining = quote === null ? 0 : Date.parse(quote.deadline) - now;
   const fmtUsdc = (base: string) => formatMainnetAmount(base, MAINNET_ASSETS.USDC, locale);
+  const nativeAmount = quote && native ? formatMainnetAmount(quote.amountIn, MAINNET_ASSETS.NEAR).replace(/,/g, '') : null;
+  const refundLink = quote === null ? null : native ? nearAccountUrl(quote.refundTo) : baseAddressUrl(quote.refundTo);
   const moving = hint?.status != null && hint.status !== 'PENDING_DEPOSIT';
   const payable = quote?.deposit != null && quote.released === null && remaining > 0 && !moving && request.status === 'OPEN';
   const expiredUnpaid = quote?.deposit != null && quote.released === null && remaining <= 0 && !moving;
-  const fee = quote === null ? null : (() => { try { const d = BigInt(quote.amountIn) - BigInt(quote.amountOut); return d >= 0n ? fmtUsdc(d.toString()) : null; } catch { return null; } })();
+  const fee = quote === null || native ? null : (() => { try { const d = BigInt(quote.amountIn) - BigInt(quote.amountOut); return d >= 0n ? fmtUsdc(d.toString()) : null; } catch { return null; } })();
 
   return (
     <Card>
-      <h2 className="text-[15px] font-semibold">{c.intents.title}</h2>
+      <h2 className="text-[15px] font-semibold">{native ? oc.native.title : c.intents.title}</h2>
       <p className="mt-1 text-[13px] text-[var(--text-secondary)]">{c.intents.lead}</p>
 
       {resuming && quote === null ? (
@@ -467,7 +485,7 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
               aria-describedby="refund-help"
               className="mt-1 min-h-[var(--tap-target)] w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 font-mono text-[13px]"
             />
-            <p id="refund-help" className="mt-1 text-[12px] text-[var(--text-muted)]">{c.intents.refundHint.replace('Base', oc.chain[origin.chain])} {origin.refundAddressFormat === 'solana' ? oc.solanaNote : origin.refundAddressFormat === 'tron' ? oc.tronNote : ''}</p>
+            <p id="refund-help" className="mt-1 text-[12px] text-[var(--text-muted)]">{native ? oc.native.refundHint : c.intents.refundHint.replace('Base', oc.chain[origin.chain])} {origin.refundAddressFormat === 'solana' ? oc.solanaNote : origin.refundAddressFormat === 'tron' ? oc.tronNote : ''}</p>
             {touched && refund !== '' && !check.ok && <p role="alert" className="mt-1 text-[13px] text-[var(--tone-danger-fg)]">{check.reason === 'format' ? oc.refundFormat[origin.refundAddressFormat] : c.intents.refundErrors[check.reason]}</p>}
           </div>
           <Button type="submit" variant="primary" size="lg" block disabled={pending || !check.ok} data-testid="get-quote">
@@ -476,7 +494,7 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
           {error !== null && (
             <Notice tone="danger" live testId="quote-error">
               {c.intents.errors[error] ?? c.intents.errorFallback}
-              {blockReason !== null && <span className="mt-1 block text-[13px]" data-testid="quote-recovery" data-reason={blockReason}>{c.intents.blocked[blockReason]}</span>}
+              {blockReason !== null && <span className="mt-1 block text-[13px]" data-testid="quote-recovery" data-reason={blockReason}>{native && blockReason === 'EVIDENCE_UNAVAILABLE' ? oc.native.releasePending : c.intents.blocked[blockReason]}</span>}
             </Notice>
           )}
         </form>
@@ -489,14 +507,14 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
 
           {payable && quote.deposit !== null && (
             <div data-testid="deposit-instructions" className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-[var(--taply-lime)] p-4">
-              <p className="text-[17px] font-semibold" data-testid="send-exactly">{fill(c.intents.sendExactly, { amount: quote.amountInFormatted })}</p>
-              <p role="note" className="text-[13px] font-medium text-[var(--tone-caution-fg)]" data-testid="network-only">{c.intents.networkOnly}</p>
+              <p className="text-[17px] font-semibold" data-testid="send-exactly">{native ? fill(oc.native.sendExactly, { amount: nativeAmount! }) : fill(c.intents.sendExactly, { amount: quote.amountInFormatted })}</p>
+              <p role="note" className="text-[13px] font-medium text-[var(--tone-caution-fg)]" data-testid="network-only">{native ? oc.native.networkOnly : c.intents.networkOnly}</p>
               <div className="flex flex-col items-center gap-2">
-                <div className="rounded-2xl bg-[var(--paper-shade,#F4F3E8)] p-2"><QrCode value={quote.deposit.address} label={c.intents.qrLabel} size={200} /></div>
-                <p className="text-center text-[12px] text-[var(--text-muted)]">{c.intents.qrNote}</p>
+                <div className="rounded-2xl bg-[var(--paper-shade,#F4F3E8)] p-2"><QrCode value={quote.deposit.address} label={native ? oc.native.address : c.intents.qrLabel} size={200} /></div>
+                <p className="text-center text-[12px] text-[var(--text-muted)]">{native ? oc.native.qrNote : c.intents.qrNote}</p>
               </div>
               <div>
-                <p className="text-[12px] text-[var(--text-secondary)]">{c.intents.depositAddress}</p>
+                <p className="text-[12px] text-[var(--text-secondary)]">{native ? oc.native.address : c.intents.depositAddress}</p>
                 <p className="break-all font-mono text-[14px]" data-testid="deposit-address">{quote.deposit.address}</p>
               </div>
               {quote.deposit.memo !== null && (
@@ -512,10 +530,10 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
               {(quote.deposit.memo === null || memoOk) && (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <CopyButton value={quote.deposit.address} label={c.intents.copyAddress} done={c.intents.copied} testId="copy-deposit" />
-                  <CopyButton value={quote.amountInFormatted} label={c.intents.copyAmount} done={c.intents.copied} testId="copy-amount" />
+                  <CopyButton value={nativeAmount?.replace(/ NEAR$/, '') ?? quote.amountInFormatted} label={c.intents.copyAmount} done={c.intents.copied} testId="copy-amount" />
                 </div>
               )}
-              <p className="text-[12px] text-[var(--text-muted)]">{fill(c.intents.underOver, { min: fmtUsdc(quote.minAmountIn).replace(/\s*USDC$/, '') })}</p>
+              {!native && <p className="text-[12px] text-[var(--text-muted)]">{fill(c.intents.underOver, { min: fmtUsdc(quote.minAmountIn).replace(/\s*USDC$/, '') })}</p>}
               <p className="text-[13px] font-medium">{c.intents.afterSend}</p>
             </div>
           )}
@@ -525,27 +543,27 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
               <p className="font-semibold">{c.intents.evidence.title}</p>
               <dl className="mt-1">
                 <Row label={c.intents.evidence.upstream} mono>{evidence.upstream ?? '—'}</Row>
-                {evidence.refundReported !== null && <Row label={c.intents.evidence.refundReported}>{evidence.refundReported.amountFormatted ?? '—'} USDC</Row>}
-                <Row label="Base">
+                {evidence.refundReported !== null && <Row label={c.intents.evidence.refundReported}>{evidence.refundReported.amountFormatted ?? '—'} {origin.symbol}</Row>}
+                <Row label={oc.chain[origin.chain]}>
                   <span data-testid="evidence-chain" data-kind={evidence.chain?.kind ?? 'NONE'}>
-                    {evidence.chain?.kind === 'REFUND' ? `${c.intents.evidence.chainRefund}: ${fmtUsdc(evidence.chain.refunded ?? '0')}` : evidence.chain?.kind === 'NO_DEPOSIT' ? c.intents.evidence.chainNoDeposit : c.intents.evidence.chainNone}
+                    {native ? oc.native.originNote : evidence.chain?.kind === 'REFUND' ? `${c.intents.evidence.chainRefund}: ${fmtUsdc(evidence.chain.refunded ?? '0')}` : evidence.chain?.kind === 'NO_DEPOSIT' ? c.intents.evidence.chainNoDeposit : c.intents.evidence.chainNone}
                   </span>
                 </Row>
                 <Row label={c.intents.evidence.reference} mono>{quote.attemptId}</Row>
               </dl>
-              {'blocked' in evidence.verdict && <p className="mt-1 text-[var(--tone-caution-fg)]" data-testid="evidence-blocked" data-reason={evidence.verdict.blocked}>{c.intents.blocked[evidence.verdict.blocked]}</p>}
+              {'blocked' in evidence.verdict && <p className="mt-1 text-[var(--tone-caution-fg)]" data-testid="evidence-blocked" data-reason={evidence.verdict.blocked}>{native && evidence.verdict.blocked === 'EVIDENCE_UNAVAILABLE' ? oc.native.releasePending : c.intents.blocked[evidence.verdict.blocked]}</p>}
               <Button variant="ghost" onClick={() => void resume()} data-testid="evidence-recheck">{c.intents.evidence.checkAgain}</Button>
             </div>
           )}
           {expiredUnpaid && (
             <div className="flex flex-col gap-2" data-testid="quote-expired">
-              <Notice tone="caution" live>{c.intents.expiredUnpaid}</Notice>
-              <Button variant="secondary" data-testid="new-quote" disabled={pending} onClick={() => void (async () => { setRefund(quote.refundTo); setTouched(true); setQuote(null); })()}>{c.intents.newQuote}</Button>
+              <Notice tone="caution" live>{native ? oc.native.expired : c.intents.expiredUnpaid}</Notice>
+              {!native && <Button variant="secondary" data-testid="new-quote" disabled={pending} onClick={() => void (async () => { setRefund(quote.refundTo); setTouched(true); setQuote(null); })()}>{c.intents.newQuote}</Button>}
             </div>
           )}
 
           <dl>
-            <Row label={fill(oc.send, { chain: oc.chain[origin.chain] })}>{quote.amountInFormatted} {origin.symbol} · {oc.chain[origin.chain]}</Row>
+            <Row label={fill(oc.send, { chain: oc.chain[origin.chain] })}>{nativeAmount ?? `${quote.amountInFormatted} ${origin.symbol}`} · {oc.chain[origin.chain]}</Row>
             <Row label={c.intents.merchantGets}>{fmtUsdc(quote.amountOut)}</Row>
             {fee !== null && <Row label={c.intents.feeLine}>{fee}</Row>}
             <Row label={c.intents.deadline}>
@@ -553,7 +571,7 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
             </Row>
             {quote.timeEstimateSec !== null && <Row label={c.intents.estimate}>~{quote.timeEstimateSec} s</Row>}
             <Row label={c.intents.refundTo} mono>
-              {baseAddressUrl(quote.refundTo) !== null ? <a className="underline" href={baseAddressUrl(quote.refundTo)!} target="_blank" rel="noreferrer noopener">{quote.refundTo}</a> : quote.refundTo}
+              {refundLink !== null ? <a className="underline" href={refundLink} target="_blank" rel="noreferrer noopener">{quote.refundTo}</a> : quote.refundTo}
             </Row>
           </dl>
           {quote.deposit === null && (
@@ -570,7 +588,7 @@ export function IntentsCheckout({ request, onPrepared, availability, hint = null
               <Row label={c.intents.correlationLabel} mono>{quote.correlationId}</Row>
             </dl>
             <p className="mt-1">{c.intents.verifiedLine}</p>
-            <p className="mt-1">{c.intents.feeNote} {c.intents.originNotVerified}</p>
+            <p className="mt-1">{c.intents.feeNote} {native ? oc.native.originNote : c.intents.originNotVerified}</p>
           </details>
         </div>
       )}

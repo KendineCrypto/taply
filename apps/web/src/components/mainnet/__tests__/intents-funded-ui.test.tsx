@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { MainnetLocaleProvider } from '@/lib/mainnet/copy';
 import { mainnetEn } from '@/lib/i18n/dictionaries/mainnet-en';
 import { mainnetTr } from '@/lib/i18n/dictionaries/mainnet-tr';
+import { NATIVE_NEAR } from '@/lib/mainnet/oneclick/allowlist';
 import { fixtureRequests } from '@/lib/mainnet/fixtures';
 
 /**
@@ -55,6 +56,28 @@ describe('funded Base USDC deposit screen', () => {
     fireEvent.click(screen.getByTestId('copy-amount'));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('12.628863'));
     expect(screen.queryByTestId('deposit-withheld')).toBeNull();
+  });
+
+  it('shows and copies the exact native NEAR amount without mixing USDC and NEAR units', async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    const deposit = 'a'.repeat(64);
+    const native = {
+      ...funded, originAssetId: NATIVE_NEAR.assetId, refundTo: 'payer.near', destinationAsset: request.terms.assetId,
+      amountIn: '1553984383477792954698838', amountInFormatted: '1.55',
+      deposit: { address: deposit, memo: null },
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(native), { status: 200 })));
+    wrap(<IntentsCheckout request={request} availability={{
+      funding: true, origins: [...availability.origins, { ...NATIVE_NEAR, source: 'live-token-list' }],
+    }} preferredOrigin={NATIVE_NEAR.assetId} onPrepared={() => {}} />);
+    fireEvent.change(document.getElementById('refund')!, { target: { value: 'payer.near' } });
+    fireEvent.click(screen.getByTestId('get-quote'));
+    await waitFor(() => expect(screen.getByTestId('send-exactly').textContent).toBe('Send 1.553984383477792954698838 NEAR on NEAR Mainnet'));
+    expect(screen.getByTestId('deposit-address').textContent).toBe(deposit);
+    expect(screen.queryByText(mainnetEn.intents.feeLine)).toBeNull();
+    fireEvent.click(screen.getByTestId('copy-amount'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('1.553984383477792954698838'));
   });
 
   it('a memo cannot be skipped: copy buttons appear only after confirming it', async () => {

@@ -12,6 +12,7 @@ import {
   ed25519PublicKeyFromHex,
   EncryptedMainnetVault,
   MainnetVaultError,
+  MAINNET_WALLET_STORAGE_KEY,
   openMainnetAttemptStore,
 } from '@taply/near-client';
 import type { MainnetAttempt, MainnetReadProfile, MainnetWalletIdentity, MainnetWalletSnapshot } from '@taply/near-client';
@@ -60,6 +61,24 @@ export function vault(): EncryptedMainnetVault {
     window.addEventListener('pageshow', (event) => { if (event.persisted) void vaultSingleton?.resume().catch(() => false); });
   }
   return vaultSingleton;
+}
+/**
+ * "Disconnect" for the Taply Wallet: removes the encrypted wallet from THIS
+ * browser only. The password must decrypt it first (so a passer-by cannot wipe
+ * it), the vault is locked (unlock session cleared), then its single storage
+ * record is removed. Nothing on chain changes; restoring needs the recovery
+ * phrase. The device payment ledger is deliberately kept: it is the
+ * double-payment protection and has no delete path.
+ */
+export async function forgetTaplyWallet(password: string, storage: Pick<Storage, 'removeItem' | 'getItem'> = window.localStorage): Promise<void> {
+  const v = vault();
+  if (v.getIdentity() === null) throw new MainnetVaultError('INVALID_RECORD');
+  await v.unlock(password);
+  v.lock();
+  storage.removeItem(MAINNET_WALLET_STORAGE_KEY);
+  if (storage.getItem(MAINNET_WALLET_STORAGE_KEY) !== null) throw new MainnetVaultError('STORAGE_UNAVAILABLE');
+  vaultSingleton = null;
+  vaultResume = null;
 }
 const subscribe = (cb: () => void) => vault().subscribe(cb);
 /** Identity + unlocked state, re-rendered on vault changes. */

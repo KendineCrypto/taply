@@ -1,5 +1,6 @@
 import { keccak_256 } from '@noble/hashes/sha3';
 import { sha256 } from '@noble/hashes/sha2';
+import { MainnetAccountSchema } from '@taply/shared';
 import type { OriginAsset } from './allowlist';
 
 /**
@@ -90,6 +91,12 @@ export function validateTronAddress(input: unknown): RefundCheck {
 }
 
 export function validateRefundAddress(asset: Pick<OriginAsset, 'refundAddressFormat' | 'contractAddress'>, input: unknown): RefundCheck {
+  if (asset.refundAddressFormat === 'near') {
+    const result = MainnetAccountSchema.safeParse(typeof input === 'string' ? input.trim() : input);
+    if (!result.success) return { ok: false, reason: 'format' };
+    if (['near', 'intents.near', asset.contractAddress].includes(result.data) || /^(?:0x)?0+$/.test(result.data)) return { ok: false, reason: 'forbidden' };
+    return { ok: true, address: result.data };
+  }
   const result =
     asset.refundAddressFormat === 'solana' ? validateSolanaAddress(input)
       : asset.refundAddressFormat === 'tron' ? validateTronAddress(input)

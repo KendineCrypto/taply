@@ -35,7 +35,7 @@ export function attemptSecretFor(requestId: string): string {
 export interface PublicOrigin {
   readonly assetId: string;
   readonly chain: OriginChain;
-  readonly symbol: 'USDC' | 'USDT';
+  readonly symbol: 'USDC' | 'USDT' | 'NEAR';
   readonly decimals?: number;
   readonly contractAddress: string;
   readonly refundAddressFormat: RefundFormat;

@@ -1,20 +1,19 @@
 /**
- * Origin assets Taply accepts for a 1Click quote. Explicit, minimal, Base USDC
- * only for the pilot (owner scope 2026-11-13). Arbitrum/Solana are listed in
- * docs/MAINNET_BRIEF.md §3 but deliberately NOT enabled here.
+ * Origin assets Taply accepts for a 1Click quote. Funded routes use the
+ * static allowlist. The dynamically resolved routes are quote-only.
  *
  * In `dry` mode the service additionally confirms the asset is still listed by
  * the live `/v0/tokens` endpoint with the same chain and contract address.
  */
-export type OriginChain = 'base' | 'sol' | 'tron';
-export type RefundFormat = 'evm' | 'solana' | 'tron';
+export type OriginChain = 'base' | 'near' | 'sol' | 'tron';
+export type RefundFormat = 'evm' | 'near' | 'solana' | 'tron';
 
 export interface OriginAsset {
   readonly assetId: string;
   /** 1Click `TokenResponse.blockchain` value (SDK 0.1.26 enum). */
   readonly chain: OriginChain;
-  readonly symbol: 'USDC' | 'USDT';
-  readonly decimals: 6;
+  readonly symbol: 'USDC' | 'USDT' | 'NEAR';
+  readonly decimals: 6 | 24;
   /** Token contract on the origin chain: EVM lowercase hex; Solana mint / Tron base58 exact. */
   readonly contractAddress: string;
   readonly refundAddressFormat: RefundFormat;
@@ -48,7 +47,17 @@ export const BASE_USDC: OriginAsset = Object.freeze({
   refundAddressFormat: 'evm',
 });
 
-export const ORIGIN_ASSET_ALLOWLIST: ReadonlyArray<OriginAsset> = Object.freeze([BASE_USDC]);
+// 1Click wraps native deposits. On the payer side, the asset is native NEAR.
+export const NATIVE_NEAR: OriginAsset = Object.freeze({
+  assetId: 'nep141:wrap.near',
+  chain: 'near',
+  symbol: 'NEAR',
+  decimals: 24,
+  contractAddress: 'wrap.near',
+  refundAddressFormat: 'near',
+});
+
+export const ORIGIN_ASSET_ALLOWLIST: ReadonlyArray<OriginAsset> = Object.freeze([BASE_USDC, NATIVE_NEAR]);
 
 export function originAssetById(assetId: unknown): OriginAsset | null {
   return ORIGIN_ASSET_ALLOWLIST.find((a) => a.assetId === assetId) ?? null;
@@ -67,7 +76,7 @@ const sameContract = (asset: Pick<OriginAsset, 'refundAddressFormat' | 'contract
   asset.refundAddressFormat === 'evm' ? (listed ?? '').toLowerCase() === asset.contractAddress : listed === asset.contractAddress;
 
 const describes = (asset: Omit<OriginAsset, 'assetId'>, t: ListedToken) =>
-  t.blockchain === asset.chain && t.symbol === asset.symbol && t.decimals === asset.decimals && sameContract(asset, t.contractAddress);
+  t.blockchain === asset.chain && (t.symbol === asset.symbol || (asset.chain === 'near' && t.symbol === 'wNEAR')) && t.decimals === asset.decimals && sameContract(asset, t.contractAddress);
 
 /** The live token list must still describe the allowlisted asset identically. */
 export function isStillListed(asset: OriginAsset, tokens: ReadonlyArray<ListedToken>): boolean {
