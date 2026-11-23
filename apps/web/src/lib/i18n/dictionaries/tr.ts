@@ -1485,7 +1485,7 @@ export const tr: Dictionary = {
   },
 
   oneTap: {
-    nav: { wallet: 'Cüzdan', tap: 'Tap', activity: 'Geçmiş' },
+    nav: { wallet: 'Cüzdan', tap: 'Tap', activity: 'Geçmiş', swap: 'Takas', receive: 'Al' },
     sheet: {
       title: 'Ne yapmak istersin?',
       description: 'Her ödeme eksiksiz gösterilir ve kendi cüzdanında onaylanır.',

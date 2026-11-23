@@ -959,7 +959,7 @@ export interface Dictionary {
 
   /** Phase 5 one-tap redesign: shell, Tap sheet, simplified home/request/receipt. */
   readonly oneTap: {
-    readonly nav: { readonly wallet: string; readonly tap: string; readonly activity: string };
+    readonly nav: { readonly wallet: string; readonly tap: string; readonly activity: string; readonly swap: string; readonly receive: string };
     readonly sheet: {
       readonly title: string;
       readonly description: string;

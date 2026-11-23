@@ -4,7 +4,7 @@ import type { ScanInput } from '@/lib/payments/pay-link';
 
 export const PRODUCT_ROUTES = ['wallet', 'wallet/create', 'wallet/restore', 'send', 'receive', 'pay',
   'scan', 'activity', 'contacts', 'split', 'recurring', 'merchant', 'merchant/setup', 'merchant/register',
-  'settings', 'protected/new', 'gift/new', 'gift/p', 'tools', 'handshake'] as const;
+  'settings', 'protected/new', 'gift/new', 'gift/p', 'tools', 'handshake', 'swap'] as const;
 export function isProductRoute(path: string): boolean {
   return (PRODUCT_ROUTES as readonly string[]).includes(path) ||
     /^(receipt|protected|gift)\/[0-9a-f]{64}(\/receipt)?$/.test(path) ||
