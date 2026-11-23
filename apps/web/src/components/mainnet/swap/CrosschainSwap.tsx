@@ -74,7 +74,7 @@ export function CrosschainSwap() {
   const title = verified ? c.verified : refunded ? c.refunded : session?.state === 'uncertain' ? c.failed : session?.upstream === 'SUCCESS' ? c.reported : session?.upstream === 'REFUNDED' ? c.refundReported : session?.upstream === 'PENDING_DEPOSIT' ? c.waiting : c.progress;
   if (pending || session) return <section className="mx-auto flex w-full max-w-[480px] flex-col gap-4" data-testid="crosschain-progress">
     <h1 className="text-xl font-semibold">{session ? title : c.pending}</h1>
-    <p className="text-xs text-[var(--text-secondary)]">{c.beta}</p>
+    {!verified && !refunded && <p className="text-xs text-[var(--text-secondary)]">{c.resumeInfo}</p>}
     {q && <div className="surface-card flex flex-col gap-3 p-5">
       <p className="text-lg font-semibold">{formatAmount(q.amountIn)} USDC · {ASSETS[q.input.from].name} → {ASSETS[q.input.to].name}</p>
       <p className="break-all text-xs text-[var(--text-secondary)]">{c.recipient}: {q.input.recipient}</p>
@@ -99,7 +99,6 @@ export function CrosschainSwap() {
   </section>;
   return <section className="mx-auto flex w-full max-w-[480px] flex-col gap-3" data-testid="crosschain-swap">
     <h1 className="text-lg font-semibold">{c.title}</h1>
-    {mode === 'funded' && <p className="text-xs text-[var(--text-secondary)]">{c.beta}</p>}
     <div className="surface-card p-4"><label className="text-sm text-[var(--text-secondary)]" htmlFor="cross-from">{c.pay}</label><select id="cross-from" aria-label={`${c.pay} ${c.network}`} className={`${control} mt-2`} value={from} onChange={e => { invalidate(); const chain = e.target.value as Chain; setFrom(chain); if (chain === to) setTo(from); setRefund(''); setRecipient(''); }}>{CHAINS.map(chain => <option key={chain} value={chain}>USDC · {ASSETS[chain].name}</option>)}</select><input aria-label={c.amount} className="mt-3 w-full min-w-0 bg-transparent text-3xl outline-none" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => { invalidate(); setAmount(e.target.value); }} /></div>
     <button type="button" aria-label={c.flip} className="tap-target self-center rounded-full bg-[var(--surface-2)] px-4" onClick={() => { invalidate(); setFrom(to); setTo(from); setRecipient(''); setRefund(''); }}>↓↑</button>
     <div className="surface-card p-4"><label className="text-sm text-[var(--text-secondary)]" htmlFor="cross-to">{c.receive}</label><select id="cross-to" aria-label={`${c.receive} ${c.network}`} className={`${control} mt-2`} value={to} onChange={e => { invalidate(); const chain = e.target.value as Chain; setTo(chain); if (chain === from) setFrom(to); setRefund(''); setRecipient(''); }}>{CHAINS.map(chain => <option key={chain} value={chain}>USDC · {ASSETS[chain].name}</option>)}</select><output className="mt-3 block text-3xl" aria-live="polite">{quote ? formatAmount(quote.amountOut) : '0.00'}</output></div>
@@ -110,6 +109,7 @@ export function CrosschainSwap() {
     {error && <p role="alert" className="text-sm text-[var(--tone-danger-fg)]">{error}</p>}
     {quote && review ? <><Button size="lg" block disabled={busy || mode !== 'funded'} onClick={() => void fund()}>{c.confirm}</Button><Button block variant="ghost" onClick={() => setReview(false)}>{c.back}</Button></> : quote ? <Button size="lg" block disabled={busy} onClick={() => setReview(true)}>{c.review}</Button> : <Button size="lg" block disabled={!secret || busy || !parseAmount(amount) || mode === 'off'} onClick={() => void getQuote()}>{busy ? c.loading : c.quote}</Button>}
     {mode !== 'funded' && <p className="text-xs text-[var(--text-secondary)]">{c.readOnly}</p>}
+    {mode === 'funded' && <details className="px-1 text-xs text-[var(--text-secondary)]"><summary className="cursor-pointer">{c.transferDetails}</summary><p className="pt-2">{c.transferInfo}</p></details>}
     <p className="px-1 text-center text-xs text-[var(--text-muted)]">{c.attribution}</p>
   </section>;
 }
