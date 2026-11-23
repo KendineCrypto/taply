@@ -26,6 +26,7 @@ async function form() {
 it('reviews a dry quote before creating one fundable address', async () => {
   await form(); fireEvent.click(screen.getByText('Get quote'));
   await screen.findByText('Review swap'); expect(screen.queryByTestId('qr')).toBeNull();
+  expect(screen.getByText(/Funded swaps have not yet been verified end to end/)).toBeTruthy();
   fireEvent.click(screen.getByText('Review swap')); fireEvent.click(screen.getByText('Create payment address'));
   await screen.findByTestId('qr'); expect(localStorage.getItem(PENDING_KEY)).toBe('1');
   expect(handler.mock.calls.filter(([url, opts]) => url.endsWith('/quote') && JSON.parse(String(opts?.body)).fund)).toHaveLength(1);
