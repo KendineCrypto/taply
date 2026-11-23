@@ -186,9 +186,9 @@ await unlock(w);
 
 // ---------- Nav ----------
 await w.goto(`${BASE}/m`);
-const navLabels = await w.locator('nav[aria-label] a, nav[aria-label] button').allTextContents();
+const navLabels = await w.locator('nav[aria-label="Primary navigation"] > ul > li > a, nav[aria-label="Primary navigation"] > ul > li > button').allTextContents();
 check('mobile bottom nav: Wallet · Swap · Tap · Activity · Receive', ['Wallet', 'Swap', 'Tap', 'Activity', 'Receive'].every((l, i) => (navLabels[i] ?? '').trim() === l), navLabels.join('|'));
-const navTargets = await w.evaluate(() => [...document.querySelectorAll('nav[aria-label] li > *')].map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }));
+const navTargets = await w.evaluate(() => [...document.querySelectorAll('nav[aria-label="Primary navigation"] > ul > li > *')].map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }));
 check('every nav target ≥ 44×44 px at 390 px', navTargets.every(([x, y]) => x >= 44 && y >= 44), JSON.stringify(navTargets));
 await w.getByRole('link', { name: 'Swap' }).click();
 await w.waitForSelector('[data-testid=swap-page]', { timeout: 30000 });
@@ -357,10 +357,10 @@ for (const [width, height] of [[360, 740], [390, 844], [430, 932], [1280, 900]])
   await quoteReady(page);
   await noOverflow(page, `swap ${width}`);
   const ctaBox = await page.getByTestId('swap-cta').boundingBox();
-  const navBox = await page.locator('nav[aria-label]').last().boundingBox();
+  const navBox = await page.locator('nav[aria-label="Primary navigation"]').boundingBox();
   await page.getByTestId('swap-cta').scrollIntoViewIfNeeded();
   const cta2 = await page.getByTestId('swap-cta').boundingBox();
-  const nav2 = await page.locator('nav[aria-label]').last().boundingBox();
+  const nav2 = await page.locator('nav[aria-label="Primary navigation"]').boundingBox();
   check(`${width}px: no horizontal overflow; CTA fully above the bottom nav`, !overflow.some((o) => o.startsWith(`swap ${width}`)) && cta2.y + cta2.height <= nav2.y + 1, JSON.stringify({ ctaBox, navBox, cta2, nav2 }));
   const ctaH = (await page.getByTestId('swap-cta').boundingBox()).height, flipH = (await page.getByTestId('swap-flip').boundingBox()).height;
   check(`${width}px: CTA ≥ 44 px, flip ≥ 44 px`, ctaH >= 44 && flipH >= 44, `${ctaH} ${flipH}`);

@@ -44,7 +44,7 @@ const quoteReady = (p) => p.waitForFunction(() => /^[0-9]/.test(document.querySe
 // 1. No wallet: live quote, nav, token sheet, settings.
 const { context: c1, page: p, errors } = await ctx({ width: 390, height: 844 });
 await p.goto(`${BASE}/m/swap`, { waitUntil: 'networkidle' });
-const nav = (await p.locator('nav[aria-label] a, nav[aria-label] button').allTextContents()).map((t) => t.trim());
+const nav = (await p.locator('nav[aria-label="Primary navigation"] > ul > li > a, nav[aria-label="Primary navigation"] > ul > li > button').allTextContents()).map((t) => t.trim());
 check('preview nav: Wallet · Swap · Tap · Activity · Receive', ['Wallet', 'Swap', 'Tap', 'Activity', 'Receive'].every((l, i) => nav[i] === l), nav.join('|'));
 check('no wallet: CTA "Connect a wallet"', (await text(p, 'swap-cta')) === 'Connect a wallet', await text(p, 'swap-cta'));
 await p.getByTestId('swap-in').fill('0.1');
