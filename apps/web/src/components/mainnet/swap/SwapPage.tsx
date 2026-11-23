@@ -103,6 +103,7 @@ export function SwapPage({ fetcher }: { readonly fetcher?: QuoteFetcher } = {}) 
       const msg = code === 'SWAP_CODE_PIN_MISMATCH' ? c.errors.pin : code === 'SWAP_PRICE_IMPACT_TOO_HIGH' ? c.errors.impact : code === 'SWAP_NO_LIQUIDITY' || code === 'SWAP_POOL_MISMATCH' ? c.cta.noRoute : c.errors.quote;
       return { label: code === 'SWAP_NO_LIQUIDITY' ? c.cta.noRoute : c.cta.expired, enabled: code !== 'SWAP_CODE_PIN_MISMATCH', action: 'refresh', error: msg };
     }
+    if (q?.accountMissing && signer.kind === 'ok') return { label: c.cta.insufficient('NEAR'), enabled: false, error: c.errors.notActivated };
     if (!q || !plan || !account) return { label: c.cta.fetching, enabled: false };
     if (quote.expired) return { label: c.cta.expired, enabled: true, action: 'refresh' };
     const check = checkBalances(from, amount!, plan, account);

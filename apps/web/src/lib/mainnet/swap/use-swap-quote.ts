@@ -20,6 +20,8 @@ export interface SwapQuote {
   /** null for NEAR <-> wNEAR (1:1 wrap.near, no pool). */
   readonly math: MainnetSwapQuoteMath | null;
   readonly expectedOut: bigint | null;
+  /** The connected account does not exist on Mainnet yet (never received NEAR). */
+  readonly accountMissing?: boolean;
   readonly fetchedAt: number;
 }
 export type QuoteState =
@@ -40,18 +42,22 @@ export const liveQuoteFetcher: QuoteFetcher = async (from, to, amount, accountId
   if (!USDC_CODE_HASH) throw new Error('TOKEN_CODE_PIN_REQUIRED');
   const reader = createMainnetSwapReader(profiles.network, USDC_CODE_HASH);
   let full;
+  let accountMissing = false;
   try { full = await reader.read(accountId); }
   catch (e) {
-    // A Taply Wallet that never received NEAR has no Mainnet account yet: quote without balances.
-    if (accountId === null) throw e;
+    // A Taply Wallet that never received NEAR has no Mainnet account yet: the pool quote still works,
+    // balances do not exist. Only an account-specific failure is treated this way.
+    const notFound = e !== null && typeof e === 'object' && 'code' in e && (e as { code: unknown }).code === 'ACCOUNT_NOT_FOUND';
+    if (accountId === null || !notFound) throw e;
     full = await reader.read(null);
-    if (amount === null) throw Object.assign(new Error('ACCOUNT_NOT_ACTIVATED'), { code: 'ACCOUNT_NOT_ACTIVATED' });
+    accountMissing = true;
   }
   const { chain, ...read } = full;
-  if (amount === null || from.id === to.id) return { read, math: null, expectedOut: null };
-  if (!isPoolSwap(from, to)) return { read, math: null, expectedOut: amount };
+  const extra = accountMissing ? { accountMissing } : {};
+  if (amount === null || from.id === to.id) return { read, math: null, expectedOut: null, ...extra };
+  if (!isPoolSwap(from, to)) return { read, math: null, expectedOut: amount, ...extra };
   const math = await quoteMainnetSwap(chain, read.pool, from.token, to.token, amount.toString());
-  return { read, math, expectedOut: BigInt(math.expectedOut) };
+  return { read, math, expectedOut: BigInt(math.expectedOut), ...extra };
 };
 
 function errorCode(e: unknown): string {

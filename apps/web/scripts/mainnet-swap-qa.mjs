@@ -138,6 +138,19 @@ const errors = [];
 const overflow = [];
 async function ctx(label, viewport = { width: 390, height: 844 }, storageState) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: viewport.width < 800, hasTouch: viewport.width < 800, ...(storageState ? { storageState } : {}) });
+  if (process.env.SWAP_QA_REMOTE === '1') {
+    // Deployed Preview: the page itself is fetched by Node (TLS verified by Node); every other host is refused.
+    // The RPC route below is registered later, so it wins: Mainnet RPC stays SYNTHETIC here too.
+    await context.route('**/*', async (route) => {
+      const req = route.request();
+      if (new URL(req.url()).origin !== new URL(BASE).origin) return route.abort();
+      try {
+        const r = await fetch(req.url(), { method: req.method(), headers: { ...req.headers(), 'accept-encoding': 'identity' }, body: req.postDataBuffer() ?? undefined, redirect: 'manual' });
+        const headers = Object.fromEntries([...r.headers].filter(([k]) => !['content-encoding', 'content-length', 'transfer-encoding'].includes(k)));
+        await route.fulfill({ status: r.status, headers, body: Buffer.from(await r.arrayBuffer()) });
+      } catch { await route.abort(); }
+    });
+  }
   await context.route(/https:\/\/(rpc\.mainnet\.fastnear\.com|archival-rpc\.mainnet\.fastnear\.com|rpc\.mainnet\.near\.org)\/?.*/, rpc);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`${label}: ${e.message}`));

@@ -74,6 +74,7 @@ export const swapEn = {
     storage: 'This browser cannot save the swap record. Nothing was signed.',
     externalNoKey: 'Your connected wallet did not report its signing key. Reconnect it to swap.',
     signingOff: 'Signing is not enabled in this build. You can review quotes, but nothing can be signed.',
+    notActivated: 'This account is not active on NEAR Mainnet yet. Receive NEAR first; the price above is the live pool quote.',
   },
   review: {
     title: 'Review swap',
@@ -216,6 +217,7 @@ export const swapTr: SwapCopy = {
     storage: 'Bu tarayıcı takas kaydını saklayamıyor. Hiçbir şey imzalanmadı.',
     externalNoKey: 'Bağlı cüzdanın imza anahtarını bildirmedi. Takas için yeniden bağla.',
     signingOff: 'Bu sürümde imzalama açık değil. Fiyatları inceleyebilirsin ama hiçbir şey imzalanamaz.',
+    notActivated: 'Bu hesap NEAR Mainnet\'te henüz etkin değil. Önce NEAR al; yukarıdaki fiyat havuzdan canlı okunur.',
   },
   review: {
     title: 'Takası incele',
