@@ -1,0 +1,160 @@
+# Taply Mainnet Swap (`/m/swap`)
+
+Status 2026-11-23: implemented on branch `claude/mainnet-swap`. Unit, integration and real-browser
+tested against a synthetic RPC. Read-only live quotes verified on NEAR Mainnet. **No funded swap has
+been executed yet** (see "Real funded test plan").
+
+## 1. What ships
+
+| Pair (NEAR Mainnet) | Steps the wallet signs | Delivered asset | Shipped |
+|---|---|---|---|
+| NEAR → USDC | [register wNEAR] [register USDC] wrap → swap | USDC | yes |
+| USDC → NEAR | [register wNEAR] swap → unwrap | native NEAR (unwrap is its own verified step) | yes |
+| wNEAR → USDC | [register USDC] swap | USDC | yes |
+| USDC → wNEAR | [register wNEAR] swap | wNEAR (labelled wNEAR, never "NEAR") | yes |
+| NEAR → wNEAR / wNEAR → NEAR | wrap / unwrap (1:1, wrap.near) | wNEAR / NEAR | yes |
+| Any cross-chain pair (Base, Solana, EVM…) | — | — | **hidden** (section 3) |
+
+Registrations appear only when the chain says the account is not registered on that token. The review
+shows the real step count, and every step is a separate transaction. Taply Wallet signs them one after
+another after a single "Confirm swap". An external NEAR wallet asks once per step. Sequential signing was
+chosen for both signer types: batching would need a multi-action expectation in the reviewed ledger
+format (`MainnetReviewedActionSchema` is single-action), and that is a separate security review.
+
+## 2. Provider: Rhea (Ref v2) pinned pool, on-chain quotes, no SDK
+
+Verified on Mainnet on 2026-11-23 (`docs/evidence/mainnet-swap-2026-11-23/`):
+
+| Item | Value |
+|---|---|
+| Exchange | `v2.ref-finance.near`, metadata version 1.9.22, code hash `txLoEFi4RvYZ7wFNrqV61ggDdmrgHmatBkpXwtGN1FD` (pinned) |
+| wNEAR | `wrap.near`, 24 decimals, code hash `DL2f5xmZ44cQRP6vBMt94rvseH5d5KKnAGis2WkTAsh1` (pinned) |
+| USDC | `17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1`, 6 decimals, code hash from `NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH` (`DVJx7F3d…NX8q`) |
+| Pool | 4512, `SIMPLE_POOL` [USDC, wrap.near], total fee 30 bps. It is the deepest simple pool for this pair: about 880k USDC and 293k NEAR (all 29 USDC/wNEAR pools were scanned) |
+| Quote | Constant-product exact-input math in `bigint`. It must equal the exchange's own `get_return` view at the same final block, or the quote is refused (`SWAP_MATH_MISMATCH`) |
+
+Contract behaviour. The `ref-finance/ref-contracts` repository no longer resolves publicly. These
+behaviours were therefore verified from the **deployed WASM** (strings in
+`ref-wasm-strings.txt`, sha256 `0d4f3226…e4d0`) and from **real Mainnet receipts** (`real-receipts.txt`):
+
+- An instant swap is `ft_transfer_call(receiver_id=v2.ref-finance.near, msg={"actions":[...]})` on the input token. The sender needs no exchange registration (observed: `tx-bench.near` has no exchange storage).
+- The output is sent with `ft_transfer`. If the receiver is not registered on the output token, the exchange keeps it in a *lostfound* account. The policy therefore requires the output registration first.
+- If `min_amount_out` fails, the exchange panics and the input token refunds the whole input. The transaction still ends `SuccessValue "0"` (observed: `AR2hxHrF…`). A top-level success is therefore never treated as a swap.
+- `skip_unwrap_near` exists. Taply always sends `true`, so the swap pays wNEAR and native NEAR is a separate `near_withdraw` step that is proven separately.
+
+Why not the Rhea SDK / smart router:
+
+- The SDK builds transactions that Taply would have to sign blindly or re-parse.
+- It adds an unreviewed dependency to the lockfile.
+- Its smart-router host is an off-chain service that is not needed for one pinned pool.
+
+Taply instead reads the same contract the SDK targets, reconstructs every call inside the planner, and
+claims neither "best price" nor "all routes".
+
+## 3. Cross-chain decision
+
+Cross-chain swap is **not exposed** in this change.
+
+- The existing NEAR Intents / 1Click integration (PR #45) is unmerged and has never had a funded test. It is built for *payments*: EXACT_OUTPUT to the Taply contract, keyed by request id.
+- A swap needs its own attempt ledger, a recipient that is the user's own account, deposit-flow UX for non-NEAR origins, and destination-delivery proof.
+- Rhea's aggregation API would add a second quote provider for the same job and an off-chain dependency.
+
+Recommendation: when 1Click is merged and funded-tested, add cross-chain as a *labelled deposit flow*
+on the existing 1Click provider, with a `jobType: 'swap'` attempt that is separate from the payment ledger. The swap
+journal (`taply.mainnet.swap.v1:<account>`) is already independent of payment records.
+
+## 4. Signing policy (`packages/near-client/src/mainnet-swap.ts`)
+
+The planner (`createMainnetOperationPlanner`) accepts four new operation kinds. Each produces exactly one
+call, re-derived at the snapshot block, and nothing else:
+
+| Operation | Receiver | Method | Deposit | Gas | Re-checked at the block |
+|---|---|---|---|---|---|
+| `swapRegister{token}` | wrap.near or USDC | `storage_deposit{account_id: self, registration_only: true}` | `storage_balance_bounds.min` (≤ 0.01 NEAR) | 30 Tgas | not already registered |
+| `swapWrap{amount}` | wrap.near | `near_deposit{}` | amount | 20 Tgas | wNEAR registered (no silent fee deduction), amount ≤ 25 NEAR |
+| `swapExact{in,out,amountIn,minOut}` | token in | `ft_transfer_call{receiver_id: v2.ref-finance.near, amount, msg}` | 1 yocto | 150 Tgas | pins; pool 4512 kind, tokens and fee; `get_return` equals the math; price impact ≤ 3 %; **expected × 0.95 ≤ minOut ≤ expected** (never 0, never stale); balance; registrations of in, out and the exchange |
+| `swapUnwrap{amount}` | wrap.near | `near_withdraw{amount}` | 1 yocto | 30 Tgas | amount ≤ wNEAR balance |
+
+- `msg` is generated by the policy (`{"actions":[{pool_id:4512,...}],"skip_unwrap_near":true}`). Callers cannot pass a receiver, method, msg, pool or calldata.
+- The native NEAR budget (`mainnetSpendingBudget`: storage + 2 × 300 Tgas) applies to every step.
+- The operation hash includes a per-swap `swapId`, so a successful step can never be signed twice (`OPERATION_ALREADY_CONSUMED`).
+- Limits are separate from payment caps: 25 NEAR / 75 USDC per swap, max slippage 5 %, high-impact confirmation above 1 %, refusal above 3 %.
+
+## 5. Quote, review and execution lifecycle (`apps/web/src/lib/mainnet/swap/`)
+
+- **Quote.** Debounced 400 ms. Sequence-numbered, so a slower old response is dropped. TTL 30 s, then at most 3 automatic refreshes while the tab is visible, then a manual "Refresh quote". Any change to amount, token, account or slippage closes the review.
+- **Review.** Exact pay, estimate, minimum, price impact (separate from slippage), pool fee, network fee upper bound, the refundable storage deposit (not a fee) and "Taply fee: none". Every step is listed.
+- **Execution** (`runner.ts`). For each step: Codex planner → device-ledger reservation → wallet → one FINAL read → `verifyMainnetSwapStep` proves the step from receipts:
+  - SWAPPED: used = input, an exchange `Swapped` log, and a successful output transfer to the account of at least the minimum.
+  - REFUNDED: used "0".
+  - OUTPUT_NOT_DELIVERED: lostfound, or no transfer.
+  - WRAPPED: wrap.near deposit log.
+  - UNWRAPPED: a Transfer receipt from wrap.near to the account.
+- **Not proven → `unknown`.** The job blocks. "Check outcome" re-reads the ledger and the chain. A step goes back to *pending* only if the ledger shows it was never reserved.
+- **Resume.** The job lives in localStorage. A refresh shows the same job, and a second tab shows it too. One open job per account, plus a Web Lock per account.
+- **Result.** The amounts come from receipts (the unwrap amount for NEAR), with nearblocks links, "Done" and "View activity". The Activity page lists swaps with their own statuses.
+
+## 6. Recovery runbook
+
+| Situation | What the user holds | What Taply shows / does |
+|---|---|---|
+| Registration done, later step fails | the registration (refundable via `storage_unregister` on the token) | the job is "Needs attention"; the done step is not repeated |
+| Wrap done, swap refunded (slippage) | wNEAR | "Unwrap to NEAR" (wNEAR → NEAR job prefilled with the wrapped amount) or "Try again with a new quote" (wNEAR → USDC) |
+| Wrap done, swap pending, price moved | wNEAR | the planner refuses the stale minimum (`SWAP_QUOTE_MOVED`); "Try again with a new quote" starts from wNEAR |
+| Swap done (wNEAR received), unwrap failed | wNEAR (verified amount) | "Unwrap to NEAR" with the verified swap output |
+| OUTPUT_NOT_DELIVERED (lostfound) | the output, held by the exchange for the account | "Do not swap again". The output can be claimed with the exchange's `claim_lostfound` (not automated in Taply; owner support) |
+| Unknown outcome | not known | job and device ledger both blocked; "Check outcome" only; nothing is re-sent |
+
+## 7. Configuration
+
+No new environment variables. Swap needs a mainnet build with `NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH`.
+Signing additionally needs `NEXT_PUBLIC_TAPLY_MAINNET_SIGNING=on` and `NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device`
+(existing release mode). There is no API key, no paid service and no server route. Quotes are browser
+reads of the configured RPC.
+
+## 8. Tests
+
+- `packages/near-client/test/mainnet-swap.test.mjs` (10 tests):
+  - math against the real reserves;
+  - every policy refusal (min 0, low or stale min, other pool/fee/kind/token, code-pin change, `get_return` disagreement, caps, impact, registrations, balances, storage bounds, no USDC pin);
+  - the native gas reserve;
+  - receipt verification (swapped, refunded, lostfound, wrap, unwrap, not final, RPC down).
+- `apps/web/src/lib/mainnet/swap/__tests__/` (19 tests):
+  - parsing in TR/EN and paste; negative, zero, precision, huge and ambiguous inputs;
+  - Max reserve;
+  - step plans; storage vs gas;
+  - journal (one open job, corrupt fails closed);
+  - runner (pre-reservation refusal keeps the step pending; unresolved blocks; resolve paths; refund → partial);
+  - quote lifecycle (debounce, out-of-order, stale key, bounded refresh);
+  - EN/TR key parity.
+- `apps/web/scripts/mainnet-swap-qa.mjs`: real Chromium, real vault and IndexedDB ledger, really signed transactions, synthetic RPC with the real pool reserves and real receipt shapes. 54 checks:
+  - nav;
+  - every form state;
+  - token sheet and settings;
+  - NEAR→USDC in 4 steps;
+  - USDC→NEAR with unwrap;
+  - wrap OK + swap refunded → recovery;
+  - lost response + RPC down → unknown → refresh resume → second tab → check resolves without a resend;
+  - activity;
+  - 360/390/430/1280 overflow, CTA above the nav, ≥44 px targets, 440–480 px desktop column;
+  - TR;
+  - keyboard.
+
+Not covered here: VoiceOver/TalkBack manual pass, iOS Safari safe-area on a device.
+
+## 9. Real funded test plan (needs one explicit owner approval)
+
+The test runs on a **Preview** of this branch, never on the live domain, with the owner's own Taply Wallet on that Preview.
+
+1. Fund the Taply Wallet account with **0.15 NEAR**. The app keeps about 0.065 NEAR as a gas and storage reserve, so 0.05 NEAR is too little.
+2. Swap **NEAR → USDC, 0.03 NEAR**. At block 225834669: estimated 0.0897 USDC, minimum at 0.5 % ≈ 0.0893 USDC. The owner signs up to 3 transactions:
+   - register wNEAR, 0.00125 NEAR refundable deposit;
+   - wrap 0.03 NEAR;
+   - swap with the policy's `min_amount_out`.
+
+   USDC is already registered for most funded accounts; otherwise there is one more 0.00125 NEAR step.
+3. Swap **USDC → NEAR, all received USDC (about 0.089 USDC)**. The owner signs 2 transactions: swap to wNEAR with its minimum, then unwrap exactly the verified wNEAR.
+4. Maximum outflow: 0.03 NEAR input + 0.0025 NEAR refundable deposits + network fee. The upper bound is 0.023 NEAR; the expected burn is under 0.003 NEAR. The expected net cost is about 0.6 % pool fees plus gas, roughly 0.0035 NEAR.
+5. Evidence to record: each transaction hash, the FINAL receipts, the `verifyMainnetSwapStep` result, balances before and after, and screenshots of the result and Activity.
+
+The owner never shares a seed, private key or password; all signing happens on the owner's device.

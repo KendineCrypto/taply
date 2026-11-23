@@ -230,6 +230,25 @@ jobs:
           node scripts/mainnet-phase6-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/phase6" http://127.0.0.1:3122 6392
           test "$(redis-cli -p 6392 -n 2 --scan | grep -vc '^taply:mainnet:authority:')" = "0"
 
+      # Swap: real vault + IndexedDB device ledger, really signed transactions, SYNTHETIC RPC that applies
+      # wrap.near / Rhea pool 4512 / USDC effects with the real reserves and receipt shapes. No chain contact.
+      - name: Mainnet swap browser checks (device ledger, signing on, synthetic RPC)
+        working-directory: apps/web
+        timeout-minutes: 10
+        run: |
+          set -a; . ./env/mainnet.env.example; set +a
+          export VERCEL_ENV=preview NEXT_PUBLIC_TAPLY_PROTECTED_CONTRACT_ID= NEXT_PUBLIC_TAPLY_CONTRACT_CODE_HASH=9VpaiMp3Hoq8pVVvCW6oSZrvzBdZoNNgUmLCXrm32wX6 \
+            NEXT_PUBLIC_TAPLY_MAINNET_SIGNING=on NEXT_PUBLIC_TAPLY_MAINNET_LEDGER=device NEXT_PUBLIC_TAPLY_MAINNET_USDC_CODE_HASH=DVJx7F3dHEHJYwpYPwXHu8K9Uo7h4kXFcALucY5oNX8q
+          pnpm run build:mainnet
+          pnpm exec next start -p 3123 --hostname 127.0.0.1 > "$RUNNER_TEMP/taply-browser-server-swap.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3123/m > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/mainnet-swap-qa.mjs "$RUNNER_TEMP/taply-browser/node_modules/playwright/index.mjs" "$RUNNER_TEMP/taply-browser-evidence/swap" http://127.0.0.1:3123
+
       - name: Preserve Mainnet browser evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -243,3 +262,4 @@ jobs:
             ${{ runner.temp }}/taply-browser-server-phase2.log
             ${{ runner.temp }}/taply-browser-server-phase5.log
             ${{ runner.temp }}/taply-browser-server-phase6.log
+            ${{ runner.temp }}/taply-browser-server-swap.log

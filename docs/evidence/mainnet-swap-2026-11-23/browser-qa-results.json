@@ -1,0 +1,276 @@
+{
+  "synthetic": true,
+  "base": "http://127.0.0.1:3130",
+  "results": [
+    {
+      "name": "Taply Wallet created in the browser (implicit account)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile bottom nav: Wallet · Swap · Tap · Activity · Receive",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "every nav target ≥ 44×44 px at 390 px",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Swap tab opens /m/swap and is marked current",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "empty amount: CTA \"Enter an amount\" disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Turkish decimal \"0,1\" accepted and quoted from the pool (real reserves)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "quote equals Rhea simple-pool math for 0.1 NEAR (0.299607 USDC)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CTA \"Review swap\" enabled for a covered amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "details: minimum received at 0.5 % = 0.298108 USDC",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "details: refundable storage shown separately (two registrations = 0.0025 NEAR), no Taply fee",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "two separators refused with a clear message",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "negative refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "more NEAR than the balance: \"Insufficient NEAR\"",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NEAR needed for gas/storage: \"Not enough NEAR for fees\"",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Max keeps the gas + storage reserve (CTA stays \"Review swap\")",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "flip: pay USDC / receive NEAR, amount cleared",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "USDC 7th decimal refused (6 decimals)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "token search by exact contract finds wNEAR only (NEAR and wNEAR are distinct)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "token search by contract prefix finds USDC",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown search shows \"no verified token\" (no import, plain text)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "high slippage warning at 3 %",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "review lists the real step count: 4 transactions",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "review shows exact pay / estimate / minimum",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A: four signed steps complete; success shows the receipt amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A: received = 0.299607 USDC from the FINAL receipt; paid 0.1 NEAR",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A: synthetic chain state after: +0.299607 USDC, wNEAR 0",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A: exactly 4 broadcasts (no resend)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B: 2 transactions (swap to wNEAR, then unwrap) and the unwrap note",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B: completed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B: received NEAR equals the verified unwrap amount (not an estimate, not wNEAR)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C: wrap done + swap refunded -> \"Needs attention\" (partial), not success",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C: refund explained; wNEAR is in the wallet; unwrap recovery offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C: recovery prefills wNEAR -> NEAR with the wrapped amount",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C: unwrap completes; wNEAR back to 0",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "token picker: NEAR -> USDC selected",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: lost broadcast response + RPC cannot see it yet -> \"Outcome unknown\", resend blocked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: after refresh the SAME job is shown (resume), still unknown, no new broadcast",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: a second tab shows the same open swap (no second swap form)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: \"Check outcome\" proves the landed tx from the chain and finishes the swap without resending",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Activity lists swaps with their own statuses (completed + partial)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "360px: no horizontal overflow; CTA fully above the bottom nav",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "360px: CTA ≥ 44 px, flip ≥ 44 px",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "390px: no horizontal overflow; CTA fully above the bottom nav",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "390px: CTA ≥ 44 px, flip ≥ 44 px",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "430px: no horizontal overflow; CTA fully above the bottom nav",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "430px: CTA ≥ 44 px, flip ≥ 44 px",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "1280px: no horizontal overflow; CTA fully above the bottom nav",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "1280px: CTA ≥ 44 px, flip ≥ 44 px",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop: swap column 440–480 px wide; desktop nav shows Swap",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "TR: Takas / Ödediğin / Aldığın / Takası incele; nav \"Takas\"",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "TR: amounts use comma decimals",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "keyboard: settings, amount, token, flip and Max are reachable by Tab",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no page errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no horizontal overflow anywhere",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}
