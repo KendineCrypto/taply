@@ -156,6 +156,10 @@ test('verify: a slippage failure is REFUNDED (tx SuccessValue "0"), never succes
   assert.deepEqual(await verify(swapTx({...base,used:op.amountIn,delivered:'331000000000000000000000',logsExtra:['Account alice.near is not registered. Depositing to owner or user lostfound account.'],outReceipt:false}),op),
     {kind:'OUTPUT_NOT_DELIVERED',transactionHash:TX,amountIn:'1000000',lostfound:true});
   assert.equal((await verify(swapTx({...base,used:'500000',delivered:'1'}),op)).kind,'NOT_VERIFIED');
+  // used "0" but an output transfer / Swapped log in the same graph: contradictory, never a refund or a success.
+  const contradictory=swapTx({...base,used:op.amountIn,delivered:'331000000000000000000000'});
+  contradictory.status={SuccessValue:b64(JSON.stringify('0'))};
+  assert.deepEqual(await verify(contradictory,op),{kind:'NOT_VERIFIED',reason:'MISMATCH'});
   assert.deepEqual(await verifyMainnetSwapStep(network,{transactionHash:TX,accountId:ME,operation:op},async()=>{throw Error('down');}),{kind:'NOT_VERIFIED',reason:'UNAVAILABLE'});
 });
 

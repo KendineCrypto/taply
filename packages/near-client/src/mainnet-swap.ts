@@ -373,12 +373,17 @@ export async function verifyMainnetSwapStep(profile: MainnetReadProfile, input: 
   let used: bigint;
   try { const v = value === null ? null : JSON.parse(value); if (typeof v !== 'string' || !UINT.test(v)) return { kind: 'NOT_VERIFIED', reason: 'MISMATCH' }; used = BigInt(v); }
   catch { return { kind: 'NOT_VERIFIED', reason: 'MISMATCH' }; }
-  if (used === 0n) return { kind: 'REFUNDED', transactionHash: hash, refunded: op.amountIn, tokenIn: op.tokenIn };
-  if (used !== BigInt(op.amountIn)) return { kind: 'NOT_VERIFIED', reason: 'MISMATCH' };
   const exchangeLogs = outcomes.filter(o => o.outcome.executor_id === MAINNET_REF_EXCHANGE).flatMap(o => o.outcome.logs);
   const lostfound = exchangeLogs.some(l => /lostfound/i.test(l));
+  // Only successful receipts of THIS transaction's graph, executed by the output token, moving from the exchange to the account.
   const delivered = outcomes.filter(o => o.outcome.executor_id === op.tokenOut && ok(o.outcome.status))
     .reduce((sum, o) => sum + mainnetTokenTransferAmount(o.outcome.logs, MAINNET_REF_EXCHANGE, accountId), 0n);
+  if (used === 0n) {
+    // A refund (input returned by ft_resolve_transfer) must not coexist with a delivered output or a Swapped log.
+    if (delivered !== 0n || exchangeLogs.some(l => l.startsWith('Swapped '))) return { kind: 'NOT_VERIFIED', reason: 'MISMATCH' };
+    return { kind: 'REFUNDED', transactionHash: hash, refunded: op.amountIn, tokenIn: op.tokenIn };
+  }
+  if (used !== BigInt(op.amountIn)) return { kind: 'NOT_VERIFIED', reason: 'MISMATCH' };
   const swapped = exchangeLogs.map(l => new RegExp(`^Swapped ${op.amountIn} ${op.tokenIn.replace(/\./g, '\\.')} for ([0-9]{1,39}) ${op.tokenOut.replace(/\./g, '\\.')}$`).exec(l)).find(Boolean);
   if (delivered === 0n || lostfound) return { kind: 'OUTPUT_NOT_DELIVERED', transactionHash: hash, amountIn: op.amountIn, lostfound };
   if (!swapped || BigInt(swapped[1]!) !== delivered || delivered < BigInt(op.minAmountOut)) return { kind: 'NOT_VERIFIED', reason: 'MISMATCH' };

@@ -6,20 +6,45 @@ been executed yet** (see "Real funded test plan").
 
 ## 1. What ships
 
-| Pair (NEAR Mainnet) | Steps the wallet signs | Delivered asset | Shipped |
-|---|---|---|---|
-| NEAR → USDC | [register wNEAR] [register USDC] wrap → swap | USDC | yes |
-| USDC → NEAR | [register wNEAR] swap → unwrap | native NEAR (unwrap is its own verified step) | yes |
-| wNEAR → USDC | [register USDC] swap | USDC | yes |
-| USDC → wNEAR | [register wNEAR] swap | wNEAR (labelled wNEAR, never "NEAR") | yes |
-| NEAR → wNEAR / wNEAR → NEAR | wrap / unwrap (1:1, wrap.near) | wNEAR / NEAR | yes |
-| Any cross-chain pair (Base, Solana, EVM…) | — | — | **hidden** (section 3) |
+Pool swaps (Rhea pool 4512):
 
-Registrations appear only when the chain says the account is not registered on that token. The review
-shows the real step count, and every step is a separate transaction. Taply Wallet signs them one after
-another after a single "Confirm swap". An external NEAR wallet asks once per step. Sequential signing was
-chosen for both signer types: batching would need a multi-action expectation in the reviewed ledger
-format (`MainnetReviewedActionSchema` is single-action), and that is a separate security review.
+| Pair | Delivered |
+|---|---|
+| NEAR → USDC | USDC |
+| USDC → NEAR | native NEAR (the pool pays wNEAR; Taply then unwraps exactly the verified swap output) |
+| wNEAR → USDC | USDC |
+| USDC → wNEAR | wNEAR (labelled wNEAR, never "NEAR") |
+
+Wrap/unwrap, **not swaps** (no pool, no price, 1:1 on `wrap.near`):
+
+| Conversion | Transaction |
+|---|---|
+| NEAR → wNEAR | `near_deposit` (after a one-time wNEAR registration if missing) |
+| wNEAR → NEAR | `near_withdraw` of the amount the person typed |
+
+Cross-chain pairs (Base, Solana, EVM…) are **hidden** (§3).
+
+### Real step list (every step is its own transaction and signature)
+
+Registrations are read from `storage_balance_of(account)` at the quote block. Each missing
+registration costs `storage_balance_bounds.min` of that token: **0.00125 NEAR each** at block
+225841011 (wNEAR and USDC alike). This is a refundable deposit, not a fee.
+
+| Pair | wNEAR registered? | USDC registered? | Steps | Refundable storage |
+|---|---|---|---|---|
+| NEAR → USDC | no | no | register wNEAR, register USDC, wrap, swap = **4** | 0.0025 NEAR |
+| NEAR → USDC | no | yes | register wNEAR, wrap, swap = **3** | 0.00125 NEAR |
+| NEAR → USDC | yes | no | register USDC, wrap, swap = **3** | 0.00125 NEAR |
+| NEAR → USDC | yes | yes | wrap, swap = **2** | 0 |
+| USDC → NEAR | no | (yes: holds USDC) | register wNEAR, swap, unwrap = **3** | 0.00125 NEAR |
+| USDC → NEAR | yes | (yes) | swap, unwrap = **2** | 0 |
+
+The review screen always shows the step list computed for the connected account. The
+"4 transactions" in the browser QA is the first row: a fresh account with neither registration.
+
+The unwrap after USDC → NEAR uses **only the wNEAR amount proven delivered by that swap's receipts**.
+wNEAR the account held before is never included. The refund-recovery "Unwrap to NEAR" button pre-fills
+exactly the amount this swap wrapped.
 
 ## 2. Provider: Rhea (Ref v2) pinned pool, on-chain quotes, no SDK
 
@@ -131,7 +156,7 @@ reads of the configured RPC.
   - nav;
   - every form state;
   - token sheet and settings;
-  - NEAR→USDC in 4 steps;
+  - NEAR→USDC on a fresh account (neither registration: 4 steps);
   - USDC→NEAR with unwrap;
   - wrap OK + swap refunded → recovery;
   - lost response + RPC down → unknown → refresh resume → second tab → check resolves without a resend;
@@ -142,19 +167,21 @@ reads of the configured RPC.
 
 Not covered here: VoiceOver/TalkBack manual pass, iOS Safari safe-area on a device.
 
-## 9. Real funded test plan (needs one explicit owner approval)
+## 9. Real funded test plan
 
-The test runs on a **Preview** of this branch, never on the live domain, with the owner's own Taply Wallet on that Preview.
+The amounts are generated right before the test, never taken from an old quote:
 
-1. Fund the Taply Wallet account with **0.15 NEAR**. The app keeps about 0.065 NEAR as a gas and storage reserve, so 0.05 NEAR is too little.
-2. Swap **NEAR → USDC, 0.03 NEAR**. At block 225834669: estimated 0.0897 USDC, minimum at 0.5 % ≈ 0.0893 USDC. The owner signs up to 3 transactions:
-   - register wNEAR, 0.00125 NEAR refundable deposit;
-   - wrap 0.03 NEAR;
-   - swap with the policy's `min_amount_out`.
+```bash
+node apps/web/scripts/mainnet-swap-test-plan.mjs <yourAccountId> 0.03 50
+```
 
-   USDC is already registered for most funded accounts; otherwise there is one more 0.00125 NEAR step.
-3. Swap **USDC → NEAR, all received USDC (about 0.089 USDC)**. The owner signs 2 transactions: swap to wNEAR with its minimum, then unwrap exactly the verified wNEAR.
-4. Maximum outflow: 0.03 NEAR input + 0.0025 NEAR refundable deposits + network fee. The upper bound is 0.023 NEAR; the expected burn is under 0.003 NEAR. The expected net cost is about 0.6 % pool fees plus gas, roughly 0.0035 NEAR.
-5. Evidence to record: each transaction hash, the FINAL receipts, the `verifyMainnetSwapStep` result, balances before and after, and screenshots of the result and Activity.
+The planner is read-only. It reads one final block and prints:
+- the steps for the account's real registrations;
+- the refundable storage;
+- the prepaid gas upper bound;
+- the NEAR reserve the app keeps;
+- the expected and minimum outputs for both legs.
 
-The owner never shares a seed, private key or password; all signing happens on the owner's device.
+The app re-quotes again at review time and the policy refuses a stale minimum. The concrete,
+current numbers for the owner's test are in the PR conversation and the final report. The owner
+signs every transaction in their own wallet. Taply never asks for a seed, private key or password.
