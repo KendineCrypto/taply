@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { MAINNET_SWAP_LIMITS } from '@taply/near-client';
+import { MAINNET_SWAP_LIMITS, mainnetMinAmountOut } from '@taply/near-client';
 import { Button } from '@/components/primitives/Button';
 import { Icon } from '@/components/shell/Icons';
 import { Sheet } from '@/components/shell/Sheet';
@@ -160,7 +160,7 @@ export function SwapPage({ fetcher }: { readonly fetcher?: QuoteFetcher } = {}) 
         </AmountPanel>
       </div>
 
-      {q && plan && amount !== null && <QuoteSummary q={q} plan={plan} from={from} to={to} amount={amount} slippageBps={slippageBps} c={c} locale={locale} />}
+      {q && q.expectedOut !== null && amount !== null && <QuoteSummary q={q} plan={plan} from={from} to={to} amount={amount} slippageBps={slippageBps} c={c} locale={locale} />}
 
       {cta.error && <p className="px-1 text-[13px] text-[var(--tone-danger-fg)]" role="alert" data-testid="swap-error">{cta.error}</p>}
       {cta.href ? (
@@ -235,23 +235,27 @@ function rate(q: SwapQuote, from: SwapAsset, to: SwapAsset, amount: bigint, loca
   return `1 ${from.symbol} ≈ ${fmt((q.expectedOut * one) / amount, to, locale, 4)}`;
 }
 
-function QuoteSummary({ q, plan, from, to, amount, slippageBps, c, locale }: { readonly q: SwapQuote; readonly plan: SwapPlan; readonly from: SwapAsset; readonly to: SwapAsset; readonly amount: bigint; readonly slippageBps: number; readonly c: SwapCopy; readonly locale: 'en' | 'tr' }) {
+/** `plan` is null without an account: only account-independent lines (rate, minimum, impact, pool fee) are shown. */
+function QuoteSummary({ q, plan, from, to, amount, slippageBps, c, locale }: { readonly q: SwapQuote; readonly plan: SwapPlan | null; readonly from: SwapAsset; readonly to: SwapAsset; readonly amount: bigint; readonly slippageBps: number; readonly c: SwapCopy; readonly locale: 'en' | 'tr' }) {
   const near = SWAP_ASSETS.near;
+  let minOut = plan?.minOut ?? q.expectedOut ?? 0n;
+  // A dust amount can round its minimum to 0; the policy refuses that, so show 0 instead of throwing.
+  if (!plan && isPoolSwap(from, to) && q.expectedOut !== null) { try { minOut = mainnetMinAmountOut(q.expectedOut, slippageBps); } catch { minOut = 0n; } }
   return (
     <details className="group rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-3.5" data-testid="swap-summary">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-[13px]">
         <span className="min-w-0 truncate tabular-nums text-[var(--text-primary)]" data-testid="swap-rate">{isPoolSwap(from, to) ? rate(q, from, to, amount, locale) : `1 ${from.symbol} = 1 ${to.symbol}`}</span>
-        <span className="flex shrink-0 items-center gap-1.5 text-[var(--text-secondary)]">{c.timeShort(plan.steps.length)}<Icon name="chevron" size={14} className="rotate-90 transition-transform group-open:-rotate-90" /></span>
+        <span className="flex shrink-0 items-center gap-1.5 text-[var(--text-secondary)]">{plan ? c.timeShort(plan.steps.length) : c.details}<Icon name="chevron" size={14} className="rotate-90 transition-transform group-open:-rotate-90" /></span>
       </summary>
       <dl className="pb-2">
-        <DetailLine label={c.minReceived} testId="swap-min">{fmt(plan.minOut, to, locale)}</DetailLine>
+        <DetailLine label={c.minReceived} testId="swap-min">{fmt(minOut, to, locale)}</DetailLine>
         {q.math && <DetailLine label={c.priceImpact} testId="swap-impact">{pct(q.math.priceImpactBps, locale)}</DetailLine>}
         <DetailLine label={c.slippage}>{isPoolSwap(from, to) ? pct(slippageBps, locale) : '—'}</DetailLine>
         {q.math && <DetailLine label={c.poolFee}>{fmt(q.math.poolFeeIn, from, locale)}</DetailLine>}
-        <DetailLine label={c.networkFee} note={c.networkFeeNote} testId="swap-gas">{fmt(plan.maxNetworkFeeYocto, near, locale, 5)}</DetailLine>
-        {plan.storageDepositYocto > 0n && <DetailLine label={c.storage} note={c.storageNote} testId="swap-storage">{fmt(plan.storageDepositYocto, near, locale)}</DetailLine>}
+        {plan && <DetailLine label={c.networkFee} note={c.networkFeeNote} testId="swap-gas">{fmt(plan.maxNetworkFeeYocto, near, locale, 5)}</DetailLine>}
+        {plan && plan.storageDepositYocto > 0n && <DetailLine label={c.storage} note={c.storageNote} testId="swap-storage">{fmt(plan.storageDepositYocto, near, locale)}</DetailLine>}
         <DetailLine label={c.taplyFee}>{c.none}</DetailLine>
-        <DetailLine label={c.time}>{c.timeValue(plan.steps.length)}</DetailLine>
+        {plan && <DetailLine label={c.time}>{c.timeValue(plan.steps.length)}</DetailLine>}
         <DetailLine label={c.route}>{isPoolSwap(from, to) ? c.routeValue : 'wrap.near'}</DetailLine>
         <p className="pt-1 text-[11px] text-[var(--text-muted)]">{c.quoteBlock(q.read.blockHeight)}</p>
       </dl>
