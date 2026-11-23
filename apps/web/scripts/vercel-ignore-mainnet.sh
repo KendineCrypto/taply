@@ -19,5 +19,12 @@ fi
 if [ "$env" = "preview" ] && [ "$ref" = "staging/mainnet" ]; then
   echo "mainnet: building staging Preview from staging/mainnet"; exit 1
 fi
+# TEMPORARY, REVERT BEFORE MERGE (PR #47 swap review, owner-approved 2026-11-23):
+# a Preview-only build of exactly `claude/mainnet-swap`. Production still builds
+# only from release/mainnet; staging/mainnet behaviour is unchanged; any other
+# branch is still skipped. This commit is kept separate so it can be reverted.
+if [ "$env" = "preview" ] && [ "$ref" = "claude/mainnet-swap" ]; then
+  echo "mainnet: building isolated swap Preview from claude/mainnet-swap (temporary)"; exit 1
+fi
 echo "mainnet: skipping VERCEL_ENV=${env:-?} branch=${ref:-?} (only release/mainnet -> Production, staging/mainnet -> Preview)"
 exit 0
