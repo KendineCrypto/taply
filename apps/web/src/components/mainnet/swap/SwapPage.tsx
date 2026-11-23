@@ -21,6 +21,9 @@ import { QUOTE_TTL_MS, useSwapQuote, type QuoteFetcher, type SwapQuote } from '@
 import { currentAuthority, deviceId, signingProfiles, USDC_CODE_HASH } from '@/lib/mainnet/wallet-ops';
 import { useSigner, OperationError } from '../Operation';
 import { useMainnetVault } from '../Wallet';
+import { CrosschainSwap } from './CrosschainSwap';
+import { crossEn, crossTr } from '@/lib/mainnet/crosschain/copy';
+import { PENDING_KEY } from '@/lib/mainnet/crosschain/client';
 import { DetailLine, SettingsSheet, StepIcon, TokenButton, TokenMark, TokenSheet, fmt, pct, txUrl } from './SwapParts';
 
 export function useSwapCopy(): SwapCopy { return useMainnetLocale().locale === 'tr' ? swapTr : swapEn; }
@@ -30,7 +33,20 @@ export function useSwapCopy(): SwapCopy { return useMainnetLocale().locale === '
  * Real on-chain quotes; every signature goes through the Codex planner swap policy
  * and the device ledger; results are proven from FINAL receipts.
  */
-export function SwapPage({ fetcher }: { readonly fetcher?: QuoteFetcher } = {}) {
+export function SwapPage(props: { readonly fetcher?: QuoteFetcher } = {}) {
+  const { locale } = useMainnetLocale(); const c = locale === 'tr' ? crossTr : crossEn;
+  const [cross, setCross] = useState(false);
+  useEffect(() => { try { if (localStorage.getItem(PENDING_KEY) === '1') queueMicrotask(() => setCross(true)); } catch { /* the cross-chain page reports inaccessible storage */ } }, []);
+  return <>
+    <div className="mx-auto mb-4 grid w-full max-w-[480px] grid-cols-2 gap-1 rounded-full bg-[var(--surface-1)] p-1" role="group" aria-label={c.title}>
+      <button type="button" aria-pressed={!cross} onClick={() => setCross(false)} className={`tap-target rounded-full px-3 text-sm font-semibold ${!cross ? 'bg-[var(--surface-2)] text-[var(--taply-lime)]' : 'text-[var(--text-secondary)]'}`}>{c.local}</button>
+      <button type="button" aria-pressed={cross} onClick={() => setCross(true)} className={`tap-target rounded-full px-3 text-sm font-semibold ${cross ? 'bg-[var(--surface-2)] text-[var(--taply-lime)]' : 'text-[var(--text-secondary)]'}`}>{c.cross}</button>
+    </div>
+    {cross ? <CrosschainSwap /> : <NearSwapPage {...props} />}
+  </>;
+}
+
+function NearSwapPage({ fetcher }: { readonly fetcher?: QuoteFetcher } = {}) {
   const c = useSwapCopy();
   const { locale } = useMainnetLocale();
   const signer = useSigner();
