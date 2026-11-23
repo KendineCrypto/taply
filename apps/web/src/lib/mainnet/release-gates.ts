@@ -13,7 +13,8 @@ export const MAINNET_SIGNING_RELEASE_APPROVED = true as const;
 
 /**
  * 1Click quotes with `dry: false`, i.e. quotes that return a fundable deposit
- * address (Base USDC only, owner-bound attempts). Also read from source by
+ * address (Base USDC and native NEAR, owner-bound attempts). Existing live
+ * deployment uses the staging/mainnet Preview scope. Also read from source by
  * scripts/check-mainnet-env.mjs. Go-live: docs/MAINNET_1CLICK_RUNBOOK.md §2.
  */
 export const ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED = true as const;

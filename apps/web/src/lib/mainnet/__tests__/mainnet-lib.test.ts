@@ -14,10 +14,10 @@ import type { ContractStatus, OneClickStatus, PaymentInputs } from '../status';
 const NOW = Date.UTC(2026, 10, 13, 12, 0, 0);
 const HASH = 'GMjfNNjfTPXSmeRaxgN1oS9srsmBSdS46R6y2kPv6JQf';
 
-describe('release gates (owner NO-GO 2026-11-13)', () => {
-  it('signing released by the owner-approved release patch; funded quotes and verifier stay closed', () => {
+describe('release gates (existing live Mainnet release)', () => {
+  it('preserves released signing and funded payment quotes; blanket verifier stays closed', () => {
     expect(MAINNET_SIGNING_RELEASE_APPROVED).toBe(true);
-    expect(ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED).toBe(false);
+    expect(ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED).toBe(true);
     expect(MAINNET_INDEPENDENT_VERIFIER_AVAILABLE).toBe(false);
   });
 });

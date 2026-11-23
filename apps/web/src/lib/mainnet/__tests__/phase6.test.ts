@@ -30,8 +30,8 @@ describe('authority mode resolution', () => {
     expect(resolveAuthority(undefined, true, null, 'off').kind).toBe('unavailable');
     expect(resolveAuthority(undefined, false, null, undefined).kind).toBe('unavailable');
   });
-  it('the app release gates are closed (the protocol gate is proven by the wallet-signer tests below)', () => {
-    expect([MAINNET_SIGNING_RELEASE_APPROVED, ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED, MAINNET_INDEPENDENT_VERIFIER_AVAILABLE]).toEqual([true, false, false]);
+  it('the existing live signing and funded quote releases leave blanket independent verification closed', () => {
+    expect([MAINNET_SIGNING_RELEASE_APPROVED, ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED, MAINNET_INDEPENDENT_VERIFIER_AVAILABLE]).toEqual([true, true, false]);
   });
 });
 

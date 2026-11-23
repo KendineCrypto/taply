@@ -20,6 +20,13 @@ import type { QuoteStore, QuoteRecord } from '../store';
 import { resolveMode } from '../runtime';
 import { MANAGER_PUBLIC_KEY, verifyQuoteResponse } from '../verify';
 
+// Exercise the closed gate independently of the reviewed live release value.
+// The funded-path suite separately exercises the open gate.
+vi.mock('@/lib/mainnet/release-gates', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ONECLICK_FUNDED_QUOTES_RELEASE_APPROVED: false,
+}));
+
 /**
  * 1Click server integration. All responses are SYNTHETIC fixtures signed with
  * an ephemeral key through the SDK's own quoteHash/verifyQuoteSignature; no
